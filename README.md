@@ -25,6 +25,19 @@ While the 64x32 Matrixes all appear to be similar the manufacturing of them has 
 
 In general i'm finding so far that there are 3 or 4 commmon choices for ICs used on the panels. One GitHub user "Piotr Esden-Tempski"  offers  doc's for some of the panels [esden/led-panel-docs](https://github.com/esden/led-panel-docs) showing images of the panels, schematics and datasheets for the ICs used on the panel. (*I'm planning on contributing my schematic and various finds to his repo as a Pull request before this project is completed.*) There are many more that he does not have but this is a good reference.
 
+
+## My Panel
+
+The panels I'm using are marked with **P3-6432-121-16s-D1.0**  Which tell us that it is 64w x 32h (6432) and 16 addressed lines (16s).  This board uses FM6126A driver chips and TC7258EN chips for line address decoding. Lastly is uses 74HC245s to buffer the incoming signals and forward them to the output conector.  The FM6126A requires that we latch the data very differently in that instead of latching after the stram of bits for a line we set the latch for the last 3 bits of each line.
+
+![MyPanel](https://user-images.githubusercontent.com/540005/96038418-53a70b80-0e24-11eb-93fe-7af0301d349e.jpg)
+
+## Development Environment
+
+Here we see my P2 Eval board with flying leads going to a splitter board I hand made so I can feed the panel and watch the signals with a Logic Analyzer.
+
+![WorkBench](https://user-images.githubusercontent.com/540005/96038234-13478d80-0e24-11eb-9f1e-623a94d56024.jpg)
+
 ## Project goals
 
 Overall: Let's see what performance we can achieve by driving from the Propeller 2 directly! 
@@ -45,19 +58,16 @@ But let's be more specific:
 
 Remember, this is without yet tuning the driver for best performance based on what the chip can do.  Based on the limits of the panel chipset, for the panels on this project, I should be able to drive the panel itself around 1.7x faster than I am in the 1st draft code.  So, there's room to get better here.
 
-## My Panel
-
-![MyPanel](https://user-images.githubusercontent.com/540005/96038418-53a70b80-0e24-11eb-93fe-7af0301d349e.jpg)
-
-## Development Environment
-
-![WorkBench](https://user-images.githubusercontent.com/540005/96038234-13478d80-0e24-11eb-9f1e-623a94d56024.jpg)
 
 ### Next Environment Upgrade
+
+Since the project goals are going to be speed related, I'm going to need a better than flying leads to get to my higher speeds... so I'm building this Eval Adapter board:
 
 ![P2 Eval Adapter](https://user-images.githubusercontent.com/540005/96038186-062a9e80-0e24-11eb-8299-f5e8fcb03460.png)
 
 ## Up Next, Cascaded Panels
+
+The next panel configuration i'm planning on playting with is daisy-chaining 4 of these panels so I can play with larger images. Here you see three more panels waiting for the fourth to be moved from the bench to join them.
 
 ![2x2 Panels Daisy-Chained](https://user-images.githubusercontent.com/540005/96038541-818c5000-0e24-11eb-8789-b1d77364fd7d.jpg)
 
