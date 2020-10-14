@@ -1,6 +1,9 @@
 # Prerequisites
 *.d
 
+# macOS files
+.DS_Store
+
 # Object files
 *.o
 *.ko
