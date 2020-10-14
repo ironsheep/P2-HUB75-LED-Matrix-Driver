@@ -31,9 +31,8 @@ Overall: Let's see what performance we can achieve by driving from the Propeller
 
 But let's be more specific:
 
-
-| Goal          | Sub-goal    | Description |
-| ------------- | ------- | ------------------ | ----------------------------------------------------------------------- |
+| Goal               | Sub-goal  | Description |
+| ------------------ | --------- | ----------------------------------------------------------------------- |
 | Video Frame Rates  | -  | Better than 60fps of gamma corrected 24bit color frames for at least 2x2 64x32 LED panels |
 | Understand system demand | -  | Study overall system performance so we know how this will behave with various peripherals and panel configurations |
 | - | w/P2 Eval HyperRAM  |  Will we need, can we benefit from using HyperRAM / External RAM |
@@ -41,7 +40,6 @@ But let's be more specific:
 | - | w/Receiving image data from RPi  | Is the RPi SPI interface sufficient to keep our panels streaming video? |
 | Reusable Driver | - | Ensure driver can be configured for (1) single panel size, (2) organization of multi-panel chains, and (3) the various panel chip-sets which require different clocking styles (within practical limits: *all panels must use the same chip-set*) |
 | long-term | - | Can we drive multiple panel chains - we have 64 GPIO pins on the P2... we should easily be able to connect 3 HUB75 adapters. Can we drive them all at video frame rates?  What is our limitation here? |
-
 
 **NOTE:** Initial turn-on of the pasm2 driver code (1st draft reasonably performant code, not the fastest possible) shows that I'm getting a 400fps rate with 3 bit color.
 
