@@ -48,6 +48,7 @@ But let's be more specific:
 | ------------------ | --------- | ----------------------------------------------------------------------- |
 | Video Frame Rates  | -  | Better than 30fps of gamma corrected 24bit color frames for at least 2x2 64x32 LED panels |
 | Understand system demand | -  | Study overall system performance so we know how this will behave with various peripherals and panel configurations |
+| - | Use P2 internal ram resources|  Study driver use of COG Registers, LUT RAM, and HUB RAM |
 | - | w/P2 Eval HyperRAM  |  Will we need, can we benefit from using HyperRAM / External RAM? |
 | - | w/uSD Storage  | What is our performace displaying images / video directly from the P2 uSD card? |
 | - | w/Receiving image data from RPi  | Is the RPi SPI interface sufficient to keep our panels streaming video? |
