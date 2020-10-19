@@ -96,7 +96,7 @@ The next panel configuration i'm planning on playting with is daisy-chaining 4 o
 
 ## Credits
 
-- I was encouraged by published work by **Rayman** (found on the [Parallax Forumns](https://forums.parallax.com/categories/propeller-2-multicore-microcontroller)) where he wrote initial propeller v1 spin/pasm code to demonstrate how to drive his matrix panel. I found the article linked to from the AdaFruit website I think.  When I run accross it again, I'll add the link here.
+- I was encouraged by published work by **Rayman** (found on the [Parallax Forumns](https://forums.parallax.com/categories/propeller-2-multicore-microcontroller)) where he wrote initial propeller v1 spin/pasm code to demonstrate how to drive his matrix panel. I found [the article](http://www.rayslogic.com/propeller/Programming/AdafruitRGB/AdafruitRGB.htm) linked to from the AdaFruit website.
 
 ## License
 
