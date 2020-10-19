@@ -32,6 +32,26 @@ The panels I'm using are marked with **P3-6432-121-16s-D1.0**  Which tell us tha
 
 ![MyPanel](https://user-images.githubusercontent.com/540005/96038418-53a70b80-0e24-11eb-93fe-7af0301d349e.jpg)
 
+## Current Project state
+
+I've made wonderful advances in this past week.
+
+Things now working are:
+
+- Loading and displaying images from .bmp files
+- PWMing images to achieve 24-bit color
+- Displaying text in both 5x7 and 8x8 fonts
+
+![Working 24-bit color](https://user-images.githubusercontent.com/540005/96498745-b4aa5700-1209-11eb-996d-6e3b6089b578.jpg)
+
+Here you can see a demonstration of the 24bit color. Of course these panels are amazingly bright. I'm running here at ~50% brightness and it's still overwhelming the camera in a lighted room.
+
+Up next: 
+
+- Rapid display of sequences of frames.
+- This will be for drawing animations, scrolling text, and even display of video when we get that far.
+- I've even some fun animated clocks coming (sorry, I'm been doing software clocks of many, many, forms for a long time.)
+
 ## Development Environment
 
 Here we see my P2 Eval board with flying leads going to a splitter board I hand made so I can feed the panel and watch the signals with a Logic Analyzer.
