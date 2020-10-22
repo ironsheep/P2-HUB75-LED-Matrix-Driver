@@ -79,6 +79,13 @@ But let's be more specific:
 
 Remember, this is without yet tuning the driver for best performance based on what the chip can do.  Based on the limits of the panel chipset, for the panels on this project, I should be able to drive the panel itself around 1.7x faster than I am in the 1st draft code.  So, there's room to get better here.
 
+----
+
+If you like my work and/or this has helped you in some way then feel free to help me out for a couple of :coffee:'s or :pizza: slices!
+
+[![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep)
+
+----
 
 ### Next Environment Upgrade
 
