@@ -8,7 +8,7 @@
 
 **<= This is a work in progress =>**
 
-There are many RGB LED matrices available. This drivers is built specifically for [HUB75]() driven matrices which are usually found in sizes ranging from 16x16 to 64x64 and ranging in horizontal/vertical spacing form 2mm (P2) to 8mm (P8) between individual LEDs.  The version i'm developing with is actually a P3 64x32 Matrix which I originally bought from Amazon. The specific ones I'm using are no longer avail. but the are many others.  
+There are many RGB LED matrices available. This drivers is built specifically for **HUB75** driven matrices which are usually found in sizes ranging from 16x16 to 64x64 and ranging in horizontal/vertical spacing form 2mm (P2) to 8mm (P8) between individual LEDs.  The version i'm developing with is actually a P3 64x32 Matrix which I originally bought from Amazon. The specific ones I'm using are no longer avail. but the are many others.  
 
 Example 32x64 panels:
 
@@ -34,7 +34,7 @@ The panels I'm using are marked with **P3-6432-121-16s-D1.0**  Which tell us tha
 
 ## Current Project state
 
-I've made wonderful advances in this past week.
+**20 Oct 2020:** I've made wonderful advances in this past week.
 
 Things now working are:
 
@@ -51,6 +51,20 @@ Up next:
 - Rapid display of sequences of frames.
 - This will be for drawing animations, scrolling text, and even display of video when we get that far.
 - I've even some fun animated clocks coming (sorry, I'm been doing software clocks of many, many, forms for a long time.)
+
+**27 Oct 2020:** More engineering and the boards arrive!
+
+This week I've been:
+
+- Working to formally structure the code for release
+- Studied gamma correction and now have a better performing table in place
+- Studied PWM for the LEDs and now have a much more accurate PWM in place (colors are looking much better)
+- Have been working on more tests, demos for animation rates of display
+- More videos will be coming, meanwhile, have you seen these? [YouTube Playlist for Propeller Related Videos](https://www.youtube.com/playlist?list=PLkXxMjp58T0pk1dd8pH1OV7NCf-8Tbx1M)
+- **Exciting!** The initial run of the Adapter PCBs arrived!
+- I checked them out mechanically, soldered the parts to one, then checked it out electrically and lastly started using it!  It came up beautifully! (*See pictures and turn on description below*)
+
+
 
 ## Development Environment
 
@@ -94,6 +108,16 @@ Since the project goals are going to be speed related, I'm going to need a bette
 ![P2 Eval Adapter](https://user-images.githubusercontent.com/540005/96038186-062a9e80-0e24-11eb-8299-f5e8fcb03460.png)
 
 On this board you see 3.3v to 5v level shifters. I found that at higher speeds the clock, latch and OEb signals were falling below the signal threshold. This was a great exercise in Logic Analyzer use as I had originally set my input thresholds for 3.3v signals and of course they looked perfectly timed.  When I couldn't get reliable shifting and latching a had the thought that I'm dealing with 5v logic on the panels. Silly me, I had the LA configured for the output logic form, not the panel form of signal. So I switched to 5v threshold and then immediately saw that I was not at all clocking cleanly. quickly interposed the level shifer pcb that I had laying around and all the signals snapped to, as I really needed to see!  I was back in the land of the code I write now drives the signals I expect...  whew!
+
+### 1st Order of HUB75 Adapter Boards arrived!
+
+The boards arrived from JLCPCB! After determing that mechanically they fit Figure (1) below, then I built one up - Figure 2 and then after some power and ground double checks, I connected the new adapter PCB - Figure (3), lastly I connected up the Logic Analyzer flying leads so that I can verify all of the control/data signals to the panel - Figure (4).
+
+![P2 Eval Adapter- Turn On](https://user-images.githubusercontent.com/540005/97406458-df0dab80-18be-11eb-9624-995a85ff7937.png)
+
+It turned on completely. It also scared me at first (*you'll notice that it's on a different connector than my original flying leads test setup.*) This caused my driver to have a few hickups as I was straightening out what the new pins were! 
+
+But, I can't complain. After the driver issues were "sorted" this 1st run of boards turned out to be 100% functional. It's a good feeling!
 
 ## Up Next, Cascaded Panels
 
