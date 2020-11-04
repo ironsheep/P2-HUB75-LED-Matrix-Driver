@@ -24,6 +24,8 @@ CON { public interface constants }
     TOP_INSET = 5
     LEFT_INSET = 2
 
+#0, BASE_UNKNOWN, BASE_DECIMAL_DIGITS, BASE_HEX_DIGITS
+
 OBJ { objects }
 
     screen                  : "isp_hub75_screenAccess"
@@ -34,8 +36,10 @@ OBJ { objects }
 DAT { initialized data }
 
 isSetup         BYTE    FALSE
-digitPeriod     BYTE    5    ' 12 
+digitPeriod     BYTE    3    ' 12 
 segmentPeriod   BYTE    0  ' was 5
+
+desiredBase     BYTE    BASE_UNKNOWN
 
 
 VAR { globals }
@@ -56,8 +60,16 @@ PUB setOnOffColors(onColor, offColor)
     emptyRgbColor := offColor
     fullRgbColor := onColor  
 
-PUB setupClock() : ok | digitIndex, row, col 
+PUB setupClock(baseForDigits) : ok | digitIndex, row, col 
     '' Set up:  draw our initial clock bits
+    case baseForDigits
+        BASE_DECIMAL_DIGITS:
+        BASE_HEX_DIGITS:
+        OTHER:
+            debug("- DEMO: ERROR please select Decimal or Hex counting!")
+            abort
+    desiredBase := baseForDigits
+
     ok := cog := display.start()   ' send buffer to driver
     if ok == -1
         debug("- DEMO: underlying drivers failed!")
@@ -109,7 +121,7 @@ PUB setTimeHMS(hours, minutes, seconds)
 PUB runClock()
     '' simply increment seconds(,minutes,hours) every second (assumes time is already set! - setTimeHMS() was already called
 
-PRI setHMS(hours, minutes, seconds)
+PRI setHMS(hours, minutes, seconds) | numberBase
     ' set the initial time to be displayed
     'debug("clk:set ", udec(hours), udec(minutes), udec(seconds))
     currHours := hours
@@ -117,13 +129,14 @@ PRI setHMS(hours, minutes, seconds)
     currSeconds := seconds
 
     'return  ' TESTING exit
+    numberBase := (desiredBase == BASE_DECIMAL_DIGITS) ? 10 : 16
 
-    digits[0].setValue(hours / 10)
-    digits[1].setValue(hours // 10)
-    digits[2].setValue(minutes / 10)
-    digits[3].setValue(minutes // 10)
-    digits[4].setValue(seconds / 10)
-    digits[5].setValue(seconds // 10)
+    digits[0].setValue(hours / numberBase)
+    digits[1].setValue(hours // numberBase)
+    digits[2].setValue(minutes / numberBase)
+    digits[3].setValue(minutes // numberBase)
+    digits[4].setValue(seconds / numberBase)
+    digits[5].setValue(seconds // numberBase)
 
     showSecondsDots( seconds // 2 )
 

@@ -38,16 +38,16 @@ CON { constants affecting appearance }
 
     END_ROW = 31
     END_COLUMN = 63 
-
+{
     FLOW_1_COLOR = $00592E
     FLOW_2_COLOR = $002EB9
     FLOW_3_COLOR = $00D117
     FLOW_4_COLOR = $00B9B9
-
-    'FLOW_1_COLOR = $00ff00
-    'FLOW_2_COLOR = $ffff00
-    'FLOW_3_COLOR = $ff8000
-    'FLOW_4_COLOR = $ff0000
+}
+    FLOW_1_COLOR = $002EB9
+    FLOW_2_COLOR = $ffff00
+    FLOW_3_COLOR = $ff8000
+    FLOW_4_COLOR = $ff0000
 
 DAT { initialized data }
 
@@ -335,12 +335,12 @@ PRI moveDrip() : atBitState | moved, haveRow, haveColumn, finishedCommand, place
 
 PRI colorForCount(howMany) : rgbColor
     case howMany
+        0: rgbColor := color.cBlack
         1: rgbColor := FLOW_1_COLOR
         2: rgbColor := FLOW_2_COLOR
         3: rgbColor := FLOW_3_COLOR
-        4: rgbColor := FLOW_4_COLOR
         OTHER:
-            rgbColor := color.cBlack
+            rgbColor := FLOW_4_COLOR
 
 PRI locateLocationMatch(row, col) : foundIndex | pEntry, currValue, listIndex, word highWord, word huntWord 
     foundIndex := INDEX_NOT_FOUND

@@ -1,0 +1,270 @@
+'' =================================================================================================
+''
+''   File....... isp_hub75_demo.spin2
+''   Purpose.... Top-level Demonstration - showing off our HUB75 matrix
+''   Authors.... Stephen M Moraco
+''               -- Copyright (c) 2020 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... Oct 2020
+''   Updated.... 17 Oct 2020
+''
+'' =================================================================================================
+
+
+CON { timing }
+
+  CLK_FREQ = 335_000_000                                        ' system freq as a constant
+  _clkfreq = CLK_FREQ                                           ' set system clock
+
+CON { DEBUG PINs }
+
+'DEBUG_PIN = 16
+
+DEMO_COUNT = 8
+
+VAR
+
+    long    cog
+    long    demoPausePeriod
+
+OBJ
+
+    color       : "isp_hub75_color"
+    screen      : "isp_hub75_screenAccess"
+    display     : "isp_hub75_display"
+
+PUB main() : ok | demoIndex
+    '' start underlying drivers and run demo
+
+    'debug("`term temp size 82 50 textsize 10")
+
+    ok := cog := display.start()   ' send buffer to driver
+    if ok == -1
+        debug("- DEMO: underlying drivers failed!")
+        abort
+
+    demoPausePeriod := 5   ' seconds
+    repeat 20
+        repeat demoIndex from 0 to DEMO_COUNT - 1
+            display.clearScreen()
+            case demoIndex
+                0: demoText()
+                1: demoHueLines()
+                2: demoHueGroups()  ' needs fixing
+                3: demoColorPalette12Panels()
+                4: showFullColorSweep()
+                5: colorBlast()
+                6: demoText()
+                7: demoScreenBlast()
+
+            if demoIndex <> 5
+                waitSec(demoPausePeriod)
+
+    stop()
+
+PRI stop()
+    '' stop the driver
+    if cog
+        display.stop()
+        cog := 0
+
+PRI waitSec(countSeconds)
+    repeat countSeconds
+        waitms(1000)
+
+    ' do DEMO Things!
+
+PUB demoText()
+    '' draw some text!
+    display.setTextSize(display.TEXT_SIZE__5x7)    ' font size 
+    display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
+
+    display.setColoredTextAtRC(0,0, string("iron sheep"), color.cMaroon)
+    display.setColoredTextAtRC(1,0, string("-RGB 3bit-"), color.cOrange)
+    display.setColoredTextAtRC(2,0, string("(8bit pwm)"), color.cRainbow)
+    display.setColoredTextAtRC(3,0, string("led matrix"), color.cWhite)
+    display.commitScreenToPanel()
+
+    
+PRI demoHueLines() | row, col, colorOffset
+    '' COLOR PANEL using hue  - all in one line 
+    col := 2
+    repeat row from 0 to 31
+        repeat colorOffset from 0 to 350 step 6
+            display.drawPixelAtRC(row, col, color.rgbColorFromDegrees(colorOffset))
+            col++
+            if col > 62         ' 62 is fun!  60 is desired
+                col := 2
+    display.commitScreenToPanel()
+
+
+PUB demoHueGroups() | row, col, green, panelNumber, colorOffset
+    '' COLOR PANEL using hue  6 groups
+    row := 0
+    repeat panelNumber from 0 to 350 step 60
+        repeat colorOffset from 0 to 4
+            repeat col from 0 to 59
+                    green := panelNumber + col
+                    display.drawPixelAtRC(row, col, color.rgbColorFromDegrees(green))
+            row++
+    display.commitScreenToPanel()
+
+
+PUB demoColorPalette12Panels() | red, panelNumber
+    '' 10x10x10 COLOR PANELs + BW panel
+    panelNumber := 0
+    repeat red from 0 to 255 step 25
+        generateGreenBluePanelAgainst(panelNumber, red)
+        panelNumber++
+    generateBWPanel(11)
+    display.commitScreenToPanel()
+
+PRI generateGreenBluePanelAgainst(panelNumber, red) | panelRow, panelCol, row, col, green, blue, startCol
+    panelRow := panelNumber / 4
+    panelCol := panelNumber // 4
+    row := panelRow * 11
+    startCol := col := panelCol * 17
+    'debug("clr panelNbr=(", udec_(panelNumber), "),startRC=(", udec_(row), ",", udec_(col), ")")
+    repeat green from 0 to 255 step 25
+        repeat blue from 0 to 255 step 25
+            display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+            col++
+        row++
+        col := startCol
+
+PRI generateBWPanel(panelNumber) | panelRow, panelCol, row, col, red, green, blue, startCol, colCtr
+    panelRow := panelNumber / 4
+    panelCol := panelNumber // 4
+    row := panelRow * 11
+    startCol := col := panelCol * 17
+    'debug("bw panelNbr=(", udec_(panelNumber), "),startRC=(", udec_(row), ",", udec_(col), ")")
+    colCtr := 0
+    repeat green from 0 to 255 step 2
+        red := blue := green
+        display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        col++
+        colCtr++
+        if colCtr >= 11
+            colCtr := 0
+            row++
+            col := startCol
+            'debug("bw panelNbr=(", udec_(panelNumber), "),startRC=(", udec_(row), ",", udec_(col), ")")
+
+PUB showFullColorSweep() | row, col, red, green, blue
+    '' basic bands - full color sweep
+    red := green := blue := 0
+    row := 2
+    col := 0
+    repeat red from 0 to 255        ' RED
+        display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        col++
+        if (col > screen.MAX_PANEL_COLUMNS - 1)
+            row++
+            col := 0
+    red := green := blue := 0
+    repeat green from 0 to 255      ' GREEN
+        display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        col++
+        if (col > screen.MAX_PANEL_COLUMNS - 1)
+            row++
+            col := 0
+    red := green := blue := 0
+    repeat blue from 0 to 255       ' BLUE
+        display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        col++
+        if (col > screen.MAX_PANEL_COLUMNS - 1)
+            row++
+            col := 0
+    red := green := blue := 0
+    repeat red from 0 to 255        ' YELLOW'
+        green := red
+        display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        col++
+        if (col > screen.MAX_PANEL_COLUMNS - 1)
+            row++
+            col := 0
+    red := green := blue := 0
+    repeat green from 0 to 255      ' CYAN
+        blue := green
+        display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        col++
+        if (col > screen.MAX_PANEL_COLUMNS - 1)
+            row++
+            col := 0
+    red := green := blue := 0
+    repeat blue from 0 to 255       ' MAGENTA
+        red := blue
+        display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        col++
+        if (col > screen.MAX_PANEL_COLUMNS - 1)
+            row++
+            col := 0
+    red := green := blue := 0
+    repeat blue from 0 to 255       ' WHITE
+        green := red := blue
+        display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        col++
+        if (col > screen.MAX_PANEL_COLUMNS - 1)
+            row++
+            col := 0
+    red := green := blue := 0
+    display.commitScreenToPanel()
+
+
+PUB demoScreenBlast() | color3bit
+    repeat 5
+        repeat color3bit from 0 to 7
+            display.fillPanel(color3bit)
+            waitms(150)
+
+
+PUB colorBlast() | row, col, red, green, blue, blockX, blockY, subrow, subcol
+    '' color blast
+    debug("- DEMO: draw colored pixels")
+    repeat blockX from 0 to 3
+        repeat blockY from 0 to 1
+            repeat subrow from 0 to 15
+                repeat subcol from 0 to 15
+                    row := (blockY * 16) + subrow
+                    col := (blockX * 16) + subcol
+                    red := subrow * (255 / 16)
+                    green := subcol * (255 / 16)
+                    blue := ((blockY * 4) + blockX) * (255 / 8)
+                    display.drawPixelAtRCwithRGB(row, col, red, green, blue)
+
+    display.commitScreenToPanel()
+
+
+
+
+CON { license }
+
+{{
+
+
+ -------------------------------------------------------------------------------------------------
+  MIT License
+
+  Copyright (c) 2020 Iron Sheep Productions, LLC
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+ =================================================================================================
+}}
+

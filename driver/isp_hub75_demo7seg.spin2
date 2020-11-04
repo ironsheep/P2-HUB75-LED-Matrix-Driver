@@ -34,7 +34,7 @@ VAR
 OBJ
 
     color       : "isp_hub75_color"
-    display      : "isp_hub75_display"
+    display     : "isp_hub75_display"
     digit[4]    : "isp_hub75_7seg"
 
 PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, builtPtr, color3bit, color24bit, pPixColor, colorOffset, byteOffset
@@ -47,95 +47,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
         debug("- DEMO: underlying drivers failed!")
         abort
 
-
-{
-    org 
-        'add     colorOffset, pPixColor                         ' + base address of screen
-        'alts    colorOffset
-        'mov     colorValue, 0-0
-        'mov     builtPtr, ##testLong1
-        'mov     colorValue, builtPtr
-        'add     builtPtr, colorOffset
-        'alts    colorOffset, #@testLong1
-        rdlong  colorValue, pPixColor
-        'mov     colorValue, colorOffset   ' this uses pointer value - BAD
-        GETBYTE red, colorValue,#3
-        GETBYTE green, colorValue,#2
-        GETBYTE blue, colorValue,#1
-    end 
-
-    debug("TEST: color addr=", uhex_long_(builtPtr), "[", uhex_long_(testLong1), "] ", uhex_long(colorValue), uhex(red), uhex(green), uhex(blue))
-}
-    'return
-
-    ' do DEMO Things!
-{
-    display.drawLineOfColor(0, 0, 0, 3, color.cRed)
-    display.drawLineOfColor(0, 61, 0, 63, color.cBlue)
-    display.drawLineOfColor(1, 61, 1, 63, color.cBlue)
-
-    display.drawLineOfColor(30, 62, 30, 63, color.cWhite)
-    display.drawLineOfColor(31, 62, 31, 63, color.cWhite)
-
-    display.drawLineOfColor(31, 0, 31, 5, color.cLime)
-    display.commitScreenToPanel()
-}
-{
-    ' TESTING driver basic paint speed
-    repeat color3bit from 7 to 0
-        debug("fill w/color=(", udec_(color3bit), ")")
-        display.fillPanel(color3bit)
-        repeat 2    ' 1/8 second
-            waitms(125)
-}
-{
-    color24bit := $600028
-    debug("fill w/24-bit-color=(", udec_(color24bit), ")")
-    display.fillScreen(color24bit)
-    display.commitScreenToPanel()
-}
-    ' clear display
-    'display.clearScreen()
-
- {
-    ' print each letter with a rainbow color
-    display.setCharWithColor("6", color.cRed)
-    display.setCharWithColor("4", color.cYellow)
-    display.setCharWithColor("x", color.cOlive)
-    display.setCharWithColor("3", color.cGreen)
-    display.setCharWithColor("2", color.cLime)
-}
-{
-    drawTestPattern(0, 0)
-    drawTestPattern(0, 63)
-    drawTestPattern(15, 0)
-    drawTestPattern(15, 63)
-    drawTestPattern(16, 8)
-    drawTestPattern(16, 53)
-    drawTestPattern(31, 8)
-    drawTestPattern(31, 53)
-
-    display.commitScreenToPanel()
-    }
-{
-        ' draw some text!
-    display.setTextSize(display.TEXT_SIZE__5x7)    ' font size 
-    display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
-
-    display.setColoredTextAtRC(0,0, string("iron sheep"), color.cMaroon)
-    display.setColoredTextAtRC(1,0, string("-RGB 3bit-"), color.cOrange)
-    display.setColoredTextAtRC(2,0, string("24b color!"), color.cRainbow)
-    display.setColoredTextAtRC(3,0, string("led matrix"), color.cWhite)
-    display.commitScreenToPanel()
-}
-
-
-    'display.fillScreen(color.cMaroon)
-    'display.commitScreenToPanel()
-
     '  SEVEN SEGMENT DEMO
-
-    'repeat  ' hold forever
 
     segmentPeriod := 8     ' 4 x 100ths of a second
     digitPeriod := 12    ' 90     ' 4 x 100ths of a second
@@ -181,6 +93,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
             loopUntilSegmentsFinish()
 
             wait100thSecs(digitPeriod)  
+            
 {
 ' transitional DEMO
 
@@ -209,53 +122,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
 
         wait100thSecs(digitPeriod)   
 }
-{
-    display.setTextSize(display.TEXT_SIZE__8x8)    ' font size 
-    display.setCursor(2, 0)   ' start at top left, with one pixel of spacing
- 
-    ' print each letter with a rainbow color
-    display.setCharWithColor("6", color.cRed)
-    display.setCharWithColor("4", color.cYellow)
-    display.setCharWithColor("x", color.cOlive)
-    display.setCharWithColor("3", color.cGreen)
-    display.setCharWithColor("2", color.cLime)
-}
 
-    'display.commitScreenToPanel()
-    'repeat ' HOLD did clear work?
-
-{' --------------------------------------
-    ' do color blast
-    debug("- DEMO: draw colored pixels")
-    repeat blockX from 0 to 3
-        repeat blockY from 0 to 1
-            repeat subrow from 0 to 15
-                repeat subcol from 0 to 15
-                    row := (blockY * 16) + subrow
-                    col := (blockX * 16) + subcol
-                    red := subrow * (255 / 16)
-                    green := subcol * (255 / 16)
-                    blue := ((blockY * 4) + blockX) * (255 / 8)
-                    display.drawPixelAtRCwithRGB(row, col, red, green, blue)
-
-    display.commitScreenToPanel()
-' --------------------------------------}
-
-{' --------------------------------------
-    ' do corners
-    display.drawPixelAtRCwithRGB(0, 0, 255, 0, 0)
-    display.drawPixelAtRCwithRGB(0, 1, 255, 0, 0)
-    display.drawPixelAtRCwithRGB(31, 0, 0, 0, 255)
-    display.drawPixelAtRCwithRGB(31, 1, 0, 0, 255)
-    display.drawPixelAtRCwithRGB(31, 2, 0, 0, 255)
-    display.drawPixelAtRCwithRGB(0, 63, 0, 255, 0)
-    display.drawPixelAtRCwithRGB(01, 63, 0, 255, 0)
-    display.drawPixelAtRCwithRGB(30, 62, 0, 255, 30)
-    display.drawPixelAtRCwithRGB(31, 62, 0, 255, 30)
-    display.drawPixelAtRCwithRGB(30, 63, 0, 255, 30)
-    display.drawPixelAtRCwithRGB(31, 63, 0, 255, 30)
-    display.commitScreenToPanel()
-' --------------------------------------}
 
     debug("DEMO: done")
     repeat
