@@ -45,7 +45,7 @@ PUB start() : ok | color, pScreenBuffer, bInvalidFileStatus, pTemp, nFrameIndex,
     'debug("`term temp size 80 50 textsize 10")
 
     'setupTerm()
-    brightness := 100 '128  'set maximum brightness by dividing input, range 0 to 256
+    brightness := 100 ' 256 '128  'set maximum brightness by dividing input, range 0 to 256
 
     debug("- PANEL: Start Matrix COG")
     ok := cog := matrix.start()   ' send buffer to driver
@@ -57,9 +57,9 @@ PUB start() : ok | color, pScreenBuffer, bInvalidFileStatus, pTemp, nFrameIndex,
 
     'return
     {
-    debug("- fills")
+    ' XYZZYpnl debug("- fills")
     repeat color from 0 to 7
-	    debug(" -- fill w/", udec_(color))
+	    ' XYZZYpnl debug(" -- fill w/", udec_(color))
     	matrix.fillPanel(color)
 	    waitms(250)
 
@@ -67,24 +67,24 @@ PUB start() : ok | color, pScreenBuffer, bInvalidFileStatus, pTemp, nFrameIndex,
     }
     {
 
-    debug("-  load PWM frames=", uhex_long_(@pwmFrames))
+    ' XYZZYpnl debug("-  load PWM frames=", uhex_long_(@pwmFrames))
     loadBitmap(@BitmapFile)
     'repeat     ' TESTING, unocomment to STOP here
 
 
     ' check our frame alignment
-    debug("-  step thru PWM frames=", uhex_long_(@pwmFrames))
+    ' XYZZYpnl debug("-  step thru PWM frames=", uhex_long_(@pwmFrames))
     repeat nFrameIndex from 7 to 0
         pFrameBuffer := getPwmFrameAddressForBit(nFrameIndex)
         matrix.writeBuffer(pFrameBuffer)
         waits(3)
 
-    debug("-  clear panel to single color")
+    ' XYZZYpnl debug("-  clear panel to single color")
     matrix.fillPanel(matrix.BLACK)
 
     waits(11)
 
-    debug("-  write image to panel (PWM): screen=", uhex_long_(@pwmFrames))
+    ' XYZZYpnl debug("-  write image to panel (PWM): screen=", uhex_long_(@pwmFrames))
     matrix.writePwmBuffer(@pwmFrames)
 
     'debug("- hold for two minutes")
@@ -140,7 +140,7 @@ CON { frame buffer details }
     PWM_FRAME_SIZE_IN_LONGS = 192
 
 PUB loadScreen(p24bitScreen) | nPanelCol, nPanelRow, blue, green, red, haveError, showDebug
-    debug("- PANEL: loading screen at @", uhex_long_(p24bitScreen))
+    ' XYZZYpnl debug("- PANEL: loading screen at @", uhex_long_(p24bitScreen))
     pScreenInMemory := p24bitScreen
   ' clear buffer
     clearPwmFrameBuffers()  ' clear PWM frames 
@@ -158,7 +158,7 @@ PUB loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, haveError,
 
     pBitmapFileInMemory := pBitmapFile
 
-    debug("- Study BMP")
+    ' XYZZYpnl debug("- Study BMP")
     bInvalidFileStatus := validateBmpFile(pBitmapFile)
     if bInvalidFileStatus == FALSE
         return
@@ -172,11 +172,11 @@ PUB loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, haveError,
             'debug("loadBitmap() - RC=(", udec_(nPanelRow), ", ", udec_(nPanelCol), ")")
             haveError := FALSE
             if(nPanelRow > MAX_ROWS - 1) 
-                debug("- ERROR bad nPanelRow value [", udec_(nPanelRow), " > ", udec_(MAX_ROWS - 1), "]")
+                ' XYZZYpnl debug("- ERROR bad nPanelRow value [", udec_(nPanelRow), " > ", udec_(MAX_ROWS - 1), "]")
                 haveError := TRUE
 
             if(nPanelCol > MAX_COLUMNS - 1) 
-                debug("- ERROR bad nPanelCol value [", udec_(nPanelCol), " > ", udec_(MAX_COLUMNS - 1), "]")
+                ' XYZZYpnl debug("- ERROR bad nPanelCol value [", udec_(nPanelCol), " > ", udec_(MAX_COLUMNS - 1), "]")
                 haveError := TRUE
 
             if haveError == FALSE
@@ -187,7 +187,7 @@ PUB loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, haveError,
                 red, green, blue := get24BitBMPColorForRC(nPanelRow, nPanelCol)
 
                 if showDebug
-                    debug(" - RC=(", udec_(nPanelRow), ", ", udec_(nPanelCol), "), RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
+                    ' XYZZYpnl debug(" - RC=(", udec_(nPanelRow), ", ", udec_(nPanelCol), "), RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
 
                 setPixelForRC(nPanelRow, nPanelCol, RGB(red, green, blue))
 
@@ -214,7 +214,7 @@ PRI getPwmFrameAddressForBit(nBitNumber) : pFrameBuffer | nFrameOffset, frameIdx
     'debug("- PWM frame(", udec_(frameIdx), "), ", uhex_long(pFrameBuffer))
 
 PRI setPixelForRC(nPanelRow, nPanelCol, red, green, blue) | rBit, gBit, bBit, pPwmFrame, bitNumber  '' for each 24bit color write to PWM frames
-    ' debug("setPixel() - x,y=(", udec_(nPanelCol), ", ", udec_(nPanelRow), ")")
+    ' ' XYZZYpnl debug("setPixel() - x,y=(", udec_(nPanelCol), ", ", udec_(nPanelRow), ")")
     ' expand image into 8 pwm frames
     repeat bitNumber from 7 to 0
         pPwmFrame := getPwmFrameAddressForBit(bitNumber)
@@ -249,35 +249,35 @@ PRI setPanelColorBitsForRC(pPwmFrame, nPanelRow, nPanelCol, rBit, gBit, bBit) | 
     gPtr := @long[gBuff][longIdx]
     bPtr := @long[bBuff][longIdx]
 
-    showDebug := FALSE
-     if isDebugLocn(nBffrR, nBffrC) 
-        showDebug := TRUE ' FALSE  ' turn off debug
+    'showDebug := FALSE
+    ' if isDebugLocn(nBffrR, nBffrC) 
+    '    showDebug := TRUE ' FALSE  ' turn off debug
 
-    if showDebug
-        debug("- Panel RC=(", udec_(nPanelCol), ", ", udec_(nPanelRow), "), bffr RC=(", udec_(nBffrR), ", ", udec_(nBffrC), "), long[", udec_(longIdx), "][", udec_(bitIdx), "]")
+    'if showDebug
+        ' XYZZYpnl debug("- Panel RC=(", udec_(nPanelCol), ", ", udec_(nPanelRow), "), bffr RC=(", udec_(nBffrR), ", ", udec_(nBffrC), "), long[", udec_(longIdx), "][", udec_(bitIdx), "]")
  
     if rBit > 0
         longBefore := long[rPtr]
         long[rPtr] |= 1 << bitIdx
-        if showDebug
-            debug("Rbit(", udec_(rBit), ") longIdx(", udec_(longIdx), ")  bitIdx(", udec_(bitIdx), ") R-word: ", uhex_long_(longBefore), " -> ",uhex_long_(long[rPtr]))
+        'if showDebug
+            ' XYZZYpnl debug("Rbit(", udec_(rBit), ") longIdx(", udec_(longIdx), ")  bitIdx(", udec_(bitIdx), ") R-word: ", uhex_long_(longBefore), " -> ",uhex_long_(long[rPtr]))
 
     if gBit > 0
         longBefore := long[gPtr]
         long[gPtr] |= 1 << bitIdx
-        if showDebug
-            debug("Gbit(", udec_(rBit), ") longIdx(", udec_(longIdx), ")  bitIdx(", udec_(bitIdx), ") G-word: ", uhex_long_(longBefore), " -> ",uhex_long_(long[gPtr]))
+        'if showDebug
+            ' XYZZYpnl debug("Gbit(", udec_(rBit), ") longIdx(", udec_(longIdx), ")  bitIdx(", udec_(bitIdx), ") G-word: ", uhex_long_(longBefore), " -> ",uhex_long_(long[gPtr]))
 
     if bBit > 0
         longBefore := long[bPtr]
         long[bPtr] |= 1 << bitIdx
-        if showDebug
-            debug("Bbit(", udec_(rBit), ") longIdx(", udec_(longIdx), ")  bitIdx(", udec_(bitIdx), ") B-word: ", uhex_long_(longBefore), " -> ",uhex_long_(long[bPtr]))
+        'if showDebug
+            ' XYZZYpnl debug("Bbit(", udec_(rBit), ") longIdx(", udec_(longIdx), ")  bitIdx(", udec_(bitIdx), ") B-word: ", uhex_long_(longBefore), " -> ",uhex_long_(long[bPtr]))
 
 
 PRI validateBmpFile(pBffr) : bValidStatus | p, i, iStart, iEnd, pLastByte    '' interpret .BMP header and return pointer to image
 
-    debug("- Studying in-memory file")
+    ' XYZZYpnl debug("- Studying in-memory file")
     bValidStatus := TRUE
     'analyze bitmap image
     p:=pBffr
@@ -304,35 +304,35 @@ PRI validateBmpFile(pBffr) : bValidStatus | p, i, iStart, iEnd, pLastByte    '' 
     ' return pointer to last byte in bitmap
     pLastByte := p + (biHeight * biWidth * 3) - 1
 
-    debug("BitMap file @0x", uhex_(pBffr))
-    debug(" - size=", udec_(bfSize))
-    debug(" - OffsetBits=", udec_(bfOffBits))
+    ' XYZZYpnl debug("BitMap file @0x", uhex_(pBffr))
+    ' XYZZYpnl debug(" - size=", udec_(bfSize))
+    ' XYZZYpnl debug(" - OffsetBits=", udec_(bfOffBits))
     'debug(" - #planes=", udec_(biPlanes))
-    debug(" - w,h=", udec_(biWidth), ",", udec_(biHeight))
-    debug(" - szImage=", udec_(biSizeImage))
+    ' XYZZYpnl debug(" - w,h=", udec_(biWidth), ",", udec_(biHeight))
+    ' XYZZYpnl debug(" - szImage=", udec_(biSizeImage))
     'debug(" - compression=", udec_(biCompression))
-    debug(" - bitCount=", udec_(biBitCount))
-    debug(" - end @0x", uhex_(pLastByte))
+    ' XYZZYpnl debug(" - bitCount=", udec_(biBitCount))
+    ' XYZZYpnl debug(" - end @0x", uhex_(pLastByte))
 
-    debug(" - Img-start @0x", uhex_(iStart))
-    debug(" - Img-end @0x", uhex_(iEnd))
+    ' XYZZYpnl debug(" - Img-start @0x", uhex_(iStart))
+    ' XYZZYpnl debug(" - Img-end @0x", uhex_(iEnd))
 
     if biWidth <> 64 or biHeight <> 32
-        debug(" !! invalid BMP size! [NOT 64x32]")
+        ' XYZZYpnl debug(" !! invalid BMP size! [NOT 64x32]")
         bValidStatus := FALSE
 
     if byte[@bfType][0] <> $42 || byte[@bfType][1] <> $4d ' B, M
-        debug(" !! invalid BMP file type! [NOT 'BM']")
+        ' XYZZYpnl debug(" !! invalid BMP file type! [NOT 'BM']")
         bValidStatus := FALSE
 
     if biCompression <> 0
-        debug(" !! invalid BMP compression! [is compressed]")
+        ' XYZZYpnl debug(" !! invalid BMP compression! [is compressed]")
         bValidStatus := FALSE
 
     if bValidStatus == FALSE
-        debug("- ERROR invalid BMP!")
+        ' XYZZYpnl debug("- ERROR invalid BMP!")
     else
-        debug("-good BMP size! [64x32]")
+        ' XYZZYpnl debug("-good BMP size! [64x32]")
 
     'dbgMemDump(@fileHeaderMsg, pBffr, bfOffBits)
     'dbgMemDump(@fileStartMsg, iStart, 32)
@@ -364,7 +364,7 @@ PRI getPixelAddressForBMPRowColumn(nRow, nColumn) : pixColorAddr | nRowIndex, nC
     pixColorAddr := @byte[fileBitsBase][nOffset]    ' add in offset to 24-bit color
 
     if showDebug
-	    debug("- FileOffset=", udec_(nOffset), ", RC=(", udec_(nRow), ",", udec_(nColumn), ", ofst=", uhex_long_(pixColorAddr), ", base=", uhex_long_(fileBitsBase), ")")
+	    ' XYZZYpnl debug("- FileOffset=", udec_(nOffset), ", RC=(", udec_(nRow), ",", udec_(nColumn), ", ofst=", uhex_long_(pixColorAddr), ", base=", uhex_long_(fileBitsBase), ")")
 
 
 PRI getPixelAddressForRowColumn(nRow, nColumn) : pixColorAddr | nRowIndex, nColumnIndex, nOffset, screenBitsBase, showDebug
@@ -407,16 +407,16 @@ PRI get24BitBMPColorForRC(nRow, nColumn) : red, green, blue | pixColorAddr
 
 
 PRI dumpTwinRows()
-    debug("`temp ' Red TL,R ", uhex_long_(long[@singleBuffer][0]), ", ", uhex_long_(long[@singleBuffer][1]), " ' 13")
-    debug("`temp ' Red BL,R ", uhex_long_(long[@singleBuffer][62]), ", ", uhex_long_(long[@singleBuffer][63]), " ' 13")
-    debug("`temp ' Grn TL,R ", uhex_long_(long[@singleBuffer][64]), ", ", uhex_long_(long[@singleBuffer][65]), " ' 13")
-    debug("`temp ' Grn BL,R ", uhex_long_(long[@singleBuffer][126]), ", ", uhex_long_(long[@singleBuffer][127]), " ' 13")
-    debug("`temp ' Blu TL,R ", uhex_long_(long[@singleBuffer][128]), ", ", uhex_long_(long[@singleBuffer][129]), " ' 13")
-    debug("`temp ' Blu BL,R ", uhex_long_(long[@singleBuffer][190]), ", ", uhex_long_(long[@singleBuffer][191]), " ' 13")
+    ' XYZZYpnl debug("`temp ' Red TL,R ", uhex_long_(long[@singleBuffer][0]), ", ", uhex_long_(long[@singleBuffer][1]), " ' 13")
+    ' XYZZYpnl debug("`temp ' Red BL,R ", uhex_long_(long[@singleBuffer][62]), ", ", uhex_long_(long[@singleBuffer][63]), " ' 13")
+    ' XYZZYpnl debug("`temp ' Grn TL,R ", uhex_long_(long[@singleBuffer][64]), ", ", uhex_long_(long[@singleBuffer][65]), " ' 13")
+    ' XYZZYpnl debug("`temp ' Grn BL,R ", uhex_long_(long[@singleBuffer][126]), ", ", uhex_long_(long[@singleBuffer][127]), " ' 13")
+    ' XYZZYpnl debug("`temp ' Blu TL,R ", uhex_long_(long[@singleBuffer][128]), ", ", uhex_long_(long[@singleBuffer][129]), " ' 13")
+    ' XYZZYpnl debug("`temp ' Blu BL,R ", uhex_long_(long[@singleBuffer][190]), ", ", uhex_long_(long[@singleBuffer][191]), " ' 13")
 
 
 PUB dbgMemDump(bfrId, buffer, len) | bytBffr, colIdx, rowIdx, maxCol, maxRow
-    debug("`temp 13 '", zstr_(bfrId), ": bffr=", uhex_long_(buffer), "(", udec_(len), ")' 13")
+    ' XYZZYpnl debug("`temp 13 '", zstr_(bfrId), ": bffr=", uhex_long_(buffer), "(", udec_(len), ")' 13")
     maxCol := len >= 16 ? 15 : len
     maxRow := (len / 16)
     if maxRow == 0
@@ -427,14 +427,14 @@ PUB dbgMemDump(bfrId, buffer, len) | bytBffr, colIdx, rowIdx, maxCol, maxRow
     'returns
     repeat rowIdx from 1 to maxRow
         'if rowIdx < 10
-        '  debug("`temp ' '")	' space
-        debug("`temp '  ", uhex_long_(bytBffr), ": '")
+        '  ' XYZZYpnl debug("`temp ' '")	' space
+        ' XYZZYpnl debug("`temp '  ", uhex_long_(bytBffr), ": '")
         repeat colIdx from 0 to maxCol
-            debug("`temp '", uhex_byte_(byte[bytBffr+colIdx]), " '")
+            ' XYZZYpnl debug("`temp '", uhex_byte_(byte[bytBffr+colIdx]), " '")
             if colIdx == 7
-                debug("`temp ' '")	' space
+                ' XYZZYpnl debug("`temp ' '")	' space
         bytBffr += 16
-        debug("`temp 13")		' newline
+        ' XYZZYpnl debug("`temp 13")		' newline
         waitus(85)  ' 50 too short, 70 less issue, 75 better, 
     waitms(1)
 

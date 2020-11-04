@@ -1,7 +1,7 @@
 '' =================================================================================================
 ''
-''   File....... isp_hub75_fonts.spin2
-''   Purpose.... Provide lookup for one or more fonts
+''   File....... isp_hub75_demo.spin2
+''   Purpose.... Top-level Demonstration - showing off our HUB75 matrix
 ''   Authors.... Stephen M Moraco
 ''               -- Copyright (c) 2020 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
@@ -30,7 +30,8 @@ OBJ
     screen      : "isp_hub75_text"
     digit[4]    : "isp_hub75_7seg"
 
-PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, digitIndex   ' start underlying drivers and run demo
+PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, digitIndex   
+    '' start underlying drivers and run demo
     ok := cog := screen.start()   ' send buffer to driver
     if ok == -1
         debug("- DEMO: underlying drivers failed!")
@@ -58,12 +59,12 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, d
     screen.setCharWithColor("3", screen.cGreen)
     screen.setCharWithColor("2", screen.cLime)
 }
-{{
+
     repeat digitIndex from 0 to 3
         digit[digitIndex].setScreen(screen.getScreenSetup())
 
     digit[digitIndex].placeDigit(16, 10, 8, screen.cOrange)
-}}
+
 {
     screen.setTextSize(screen.TEXT_SIZE__8x8)    ' font size 
     screen.setCursor(2, 0)   ' start at top left, with one pixel of spacing

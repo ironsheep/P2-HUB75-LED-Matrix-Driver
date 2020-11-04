@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 17 Oct 2020
+''   Updated.... 18 Oct 2020
 ''
 '' =================================================================================================
 
@@ -75,7 +75,7 @@ PUB setValue(digit)
         reconfigureForDigit(digit)
 
 PRI ensureIsSetup()
-    ' do intial setup if not yet done
+    '' do intial setup if not yet done
     if not isSetup
         initialSetup()
 

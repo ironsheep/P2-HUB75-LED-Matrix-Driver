@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 17 Oct 2020
+''   Updated.... 18 Oct 2020
 ''
 '' =================================================================================================
 
@@ -26,6 +26,10 @@ CON { segment states, names, orientations and such }
 
 SEG_WIDTH = 3
 SEG_LENGTH = 11
+
+MAX_BYTES_PER_COLOR = 3
+
+cBlack = $000000
 
 VAR
     long    segOrientation
@@ -91,7 +95,7 @@ PRI moveSegmentToState(newEndState) | targetState
     if desiredEndState <> newEndState
         ' if we are not yet at an end state (still moving) then abort
         if currentState <> STATE_OFF && currentState <> STATE_ON
-            debug("SEG: state still in motion, ignoreing request")
+            debug("SEG: state still in motion, ignoring request")
             abort
         if newEndState <> STATE_OFF && newEndState <> STATE_ON
             debug("SEG: BAD end state must be ON or OFF!")
@@ -104,6 +108,7 @@ PRI moveSegmentToState(newEndState) | targetState
         updateSegmentToState(targetState)
 
 PRI updateSegmentToState(newState)
+    debug("-segm updSegToSt()")
     '' draw segment to specific state (marking the new state as current)
     case segOrientation
         SEG_TOP:
@@ -116,12 +121,123 @@ PRI updateSegmentToState(newState)
             updateHorizontalSegment(newState)
         SEG_MIDDLE:
             updateMiddleSegment(newState)
+    currentState := newState
 
-PRI updateVerticalSegment(newState)
-    
-PRI updateHorizontalSegment(newState)
+PRI updateVerticalSegment(newState) | pixInset, columnIndex
+    debug("-segm updVertSeg()")
+    ' row,col points to upper-left of WIDTH columns by LENGTH rows
+    if segOrientation == SEG_LEFT
+        ' pointing right
+        case newState
+            STATE_OFF:
+                pixInset := 0
+                repeat columnIndex from 0 to SEG_WIDTH - 1
+                    drawLine(segStartY + pixInset, segStartX + columnIndex, segStartY + SEG_LENGTH - 1 - pixInset, segStartX + columnIndex, cBlack)
+                    pixInset++
+            STATE_ON:
+                pixInset := 0
+                repeat columnIndex from 0 to SEG_WIDTH - 1
+                    drawLine(segStartY + pixInset, segStartX + columnIndex, segStartY + SEG_LENGTH - 1 - pixInset, segStartX + columnIndex, segRgbColor)
+                    pixInset++ 
+            OTHER:
+                debug("STATE not yet implemented (", udec_(newstate), ")")
+    else
+       ' pointing left
+        case newState
+            STATE_OFF:
+                pixInset := SEG_WIDTH - 1
+                repeat columnIndex from 0 to SEG_WIDTH - 1
+                    drawLine(segStartY + pixInset, segStartX + columnIndex, segStartY + SEG_LENGTH - 1 - pixInset, segStartX + columnIndex, cBlack)
+                    pixInset--
+            STATE_ON:
+                pixInset := SEG_WIDTH - 1
+                repeat columnIndex from 0 to SEG_WIDTH - 1
+                    drawLine(segStartY + pixInset, segStartX + columnIndex, segStartY + SEG_LENGTH - 1 - pixInset, segStartX + columnIndex, segRgbColor)
+                    pixInset--
+            OTHER:
+                debug("STATE not yet implemented (", udec_(newstate), ")")
 
-PRI updateMiddleSegment(newState)
+PRI updateHorizontalSegment(newState) | pixInset, rowIndex
+    debug("-segm updHorizSeg()")
+    ' row,col points to upper-left of LENGTH columns by WIDTH rows
+    if segOrientation == SEG_TOP
+        ' pointing down
+        case newState
+            STATE_OFF:
+                pixInset := 0
+                repeat rowIndex from 0 to SEG_WIDTH - 1
+                    drawLine(segStartY + rowIndex, segStartX + pixInset, segStartY + rowIndex, segStartX + SEG_LENGTH - 1 - pixInset, cBlack)
+                    pixInset++
+            STATE_ON:
+                pixInset := 0
+                repeat rowIndex from 0 to SEG_WIDTH - 1
+                    drawLine(segStartY + rowIndex, segStartX + pixInset, segStartY + rowIndex, segStartX + SEG_LENGTH - 1 - pixInset, segRgbColor)
+                    pixInset++
+            OTHER:
+                debug("STATE not yet implemented (", udec_(newstate), ")")
+    else
+    ' pointing up
+        case newState
+            STATE_OFF:
+                pixInset := SEG_WIDTH - 1
+                repeat rowIndex from 0 to SEG_WIDTH - 1
+                    drawLine(segStartY + rowIndex, segStartX + pixInset, segStartY + rowIndex, segStartX + SEG_LENGTH - 1 - pixInset, cBlack)
+                    pixInset --
+            STATE_ON:
+                pixInset := SEG_WIDTH - 1
+                 repeat rowIndex from 0 to SEG_WIDTH - 1
+                    drawLine(segStartY + rowIndex, segStartX + pixInset, segStartY + rowIndex, segStartX + SEG_LENGTH - 1 - pixInset, segRgbColor)
+                    pixInset --
+            OTHER:
+                debug("STATE not yet implemented (", udec_(newstate), ")")
+
+PRI updateMiddleSegment(newState) | pixInset, rowIndex
+    debug("-segm updMidSeg()")
+    ' row,col points to upper-left of LENGTH columns by WIDTH rows
+    case newState
+        STATE_OFF:
+            pixInset := 1
+            repeat rowIndex from 0 to SEG_WIDTH - 1
+                drawLine(segStartY + rowIndex, segStartX + pixInset, segStartY + rowIndex, segStartX + SEG_LENGTH - 1 - pixInset, cBlack)
+                pixInset := (pixInset == 1) ? 0 : 1
+        STATE_ON:
+            pixInset := 1
+            repeat rowIndex from 0 to SEG_WIDTH - 1
+                drawLine(segStartY + rowIndex, segStartX + pixInset, segStartY + rowIndex, segStartX + SEG_LENGTH - 1 - pixInset, segRgbColor)
+                pixInset := (pixInset == 1) ? 0 : 1
+        OTHER:
+            debug("STATE not yet implemented (", udec_(newstate), ")")
+
+PRI drawLine(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column
+    debug("-segm drawLine()")
+    if fmRow == toRow
+        ' draw Horizontal Line
+        repeat column from fmColumn to toColumn 
+            drawPixelAtRCwithRGB(fmRow, column, rgbForCValue(rgbColor))
+    elseif fmColumn == toColumn
+        ' draw Vertical Line
+        repeat row from fmRow to toRow 
+            drawPixelAtRCwithRGB(row, fmColumn, rgbForCValue(rgbColor))
+    else
+        debug("DIAGONAL lines not implemented !")
+        abort
+
+PUB drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex, colorOffset, pColor
+    '' place r,g,b color pixel at r,c
+    rowIndex := 0 #> row <# maxBitRows - 1
+    columnIndex :=  0 #> column <# maxBitColumns - 1
+    colorOffset := ((rowIndex * maxBitColumns) + columnIndex) * MAX_BYTES_PER_COLOR
+    pColor := @byte[pExtScreen][colorOffset]
+    'if isDebugLocn(row, column)
+        'debug("- Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
+    byte[pColor][0] := red
+    byte[pColor][1] := green
+    byte[pColor][2] := blue
+
+PUB rgbForCValue(combinedValue) : red, green, blue  '' CONVERT combined color value to r,g,b
+    red := (combinedValue & $ff0000) >> 16
+    green := (combinedValue & $ff00) >> 8
+    blue := (combinedValue & $ff)
 
 CON { license }
 

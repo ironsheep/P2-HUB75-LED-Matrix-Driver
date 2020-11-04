@@ -181,16 +181,6 @@ PUB setCharAtRCWithColor(row, column, cChar, rgbColor) | pCharBitMap, tlScreenOf
                     drawPixelAtRC(sRowPixIndex + cByteIdx, sColumnPixIndex + (charWidth - 1) - cBitIdx, rgbColor)
                 else
                     drawPixelAtRC(sRowPixIndex + cByteIdx, sColumnPixIndex + cBitIdx, rgbColor)
-    {{
-    long    topOffset
-    long    verticalGap
-    long    charHeight
-    long    charWidth
-    long    leftOffset
-    long    horizontalGap
-    }}
-
-
 
 PUB drawPixelAtRC(row, column, rgbColor) | xlatedColor, fHue
     '' place rgbColor pixel at r,c
@@ -219,19 +209,23 @@ PUB drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex,
     byte[pColor][2] := blue
 
 PUB commitScreenToPanel()
+    '' write sceen to panel driver
     debug("- TEXT: commit!")
     panel.loadScreen(@screen0)
 
-PUB cValueForRGB(red, green, blue) : combinedValue  '' CONVERT r,g,b to combined value
+PUB cValueForRGB(red, green, blue) : combinedValue
+    '' CONVERT r,g,b to combined value
     combinedValue := ((red & $ff) << 16) | ((green & $ff) << 8) | (blue & $ff)
 
-PUB rgbForCValue(combinedValue) : red, green, blue  '' CONVERT combined color value to r,g,b
+PUB rgbForCValue(combinedValue) : red, green, blue
+    '' CONVERT combined color value to r,g,b
     red := (combinedValue & $ff0000) >> 16
     green := (combinedValue & $ff00) >> 8
     blue := (combinedValue & $ff)
 
 
 PRI incrCursorWithWrap() | priorRow, priorCol
+    '' increment cursor position, wrapping at end of line when needed
     priorRow := cursorRow
     priorCol := cursorColumn
     cursorColumn++
@@ -298,7 +292,7 @@ PRI rgbColorFromDegrees(degrees) : rcbColor | offset60, fract60, red, green, blu
         green := offset60 * fract60
     }}
     rcbColor := cValueForRGB(red, green, blue)
-    debug("- degrees=", udec_(degrees), ", color=", uhex_long_(rcbColor), " RGB=", udec_(red), ", ", udec_(green), ", ", udec_(blue), ")" )
+    'debug("- degrees=", udec_(degrees), ", color=", uhex_long_(rcbColor), " RGB=", udec_(red), ", ", udec_(green), ", ", udec_(blue), ")" )
 
 
 CON { screen buffer constants }
