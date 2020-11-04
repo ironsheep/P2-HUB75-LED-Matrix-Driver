@@ -1,50 +1,55 @@
-{{
-    SCREEN buffer in HUB RAM
-        LATCH 3-clock as last 3 of 64 columns
+'' =================================================================================================
+''
+''   File....... isp_hub75_rgb3bit.spin2
+''   Purpose.... Drive a HUB75 panel of RGB LEDs
+''   Authors.... Stephen M Moraco
+''               -- Copyright (c) 2020 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... Oct 2020
+''   Updated.... 17 Oct 2020
+''
+'' =================================================================================================
 
-        ADDR change first (during /LATCH, OE before LATCH CLOCKS)
-                - OR - (comment out 1 or other form)
-        ADDR change last (during /LATCH, OE afer LATCH CLOCKS)
-}}
 
 CON { timing }
 
-  CLK_FREQ = 335_000_000                                        ' system freq as a constant
-  MS_001   = CLK_FREQ / 1_000                                   ' ticks in 1ms
-  US_001   = CLK_FREQ / 1_000_000                               ' ticks in 1us
+    CLK_FREQ = 335_000_000                                        ' system freq as a constant
+    MS_001   = CLK_FREQ / 1_000                                   ' ticks in 1ms
+    US_001   = CLK_FREQ / 1_000_000                               ' ticks in 1us
 
-  NS_015   = 5 ' - 2 '15 / (1_000_000_000 / CLK_FREQ)                   ' tics in 15 nSec
-  NS_030   = 10 - 2 '30 / (1_000_000_000 / CLK_FREQ)            ' tics in 30 nSec
+    NS_015   = 5 ' - 2 '15 / (1_000_000_000 / CLK_FREQ)                   ' tics in 15 nSec
+    NS_030   = 10 - 2 '30 / (1_000_000_000 / CLK_FREQ)            ' tics in 30 nSec
 
-  BR_TERM  = 2_000_000                                          ' debug baud rate
+    BR_TERM  = 2_000_000                                          ' debug baud rate
 
-  _clkfreq = CLK_FREQ                                           ' set system clock
+    '_clkfreq = CLK_FREQ                                           ' set system clock
 
 CON { I/O PINs }
 
-'DEBUG_PIN = 16
+    'DEBUG_PIN = 16
 
-MTX_LED_PIN_R1 = 47
-MTX_LED_PIN_G1 = 46
-MTX_LED_PIN_B1 = 45
+    MTX_LED_PIN_R1 = 47
+    MTX_LED_PIN_G1 = 46
+    MTX_LED_PIN_B1 = 45
 
-MTX_LED_PIN_R2 = 43
-MTX_LED_PIN_G2 = 42
-MTX_LED_PIN_B2 = 41
+    MTX_LED_PIN_R2 = 43
+    MTX_LED_PIN_G2 = 42
+    MTX_LED_PIN_B2 = 41
 
-MTX_LED_PIN_D = 39
-MTX_LED_PIN_C = 38
-MTX_LED_PIN_B = 37
-MTX_LED_PIN_A = 36
+    MTX_LED_PIN_D = 39
+    MTX_LED_PIN_C = 38
+    MTX_LED_PIN_B = 37
+    MTX_LED_PIN_A = 36
 
-MTX_LED_PIN_LATCH = 34
-MTX_LED_PIN_OE = 33
-MTX_LED_PIN_CLK = 32
+    MTX_LED_PIN_LATCH = 34
+    MTX_LED_PIN_OE = 33
+    MTX_LED_PIN_CLK = 32
 
-MTX_ROW_ADDR_PINS = MTX_LED_PIN_A ADDPINS 3
-MTX_LT_COLOR_PINS = MTX_LED_PIN_B1 ADDPINS 2
-MTX_RT_COLOR_PINS = MTX_LED_PIN_B2 ADDPINS 2
-MTX_CTL_PINS      = MTX_LED_PIN_CLK ADDPINS 2
+    MTX_ROW_ADDR_PINS = MTX_LED_PIN_A ADDPINS 3
+    MTX_LT_COLOR_PINS = MTX_LED_PIN_B1 ADDPINS 2
+    MTX_RT_COLOR_PINS = MTX_LED_PIN_B2 ADDPINS 2
+    MTX_CTL_PINS      = MTX_LED_PIN_CLK ADDPINS 2
 
 CON { Data }
 
@@ -80,8 +85,6 @@ CON { Data }
     #0, CMD_DONE, CMD_CLEAR, CMD_SHOW_BUFFER, CMD_FILL_COLOR, CMD_SHOW_PWM_BUFFER
 
 VAR
-    long  cog
-
     long  addr_pins       ' ptra[0]
     long  rgb0_pins       ' ptra[1]
     long  rgb1_pins       ' ptra[2]
@@ -91,6 +94,9 @@ VAR
        ' write values here to pass to driver
     long  dvrCommand
     long  dvrArgument 
+
+    long  cog
+
 
 ' ------------------------------------------------------
 PUB start() : ok            '' setup the pasm2 driver vars, then start a new cog running the driver
@@ -110,9 +116,12 @@ PUB start() : ok            '' setup the pasm2 driver vars, then start a new cog
     dvrCommand := CMD_DONE      ' ensure we start here
 
     ok := cog := coginit(16, @drive_matrix, @addr_pins) + 1
+    if ok == -1
+        debug("- Matrix: pasm cog start failed!")
+        abort
     'repeat        ' do nothing, forever (lock us up) -- for TESTING ONLY
 
-PUB stop()                  '' stop the cog that is running the driver
+PUB stop()                                  '' stop the cog that is running the driver
   if cog
     cogstop(cog - 1)
 
@@ -128,7 +137,7 @@ PUB fillPanel(color) | cValue               '' request that driver fill the buff
     dvrCommand := CMD_FILL_COLOR
     repeat while (dvrCommand <> CMD_DONE)
 
-PUB clearPanel()                            '' request that driver fill the buffer with 0's (black)
+PUB clearPanel()                            '' request that driver fill the buffer with 0's - black
     fillPanel(BLACK)
 
 PUB writeBuffer(pBuffer)                    '' request that driver copy our buffer to its buffer
@@ -136,7 +145,7 @@ PUB writeBuffer(pBuffer)                    '' request that driver copy our buff
     dvrCommand := CMD_SHOW_BUFFER
     repeat while (dvrCommand <> CMD_DONE)
 
-PUB writePwmBuffer(pBuffer)                    '' request that driver copy our buffer to its buffer
+PUB writePwmBuffer(pBuffer)                 '' request that driver copy our buffer to its buffer
     dvrArgument := pBuffer
     dvrCommand := CMD_SHOW_PWM_BUFFER
     ' this will keep showing same PWM buffer until caller changes command!
@@ -324,24 +333,24 @@ wrFrame
                     rdlong  nxtArgument, pArgument
                     cmp     nxtCommand, #CMD_DONE  wz
     if_z            jmp     #chksDone  ' redraw current buffer  
-                    debug("* cmd=", udec_(nxtCommand), ", arg=", uhex_long_(nxtArgument))
+                    'debug("* cmd=", udec_(nxtCommand), ", arg=", uhex_long_(nxtArgument))
 chkShow
                     cmp     nxtCommand, #CMD_SHOW_BUFFER    wz
     if_nz           jmp     #chkShowPwm
                     call    #loadBuffer
-                    debug(" - load done")
+                    'debug(" - load done")
                     jmp     #markCmdComplete  ' redraw current buffer  
 chkShowPwm
                     cmp     nxtCommand, #CMD_SHOW_PWM_BUFFER    wz
     if_nz           jmp     #chkFill
                     call    #loadPwmBuffers
-                    debug(" - PWM frame done")
+                    'debug(" - PWM frame done")
                     jmp     #wrFrame          ' check for next command (or same still there)
 chkFill
                     cmp     nxtCommand, #CMD_FILL_COLOR wz
     if_nz           jmp     #chksDone  ' redraw current buffer                
                     call    #fillBuffer
-                    debug(" - fill done")
+                    'debug(" - fill done")
                     jmp     #markCmdComplete  ' redraw current buffer
 '
 ' loadPwmBuffers(nxtArgument=hubAddressOfPWMFrameSet)
@@ -702,3 +711,33 @@ col_addr        res     1
 col_ctr         res     1
 
         FIT     496
+
+        
+CON { license }
+
+{{
+
+  MIT License
+
+  Copyright (c) 2020 Iron Sheep Productions, LLC
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+
+}}
+

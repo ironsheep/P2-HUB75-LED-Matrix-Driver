@@ -1,41 +1,16 @@
-{{
-    SCREEN buffer in HUB RAM
-        LATCH 3-clock as last 3 of 64 columns
-        ADDR change first (during /LATCH, OE before LATCH CLOCKS)
-
-                - OR - (comment out 1 or other form)
-
-        ADDR change last (during /LATCH, OE afer LATCH CLOCKS)
-}}
-
-CON { timing }
-  CLK_FREQ = 335_000_000                                        ' system freq as a constant
-
-  MS_001   = CLK_FREQ / 1_000                                   ' ticks in 1ms
-  US_001   = CLK_FREQ / 1_000_000                               ' ticks in 1us
-
-  NS_015   = 5 ' - 2 '15 / (1_000_000_000 / CLK_FREQ)                   ' tics in 15 nSec
-  NS_030   = 10 - 2 '30 / (1_000_000_000 / CLK_FREQ)            ' tics in 30 nSec
-
-  BR_TERM  = 2_000_000                                          ' debug baud rate
-  _clkfreq = CLK_FREQ                                           ' set system clock
-
-
-
-CON { SD Card PIN SETTINGS }   '' Note:  Make sure "Flash" jumper is not on...
-
-    ' P2-ES SD CARD
-    MISO  = 58
-    MOSI  = 59
-    CS  = 60
-    CLK = 61
-
-CON { serial term settings }   ''Note:  Select serial baud here
-
-  RXPIN=63                      ' Prop pins used for comms
-  TXPIN=62                      ' for regular terminal
-
-  Baudrate = 115200             '230400     ' baud rate for serial communications
+'' =================================================================================================
+''
+''   File....... isp_hub75_panel.spin2
+''   Purpose.... Manage the HUB75 panel content
+''   Authors.... Stephen M Moraco
+''               -- Copyright (c) 2020 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... Oct 2020
+''   Updated.... 17 Oct 2020
+''
+''  This object offers both .bmp file loading support as well as screen buffer 24bit loading support
+'' =================================================================================================
 
 
 CON { I/O PINs }
@@ -44,10 +19,7 @@ CON { I/O PINs }
 
 OBJ
 
-    matrix      : "Matrix-driver-3bit"
-    uart        : "jm_serial"
-    f           : "ers_fmt"
-
+    matrix      : "isp_hub75_rgb3bit"
 
 VAR
 
@@ -69,18 +41,22 @@ CON { RAM/FLASH }
 
 ' ----------------------------------------------------------
 
-PUB start() | ok, color, pScreenBuffer, bInvalidFileStatus, pTemp, nFrameIndex, pFrameBuffer
+PUB start() : ok | color, pScreenBuffer, bInvalidFileStatus, pTemp, nFrameIndex, pFrameBuffer
     'debug("`term temp size 80 50 textsize 10")
 
     'setupTerm()
     brightness := 256  'set maximum brightness by dividing input, range 0 to 256
 
-    debug("- Start Matrix COG")
+    debug("- PANEL: Start Matrix COG")
     ok := cog := matrix.start()   ' send buffer to driver
-    waitms(1000)
+    if ok == -1
+        debug("- PANEL: underlying drivers failed!")
+        abort
+
+    'waitms(1000)
 
     'return
-{
+    {
     debug("- fills")
     repeat color from 0 to 7
 	    debug(" -- fill w/", udec_(color))
@@ -88,33 +64,15 @@ PUB start() | ok, color, pScreenBuffer, bInvalidFileStatus, pTemp, nFrameIndex, 
 	    waitms(250)
 
     'return
-}
-    debug("- Study BMP")
-    bInvalidFileStatus := validateBmpFile(@BitmapFile)
-    if bInvalidFileStatus == FALSE
-        return
-
-    'dbgMemDump(@fileHeaderMsg, @byte[@BitmapFile], 64)
-    'debug("`temp '- (DBG) ", udec_long(bfOffBits), " (", uhex_(bfOffBits), ")' 13")
-    'debug("`temp '- (DBG) ", udec_long(biSize)," (", uhex_(biSize), ")' 13")
-    'debug("`temp '- (DBG) ", udec_long(biSizeImage)," (", uhex_(biSizeImage), ")' 13")
-    'pTemp := @singleBuffer
-    'debug("`temp '- (DBG) ", uhex_long(pTemp), ")' 13")
-    'dbgMemDump(@fileStartMsg, @byte[@BitmapFile+bfOffBits], 32)
-    'dbgMemDump(@fileEndMsg, @byte[@BitmapFile+bfOffBits+biSizeImage-31], 32)
+    }
+    {
 
     debug("-  load PWM frames=", uhex_long_(@pwmFrames))
-    loadBitmap()
+    loadBitmap(@BitmapFile)
     'repeat     ' TESTING, unocomment to STOP here
 
-    'dumpTwinRows()
-    ' dump full buffers
-    'dbgMemDump(@screenRed,@long[@singleBuffer][0],256)
-    'dbgMemDump(@screenGreen,@long[@singleBuffer][64],256)
-    'dbgMemDump(@screenBlue,@long[@singleBuffer][128],256)
 
     ' check our frame alignment
-    
     debug("-  step thru PWM frames=", uhex_long_(@pwmFrames))
     repeat nFrameIndex from 7 to 0
         pFrameBuffer := getPwmFrameAddressForBit(nFrameIndex)
@@ -122,22 +80,24 @@ PUB start() | ok, color, pScreenBuffer, bInvalidFileStatus, pTemp, nFrameIndex, 
         waits(3)
 
     debug("-  clear panel to single color")
-    matrix.fillPanel(matrix.YELLOW)
+    matrix.fillPanel(matrix.BLACK)
 
     waits(11)
 
     debug("-  write image to panel (PWM): screen=", uhex_long_(@pwmFrames))
     matrix.writePwmBuffer(@pwmFrames)
 
-
-
     'debug("- hold for two minutes")
     'waitms(120000)
 
-
-    debug("- done", 13)
+    }
+    'debug("- done", 13)
     'matrix.clearPanel()
-    return      ' do nothing, forever
+
+PUB stop()                  '' stop the driver
+  if cog
+    matrix.stop()
+    cog := 0
 
 PRI waits(nSeconds)
     repeat nSeconds
@@ -179,8 +139,29 @@ CON { frame buffer details }
     MAX_PWM_FRAMES = 8
     PWM_FRAME_SIZE_IN_LONGS = 192
 
+PUB loadScreen(p24bitScreen) | nPanelCol, nPanelRow, blue, green, red, haveError, showDebug
+    debug("- PANEL: loading screen at @", uhex_long_(p24bitScreen))
+    pScreenInMemory := p24bitScreen
+  ' clear buffer
+    clearPwmFrameBuffers()  ' clear PWM frames 
 
-PUB loadBitmap() | nPanelCol, nPanelRow, blue, green, red, haveError, showDebug
+   ' fill buffer
+    repeat nPanelRow from 0 to MAX_ROWS - 1
+        repeat nPanelCol from 0 to MAX_COLUMNS - 1
+
+            red, green, blue := get24BitColorForRC(nPanelRow, nPanelCol)
+            setPixelForRC(nPanelRow, nPanelCol, RGB(red, green, blue))
+
+    matrix.writePwmBuffer(@pwmFrames)
+
+PUB loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, haveError, showDebug, bInvalidFileStatus
+
+    pBitmapFileInMemory := pBitmapFile
+
+    debug("- Study BMP")
+    bInvalidFileStatus := validateBmpFile(pBitmapFile)
+    if bInvalidFileStatus == FALSE
+        return
 
    ' clear buffer
     clearPwmFrameBuffers()  ' clear PWM frames 
@@ -203,7 +184,7 @@ PUB loadBitmap() | nPanelCol, nPanelRow, blue, green, red, haveError, showDebug
                 if isDebugLocn(nPanelRow, nPanelCol) 
                     showDebug := TRUE ' FALSE  ' turn off debug
 
-                blue, green, red := get24BitColorForRC(nPanelRow, nPanelCol)
+                red, green, blue := get24BitBMPColorForRC(nPanelRow, nPanelCol)
 
                 if showDebug
                     debug(" - RC=(", udec_(nPanelRow), ", ", udec_(nPanelCol), "), RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
@@ -246,6 +227,8 @@ PRI setPixelForRC(nPanelRow, nPanelCol, red, green, blue) | rBit, gBit, bBit, pP
 
 VAR { buffer addresses }
 
+    long    pBitmapFileInMemory
+    long    pScreenInMemory
     long    rBuff
     long    gBuff
     long    bBuff
@@ -362,7 +345,7 @@ PRI isDebugLocn(nRow, nCol) : status
     if (nRow == 31 && nCol < 4) || (nRow < 2 && nCol < 3) || (nRow == 31 && nCol > 61) || (nRow < 2 && nCol > 61)
         status := TRUE ' FALSE  ' turn off debug
 
-PUB getPixelAddressForRowColumn(nRow, nColumn) : pixColorAddr | nRowIndex, nColumnIndex, nOffset, fileBitsBase, showDebug
+PRI getPixelAddressForBMPRowColumn(nRow, nColumn) : pixColorAddr | nRowIndex, nColumnIndex, nOffset, fileBitsBase, showDebug
 	' Row is inverted in .BMP file...
 	nRowIndex := (MAX_ROWS - 1) - nRow
 
@@ -377,15 +360,26 @@ PUB getPixelAddressForRowColumn(nRow, nColumn) : pixColorAddr | nRowIndex, nColu
 	' now offset is simple (just multiply by 3! [bytes of color])
     nOffset := (nRowIndex * MAX_COLUMNS * 3) + (nColumnIndex * 3)
 
-    fileBitsBase := @byte[@BitmapFile][bfOffBits]   ' get base of image in file
+    fileBitsBase := @byte[pBitmapFileInMemory][bfOffBits]   ' get base of image in file (skip header)
     pixColorAddr := @byte[fileBitsBase][nOffset]    ' add in offset to 24-bit color
 
     if showDebug
 	    debug("- FileOffset=", udec_(nOffset), ", RC=(", udec_(nRow), ",", udec_(nColumn), ", ofst=", uhex_long_(pixColorAddr), ", base=", uhex_long_(fileBitsBase), ")")
 
-	return
 
-PUB get24BitColorForRC(nRow, nColumn) : red, green, blue | pixColorAddr
+PRI getPixelAddressForRowColumn(nRow, nColumn) : pixColorAddr | nRowIndex, nColumnIndex, nOffset, screenBitsBase, showDebug
+	' Row is NOT inverted in screen image...
+    nRowIndex := 0 #> nRow <# MAX_ROWS - 1
+    ' Column is normal in file...
+    nColumnIndex := 0 #> nColumn <# MAX_COLUMNS - 1
+
+	' now offset is simple (just multiply by 3! [bytes of color])
+    nOffset := (nRowIndex * MAX_COLUMNS * 3) + (nColumnIndex * 3)
+
+    pixColorAddr := @byte[pScreenInMemory][nOffset]    ' add in offset to 24-bit color
+
+
+PRI get24BitColorForRC(nRow, nColumn) : red, green, blue | pixColorAddr
 	if(nRow > MAX_ROWS - 1) 
 		debug("- ERROR bad nRow value [", udec_(nRow), " > ", udec_(MAX_ROWS - 1), "]")
 	
@@ -393,6 +387,19 @@ PUB get24BitColorForRC(nRow, nColumn) : red, green, blue | pixColorAddr
 		debug("- ERROR bad nColumn value [", udec_(nColumn), " > ", udec_(MAX_COLUMNS - 1), "]")
 
     pixColorAddr := getPixelAddressForRowColumn(nRow, nColumn)
+    red := byte[pixColorAddr][0]
+    green := byte[pixColorAddr][1]
+    blue := byte[pixColorAddr][2]
+
+
+PRI get24BitBMPColorForRC(nRow, nColumn) : red, green, blue | pixColorAddr
+	if(nRow > MAX_ROWS - 1) 
+		debug("- ERROR bad nRow value [", udec_(nRow), " > ", udec_(MAX_ROWS - 1), "]")
+	
+	if(nColumn > MAX_COLUMNS - 1) 
+		debug("- ERROR bad nColumn value [", udec_(nColumn), " > ", udec_(MAX_COLUMNS - 1), "]")
+
+    pixColorAddr := getPixelAddressForBMPRowColumn(nRow, nColumn)
     ' our intername .bmp file byte order is BGR!
     blue := byte[pixColorAddr][0]
     green := byte[pixColorAddr][1]
@@ -431,44 +438,40 @@ PUB dbgMemDump(bfrId, buffer, len) | bytBffr, colIdx, rowIdx, maxCol, maxRow
         waitus(85)  ' 50 too short, 70 less issue, 75 better, 
     waitms(1)
 
-DAT
-fileHeaderMsg byte    "File Header",0
-fileStartMsg byte    "FileImage start",0
-fileEndMsg byte    "FileImage end",0
-screenMessage   byte    "screenBuffer",0
-screenRed   byte    "screenRedBuffer",0
-screenBlue   byte    "screenGreenBuffer",0
-screenGreen   byte    "screenBlueBuffer",0
+DAT  { .bmp fiile work area }
 
-            ALIGNL
-BitmapFile    'something to show before load is complete and also storage for bitmap
-            'file "TstBG-Up.bmp" '640 x 480, 8bpp bitmap     (preload buffer before file read??) odd
-            file "TstBGCol.bmp"
-            'file "TstBGSha.bmp"
-            'file "TstOrien.bmp"
-            byte 0[1000] 'a little padding just in case metadata and/or block size makes SD file bigger
+fileHeaderMsg       byte    "File Header",0
+fileStartMsg        byte    "FileImage start",0
+fileEndMsg          byte    "FileImage end",0
+screenMessage       byte    "screenBuffer",0
+screenRed           byte    "screenRedBuffer",0
+screenBlue          byte    "screenGreenBuffer",0
+screenGreen         byte    "screenBlueBuffer",0
 
+                    ALIGNL
+                    byte 0  ' fill aligning header to avoid gaps
+                    byte 0
 BMPHeader     'Mostly using info from here:  http://www.fortunecity.com/skyscraper/windows/364/bmpffrmt.html
-bfType        byte "B","M"
-bfSize        long 0
-bfReserved1   word 0
-bfReserved2   word 0
-bfOffBits     long 54
-biSize        long 40
-biWidth       long 0
-biHeight      long 10
-biPlanes      word 1
-biBitCount    word 24
-biCompression long 0
-biSizeImage   long 0
+bfType              byte "B","M"
+bfSize              long 0
+bfReserved1         word 0
+bfReserved2         word 0
+bfOffBits           long 54
+biSize              long 40
+biWidth             long 0
+biHeight            long 10
+biPlanes            word 1
+biBitCount          word 24
+biCompression       long 0
+biSizeImage         long 0
 
-biXPelsPerMeter         long 0
-biYPelsPerMeter         long 0
+biXPelsPerMeter     long 0
+biYPelsPerMeter     long 0
 
-biClrUsed               long 0
-biClrImportant          long 0
+biClrUsed           long 0
+biClrImportant      long 0
 
-DAT 'Gamma curve
+' Gamma curve (lookup table)
 gamma   byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         byte 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5
         byte 5, 6, 6, 6, 6, 7, 7, 7, 8, 8, 8, 9, 9, 9, 10, 10, 10, 11, 11, 11, 12, 12, 13, 13, 14
@@ -483,3 +486,33 @@ gamma   byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         byte 207, 210, 212, 214, 216, 219, 221, 223, 226, 228, 230, 233, 235, 237, 240, 242, 245
         byte 247, 250, 252, 255
  
+
+        
+CON { license }
+
+{{
+
+  MIT License
+
+  Copyright (c) 2020 Iron Sheep Productions, LLC
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+
+}}
+
