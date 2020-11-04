@@ -81,6 +81,15 @@ PUB setOnOffColors(onColor, offColor)
     emptyRgbColor := offColor
     fullRgbColor := onColor
 
+PUB setFlowHMS(hours, minutes, seconds)
+    '' set the initial time to be displayed
+    'debug("clk:set ", udec(hours), udec(minutes), udec(seconds))
+
+    ' TEST FLOWS FOR NOW...
+    feeds.setHMS(hours, minutes, seconds)
+
+    showSecondsDots( ((seconds // 4) // 2) )
+
 PUB setHMS(hours, minutes, seconds)
     '' set the initial time to be displayed
     'debug("clk:set ", udec(hours), udec(minutes), udec(seconds))
@@ -88,12 +97,7 @@ PUB setHMS(hours, minutes, seconds)
     currMinutes := minutes
     currSeconds := seconds
 
-    ' TEST FLOWS FOR NOW...
-    feeds.setHMS(hours, minutes, seconds)
-
-    showSecondsDots( seconds // 2 )
-
-    return  ' TESTING exit
+    'return  ' TESTING exit
 
     digits[0].setValue(hours / 10)
     digits[1].setValue(hours // 10)

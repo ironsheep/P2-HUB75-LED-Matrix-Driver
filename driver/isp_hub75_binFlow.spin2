@@ -26,8 +26,6 @@ CON { constants affecting appearance }
     ' digit index value names
     #0, DIGIT_HOURS_TENS, DIGIT_HOURS_ONES, DIGIT_MINUTES_TENS, DIGIT_MINUTES_ONES, DIGIT_SECONDS_TENS, DIGIT_SECONDS_ONES
 
-   MAX_DIGITS = 6
-
    START_ROW = -1   ' off screen
    START_COLUMN = 59
 
@@ -127,7 +125,6 @@ VAR { globals }
     byte    dripRemaining
     byte    dripEntryIndex
 
-    byte    currValue[MAX_DIGITS]
     byte    isSetup
 
 PUB null()
@@ -142,69 +139,27 @@ PUB setScreen(pScreen)
     if not isSetup
         initialize()
 
-PUB startFlow(hours, minutes, seconds) | byte newValue[MAX_DIGITS], digitIndex, bitIndex, isValueOK, bitCount, nybbleCount, liveIndex, zerosCount
+PUB startFlow(digitId, fmNybble, toNybble) | bitIndex, bitMask, diffCount, liveIndex, zerosCount
     '' start (1 to 6) * (1 to 4) flows at the same time : h10(2,1), h01(8,4,2,1), m10(4,2,1), m01(8,4,2,1), s10(4,2,1), s01(8,4,2,1)
     if not isMovementComplete()
         debug("flo:start - IGNORED already moving")
     else
-    newValue[0] := hours / 10
-    newValue[1] := hours // 10    
-    newValue[2] := minutes / 10
-    newValue[3] := minutes // 10    
-    newValue[4] := seconds / 10
-    newValue[5] := seconds // 10    
-
-    ' now let's check for more than one nybble being set (only 1 can be at a time)
-    nybbleCount := 0
-    zerosCount := 0
-    repeat digitIndex from 0 to MAX_DIGITS - 1
-        if newValue[digitIndex] > 0
-            nybbleCount++
-            liveIndex := digitIndex
-        else 
-            zerosCount++
-
-    if nybbleCount > 1
-        debug("ERROR more than 1 value selected - can only set 1 flow, Abort")
-        abort
-
-    if nybbleCount == 0 && zerosCount == 6
-        ' we've no incoming values do we have values set to be cleared?
-        nybbleCount := 0
-        zerosCount := 0
-        repeat digitIndex from 0 to MAX_DIGITS - 1
-            if currValue[digitIndex] > 0
-                nybbleCount++
-                liveIndex := digitIndex
-            else 
-                zerosCount++
-        if nybbleCount == 0 && zerosCount == 6
+        diffCount := 0
+        repeat bitIndex from 0 to 3
+            bitMask := 1 << bitIndex
+            if fmNybble & bitMask <> toNybble & bitMask
+                diffCount++
+        if diffCount > 1
+            debug("ERROR ERROR more than 1 bit selected for nybble! Abort")
+            abort
+        elseif diffCount == 0
             debug("ERROR no FLOW requested and nothing to clear! Abort")
-            abort    
+            abort
 
-    ' Ensure that only 1 flow is selected by our input
-    isValueOK := TRUE
-    bitCount := 0
-    repeat bitIndex from 0 to 3 ' we are checking a 4-bit value
-        if (newValue[liveIndex] & (1 << bitIndex)) > 0
-            bitCount++
-        if bitCount > 1
-            isValueOK := FALSE
-            quit
+        ' initiate the single flow
+        initiateFlows(digitId, fmNybble, toNybble)
 
-    if not isValueOK
-        debug("ERROR more than 1 bit selected for nybble(", udec_(liveIndex), ")=", ubin_(newValue[liveIndex]))
-        abort
-
-    if currValue[liveIndex] <> newValue[liveIndex]
-        ' go initiate the single flow
-        initiateFlows(liveIndex, currValue[liveIndex], newValue[liveIndex])
-        currValue[liveIndex] := newValue[liveIndex]
-    else
-        debug("ERROR no FLOW requested - curr&new values are the same! Abort")
-        abort    
-
-PRI initiateFlows(digitId, fmValue, toValue)
+PRI initiateFlows(digitId, fmNybble, toNybble)
     case digitId
         DIGIT_HOURS_TENS:
         DIGIT_HOURS_ONES:
@@ -212,9 +167,9 @@ PRI initiateFlows(digitId, fmValue, toValue)
         DIGIT_MINUTES_ONES:
         DIGIT_SECONDS_TENS:
         DIGIT_SECONDS_ONES:
-            if fmValue & 8 <> toValue & 8
+            if fmNybble & 8 <> toNybble & 8
                 ' something changed, update our display
-                if (fmValue & 8) > 0
+                if (fmNybble & 8) > 0
                     ' our 8 flow is one, turning off - outflow
                     initiateFlow(@outflowS018)
                 else 
@@ -223,9 +178,9 @@ PRI initiateFlows(digitId, fmValue, toValue)
                     headCol := START_COLUMN
                     initiateFlow(@inflowS018)
 
-            if fmValue & 4 <> toValue & 4
+            if fmNybble & 4 <> toNybble & 4
                 ' something changed, update our display
-                if (fmValue & 4) > 0
+                if (fmNybble & 4) > 0
                     ' our 4 flow is one, turning off - outflow
                     initiateFlow(@outflowS014)
                 else 
@@ -234,9 +189,9 @@ PRI initiateFlows(digitId, fmValue, toValue)
                     headCol := START_COLUMN
                     initiateFlow(@inflowS014)
 
-            if fmValue & 2 <> toValue & 2
+            if fmNybble & 2 <> toNybble & 2
                 ' something changed, update our display
-                if (fmValue & 2) > 0
+                if (fmNybble & 2) > 0
                     ' our 2 flow is one, turning off - outflow
                     initiateFlow(@outflowS012)
                 else 
@@ -245,9 +200,9 @@ PRI initiateFlows(digitId, fmValue, toValue)
                     headCol := START_COLUMN
                     initiateFlow(@inflowS012)
 
-            if fmValue & 1 <> toValue & 1
+            if fmNybble & 1 <> toNybble & 1
                 ' something changed, update our display
-                if (fmValue & 1) > 0
+                if (fmNybble & 1) > 0
                     ' our 1 flow is one, turning off - outflow
                     initiateFlow(@outflowS011)
                 else 
@@ -259,16 +214,13 @@ PRI initiateFlows(digitId, fmValue, toValue)
             debug("ERROR! Bad digit selector - initiateFlows(), aborted")
             abort 
 
-PUB isInUse() : inUseStatus | zerosCount, digitIndex
+PUB isInUse() : inUseStatus 
     '' return T/F where T means this flow has bits on the board...
     ' now let's check for any nibbles being set (meaning we did inflow but now outflow)
-    zerosCount := 0
-    repeat digitIndex from 0 to MAX_DIGITS - 1
-        if currValue[digitIndex] == 0
-            zerosCount++
+
     ' if we've a nybble set or we still moving this flow is in use
-    inUseStatus := ((dripCommand == DIR_DONE || dripCommand == DIR_UNKNOWN) && zerosCount == MAX_DIGITS) ? FALSE : TRUE
-    debug("flo:check ", udec(inUseStatus), udec(dripCommand), udec(zerosCount))
+    inUseStatus := (dripCommand == DIR_DONE || dripCommand == DIR_UNKNOWN) ? FALSE : TRUE
+    debug("flo:check ", udec(inUseStatus), udec(dripCommand))
 
 PUB isMovementComplete() : status
     '' Return T/F where T means that all movement for this bit is complete
@@ -389,9 +341,8 @@ PRI popTailBit() : row, col | rcLong, saveTail
 PRI initialize() | digitIndex
     isSetup := TRUE
     dripCommand := DIR_UNKNOWN
-    headRow := headCol := 0
-    repeat digitIndex from 0 to MAX_DIGITS - 1
-        currValue[digitIndex] := 0  ' no bit is filled
+    headRow := headCol := dripEntryCount := 0
+    dripTail := dripHead := 0
 
 PRI drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex, colorOffset, pColor
     '' Place r,g,b colored pixel at r,c
@@ -404,6 +355,7 @@ PRI drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex,
     byte[pColor][0] := color.correctedColor(red)
     byte[pColor][1] := color.correctedColor(green)
     byte[pColor][2] := color.correctedColor(blue)
+    
 CON { license }
 
 {{

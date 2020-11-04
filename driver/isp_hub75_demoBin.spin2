@@ -147,24 +147,33 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
 
     wait100thSecs(digitPeriod)
 
-    repeat bitValue from 0 to 15
+    repeat bitValue from 0 to 9
 
         ' TEST checking out flows - tweaking them
+        clock.setFlowHMS(0, 0, bitValue)
+        display.commitScreenToPanel()
+        wait100thSecs(segmentPeriod)
+        loopUntilBitsFinish()
+
         clock.setHMS(0, 0, bitValue)
         display.commitScreenToPanel()
         wait100thSecs(segmentPeriod)
-
         loopUntilBitsFinish()
 
-        wait100thSecs(digitPeriod)
+        wait100thSecs(digitPeriod)  ' -------------
 
         clock.setHMS(0, 0, 0)
         display.commitScreenToPanel()
         wait100thSecs(segmentPeriod)
-
         loopUntilBitsFinish()
 
-        wait100thSecs(digitPeriod)
+        clock.setFlowHMS(0, 0, 0)
+        display.commitScreenToPanel()
+        wait100thSecs(segmentPeriod)
+        loopUntilBitsFinish()
+
+        wait100thSecs(digitPeriod)  ' -------------
+
 
 {
     clock.setHMS(0, 0, 1)

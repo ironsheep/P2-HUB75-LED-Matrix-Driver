@@ -13,7 +13,7 @@
 
 CON
 
-    MAX_SIMULTANEOUS_FEEDS = 10
+    MAX_SIMULTANEOUS_FEEDS = 14 + 1 ' should only ever have 14:  hours=1+3, minutes=2+3, seconds=2+3 (add 1 extra)
     MAX_DIGITS = 6
 
 
@@ -63,29 +63,10 @@ PUB setHMS(hours, minutes, seconds) | byte newValue[MAX_DIGITS], idleFlowIndex, 
                 'if this bit is changing...
                 if currValue[nybbleIndex] & bitMask <> newValue[nybbleIndex] & bitMask
                     ' we need to animate the change, let's get the next avail. flow
-                    idleFlowIndex := nextIdleFlow() ' no error return: called routine will abort if NONE avail.
-                    case nybbleIndex
-                        0:
-                            bitHours := hours & (bitMask << 4)
-                            bitMinutes := bitSeconds := 0
-                        1:
-                            bitHours := hours & bitMask
-                            bitMinutes := bitSeconds := 0
-                        2:
-                            bitMinutes := minutes & (bitMask << 4)
-                            bitHours := bitSeconds := 0
-                        3:
-                            bitMinutes := minutes & bitMask
-                            bitHours := bitSeconds := 0
-                        4:
-                            bitSeconds := seconds & (bitMask << 4)
-                            bitHours := bitMinutes := 0
-                        5:
-                            bitSeconds := seconds & bitMask
-                            bitHours := bitMinutes := 0
-
-                        flows[idleFlowIndex].startFlow(bitHours, bitMinutes, bitSeconds)
-
+                    idleFlowIndex := nextIdleFlow() ' no error return: called routine will abort if NONE avail!
+                    ' go start the flow!
+                    flows[idleFlowIndex].startFlow(nybbleIndex, currValue[nybbleIndex] & bitMask, newValue[nybbleIndex] & bitMask)
+            ' record  ending state for this nybble
             currValue[nybbleIndex] := newValue[nybbleIndex]
 
 PUB isAnimationComplete() : status | flowIndex
