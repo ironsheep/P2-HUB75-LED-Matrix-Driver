@@ -27,10 +27,10 @@ VAR
 
 OBJ
 
-    screen      : "isp_hub75_text"
+    screen      : "isp_hub75_display"
     digit[4]    : "isp_hub75_7seg"
 
-PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, digitIndex   
+PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, digitIndex, color3bit
     '' start underlying drivers and run demo
     ok := cog := screen.start()   ' send buffer to driver
     if ok == -1
@@ -38,10 +38,15 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, d
         abort
 
     ' do DEMO Things!
+    repeat color3bit from 7 to 0
+        debug("fill w/color=(", udec_(color3bit), ")")
+        screen.fillScreen3Bit(color3bit)
+        repeat 2    ' 3 seconds
+            waitms(1000)
 
     ' clear screen
     'screen.clearScreen()
-
+{
         ' draw some text!
     screen.setTextSize(screen.TEXT_SIZE__5x7)    ' font size 
     screen.setCursor(0, 0)   ' start at top left, with one pixel of spacing
@@ -50,7 +55,8 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, d
     'screen.setColoredTextAtRC(1,0, string("-RGB 3bit-"), screen.cOrange)
     'screen.setColoredTextAtRC(2,0, string("24b color!"), screen.cRainbow)
     'screen.setColoredTextAtRC(3,0, string("led matrix"), screen.cWhite)
- 
+ }
+
  {
     ' print each letter with a rainbow color
     screen.setCharWithColor("6", screen.cRed)
@@ -60,6 +66,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, d
     screen.setCharWithColor("2", screen.cLime)
 }
 
+{
     repeat digitIndex from 0 to 3
         digit[digitIndex].setScreen(screen.getScreenSetup())
 
@@ -98,6 +105,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, d
             quit
         repeat 1    ' 2 secs
             waitms(1000)  
+}
 
 {
     screen.setTextSize(screen.TEXT_SIZE__8x8)    ' font size 
@@ -129,8 +137,8 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, d
                     screen.drawPixelAtRCwithRGB(row, col, red, green, blue)
 
     screen.commitScreenToPanel()
-' --------------------------------------
-}
+' --------------------------------------}
+
 {' --------------------------------------
     ' do corners
     screen.drawPixelAtRCwithRGB(0, 0, 255, 0, 0)

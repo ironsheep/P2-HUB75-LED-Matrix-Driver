@@ -48,8 +48,9 @@ CON { I/O PINs }
     MTX_LED_PIN_CLK = 32
 
     MTX_ROW_ADDR_PINS = MTX_LED_PIN_A ADDPINS 3
-    MTX_LT_COLOR_PINS = MTX_LED_PIN_R1 ADDPINS 2
-    MTX_RT_COLOR_PINS = MTX_LED_PIN_R2 ADDPINS 2
+
+    MTX_COLOR_PINS    = MTX_LED_PIN_R1 ADDPINS 5
+
     MTX_CTL_PINS      = MTX_LED_PIN_CLK ADDPINS 2
 
 CON { Data }
@@ -84,10 +85,9 @@ CON { Data }
 
 VAR
     long  addr_pins       ' ptra[0]
-    long  rgb0_pins       ' ptra[1]
-    long  rgb1_pins       ' ptra[2]
-    long  ptrCommand      ' ptra[3]
-    long  ptrArgument     ' ptra[4]  @buffer -OR- color value [0-7]
+    long  rgb_pins       ' ptra[1]
+    long  ptrCommand      ' ptra[2]
+    long  ptrArgument     ' ptra[3]  @buffer -OR- color value [0-7]
 
        ' write values here to pass to driver
     long  dvrCommand
@@ -107,8 +107,7 @@ PUB start() : ok
 
     ' pass values to our driver
     addr_pins := MTX_ROW_ADDR_PINS
-    rgb0_pins := MTX_LT_COLOR_PINS
-    rgb1_pins := MTX_RT_COLOR_PINS
+    rgb_pins := MTX_COLOR_PINS
     ptrCommand := @dvrCommand
     ptrArgument := @dvrArgument
 
@@ -126,8 +125,7 @@ PUB stop()
         cogstop(cog - 1)
 
     pinclear(MTX_ROW_ADDR_PINS)
-    pinclear(MTX_ROW_ADDR_PINS)
-    pinclear(MTX_ROW_ADDR_PINS)
+    pinclear(MTX_COLOR_PINS)
     pinclear(MTX_CTL_PINS)
 
 ' ----------------------------------------------------------
@@ -162,8 +160,8 @@ PRI setupPins()
     PINLOW(MTX_LED_PIN_LATCH)
     PINHIGH(MTX_LED_PIN_OE)   ' high! (/OE)
     PINLOW(MTX_ROW_ADDR_PINS)
-    PINLOW(MTX_LT_COLOR_PINS)
-    PINLOW(MTX_RT_COLOR_PINS)
+    PINLOW(MTX_COLOR_PINS)
+
 
 PRI dbgMemDump(bfrId, buffer, len) | bytBffr, colIdx, rowIdx, maxCol, maxRow
     debug("`temp 13 13 '", zstr_(bfrId), ": bffr=", uhex_long_(buffer), "(", udec_(len), ")' 13")
@@ -236,11 +234,9 @@ PRI resetPanel() | pinIdx, groupIdx
     repeat pinIdx from 0 to MAX_PINS - 1
         groupIdx := pinIdx // 16
         if groupIdx == 0
-            PINLOW(MTX_LT_COLOR_PINS)
-            PINLOW(MTX_RT_COLOR_PINS)
+            PINLOW(MTX_COLOR_PINS)
         else
-            PINHIGH(MTX_LT_COLOR_PINS)
-            PINHIGH(MTX_RT_COLOR_PINS)
+            PINHIGH(MTX_COLOR_PINS)
 
         ' mark the data
         if pinIdx > (MAX_PINS - 12)
@@ -259,11 +255,9 @@ PRI resetPanel() | pinIdx, groupIdx
     repeat pinIdx from 0 to MAX_PINS - 1
         groupIdx := pinIdx // 16
         if groupIdx <> 9
-            PINLOW(MTX_LT_COLOR_PINS)
-            PINLOW(MTX_RT_COLOR_PINS)
+            PINLOW(MTX_COLOR_PINS)
         else
-            PINHIGH(MTX_LT_COLOR_PINS)
-            PINHIGH(MTX_RT_COLOR_PINS)
+            PINHIGH(MTX_COLOR_PINS)
 
         ' mark the data
         if pinIdx > (MAX_PINS - 13)
@@ -295,15 +289,13 @@ drive_matrix
                     mov     ijmp3, #isr3
                     allowi    ' enable interrupts
                     rdlong  addr_bus, ptra[0]
-                    rdlong  rgb0_bus, ptra[1]
-                    rdlong  rgb1_bus, ptra[2]
-                    rdlong  pCommmand, ptra[3]
-                    rdlong  pArgument, ptra[4]
+                    rdlong  rgb_bus, ptra[1]
+                    rdlong  pCommmand, ptra[2]
+                    rdlong  pArgument, ptra[3]
 
                     or      dirb, maskAllPins   ' set all of our pings to output  for this COG
 
-                    drvl    rgb0_bus
-                    drvl    rgb1_bus
+                    drvl    rgb_bus
                     drvl    addr_bus
 
                     drvl    #MTX_LED_PIN_CLK
@@ -320,7 +312,7 @@ drive_matrix
                     drvl #MTX_LED_PIN_G2
                     drvl #MTX_LED_PIN_B2
 
-                    debug("Addr pinsets: ", uhex_long(pinsAddr),  uhex_long(pinsRGB1RGB2))
+                    debug("Addr pinsets: ", uhex_long(addr_bus),  uhex_long(rgb_bus))
 
 ' init row address
                     mov     row_addr, #$78 ' 15 but in upper nybble
@@ -337,24 +329,24 @@ wrFrame
                     rdlong  nxtArgument, pArgument
                     cmp     nxtCommand, #CMD_DONE  wz
     if_z            jmp     #chksDone  ' redraw current buffer  
-                    'debug("* cmd=", udec_(nxtCommand), ", arg=", uhex_long_(nxtArgument))
+                    debug("* cmd=", udec_(nxtCommand), ", arg=", uhex_long_(nxtArgument))
 chkShow
                     cmp     nxtCommand, #CMD_SHOW_BUFFER    wz
     if_nz           jmp     #chkShowPwm
                     call    #loadBuffer
-                    'debug(" - load done")
+                    debug(" - load done")
                     jmp     #markCmdComplete  ' redraw current buffer  
 chkShowPwm
                     cmp     nxtCommand, #CMD_SHOW_PWM_BUFFER    wz
     if_nz           jmp     #chkFill
                     call    #loadPwmBuffers
-                    'debug(" - PWM frame done")
+                    debug(" - PWM frame done")
                     jmp     #wrFrame          ' check for next command (or same still there)
 chkFill
                     cmp     nxtCommand, #CMD_FILL_COLOR wz
     if_nz           jmp     #chksDone  ' redraw current buffer                
                     call    #fillBuffer
-                    'debug(" - fill done")
+                    debug(" - fill done")
                     jmp     #markCmdComplete  ' redraw current buffer
 '
 ' loadPwmBuffers(nxtArgument=hubAddressOfPWMFrameSet)
@@ -389,25 +381,26 @@ ldLoop1
 ' fillBuffer(nxtArgument=colorvalue3bit)
 '
 fillBuffer      ' fill panel buffer based on desired color
-                    and     nxtArgument, $07
+                    and     nxtArgument, #$07
                     mov     fillLong, nxtArgument
                     shl     fillLong, #3
-                    add     fillLong, nxtArgument   ' completed one byte, do 3 more
+                    or      fillLong, nxtArgument   ' completed one byte, do 3 more
                     mov     fillOffset, fillLong
                     shl     fillLong, #8
-                    or      fillLong, fillOffset
+                    or      fillLong, fillOffset    ' 2 bytes
                     shl     fillLong, #8
-                    or      fillLong, fillOffset
+                    or      fillLong, fillOffset    ' 3 bytes
                     shl     fillLong, #8
-                    or      fillLong, fillOffset
-                    mov     fillOffset, #0
+                    or      fillLong, fillOffset    ' 4 bytes
+                    debug("- (DBG) ", uhex_long(fillLong))
                     call    #setBuffer
                     'call    #dumpTwinRows
                     ret
 '
-' setBuffer(fillOffset, Z=fillValueID)
+' setBuffer(fillLong=fillValueID)
 '
 setBuffer       ' fill red, green or blue buffer with desired long value
+                    mov     fillOffset, #0
                     mov     fillCount, #256
 nextSet
                     altd    fillOffset, #screenBffr
@@ -435,7 +428,7 @@ markCmdComplete
 wrCurrent
                     ' repeat the following forever
                     ' set addr to start
-                    mov     row_addr, #$78 ' 15 but in upper nybble
+                    mov     row_addr, #$78          ' 15 but in upper 5-bits
                     mov     row_ctr, #16            ' 16 -> 0 so we can use djnz
                     mov     reg_offset, #0          ' start of [0-1023] buffer
                     drvl    #MTX_LED_PIN_OE
@@ -451,7 +444,7 @@ clkData
                     SETQ    maskRgb12                   ' load Q bit RGBs mask
                     ALTS    reg_offset, #screenBffr     ' calc addr of source byte and place in instru
                     MUXQ    OUTB, 0-0                   ' write contents of byte anded with mask to output pins
-                    waitx   #NS_015 ' let color settle
+                    waitx   #3 ' let color settle
 
 ' time to begin latch?
                     cmp     col_ctr, #3     wz      ' at last three columns?
@@ -483,17 +476,17 @@ clkData
 
 ' LATCH DATA complete...
                 drvl    #MTX_LED_PIN_LATCH      ' end latch data
-                'waitx   #NS_015 + 1             ' let LATCH settle
+                'waitx   #NS_015 + 1            ' let LATCH settle
 
         ' write address AFTER
-                add     row_addr, #$08 ' 1 but in upper 5 bits
+                add     row_addr, #$08          ' 1 but in upper 5-bits
                 call    #emitAddr
 
                 cmp     row_ctr, #1 wz
-    if_nz       drvl    #MTX_LED_PIN_OE         ' enable output if NOT at end of frame
+    if_nz       drvl    #MTX_LED_PIN_OE         ' enable output if NOT at end of frame!
                 'waitx   #NS_015 + 1
 '
-' wait for inter-line gap
+' ---  inter-line gap  ---
 '
                 'waitx  #((US_001 - 70) / 2) - 39       ' GAP End of LINE ~528 nSec
                 'waitx  #(US_001 / 8)                   ' GAP End of LINE ~372 nSec
@@ -501,8 +494,7 @@ clkData
                 djnz    row_ctr, #wrLine
 '                drvh    #MTX_LED_PIN_OE         ' disable output (between frames)
 
-'
-' wait for inter-frame gap
+' ---  inter-frame gap  ---
 '
                 'rep    #1, #25                 ' GAP end of FRAME ~25 uSec 0.87 Amp
                 'rep    #1, #100                ' GAP end of FRAME ~100.942 uSec 1.19 Amp
@@ -515,8 +507,8 @@ clkData
 '
 emitAddr
                 SETQ    maskAddr
-                MUXQ    OUTB, row_addr
-                'waitx   #3
+                MUXQ    OUTB, row_addr          ' but in upper 5-bits of ls byte of  63-32
+                waitx   #3
                 ret
 
 ' NOTES
@@ -548,13 +540,11 @@ kHighBitSet     long    $8000_0000
 kAllOnes        long    $ffff_ffff
 kAllZeros       long    $0000_0000
 kScreenBuffer   long    @screenBffr
-pinsAddr        long    MTX_LED_PIN_A addpins 3    ' 4-bit address, A is lowest pin
-pinsRGB1RGB2    long    MTX_LED_PIN_R1 addpins 5   ' ls 3-bits RGB1 next 3 are RGB2
 maskAddr        long    %00000000_00000000_00000000_01111000
 'maskRgb12       long    %00000000_00000000_11101110_00000000   ' OLD
 'maskAllPins     long    %00000000_00000000_11101110_11110111   ' OLD
 maskRgb12       long    %00000000_00000000_00111111_00000000   ' NEW    rgb2rgb1 now grounded to lsbit
-maskAllPins     long    %00000000_00000000_00111111_11111111   ' NEW    adds new E addr bit
+maskAllPins     long    %00000000_00000000_00111111_01111111   ' NEW    adds new E addr bit (off for now)
 
 'screen buffer 1024B of %00bgrbgr where byte is 00{rgb2}{rgb1}
                 ALIGNL
@@ -566,8 +556,7 @@ endScreenBffr
 '
 ' BUS pins
 addr_bus        res     1
-rgb1_bus        res     1
-rgb0_bus        res     1
+rgb_bus         res     1
 pCommmand       res     1
 pArgument       res     1
 
@@ -582,7 +571,8 @@ fillCount       res     1       ' [1-64] remaining count of bytes to write
 fillOffset      res     1       ' [0-63] offset into fillBffr
 
 reg_offset      res     1       ' [0-31] byte of red/grn/blu bffr[1/2]
-
+regvalue        res     1
+byt_offset      res     1
 dbgBffr         res     1
 dbgCount        res     1
 

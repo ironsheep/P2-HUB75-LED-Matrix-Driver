@@ -67,7 +67,9 @@ PRI waits(nSeconds)
     repeat nSeconds
         waitms(1000)    ' 1 seconds
 
-
+PUB fillScreen(threeBitColor)
+    '' fill screen but without PWM (for testing underlying driver)
+    matrix.fillPanel(threeBitColor)
 
 PUB loadScreen(p24bitScreen) | nPanelCol, nPanelRow, blue, green, red, haveError, showDebug, pPwmFrameSet
     '' Load a 24-bit image into PWM frame buffers
