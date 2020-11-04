@@ -21,6 +21,10 @@ OBJ
 
     matrix      : "isp_hub75_rgb3bit"
 
+DAT { pre-initialized }
+
+    usePwmFrameset1 byte    TRUE
+
 VAR
 
     long    cog
@@ -28,7 +32,8 @@ VAR
     byte    writebuf[256]  ' a comment here
     long    brightness  ' variable to scale input to reduce brightness   (0..256)
     long    singleBuffer[192]
-    long    pwmFrames[MAX_PWM_FRAMES * PWM_FRAME_SIZE_IN_LONGS]
+    long    pwmFrames1[MAX_PWM_FRAMES * PWM_FRAME_SIZE_IN_LONGS]
+    long    pwmFrames2[MAX_PWM_FRAMES * PWM_FRAME_SIZE_IN_LONGS]
 
 CON { RAM/FLASH }
 
@@ -42,9 +47,7 @@ CON { RAM/FLASH }
 ' ----------------------------------------------------------
 
 PUB start() : ok | color, pScreenBuffer, bInvalidFileStatus, pTemp, nFrameIndex, pFrameBuffer
-    'debug("`term temp size 80 50 textsize 10")
 
-    'setupTerm()
     brightness := 100 ' 256 '128  'set maximum brightness by dividing input, range 0 to 256
 
     debug("- PANEL: Start Matrix COG")
@@ -53,46 +56,7 @@ PUB start() : ok | color, pScreenBuffer, bInvalidFileStatus, pTemp, nFrameIndex,
         debug("- PANEL: underlying drivers failed!")
         abort
 
-    'waitms(1000)
-
-    'return
-    {
-    ' XYZZYpnl debug("- fills")
-    repeat color from 0 to 7
-	    ' XYZZYpnl debug(" -- fill w/", udec_(color))
-    	matrix.fillPanel(color)
-	    waitms(250)
-
-    'return
-    }
-    {
-
-    ' XYZZYpnl debug("-  load PWM frames=", uhex_long_(@pwmFrames))
-    loadBitmap(@BitmapFile)
-    'repeat     ' TESTING, unocomment to STOP here
-
-
-    ' check our frame alignment
-    ' XYZZYpnl debug("-  step thru PWM frames=", uhex_long_(@pwmFrames))
-    repeat nFrameIndex from 7 to 0
-        pFrameBuffer := getPwmFrameAddressForBit(nFrameIndex)
-        matrix.writeBuffer(pFrameBuffer)
-        waits(3)
-
-    ' XYZZYpnl debug("-  clear panel to single color")
-    matrix.fillPanel(matrix.BLACK)
-
-    waits(11)
-
-    ' XYZZYpnl debug("-  write image to panel (PWM): screen=", uhex_long_(@pwmFrames))
-    matrix.writePwmBuffer(@pwmFrames)
-
-    'debug("- hold for two minutes")
-    'waitms(120000)
-
-    }
-    'debug("- done", 13)
-    'matrix.clearPanel()
+    clearPwmFrameBuffer()  ' clear PWM frames  and get pointer to buffer
 
 PUB stop()                  '' stop the driver
   if cog
@@ -102,24 +66,6 @@ PUB stop()                  '' stop the driver
 PRI waits(nSeconds)
     repeat nSeconds
         waitms(1000)    ' 1 seconds
-
-PUB setupTerm() | r
-    'setup serial port output
-    'uart.start(Baudrate)
-    'send := @uart.tx
-
-    'wait a few seconds for terminal to get ready
-
-    'repeat r from 4 to 1
-      'waitms(1000)
-      'uart.dec(r)
-      'uart.tx(13)
-
-    'send("- TERM set up 13")
-
-    return
-
-
 
 ' ----------------------------------------------------------
 ' theory  3 bits per pixel
@@ -139,32 +85,38 @@ CON { frame buffer details }
     MAX_PWM_FRAMES = 8
     PWM_FRAME_SIZE_IN_LONGS = 192
 
-PUB loadScreen(p24bitScreen) | nPanelCol, nPanelRow, blue, green, red, haveError, showDebug
+PUB loadScreen(p24bitScreen) | nPanelCol, nPanelRow, blue, green, red, haveError, showDebug, pPwmFrameSet
     ' XYZZYpnl debug("- PANEL: loading screen at @", uhex_long_(p24bitScreen))
-    pScreenInMemory := p24bitScreen
-  ' clear buffer
-    clearPwmFrameBuffers()  ' clear PWM frames 
 
-   ' fill buffer
+    ' save address of 24bit screen for use by called routines
+    pScreenInMemory := p24bitScreen
+  ' clear 8x 3-bit frames
+    'pPwmFrameSet := clearPwmFrameBuffer()  ' clear PWM frames  and get pointer to buffer
+    pPwmFrameSet := getActivePwmBuffer()    ' TESTING
+
+   ' fill 8x 3-bit frames from 24-bit-screen
     repeat nPanelRow from 0 to MAX_ROWS - 1
         repeat nPanelCol from 0 to MAX_COLUMNS - 1
 
             red, green, blue := get24BitColorForRC(nPanelRow, nPanelCol)
             setPixelForRC(nPanelRow, nPanelCol, RGB(red, green, blue))
 
-    matrix.writePwmBuffer(@pwmFrames)
+    ' write 8x 3-bit frames to panel
+    matrix.writePwmBuffer(pPwmFrameSet)
 
-PUB loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, haveError, showDebug, bInvalidFileStatus
+PUB loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, haveError, showDebug, bInvalidFileStatus, pPwmFrameSet
 
+    ' save address of 24bit file image for use by called routines
     pBitmapFileInMemory := pBitmapFile
 
     ' XYZZYpnl debug("- Study BMP")
     bInvalidFileStatus := validateBmpFile(pBitmapFile)
     if bInvalidFileStatus == FALSE
-        return
+        ' TODO: how do we warn of this?
+        abort
 
    ' clear buffer
-    clearPwmFrameBuffers()  ' clear PWM frames 
+    pPwmFrameSet := clearPwmFrameBuffer()  ' clear PWM frames  and get pointer to buffer
 
    ' fill buffer
     repeat nPanelRow from 0 to 31
@@ -204,13 +156,22 @@ PRI RGB(red, green, blue) : r, g, b
 
     'return r,g,b
 
-PRI clearPwmFrameBuffers()                      '' clear entire PWM buffer
-    longfill(@pwmFrames, 0, PWM_FRAME_SIZE_IN_LONGS * MAX_PWM_FRAMES)
+PRI clearPwmFrameBuffer() : pPwmFrameSet              
+    '' clear entire PWM buffer
+    ' implement double buffering by alternating between our two pwm-frame-sets
+    pPwmFrameSet := getActivePwmBuffer()
+    'usePwmFrameset1 := !usePwmFrameset1
+    debug("- active buffer=", uhex_long_(pPwmFrameSet))
+    longfill(pPwmFrameSet, 0, PWM_FRAME_SIZE_IN_LONGS * MAX_PWM_FRAMES)
+
+PRI getActivePwmBuffer() : pPwmFrameSet
+    pPwmFrameSet := (usePwmFrameset1) ? @pwmFrames1 : @pwmFrames2
+
 
 PRI getPwmFrameAddressForBit(nBitNumber) : pFrameBuffer | nFrameOffset, frameIdx    '' return indexed PWM Frame address
     frameIdx := 0 #> nBitNumber <# 7    ' MAX 8 pwm frames so limit our index
     nFrameOffset := frameIdx * PWM_FRAME_SIZE_IN_LONGS ' 192 longs in each frame
-    pFrameBuffer := @long[@pwmFrames][nFrameOffset]
+    pFrameBuffer := @long[getActivePwmBuffer()][nFrameOffset]
     'debug("- PWM frame(", udec_(frameIdx), "), ", uhex_long(pFrameBuffer))
 
 PRI setPixelForRC(nPanelRow, nPanelCol, red, green, blue) | rBit, gBit, bBit, pPwmFrame, bitNumber  '' for each 24bit color write to PWM frames

@@ -53,7 +53,7 @@ PUB null()
 
 PUB setScreen(pScreen, pixRows, pixColumns)
     '' Save the location and size of our external screen buffer
-    debug("7s:setScreen")
+    'debug("7s:setScreen")
     pExtScreen := pScreen
     maxBitColumns := pixColumns
     maxBitRows := pixRows
@@ -61,7 +61,7 @@ PUB setScreen(pScreen, pixRows, pixColumns)
 PUB placeDigit(row, column, digit, rgbColor)
     '' locate a desired digit on our screen. Draw initial segement if state is NOT off
     ' now we can inform segements of their own locations
-    debug("7s:placeDigit rc=(", udec_(row), ",", udec_(column),"), dgt=(", udec_(digit), "), RGB=(", uhex_long_(rgbColor),")")
+    'debug("7s:placeDigit rc=(", udec_(row), ",", udec_(column),"), dgt=(", udec_(digit), "), RGB=(", uhex_long_(rgbColor),")")
     leftX :=  0 #> column <# maxBitColumns - 1
     topY :=  0 #> row <# maxBitRows - 1
     currRgbColor := rgbColor

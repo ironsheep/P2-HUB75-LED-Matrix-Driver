@@ -300,6 +300,8 @@ drive_matrix
                     rdlong  pCommmand, ptra[3]
                     rdlong  pArgument, ptra[4]
 
+                    or      dirb, maskAllPins   ' set all of our pings to output  for this COG
+
                     drvl    rgb0_bus
                     drvl    rgb1_bus
                     drvl    addr_bus
@@ -318,8 +320,10 @@ drive_matrix
                     drvl #MTX_LED_PIN_G2
                     drvl #MTX_LED_PIN_B2
 
+                    debug("Addr pinsets: ", uhex_long(pinsAddr),  uhex_long(pinsRGB1RGB2))
+
 ' init row address
-                    mov     row_addr, #15
+                    mov     row_addr, #$f0 ' 15 but in upper nybble
 
 ' write address
                     call    #emitAddr
@@ -428,7 +432,7 @@ markCmdComplete
 wrCurrent
                     ' repeat the following forever
                     ' set addr to start
-                    mov     row_addr, #15
+                    mov     row_addr, #$f0 ' 15 but in upper nybble
                     mov     row_ctr, #16            ' 16 -> 0 so we can use djnz
                     mov     reg_offset, #0          ' long[0-31] within red/grn/blu buffer
                     mov     bit_offset, #31
@@ -466,15 +470,25 @@ clkData
 ' time to begin latch?
                     cmp     col_ctr, #3     wz      ' at last three columns?
     if_z            drvh    #MTX_LED_PIN_OE
-    if_z            waitx   #NS_015 + 1             ' let /OE settle
+    'if_z            waitx   #NS_015 + 1            ' let /OE settle
+    if_z            waitx   #3  ' 17.5 - 20  nSec
     if_z            drvh    #MTX_LED_PIN_LATCH
-    if_z            waitx   #NS_015 + 1             ' let LATCH settle
+    'if_z            waitx   #NS_015 ' + 1           ' let LATCH settle
+    if_z            waitx   #3  ' 17.5 - 20  nSec
 
                     ' toggle clock
-                    drvh    #MTX_LED_PIN_CLK
-                    waitx   #NS_015
-                    drvl    #MTX_LED_PIN_CLK
-                    waitx   #NS_015
+
+                    ' no waitx/nop is doing 2nSec pulse  EEK!
+                    'waitx   #4     ' 27 nSec
+                    'nop     ' 1x 10-12.5 nSec
+                    'nop     ' 2x 15-17.5 nSec
+                    'drvh    #MTX_LED_PIN_CLK
+                    'waitx   #NS_015
+                    'drvl    #MTX_LED_PIN_CLK
+
+                    drvnot  #MTX_LED_PIN_CLK
+                    waitx   #3  ' 17.5 - 20  nSec
+                    drvnot  #MTX_LED_PIN_CLK
 
                     ' setup for next column
                     add     col_addr, #1
@@ -485,29 +499,30 @@ clkData
 
 ' LATCH DATA complete...
                 drvl    #MTX_LED_PIN_LATCH      ' end latch data
-                waitx   #NS_015 + 1             ' let LATCH settle
+                'waitx   #NS_015 + 1             ' let LATCH settle
 
         ' write address AFTER
-                add     row_addr, #1
+                add     row_addr, #$10 ' 1 but in upper nybble
                 call    #emitAddr
 
-                drvl    #MTX_LED_PIN_OE         ' enable output
-                waitx   #NS_015 + 1
+                cmp     row_ctr, #1 wz
+    if_nz       drvl    #MTX_LED_PIN_OE         ' enable output if NOT at end of frame
+                'waitx   #NS_015 + 1
 '
 ' wait for inter-line gap
 '
                 'waitx  #((US_001 - 70) / 2) - 39       ' GAP End of LINE ~528 nSec
                 'waitx  #(US_001 / 8)                   ' GAP End of LINE ~372 nSec
-                waitx   #(US_001 / 16)                  ' GAP End of LINE ~310 nSec
+                'waitx   #(US_001 / 16)                  ' GAP End of LINE ~310 nSec
                 djnz    row_ctr, #wrLine
-                drvh    #MTX_LED_PIN_OE         ' disable output (between frames)
+'                drvh    #MTX_LED_PIN_OE         ' disable output (between frames)
 
 '
 ' wait for inter-frame gap
 '
                 'rep    #1, #25                 ' GAP end of FRAME ~25 uSec 0.87 Amp
                 'rep    #1, #100                ' GAP end of FRAME ~100.942 uSec 1.19 Amp
-                waitx   #US_001                 ' GAP end of FRAME ~1.345 uSec 0.74 Amp
+                'waitx   #US_001                 ' GAP end of FRAME ~1.345 uSec 0.74 Amp
 .wrFrameEnd
                 jmp     #wrFrame
 
@@ -515,19 +530,20 @@ clkData
 ' subroutines
 '
 emitAddr
-                ' write address
-                testb   row_addr, #3    wc      ' bit 2^3
-                drvc    #MTX_LED_PIN_D
-                testb   row_addr, #2    wc      ' bit 2^2
-                drvc    #MTX_LED_PIN_C
-                testb   row_addr, #1    wc      ' bit 2^1
-                drvc    #MTX_LED_PIN_B
-                testb   row_addr, #0    wc      ' bit 2^0
-                drvc    #MTX_LED_PIN_A
-                waitx   #NS_015 + 1     ' let addr stabilize
+                SETQ    maskAddr
+                MUXQ    OUTB, row_addr
+                'waitx   #3
                 ret
 
+{{ NOTES
 
+   Research  SETQ  {#}D     ' Set Q to D. Use before RDLONG/WRLONG/WMLONG
+             MUXQ  D,{#}S   ' Used after SETQ. For each '1' bit in Q, copy the corresponding bit in S into D. D = (D & !Q) | (S & Q).\\
+
+             SETQ  {#}D             ' write D to Q (is this our pinset?)
+             MUXQ  OUTB, {#}S       ' write S to OUTB masked by Q (is Q our pinseet?)
+    combination... is supposed to be means to write data to pinset as output instruction
+}}
 isr1
                 nop
                 reti1
@@ -548,6 +564,11 @@ kHighBitSet     long    $8000_0000
 kAllOnes        long    $ffff_ffff
 kAllZeros       long    $0000_0000
 kScreenBuffer   long    @screenBffr
+pinsAddr        long    MTX_LED_PIN_A addpins 3    ' 4-bit address, A is lowest pin
+pinsRGB1RGB2    long    MTX_LED_PIN_R1 addpins 5   ' ls 3-bits RGB1 next 3 are RGB2
+maskAddr        long    %00000000_00000000_00000000_11110000
+maskRgb12       long    %00000000_00000000_11101110_00000000   ' OLD
+maskAllPins     long    %00000000_00000000_11101110_11110111   ' OLD
 
 ' screen buffer 768B - 3x 256B / 1x 256B red, 1x 256B green, 1x 256B blue
                 ALIGNL
