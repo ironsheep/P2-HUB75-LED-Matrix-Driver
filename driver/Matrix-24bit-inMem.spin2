@@ -104,10 +104,12 @@ PUB start() | ok, color, pScreenBuffer, pImageBits, pTemp
 
     debug("- load image fm .bmp")
     loadBitmap(@singleBuffer, pImageBits)
+
+    dumpTwinRows()
     ' dump full buffers
     'dbgMemDump(@screenRed,@long[@singleBuffer][0],256)
     'dbgMemDump(@screenGreen,@long[@singleBuffer][64],256)
-    dbgMemDump(@screenBlue,@long[@singleBuffer][128],256)
+    'dbgMemDump(@screenBlue,@long[@singleBuffer][128],256)
 
     debug("-  write image to panel: screen=", uhex_long_(@singleBuffer))
     debug("-   bit counts:  RGB=(", udec_(rCount), udec_(gCount), udec_(bCount),")")
@@ -150,10 +152,10 @@ CON  { matrix information }
   MAX_ROWS = 32
   MAX_COLUMNS = 64
 
-PUB loadBitmap(pTarget, pSource) | nPanelCol, nPanelRow, blue, green, red, haveError
-    rBuff := @long[pTarget+0]
-    gBuff := @long[pTarget+256]
-    bBuff := @long[pTarget+512]
+PUB loadBitmap(pTarget, pSource) | nPanelCol, nPanelRow, blue, green, red, haveError, showDebug
+    rBuff := @long[pTarget][0]
+    gBuff := @long[pTarget][64]
+    bBuff := @long[pTarget][128]
 
     'debug("`temp '", uhex_long(rBuff), " ' 13")
     'debug("`temp '", uhex_long(gBuff), " ' 13")
@@ -177,7 +179,16 @@ PUB loadBitmap(pTarget, pSource) | nPanelCol, nPanelRow, blue, green, red, haveE
                 debug("- ERROR bad nPanelCol value [", udec_(nPanelCol), " > ", udec_(MAX_COLUMNS - 1), "]")
                 haveError := TRUE
             if haveError == FALSE
+
+                showDebug := FALSE
+                if isDebugLocn(nPanelRow, nPanelCol) 
+                    showDebug := TRUE ' FALSE  ' turn off debug
+
                 blue, green, red := get24BitColorForRC(nPanelRow, nPanelCol)
+
+                if showDebug
+                    debug(" - RC=(", udec_(nPanelRow), ", ", udec_(nPanelCol), "), RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
+
                 setPixelForRC(nPanelRow, nPanelCol, RGB(red, green, blue))
     'dumpTwinRows()
 
@@ -209,7 +220,7 @@ PRI setPixelForRC(nPanelRow, nPanelCol, red, green, blue) | rBit, gBit, bBit
         bCount++ 
     ' only write if we are changing something
     if rBit || gBit || bBit
-        setColorBitsForRC(nPanelRow, nPanelCol, rBit, gBit, bBit)
+        setPanelColorBitsForRC(nPanelRow, nPanelCol, rBit, gBit, bBit)
 
 VAR { buffer addresses }
 
@@ -220,7 +231,7 @@ VAR { buffer addresses }
     long    gCount
     long    bCount
 
-PRI setColorBitsForRC(nPanelRow, nPanelCol, rBit, gBit, bBit) | nBffrR, nBffrC, bitIdx, longIdx, longBefore, showDebug, rPtr, gPtr, bPtr
+PRI setPanelColorBitsForRC(nPanelRow, nPanelCol, rBit, gBit, bBit) | nBffrR, nBffrC, bitIdx, longIdx, longBefore, showDebug, rPtr, gPtr, bPtr
     nBffrR := 0 #> nPanelRow <# MAX_ROWS - 1
     nBffrC := 0 #> nPanelCol <# MAX_COLUMNS - 1
 
@@ -230,14 +241,14 @@ PRI setColorBitsForRC(nPanelRow, nPanelCol, rBit, gBit, bBit) | nBffrR, nBffrC, 
     rPtr := @long[rBuff][longIdx]
     gPtr := @long[gBuff][longIdx]
     bPtr := @long[bBuff][longIdx]
-    if nPanelRow == 0 && nPanelCol == 0
-        debug("`temp '", uhex_long(rPtr), " ' 13")
-        debug("`temp '", uhex_long(gPtr), " ' 13")
-        debug("`temp '", uhex_long(bPtr), " ' 13")
+    'if nPanelRow == 0 && nPanelCol == 0
+    '    debug("`temp '", uhex_long(rPtr), " ' 13")
+    '    debug("`temp '", uhex_long(gPtr), " ' 13")
+    '    debug("`temp '", uhex_long(bPtr), " ' 13")
 
     showDebug := FALSE
     'if (bitIdx == 0 || bitIdx == 31) && nBffrR < 2
-    if nBffrR == 31 && nBffrC > 31
+    if isDebugLocn(nBffrR, nBffrC) 
         showDebug := TRUE ' FALSE  ' turn off debug
 
     if showDebug
@@ -247,13 +258,13 @@ PRI setColorBitsForRC(nPanelRow, nPanelCol, rBit, gBit, bBit) | nBffrR, nBffrC, 
         longBefore := long[rPtr]
         long[rPtr] |= 1 << bitIdx
         if showDebug
-            'debug("Rbit(", udec_(rBit), ") longIdx(", udec_(longIdx), ")  bitIdx(", udec_(bitIdx), ") R-word: ", uhex_long_(longBefore), " -> ",uhex_long_(long[rPtr]))
+            debug("Rbit(", udec_(rBit), ") longIdx(", udec_(longIdx), ")  bitIdx(", udec_(bitIdx), ") R-word: ", uhex_long_(longBefore), " -> ",uhex_long_(long[rPtr]))
 
     if gBit > 0
         longBefore := long[gPtr]
         long[gPtr] |= 1 << bitIdx
         if showDebug
-            'debug("Gbit(", udec_(rBit), ") longIdx(", udec_(longIdx), ")  bitIdx(", udec_(bitIdx), ") G-word: ", uhex_long_(longBefore), " -> ",uhex_long_(long[gPtr]))
+            debug("Gbit(", udec_(rBit), ") longIdx(", udec_(longIdx), ")  bitIdx(", udec_(bitIdx), ") G-word: ", uhex_long_(longBefore), " -> ",uhex_long_(long[gPtr]))
 
     if bBit > 0
         longBefore := long[bPtr]
@@ -285,16 +296,16 @@ PRI readBitmapHeader(pBffr) : pLastByte | p, i, iStart, iEnd
     p += i
 
     iStart := pBffr + bfOffBits
-    iEnd := iStart + (biHeight*biWidth*3)-1
+    iEnd := iStart + biSizeImage - 1
 
     ' return pointer to last byte in bitmap
-    pLastByte := p+(biHeight*biWidth*3)-1
+    pLastByte := p + (biHeight * biWidth * 3) - 1
 
     debug("BitMap file @0x", uhex_(pBffr))
     debug(" - size=", udec_(bfSize))
     debug(" - OffsetBits=", udec_(bfOffBits))
     'debug(" - #planes=", udec_(biPlanes))
-    debug(" - w,l=", udec_(biWidth), ",", udec_(biHeight))
+    debug(" - w,h=", udec_(biWidth), ",", udec_(biHeight))
     debug(" - szImage=", udec_(biSizeImage))
     'debug(" - compression=", udec_(biCompression))
     debug(" - bitCount=", udec_(biBitCount))
@@ -324,8 +335,14 @@ PRI readBitmapHeader(pBffr) : pLastByte | p, i, iStart, iEnd
     'dbgMemDump(@fileStartMsg, iStart, 32)
     'dbgMemDump(@fileEndMsg, iEnd-32-1, 32)
      return pLastByte
+     
+PRI isDebugLocn(nRow, nCol) : status
+    status := FALSE
+    return
+    if (nRow == 31 && nCol < 4) || (nRow < 2 && nCol < 3) || (nRow == 31 && nCol > 61) || (nRow < 2 && nCol > 61)
+        status := TRUE ' FALSE  ' turn off debug
 
-PUB getPixelAddressForRowColumn(nRow, nColumn) : pixColorAddr | nRowIndex, nColumnIndex, nOffset, fileBitsBase
+PUB getPixelAddressForRowColumn(nRow, nColumn) : pixColorAddr | nRowIndex, nColumnIndex, nOffset, fileBitsBase, showDebug
 
 	if(nRow > MAX_ROWS - 1) 
 		debug("- ERROR bad nRow value [", udec_(nRow), " > ", udec_(MAX_ROWS - 1), "]")
@@ -335,34 +352,44 @@ PUB getPixelAddressForRowColumn(nRow, nColumn) : pixColorAddr | nRowIndex, nColu
 	
 	' Row is inverted in file...
 	nRowIndex := (MAX_ROWS - 1) - nRow
+
 	' Column is normal in file...
 	nColumnIndex := nColumn
-	' now offset is simple 
-	nOffset := (nRowIndex * MAX_COLUMNS * 3) + (nColumnIndex * 3)
-	'debug("- FileOffset=", udec_(nOffset), ", RC=(", udec_(nRow), ",", udec_(nColumn), ")")
 
-    fileBitsBase := byte[@BitmapFile + bfOffBits]
-    pixColorAddr := @byte[fileBitsBase + nOffset]
+    showDebug := FALSE
+    'if (bitIdx == 0 || bitIdx == 31) && nBffrR < 2
+    if isDebugLocn(nRow, nColumn)
+        showDebug := TRUE ' FALSE  ' turn off debug
+
+	' now offset is simple (just multiply by 3! [bytes of color])
+    nOffset := (nRowIndex * MAX_COLUMNS * 3) + (nColumnIndex * 3)
+
+    fileBitsBase := @byte[@BitmapFile][bfOffBits]   ' get base of image in file
+    pixColorAddr := @byte[fileBitsBase][nOffset]    ' add in offset to 24-bit color
+
+    if showDebug
+	    debug("- FileOffset=", udec_(nOffset), ", RC=(", udec_(nRow), ",", udec_(nColumn), ", ofst=", uhex_long_(pixColorAddr), ", base=", uhex_long_(fileBitsBase), ")")
 
 	return
 
 PUB get24BitColorForRC(nRow, nColumn) : blue, green, red | pixColorAddr
     pixColorAddr := getPixelAddressForRowColumn(nRow, nColumn)
-    blue := byte[pixColorAddr+0]
-    green := byte[pixColorAddr+1]
-    red := byte[pixColorAddr+2]
+    ' our intername .bmp file byte order is BGR!
+    blue := byte[pixColorAddr][0]
+    green := byte[pixColorAddr][1]
+    red := byte[pixColorAddr][2]
 
 PUB showPixelAtRC(nRow, nColumn) | blue, green, red
 	blue, green, red := get24BitColorForRC(nRow,nColumn)
-	debug("- RC=", udec_(nRow), ",", udec_(nColumn), "  is RGB=(", uhex_(red), ",", uhex_(green), ",", uhex_(blue), ")")
+	debug("- RC=(", udec_(nRow), ",", udec_(nColumn), ")  is RGB=(", uhex_(red), ",", uhex_(green), ",", uhex_(blue), ")")
 
 PRI dumpTwinRows()
-    debug("`temp ' Red TL,R ", uhex_long_(singleBuffer+0), ", ", uhex_long_(singleBuffer+1), " ' 13")
-    debug("`temp ' Red BL,R ", uhex_long_(singleBuffer+62), ", ", uhex_long_(singleBuffer+63), " ' 13")
-    debug("`temp ' Grn TL,R ", uhex_long_(singleBuffer+64), ", ", uhex_long_(singleBuffer+65), " ' 13")
-    debug("`temp ' Grn BL,R ", uhex_long_(singleBuffer+126), ", ", uhex_long_(singleBuffer+127), " ' 13")
-    debug("`temp ' Blu TL,R ", uhex_long_(singleBuffer+128), ", ", uhex_long_(singleBuffer+129), " ' 13")
-    debug("`temp ' Blu BL,R ", uhex_long_(singleBuffer+190), ", ", uhex_long_(singleBuffer+191), " ' 13")
+    debug("`temp ' Red TL,R ", uhex_long_(long[@singleBuffer][0]), ", ", uhex_long_(long[@singleBuffer][1]), " ' 13")
+    debug("`temp ' Red BL,R ", uhex_long_(long[@singleBuffer][62]), ", ", uhex_long_(long[@singleBuffer][63]), " ' 13")
+    debug("`temp ' Grn TL,R ", uhex_long_(long[@singleBuffer][64]), ", ", uhex_long_(long[@singleBuffer][65]), " ' 13")
+    debug("`temp ' Grn BL,R ", uhex_long_(long[@singleBuffer][126]), ", ", uhex_long_(long[@singleBuffer][127]), " ' 13")
+    debug("`temp ' Blu TL,R ", uhex_long_(long[@singleBuffer][128]), ", ", uhex_long_(long[@singleBuffer][129]), " ' 13")
+    debug("`temp ' Blu BL,R ", uhex_long_(long[@singleBuffer][190]), ", ", uhex_long_(long[@singleBuffer][191]), " ' 13")
 
 
 PUB dbgMemDump(bfrId, buffer, len) | bytBffr, colIdx, rowIdx, maxCol, maxRow
@@ -400,6 +427,7 @@ screenGreen   byte    "screenBlueBuffer",0
             ALIGNL
 BitmapFile    'something to show before load is complete and also storage for bitmap
             file "TstBG-Up.bmp" '640 x 480, 8bpp bitmap     (preload buffer before file read??) odd
+            'file "TstOrien.bmp"
             byte 0[1000] 'a little padding just in case metadata and/or block size makes SD file bigger
 
 BMPHeader     'Mostly using info from here:  http://www.fortunecity.com/skyscraper/windows/364/bmpffrmt.html

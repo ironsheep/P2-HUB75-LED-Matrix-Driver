@@ -305,7 +305,7 @@ drive_matrix
 
 ' write address
                     call    #emitAddr
-                    call    #dumpTwinRows
+                    'call    #dumpTwinRows
 
 wrFrame
                     rdlong  nxtCommand, pCommmand
@@ -351,7 +351,7 @@ fillBuffer      ' fill panel buffer based on desired color
                     mov     fillOffset, #BLUE_OFFSET
                     testbn  nxtArgument, #BLUE_BIT   wz
                     call    #setBuffer
-                    call    #dumpTwinRows
+                    'call    #dumpTwinRows
                     ret
 '
 ' setBuffer(fillOffset, Z=fillValueID)
