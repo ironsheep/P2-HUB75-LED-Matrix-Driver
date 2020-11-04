@@ -55,15 +55,18 @@ VAR
     long    maxBitRows
     long    maxBitColumns
 
+    byte    defaultBrightness
+
 PUB null()
     '' This is NOT a top level object
 
-PUB setScreen(pScreen)
+PUB setScreen(pScreen, brightness)
     'debug("seg:setScreen()")
     '' Save the location of our external screen buffer
     pExtScreen := pScreen
     maxBitColumns := hardware.MAX_PANEL_COLUMNS
     maxBitRows := hardware.MAX_PANEL_ROWS
+    defaultBrightness := brightness
 
 PUB placeSegment(row, column, orientation, initialState, rgbColor)
     'debug("seg:placeSegment rc=(", udec_(row), ",", udec_(column), "), orient=(", udec_(orientation), "), state=(", udec_(initialState), "), RGB=(", uhex_long_(rgbColor),")")
@@ -338,9 +341,9 @@ PUB drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex,
     pColor := @byte[pExtScreen][colorOffset]
     'if isDebugLocn(rowIndex, columnIndex)
         'debug("- Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
-    byte[pColor][0] := red
-    byte[pColor][1] := green
-    byte[pColor][2] := blue
+    byte[pColor][0] := (red * defaultBrightness) >> 8
+    byte[pColor][1] := (green * defaultBrightness) >> 8
+    byte[pColor][2] := (blue * defaultBrightness) >> 8
 
 PUB rgbForCValue(combinedValue) : red, green, blue
     '' CONVERT combined color value to r,g,b

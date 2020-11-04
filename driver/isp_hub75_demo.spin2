@@ -28,6 +28,8 @@ VAR
     long    digitPeriod
     long    digitVal
     long    digitIndex
+    long    hours
+    long    minutes
 
 OBJ
 
@@ -133,7 +135,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     'repeat  ' hold forever
 
     segmentPeriod := 8     ' 4 x 100ths of a second
-    digitPeriod := 90    '7     ' 4 x 100ths of a second
+    digitPeriod := 12    ' 90     ' 4 x 100ths of a second
 
         ' draw some text!
     display.setTextSize(display.TEXT_SIZE__5x7)    ' font size 
@@ -143,6 +145,44 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     display.setColoredTextAtRC(0,0, string("iron sheep"), display.cMaroon)
     display.commitScreenToPanel()
 
+    ' High Speed CLOCK demo
+     repeat digitIndex from 0 to 3
+        digit[digitIndex].setScreen(display.getScreenSetup())   
+
+    hours := minutes := 0
+
+    digit[0].placeDigit(8, 2, 0, display.cOrange)
+    digit[1].placeDigit(8, 17, 0, display.cOrange)
+    digit[2].placeDigit(8, 35, 0, display.cOrange)
+    digit[3].placeDigit(8, 50, 0, display.cOrange)
+
+    display.commitScreenToPanel()
+    wait100thSecs(segmentPeriod)
+
+    loopUntilSegmentsFinish()
+
+    ' PAUSE to see digit before next morph
+    wait100thSecs(digitPeriod)
+
+    repeat hours from 0 to 12
+
+        repeat minutes from 0 to 59
+
+            digit[0].setValue(hours / 10)
+            digit[1].setValue(hours // 10)
+            digit[2].setValue(minutes / 10)
+            digit[3].setValue(minutes // 10)
+
+            display.commitScreenToPanel()
+            wait100thSecs(segmentPeriod)
+
+            showSecondsDots( minutes // 2 )
+
+            loopUntilSegmentsFinish()
+
+            wait100thSecs(digitPeriod)  
+{
+' transitional DEMO
     repeat digitIndex from 0 to 3
         digit[digitIndex].setScreen(display.getScreenSetup())
 
@@ -171,7 +211,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
         loopUntilSegmentsFinish()
 
         wait100thSecs(digitPeriod)   
-
+}
 {
     display.setTextSize(display.TEXT_SIZE__8x8)    ' font size 
     display.setCursor(2, 0)   ' start at top left, with one pixel of spacing
@@ -222,6 +262,22 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
 
     debug("DEMO: done")
     repeat
+
+PRI showSecondsDots(lightDark) | red, green, blue, targetColor
+   ' lightDarkv[0,1] where 1 means bright color
+    if lightDark == 0
+        targetColor := $00006F
+    else 
+        targetColor := $0080FF
+
+    drawSecondsDot(15, 31, targetColor)
+    drawSecondsDot(23, 31, targetColor)
+
+PRI drawSecondsDot(row, column, rgbColor)
+    display.drawPixelAtRC(row, column, rgbColor)
+    display.drawPixelAtRC(row, column+1, rgbColor)
+    display.drawPixelAtRC(row+1, column, rgbColor)
+    display.drawPixelAtRC(row+1, column+1, rgbColor)
 
 PRI allDigitAnimationsComplete() : status
     status := TRUE

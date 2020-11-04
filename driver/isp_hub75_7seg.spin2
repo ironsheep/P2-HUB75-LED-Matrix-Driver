@@ -49,18 +49,20 @@ VAR { globals }
     long    maxBitRows
     long    maxBitColumns
     long    defaultColor
-
+    
+    byte    defaulBrightness
     byte    isSetup
 
 PUB null()
     '' This is NOT a top level object
 
-PUB setScreen(pScreen)
+PUB setScreen(pScreen, brightness)
     '' Save the location of our external screen buffer
     'debug("7s:setScreen")
     pExtScreen := pScreen
     maxBitColumns := hardware.MAX_PANEL_COLUMNS
     maxBitRows := hardware.MAX_PANEL_ROWS
+    defaulBrightness := brightness
 
 PUB placeDigit(row, column, digit, rgbColor)
     '' Locate a desired digit on our screen. Draw initial segement if state is NOT off
@@ -147,7 +149,7 @@ PRI initialSetup() | segIndex, orientation, segRow, segCol
             segRow := topY + 1 + segments.SEG_LENGTH + 0 - 1
             segCol := leftX + 1 
 
-        segments[segIndex].setScreen(pExtScreen)
+        segments[segIndex].setScreen(pExtScreen, defaulBrightness)
         segments[segIndex].placeSegment(segRow, segCol, orientation, segments.STATE_OFF, currRgbColor)
 
     currValue := DIGIT_NO_VALUE

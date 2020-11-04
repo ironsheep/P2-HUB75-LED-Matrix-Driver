@@ -31,10 +31,10 @@ VAR
 
     long    cog
     long    bus           ' ram/flash
-    long    brightness  ' variable to scale input to reduce brightness   (0..256)
     long    pwmFrames1[hardware.MAX_PWM_FRAMES * hardware.MAX_PWM_FRAME_SIZE_IN_LONGS]
     long    pwmFrames2[hardware.MAX_PWM_FRAMES * hardware.MAX_PWM_FRAME_SIZE_IN_LONGS]
     long    showed
+    byte    defaultBrightness
 
 CON { RAM/FLASH }
 
@@ -49,7 +49,8 @@ CON { RAM/FLASH }
 
 PUB start() : ok | color, pScreenBuffer, bInvalidFileStatus, pTemp, nFrameIndex, pFrameBuffer
     '' Start the backend pasm2 driver for the matrix
-    brightness := 255 ' 256 '128  'set maximum brightness by dividing input, range 0 to 256
+
+    defaultBrightness := 70    ' phasing this out for version in display.spin2
 
     debug("- PANEL: Start Matrix COG")
     ok := cog := matrix.start()   ' send buffer to driver
@@ -68,6 +69,10 @@ PUB stop()
         matrix.stop()
         cog := 0
 
+PUB setBrightness(brightness)
+    '' set birhgtness for panel file loader to use
+    defaultBrightness := brightness
+
 PRI waits(nSeconds)
     repeat nSeconds
         waitms(1000)    ' 1 seconds
@@ -75,7 +80,6 @@ PRI waits(nSeconds)
 PUB fillPanel(threeBitColor)
     '' fill screen but without PWM (for testing underlying driver)
     matrix.fillPanel(threeBitColor)
-
 
 PUB loadScreen(p24bitScreen) | redByte, greenByte, blueByte, pPwmFrame, pPwmFrameSet, panelCol, panelRow, p24bitColor, colorValue, colorMask, bitCount, bitNumber, panelBGR, tmpVarA, tmpVarB
     '' Load a 24-bit image into PWM frame buffers
@@ -121,6 +125,13 @@ nextColumn
                     GETBYTE greenByte, colorValue,#1
                     ' blue := byte[p24bitScreen][p24bitColor][2]
                     GETBYTE blueByte, colorValue,#2
+
+                    ' do GAMMA correction
+                    'mov     tmpVarB, @gamma
+                    'add     tmpVarB, redByte
+                    're
+
+
 
                     ' write color information to our PWM buffers
                     ' expand 24-bit pixel into 8 pwm frames of 3-bit pixel
@@ -204,26 +215,6 @@ PRI dumpFrame(pFrameBuffer)
     dbgMemDump(@frameMessage, pFrameBuffer, 32)
 
 
-PUB loadScreen_OLD(p24bitScreen) | nPanelCol, nPanelRow, blue, green, red, haveError, showDebug, pPwmFrameSet
-    '' Load a 24-bit image into PWM frame buffers
-    ' XYZZYpnl debug("- PANEL: loading screen at @", uhex_long_(p24bitScreen))
-
-    ' save address of 24bit screen for use by called routines
-    pScreenInMemory := p24bitScreen
-  ' clear 8x 3-bit frames
-    pPwmFrameSet := clearPwmFrameBuffer()  ' clear PWM frames  and get pointer to buffer
-    'pPwmFrameSet := getActivePwmBuffer()    ' TESTING
-
-   ' fill 8x 3-bit frames from 24-bit-screen
-    repeat nPanelRow from 0 to hardware.MAX_PANEL_ROWS - 1
-        repeat nPanelCol from 0 to hardware.MAX_PANEL_COLUMNS - 1
-
-            red, green, blue := get24BitColorForRC_OLD(nPanelRow, nPanelCol)
-            setPixelForRC_OLD(nPanelRow, nPanelCol, RGB(red, green, blue))
-
-    ' write 8x 3-bit frames to panel
-    matrix.writePwmBuffer(pPwmFrameSet)
-
 PUB loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, haveError, showDebug, bInvalidFileStatus, pPwmFrameSet
     '' Load a 24-bit .bmp file image into PWM frame buffers
     ' save address of 24bit file image for use by called routines
@@ -267,11 +258,11 @@ PUB loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, haveError,
 PRI RGB(red, green, blue) : r, g, b
     ' do gamma correction - TBD
     'Blue byte first because that's how stored in bitmap...
-    r := (brightness * gamma[red]) / 256
+    r := (defaultBrightness * gamma[red]) / 256
     'r := red
-    g := (brightness * gamma[green]) / 256
+    g := (defaultBrightness * gamma[green]) / 256
     'g := green
-    b := (brightness * gamma[blue]) / 256
+    b := (defaultBrightness * gamma[blue]) / 256
     'b := blue
 
     'return r,g,b

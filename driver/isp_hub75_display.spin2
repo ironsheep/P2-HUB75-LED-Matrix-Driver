@@ -61,6 +61,8 @@ VAR
     long    horizontalGap
     long    invertHorizontal
 
+    byte    defaultBrightness  ' variable to scale input to reduce brightness   (0..256)
+
     long    cog
 
 PUB start() : ok
@@ -73,6 +75,9 @@ PUB start() : ok
     if ok == -1
         debug("- TEXT: underlying drivers failed!")
         abort
+
+    defaultBrightness := 255    ' overall panel brightness [0-255] 
+    panel.setBrightness(defaultBrightness)
 
     setTextSize(TEXT_SIZE_DEFAULT)
     homeCursor()
@@ -90,9 +95,10 @@ PUB clearScreen()
     longfill(@screen0, 0, hardware.DISPLAY_SIZE_IN_BYTES / 4)
     commitScreenToPanel()
 
-PUB getScreenSetup() : pScreen
+PUB getScreenSetup() : pScreen, brightness
     '' Save the location and size of our external screen buffer
     pScreen := @screen0
+    brightness := defaultBrightness
 
 PUB fillScreen(rgbColor) | row, column
     '' Fill the display with 24-bit color value
@@ -242,9 +248,9 @@ PUB drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex,
     'if isDebugLocn(rowIndex, columnIndex)
     'if row == 0 && column == 0
     'debug("- Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
-    byte[pColor][0] := red
-    byte[pColor][1] := green
-    byte[pColor][2] := blue
+    byte[pColor][0] := (red * defaultBrightness) >> 8
+    byte[pColor][1] := (green * defaultBrightness) >> 8
+    byte[pColor][2] := (blue * defaultBrightness) >> 8
 
 PUB commitScreenToPanel()
     '' Write sceen to panel driver
