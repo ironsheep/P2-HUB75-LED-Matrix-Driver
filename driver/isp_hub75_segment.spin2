@@ -36,7 +36,7 @@ SEG_LENGTH = 10
 cBlack = $000000
 
 OBJ 
-    hardware    : "isp_hub75_hwGeometry"
+    screen      : "isp_hub75_screenAccess"
     color       : "isp_hub75_color"
 
 VAR
@@ -50,28 +50,17 @@ VAR
     long    segRgbColor    ' TODO add next color for when ea. digit value can be a diff color
     long    desiredEndState
 
-' target screen and geometry thereof
-    long    pExtScreen
-    long    maxBitRows
-    long    maxBitColumns
 
 PUB null()
     '' This is NOT a top level object
-
-PUB setScreen(pScreen)
-    'debug("seg:setScreen()")
-    '' Save the location of our external screen buffer
-    pExtScreen := pScreen
-    maxBitColumns := hardware.MAX_PANEL_COLUMNS
-    maxBitRows := hardware.MAX_PANEL_ROWS
 
 PUB placeSegment(row, column, orientation, initialState, rgbColor)
     'debug("seg:placeSegment rc=(", udec_(row), ",", udec_(column), "), orient=(", udec_(orientation), "), state=(", udec_(initialState), "), RGB=(", uhex_long_(rgbColor),")")
     '' Locate a desired segment on our screen. Draw initial segement if state is NOT off
     ' record settings choices we are given extrapolating some
     desiredEndState := currentState := nextState := STATE_OFF
-    segStartX :=  0 #> column <# maxBitColumns - 1
-    segStartY :=  0 #> row <# maxBitRows - 1
+    segStartX :=  0 #> column <# screen.MAX_DISPLAY_COLUMNS - 1
+    segStartY :=  0 #> row <# screen.MAX_DISPLAY_ROWS - 1
     segOrientation := orientation
     segRgbColor := rgbColor
     case orientation
@@ -314,10 +303,10 @@ PRI updateMiddleSegment(newState) | pixInset, rowIndex
 
 PRI drawLine(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column
     'debug("seg:drwLn fmRC=(", udec_(fmRow), ",", udec_(fmColumn), "), toRC=(", udec_(toRow), ",", udec_(toColumn), "), RGB=(", uhex_long(rgbColor), ")")
-    fmRow :=  0 #> fmRow <# maxBitRows - 1
-    fmColumn :=  0 #> fmColumn <# maxBitColumns - 1
-    toRow :=  0 #> toRow <# maxBitRows - 1
-    toColumn :=  0 #> toColumn <# maxBitColumns - 1
+    fmRow :=  0 #> fmRow <# screen.MAX_DISPLAY_ROWS - 1
+    fmColumn :=  0 #> fmColumn <# screen.MAX_DISPLAY_COLUMNS - 1
+    toRow :=  0 #> toRow <# screen.MAX_DISPLAY_ROWS - 1
+    toColumn :=  0 #> toColumn <# screen.MAX_DISPLAY_COLUMNS - 1
     if fmRow == toRow
         ' draw Horizontal Line
         repeat column from fmColumn to toColumn 
@@ -332,10 +321,10 @@ PRI drawLine(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column
 
 PUB drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex, colorOffset, pColor
     '' Place r,g,b colored pixel at r,c
-    rowIndex := 0 #> row <# maxBitRows - 1
-    columnIndex :=  0 #> column <# maxBitColumns - 1
-    colorOffset := ((rowIndex * maxBitColumns) + columnIndex) * hardware.DISPLAY_BYTES_PER_COLOR
-    pColor := @byte[pExtScreen][colorOffset]
+    rowIndex := 0 #> row <# screen.MAX_DISPLAY_ROWS - 1
+    columnIndex :=  0 #> column <# screen.MAX_DISPLAY_COLUMNS - 1
+    colorOffset := ((rowIndex * screen.MAX_DISPLAY_COLUMNS) + columnIndex) * screen.DISPLAY_BYTES_PER_COLOR
+    pColor := @byte[screen.screenAddress()][colorOffset]
     'if isDebugLocn(rowIndex, columnIndex)
         'debug("- Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
     byte[pColor][0] := color.correctedColor(red)

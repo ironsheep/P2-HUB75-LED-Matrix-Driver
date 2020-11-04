@@ -1,0 +1,85 @@
+'' =================================================================================================
+''
+''   File....... isp_hub75_screenAccess.spin2
+''   Purpose.... Light weight shared acccess to screen geometry and buffer location
+''   Authors.... Stephen M Moraco
+''               -- Copyright (c) 2020 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... Oct 2020
+''   Updated.... 17 Oct 2020
+''
+'' =================================================================================================
+
+CON
+    PANEL_DRIVER_CHIP = user.PANEL_DRIVER_CHIP
+
+    MAX_PANEL_ROWS = user.MAX_PANEL_ROWS
+    MAX_PANEL_COLUMNS = user.MAX_PANEL_COLUMNS
+
+    MAX_DISPLAY_COLUMNS = user.MAX_DISPLAY_COLUMNS
+    MAX_DISPLAY_ROWS = user.MAX_DISPLAY_ROWS
+
+    MAX_PANELS = user.MAX_PANELS
+
+
+    MAX_PWM_FRAME_SIZE_IN_BYTES = ((user.MAX_PANEL_COLUMNS * user.MAX_PANEL_ROWS) / 2)
+    MAX_PWM_FRAME_SIZE_IN_LONGS = MAX_PWM_FRAME_SIZE_IN_BYTES / 4
+'
+    DISPLAY_BITS_PER_COLOR = 24
+    PANEL_BITS_PER_COLOR = 3
+
+    ' (8 bits per byte)
+    DISPLAY_BYTES_PER_COLOR = DISPLAY_BITS_PER_COLOR / 8 
+
+    MAX_PWM_FRAMES = DISPLAY_BITS_PER_COLOR / PANEL_BITS_PER_COLOR ' color depth divided by color-depth of panel
+    DISPLAY_SIZE_IN_BYTES = (user.MAX_DISPLAY_COLUMNS * user.MAX_DISPLAY_ROWS * DISPLAY_BYTES_PER_COLOR)
+
+OBJ 
+    user    : "isp_hub75_hwGeometry"
+
+PUB null()      '' This is not a top level object
+
+DAT { shared access variables }
+
+' target screen and geometry thereof
+pExtScreen      long    0
+
+PUB setScreen(pScreen)
+    '' Save the location of our external screen buffer
+    'debug("7s:setScreen")
+    pExtScreen := pScreen
+
+PUB screenAddress() : pScreen 
+    pScreen := pExtScreen
+
+CON { license }
+
+{{
+
+
+ -------------------------------------------------------------------------------------------------
+  MIT License
+
+  Copyright (c) 2020 Iron Sheep Productions, LLC
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+ =================================================================================================
+}}
+

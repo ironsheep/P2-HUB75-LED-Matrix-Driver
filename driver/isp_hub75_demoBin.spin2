@@ -35,7 +35,7 @@ VAR
 OBJ
 
     color       : "isp_hub75_color"
-    hardware    : "isp_hub75_hwGeometry"
+    screen      : "isp_hub75_screenAccess"
     display     : "isp_hub75_display"
     clock       : "isp_hub75_binClock"
 
@@ -141,7 +141,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
             repeat blue from 0 to 255 step 20
                 display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
                 col++
-                if col > hardware.MAX_PANEL_COLUMNS - 1
+                if col > screen.MAX_PANEL_COLUMNS - 1
                     col := 0
                     row++
     display.commitScreenToPanel()
@@ -193,7 +193,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     repeat green from 0 to 255 step 4
         display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
         col++
-        if col > hardware.MAX_PANEL_COLUMNS - 1
+        if col > screen.MAX_PANEL_COLUMNS - 1
             col := 0
             row++
     row++
@@ -202,7 +202,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     repeat blue from 0 to 255 step 4
         display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
         col++
-        if col > hardware.MAX_PANEL_COLUMNS - 1
+        if col > screen.MAX_PANEL_COLUMNS - 1
             col := 0
             row++
     col := 0
@@ -211,7 +211,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     repeat blue from 0 to 255 step 4
         display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
         col++
-        if col > hardware.MAX_PANEL_COLUMNS - 1
+        if col > screen.MAX_PANEL_COLUMNS - 1
             col := 0
             row++
         green += 4
@@ -223,23 +223,29 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
         color24bit := color.rgbColorFromDegrees(subrow)
         display.drawPixelAtRC(row, col, color24bit)
         col++
-        if col > hardware.MAX_PANEL_COLUMNS - 1
+        if col > screen.MAX_PANEL_COLUMNS - 1
             col := 0
             row++
     display.commitScreenToPanel()
     repeat
  ---------------------------------------}
 
-    'display.fillScreen(color.cMaroon)
-    'display.commitScreenToPanel()
+{ ---------------------------------------
+    display.fillScreen($700000)
+    display.commitScreenToPanel()
+    repeat
+' ---------------------------------------}
 
+{ ---------------------------------------
     '  BINARY DEMO -> heading to liquid binary
+    clock.developmentTest()
+' ---------------------------------------}
 
-    'repeat  ' hold forever
+'{ ---------------------------------------
+    '  BINARY DEMO -> heading to liquid binary
     digitPeriod := 20    ' 12 
     segmentPeriod := 5  ' was 5
 
-    clock.setScreen(display.getScreenSetup()) 
     clock.setOnOffColors(color.cBlue, $363636)
     clock.setupClock()
     display.commitScreenToPanel()
@@ -273,7 +279,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
 
         wait100thSecs(digitPeriod)  ' -------------
 
-
+' ---------------------------------------}
 { ---------------------------------------
     clock.setHMS(0, 0, 1)
     display.commitScreenToPanel()
@@ -316,9 +322,6 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     display.commitScreenToPanel()
 
     ' High Speed CLOCK demo
-     repeat digitIndex from 0 to 3
-        digit[digitIndex].setScreen(display.getScreenSetup())   
-
     hours := minutes := 0
 
     digit[0].placeDigit(8, 2, 0, color.cOrange)
@@ -354,9 +357,6 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
  ---------------------------------------}
 { ---------------------------------------
 ' transitional DEMO
-    repeat digitIndex from 0 to 3
-        digit[digitIndex].setScreen(display.getScreenSetup())
-
 
     digit[0].placeDigit(8, 2, 5, color.cOrange)
     digit[1].placeDigit(8, 18, 7, color.cOrange)

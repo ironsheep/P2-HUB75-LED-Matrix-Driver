@@ -18,7 +18,7 @@ CON
 
 OBJ
 
-    hardware                        : "isp_hub75_hwGeometry"
+    screen                          : "isp_hub75_screenAccess"
     flows[MAX_SIMULTANEOUS_FEEDS]   : "isp_hub75_binflow"
 
 
@@ -27,11 +27,6 @@ DAT { initialized data }
 
 VAR { globals }
 
-
-' target screen and geometry thereof
-    long    pExtScreen
-    long    maxBitRows
-    long    maxBitColumns
     long    defaultColor
     
     byte    isSetup
@@ -81,15 +76,6 @@ PUB animateStep() | flowIndex
     if not isAnimationComplete()
         repeat flowIndex from 0 to MAX_SIMULTANEOUS_FEEDS - 1
             flows[flowIndex].animateStep()
-
-PUB setScreen(pScreen) : flowIndex
-    '' Save the location of our external screen buffer
-    'debug("7s:setScreen")
-    pExtScreen := pScreen
-    maxBitColumns := hardware.MAX_PANEL_COLUMNS
-    maxBitRows := hardware.MAX_PANEL_ROWS
-    repeat flowIndex from 0 to MAX_SIMULTANEOUS_FEEDS - 1
-        flows[flowIndex].setScreen(pScreen)
 
 PRI nextIdleFlow() : nextIdleFlowIndex | flowsCheckedCount, flowBusyStatus
     flowsCheckedCount := 0

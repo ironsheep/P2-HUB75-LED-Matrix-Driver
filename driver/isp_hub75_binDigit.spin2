@@ -17,7 +17,7 @@ CON
 
 OBJ
 
-    hardware    : "isp_hub75_hwGeometry"
+    screen      : "isp_hub75_screenAccess"
     bits[4]     : "isp_hub75_binBit"
 
 DAT { globals - initialized - class data }
@@ -31,10 +31,6 @@ VAR { globals - instance data }
     long    bitWidth
     long    vertGap
 
-' target screen and geometry thereof
-    long    pExtScreen
-    long    maxBitRows
-    long    maxBitColumns
     long    fullRgbColor
     long    emptyRgbColor
     
@@ -43,17 +39,6 @@ VAR { globals - instance data }
     
 PUB null()
     '' This is NOT a top level object
-
-PUB setScreen(pScreen) | bitIndex
-    '' Save the location of our external screen buffer
-    'debug("dig:setScreen")
-    pExtScreen := pScreen
-    maxBitColumns := hardware.MAX_PANEL_COLUMNS
-    maxBitRows := hardware.MAX_PANEL_ROWS
-    if NOT isSetup
-        initialize()
-    repeat bitIndex from 0 to MAX_BITS - 1
-        bits[bitIndex].setScreen(pExtScreen)
 
 PUB placeDigitAtRC(row, column, fullColor, emptyColor) | bitIndex, dispRow, dispCol
     'debug("dig:place @RC(", udec_(row), ",", udec_(column), ") ", uhex_long(fullColor), uhex_long(emptyColor))

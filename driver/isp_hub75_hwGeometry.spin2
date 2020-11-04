@@ -148,22 +148,12 @@ CON { Hardware Description }
 
 '              (remember to enable (uncomment) only one configuration above here)
 ' -------------------------------------------------------------------------------------------------
-' ------------------------ Add your configurations below here -------------------------------------
+' ------------------------ Add your configurations ABOVE here -------------------------------------
 '
 '
 ' now calculate values thare are common to all geometries of hardware
 '
-    MAX_PWM_FRAME_SIZE_IN_BYTES = ((MAX_PANEL_COLUMNS * MAX_PANEL_ROWS) / 2)
-    MAX_PWM_FRAME_SIZE_IN_LONGS = MAX_PWM_FRAME_SIZE_IN_BYTES / 4
-'
-    DISPLAY_BITS_PER_COLOR = 24
-    PANEL_BITS_PER_COLOR = 3
 
-    ' (8 bits per byte)
-    DISPLAY_BYTES_PER_COLOR = DISPLAY_BITS_PER_COLOR / 8 
-
-    MAX_PWM_FRAMES = DISPLAY_BITS_PER_COLOR / PANEL_BITS_PER_COLOR ' color depth divided by color-depth of panel
-    DISPLAY_SIZE_IN_BYTES = (MAX_DISPLAY_COLUMNS * MAX_DISPLAY_ROWS * DISPLAY_BYTES_PER_COLOR)
 ' ------------------------  Add ABOVE here --------------------------------------------------------
 ' -------------------------------------------------------------------------------------------------
 

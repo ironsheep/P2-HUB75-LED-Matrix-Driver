@@ -18,7 +18,7 @@ CON
 
 OBJ
 
-    hardware    : "isp_hub75_hwGeometry"
+    screen      : "isp_hub75_screenAccess"
     color       : "isp_hub75_color"
 
 DAT { initialized data }
@@ -34,10 +34,6 @@ VAR { globals }
     long    currentState
     long    nextState
 
-' target screen and geometry thereof
-    long    pExtScreen
-    long    maxBitRows
-    long    maxBitColumns
     long    fullRgbColor
     long    emptyRgbColor
     
@@ -46,15 +42,6 @@ VAR { globals }
     
 PUB null()
     '' This is NOT a top level object
-
-PUB setScreen(pScreen)
-    '' Save the location of our external screen buffer
-    'debug("dig:setScreen")
-    pExtScreen := pScreen
-    maxBitColumns := hardware.MAX_PANEL_COLUMNS
-    maxBitRows := hardware.MAX_PANEL_ROWS
-    if NOT isSetup
-        initialize()
 
 PUB placeBitAtRC(row, column, value, fullColor, emptyColor) | bitIndex
     'debug("bit:place @RC(", udec_(row), ",", udec_(column), ") ", uhex_long(fullColor), uhex_long(emptyColor))
@@ -166,10 +153,10 @@ PRI drawBit(row, column, rgbColor) | rowIndex
 
 PRI drawLine(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column
     'debug("seg:drwLn fmRC=(", udec_(fmRow), ",", udec_(fmColumn), "), toRC=(", udec_(toRow), ",", udec_(toColumn), "), RGB=(", uhex_long(rgbColor), ")")
-    fmRow :=  0 #> fmRow <# maxBitRows - 1
-    fmColumn :=  0 #> fmColumn <# maxBitColumns - 1
-    toRow :=  0 #> toRow <# maxBitRows - 1
-    toColumn :=  0 #> toColumn <# maxBitColumns - 1
+    fmRow :=  0 #> fmRow <# screen.MAX_DISPLAY_ROWS - 1
+    fmColumn :=  0 #> fmColumn <# screen.MAX_DISPLAY_COLUMNS - 1
+    toRow :=  0 #> toRow <# screen.MAX_DISPLAY_ROWS - 1
+    toColumn :=  0 #> toColumn <# screen.MAX_DISPLAY_COLUMNS - 1
     if fmRow == toRow
         ' draw Horizontal Line
         repeat column from fmColumn to toColumn 
@@ -184,10 +171,10 @@ PRI drawLine(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column
 
 PUB drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex, colorOffset, pColor
     '' Place r,g,b colored pixel at r,c
-    rowIndex := 0 #> row <# maxBitRows - 1
-    columnIndex :=  0 #> column <# maxBitColumns - 1
-    colorOffset := ((rowIndex * maxBitColumns) + columnIndex) * hardware.DISPLAY_BYTES_PER_COLOR
-    pColor := @byte[pExtScreen][colorOffset]
+    rowIndex := 0 #> row <# screen.MAX_DISPLAY_ROWS - 1
+    columnIndex :=  0 #> column <# screen.MAX_DISPLAY_COLUMNS - 1
+    colorOffset := ((rowIndex * screen.MAX_DISPLAY_COLUMNS) + columnIndex) * screen.DISPLAY_BYTES_PER_COLOR
+    pColor := @byte[screen.screenAddress()][colorOffset]
     'if isDebugLocn(rowIndex, columnIndex)
         'debug("- Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
     byte[pColor][0] := color.correctedColor(red)

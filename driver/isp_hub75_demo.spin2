@@ -148,9 +148,6 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     display.commitScreenToPanel()
 
     ' High Speed CLOCK demo
-     repeat digitIndex from 0 to 3
-        digit[digitIndex].setScreen(display.getScreenSetup())   
-
     hours := minutes := 0
 
     digit[0].placeDigit(8, 2, 0, color.cOrange)
@@ -185,9 +182,6 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
             wait100thSecs(digitPeriod)  
 {
 ' transitional DEMO
-    repeat digitIndex from 0 to 3
-        digit[digitIndex].setScreen(display.getScreenSetup())
-
 
     digit[0].placeDigit(8, 2, 5, color.cOrange)
     digit[1].placeDigit(8, 18, 7, color.cOrange)

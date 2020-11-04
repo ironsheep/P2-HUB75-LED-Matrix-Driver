@@ -43,7 +43,7 @@ CON { constants affecting appearance }
 
 OBJ
 
-    hardware                : "isp_hub75_hwGeometry"
+    screen                  : "isp_hub75_screenAccess"
     color                   : "isp_hub75_color"
 
 DAT { initialized data }
@@ -132,10 +132,6 @@ VAR { globals }
     long    headCount
     long    seqIndex
 
-' target screen and geometry thereof
-    long    pExtScreen
-    long    maxBitRows
-    long    maxBitColumns
     long    defaultColor
     
     long    pCurrFlowTable
@@ -153,20 +149,19 @@ VAR { globals }
 PUB null()
     '' This is NOT a top level object
 
-PUB setScreen(pScreen)
-    '' Save the location of our external screen buffer
-    'debug("7s:setScreen")
-    pExtScreen := pScreen
-    maxBitColumns := hardware.MAX_PANEL_COLUMNS
-    maxBitRows := hardware.MAX_PANEL_ROWS
-    if not isSetup
-        initialize()
-        if runUnitTest
-            testNewActiveTracking()
-            runUnitTest := FALSE
+PRI initialize() | digitIndex
+    isSetup := TRUE
+    dripCommand := DIR_UNKNOWN
+    headRow := headCol := dripEntryCount := 0
+    dripTail := dripHead := 0
+    if runUnitTest
+        testNewActiveTracking()
+        runUnitTest := FALSE
 
 PUB startFlow(digitId, fmNybble, toNybble) | bitIndex, bitMask, diffCount, liveIndex, zerosCount
     '' start (1 to 6) * (1 to 4) flows at the same time : h10(2,1), h01(8,4,2,1), m10(4,2,1), m01(8,4,2,1), s10(4,2,1), s01(8,4,2,1)
+    if not isSetup
+        initialize()
     if not isMovementComplete()
         debug("flo:start - IGNORED already moving")
     else
@@ -524,18 +519,14 @@ PRI popTailBit() : row, col | rcLong, saveTail
         dripTail := 0
     'debug("flo:pop val=(", uhex_long_(rcLong), ") <= queue[", udec_(saveTail), "]  newTail=(", udec_(dripTail), ")")
 
-PRI initialize() | digitIndex
-    isSetup := TRUE
-    dripCommand := DIR_UNKNOWN
-    headRow := headCol := dripEntryCount := 0
-    dripTail := dripHead := 0
+
 
 PRI drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex, colorOffset, pColor
     '' Place r,g,b colored pixel at r,c
-    rowIndex := 0 #> row <# maxBitRows - 1
-    columnIndex :=  0 #> column <# maxBitColumns - 1
-    colorOffset := ((rowIndex * maxBitColumns) + columnIndex) * hardware.DISPLAY_BYTES_PER_COLOR
-    pColor := @byte[pExtScreen][colorOffset]
+    rowIndex := 0 #> row <# screen.MAX_DISPLAY_ROWS - 1
+    columnIndex :=  0 #> column <# screen.MAX_DISPLAY_COLUMNS - 1
+    colorOffset := ((rowIndex * screen.MAX_DISPLAY_COLUMNS) + columnIndex) * screen.DISPLAY_BYTES_PER_COLOR
+    pColor := @byte[screen.screenAddress()][colorOffset]
     'if isDebugLocn(rowIndex, columnIndex)
     'debug("flo:Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
     byte[pColor][0] := color.correctedColor(red)

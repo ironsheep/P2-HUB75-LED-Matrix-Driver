@@ -16,12 +16,13 @@ CON
 ' supported Text Sizes
 #0, TEXT_SIZE_DEFAULT, TEXT_SIZE__5x7, TEXT_SIZE__8x8
 
-CON 
+DAT { one or more screens of 64x32-24bit color }
 
+screen0     long    0[screen.DISPLAY_SIZE_IN_BYTES / 4]  ' 6kB buffer (4 bytes / long)
 
 OBJ
 
-    hardware    : "isp_hub75_hwGeometry"
+    screen      : "isp_hub75_screenAccess"
     color       : "isp_hub75_color"
     panel       : "isp_hub75_panel"
     fonts       : "isp_hub75_fonts"
@@ -53,6 +54,9 @@ PUB start() : ok
         debug("- TEXT: underlying drivers failed!")
         abort
 
+    ' tell all about location of screen buffer
+    screen.setScreen(@screen0)
+
     setTextSize(TEXT_SIZE_DEFAULT)
     homeCursor()
     setTextColor($AAAAAA)
@@ -66,17 +70,13 @@ PUB stop()
 
 PUB clearScreen()
     '' Clear the panel to BLACK
-    longfill(@screen0, 0, hardware.DISPLAY_SIZE_IN_BYTES / 4)
+    longfill(@screen0, 0, screen.DISPLAY_SIZE_IN_BYTES / 4)
     commitScreenToPanel()
-
-PUB getScreenSetup() : pScreen
-    '' Save the location and size of our external screen buffer
-    pScreen := @screen0
 
 PUB fillScreen(rgbColor) | row, column
     '' Fill the display with 24-bit color value
-    repeat row from 0 to hardware.MAX_DISPLAY_ROWS - 1
-        repeat column from 0 to hardware.MAX_DISPLAY_COLUMNS - 1
+    repeat row from 0 to screen.MAX_DISPLAY_ROWS - 1
+        repeat column from 0 to screen.MAX_DISPLAY_COLUMNS - 1
             drawPixelAtRC(row, column, rgbColor)
 
 PUB fillPanel(threeBitColor)
@@ -181,10 +181,10 @@ PUB drawLine(fmRow, fmColumn, toRow, toColumn)
 PUB drawLineOfColor(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column
     '' Draw line fromRC -> toRC using rgbColor (currently limited to horzontal/vertical lines)
     'debug("seg:drwLn fmRC=(", udec_(fmRow), ",", udec_(fmColumn), "), toRC=(", udec_(toRow), ",", udec_(toColumn), "), RGB=(", uhex_long(rgbColor), ")")
-    fmRow :=  0 #> fmRow <# hardware.MAX_DISPLAY_ROWS - 1
-    fmColumn :=  0 #> fmColumn <# hardware.MAX_DISPLAY_COLUMNS - 1
-    toRow :=  0 #> toRow <# hardware.MAX_DISPLAY_ROWS - 1
-    toColumn :=  0 #> toColumn <# hardware.MAX_DISPLAY_COLUMNS - 1
+    fmRow :=  0 #> fmRow <# screen.MAX_DISPLAY_ROWS - 1
+    fmColumn :=  0 #> fmColumn <# screen.MAX_DISPLAY_COLUMNS - 1
+    toRow :=  0 #> toRow <# screen.MAX_DISPLAY_ROWS - 1
+    toColumn :=  0 #> toColumn <# screen.MAX_DISPLAY_COLUMNS - 1
     if fmRow == toRow
         ' draw Horizontal Line
         repeat column from fmColumn to toColumn 
@@ -213,9 +213,9 @@ PUB drawPixelAtRC(row, column, rgbColor) | xlatedColor, fHue
 
 PUB drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex, colorOffset, pColor
     '' Place r,g,b color pixel at r,c
-    rowIndex := 0 #> row <# hardware.MAX_DISPLAY_ROWS - 1
-    columnIndex :=  0 #> column <# hardware.MAX_DISPLAY_COLUMNS - 1
-    colorOffset := ((rowIndex * hardware.MAX_DISPLAY_COLUMNS) + columnIndex) * hardware.DISPLAY_BYTES_PER_COLOR
+    rowIndex := 0 #> row <# screen.MAX_DISPLAY_ROWS - 1
+    columnIndex :=  0 #> column <# screen.MAX_DISPLAY_COLUMNS - 1
+    colorOffset := ((rowIndex * screen.MAX_DISPLAY_COLUMNS) + columnIndex) * screen.DISPLAY_BYTES_PER_COLOR
     pColor := @byte[@screen0][colorOffset]
     'if isDebugLocn(rowIndex, columnIndex)
     'if row == 0 && column == 0
@@ -254,10 +254,6 @@ PRI isDebugLocn(nRow, nCol) : status
         status := TRUE ' FALSE  ' turn off debug
 
 
-
-DAT { one or more screens of 64x32-24bit color }
-
-screen0     long    0[hardware.DISPLAY_SIZE_IN_BYTES / 4]  ' 6kB buffer (4 bytes / long)
 
 CON { license }
 

@@ -26,7 +26,8 @@ CON { public interface constants }
 
 OBJ { objects }
 
-    hardware                : "isp_hub75_hwGeometry"
+    screen                  : "isp_hub75_screenAccess"
+    display                 : "isp_hub75_display"
     color                   : "isp_hub75_color"
     digits[MAX_DIGITS]      : "isp_hub75_binDigit"
     feeds                   : "isp_hub75_binFeeds"
@@ -36,13 +37,6 @@ DAT { initialized data }
 
 VAR { globals }
 
-
-
-
-' target screen and geometry thereof
-    long    pExtScreen
-    long    maxBitRows
-    long    maxBitColumns
     long    emptyRgbColor
     long    fullRgbColor
     
@@ -51,24 +45,75 @@ VAR { globals }
     byte    currHours
     byte    currMinutes
     byte    currSeconds
+    byte    segmentPeriod
+    byte    digitPeriod
 
 PUB null()
     '' This is NOT a top level object
 
-PUB setScreen(pScreen)
-    '' Save the location of our external screen buffer
-    'debug("clk:setScreen")
-    pExtScreen := pScreen
-    maxBitColumns := hardware.MAX_PANEL_COLUMNS
-    maxBitRows := hardware.MAX_PANEL_ROWS
-    feeds.setScreen(pScreen)
-    
+PUB developmentTest() | bitValue
+    digitPeriod := 20    ' 12 
+    segmentPeriod := 5  ' was 5
+
+    setOnOffColors(color.cBlue, $363636)
+    setupClock()
+    display.commitScreenToPanel()
+
+    repeat
+
+    wait100thSecs(digitPeriod)
+
+    repeat bitValue from 0 to 9
+
+        ' TEST checking out flows - tweaking them
+        setFlowHMS(0, 0, bitValue)
+        display.commitScreenToPanel()
+        wait100thSecs(segmentPeriod)
+        loopUntilBitsFinish()
+
+        setHMS(0, 0, bitValue)
+        display.commitScreenToPanel()
+        wait100thSecs(segmentPeriod)
+        loopUntilBitsFinish()
+
+        wait100thSecs(digitPeriod)  ' -------------
+
+        setHMS(0, 0, 0)
+        display.commitScreenToPanel()
+        wait100thSecs(segmentPeriod)
+        loopUntilBitsFinish()
+
+        setFlowHMS(0, 0, 0)
+        display.commitScreenToPanel()
+        wait100thSecs(segmentPeriod)
+        loopUntilBitsFinish()
+
+        wait100thSecs(digitPeriod)  ' -------------
+
+PRI loopUntilBitsFinish()
+    repeat 
+        if not isAnimationComplete() 
+            animateStep() 
+            display.commitScreenToPanel()
+            wait100thSecs(segmentPeriod)
+
+        if isAnimationComplete() 
+            quit
+
+PRI wait100thSecs(count)
+    repeat count
+        waitms(10)  ' 1/100 seconds
+
+PUB setOnOffColors(onColor, offColor)
+    '' Configure: colors for full clock display
+    emptyRgbColor := offColor
+    fullRgbColor := onColor  
+
 PUB setupClock() | digitIndex, row, col 
     '' Set up:  draw our initial clock bits
     row := TOP_INSET
     col := LEFT_INSET
     repeat digitIndex from 0 to MAX_DIGITS - 1
-        digits[digitIndex].setScreen(pExtScreen)
         digits[digitIndex].placeDigitAtRC(row, col, fullRgbColor, emptyRgbColor)
         if (digitIndex & 1) == 0
             ' placed odd bit
@@ -76,18 +121,12 @@ PUB setupClock() | digitIndex, row, col
         else
             col += HORIZ_EVEN_OFFSET + DIGIT_WIDTH
 
-PUB setOnOffColors(onColor, offColor)
-    '' Configure: colors for full clock display
-    emptyRgbColor := offColor
-    fullRgbColor := onColor
-
 PUB setFlowHMS(hours, minutes, seconds)
     '' set the initial time to be displayed
     'debug("clk:set ", udec(hours), udec(minutes), udec(seconds))
 
     ' TEST FLOWS FOR NOW...
     feeds.setHMS(hours, minutes, seconds)
-
     showSecondsDots( ((seconds // 4) // 2) )
 
 PUB setHMS(hours, minutes, seconds)
@@ -145,10 +184,10 @@ PRI showDot(row, column, rgbColor) | rowIndex, columnIndex
 
 PRI drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex, colorOffset, pColor
     '' Place r,g,b colored pixel at r,c
-    rowIndex := 0 #> row <# maxBitRows - 1
-    columnIndex :=  0 #> column <# maxBitColumns - 1
-    colorOffset := ((rowIndex * maxBitColumns) + columnIndex) * hardware.DISPLAY_BYTES_PER_COLOR
-    pColor := @byte[pExtScreen][colorOffset]
+    rowIndex := 0 #> row <# screen.MAX_DISPLAY_ROWS - 1
+    columnIndex :=  0 #> column <# screen.MAX_DISPLAY_COLUMNS - 1
+    colorOffset := ((rowIndex * screen.MAX_DISPLAY_COLUMNS) + columnIndex) * screen.DISPLAY_BYTES_PER_COLOR
+    pColor := @byte[screen.screenAddress()][colorOffset]
     'if isDebugLocn(rowIndex, columnIndex)
         'debug("- Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
     byte[pColor][0] := color.correctedColor(red)

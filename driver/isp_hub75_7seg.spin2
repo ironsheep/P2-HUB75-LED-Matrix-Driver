@@ -21,7 +21,7 @@ CON { public control values }
 
 OBJ
 
-    hardware    : "isp_hub75_hwGeometry"
+    screen      : "isp_hub75_screenAccess"
     segments[7]     : "isp_hub75_segment"
 
 DAT { initialized data }
@@ -44,10 +44,6 @@ VAR { globals }
     long    topY
     long    leftX
 
-' target screen and geometry thereof
-    long    pExtScreen
-    long    maxBitRows
-    long    maxBitColumns
     long    defaultColor
     
     byte    isSetup
@@ -55,20 +51,14 @@ VAR { globals }
 PUB null()
     '' This is NOT a top level object
 
-PUB setScreen(pScreen)
-    '' Save the location of our external screen buffer
-    'debug("7s:setScreen")
-    pExtScreen := pScreen
-    maxBitColumns := hardware.MAX_PANEL_COLUMNS
-    maxBitRows := hardware.MAX_PANEL_ROWS
 
 PUB placeDigit(row, column, digit, rgbColor)
     '' Locate a desired digit on our screen. Draw initial segement if state is NOT off
     ' now we can inform segements of their own locations
     'debug("7s:placeDigit rc=(", udec_(row), ",", udec_(column),"), dgt=(", udec_(digit), "), RGB=(", uhex_long_(rgbColor),")")
     isSetup := FALSE
-    leftX :=  0 #> column <# maxBitColumns - 1
-    topY :=  0 #> row <# maxBitRows - 1
+    leftX :=  0 #> column <# screen.MAX_DISPLAY_COLUMNS - 1
+    topY :=  0 #> row <# screen.MAX_DISPLAY_ROWS - 1
     currRgbColor := rgbColor
     currValue := DIGIT_NO_VALUE
     ensureIsSetup()
@@ -147,7 +137,6 @@ PRI initialSetup() | segIndex, orientation, segRow, segCol
             segRow := topY + 1 + segments.SEG_LENGTH + 0 - 1
             segCol := leftX + 1 
 
-        segments[segIndex].setScreen(pExtScreen)
         segments[segIndex].placeSegment(segRow, segCol, orientation, segments.STATE_OFF, currRgbColor)
 
     currValue := DIGIT_NO_VALUE
