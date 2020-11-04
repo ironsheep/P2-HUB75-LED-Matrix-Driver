@@ -423,6 +423,7 @@ wrCurrent
                     mov     row_ctr, #16            ' 16 -> 0 so we can use djnz
                     mov     reg_offset, #0          ' long[0-31] within red/grn/blu buffer
                     mov     bit_offset, #31
+                    drvl    #MTX_LED_PIN_OE
 
 ' for row address 0 to 15
 wrLine
@@ -490,6 +491,7 @@ clkData
                 'waitx  #(US_001 / 8)                   ' GAP End of LINE ~372 nSec
                 waitx   #(US_001 / 16)                  ' GAP End of LINE ~310 nSec
                 djnz    row_ctr, #wrLine
+                drvh    #MTX_LED_PIN_OE         ' disable output (between frames)
 
 '
 ' wait for inter-frame gap

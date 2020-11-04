@@ -119,12 +119,12 @@ PUB start() | ok, color, pScreenBuffer, bInvalidFileStatus, pTemp, nFrameIndex, 
     repeat nFrameIndex from 7 to 0
         pFrameBuffer := getPwmFrameAddressForBit(nFrameIndex)
         matrix.writeBuffer(pFrameBuffer)
-        waits(5)
+        waits(3)
 
     debug("-  clear panel to single color")
     matrix.fillPanel(matrix.YELLOW)
 
-    waits(15)
+    waits(11)
 
     debug("-  write image to panel (PWM): screen=", uhex_long_(@pwmFrames))
     matrix.writePwmBuffer(@pwmFrames)
@@ -442,8 +442,8 @@ screenGreen   byte    "screenBlueBuffer",0
 
             ALIGNL
 BitmapFile    'something to show before load is complete and also storage for bitmap
-            file "TstBG-Up.bmp" '640 x 480, 8bpp bitmap     (preload buffer before file read??) odd
-            'file "TstBGCol.bmp"
+            'file "TstBG-Up.bmp" '640 x 480, 8bpp bitmap     (preload buffer before file read??) odd
+            file "TstBGCol.bmp"
             'file "TstBGSha.bmp"
             'file "TstOrien.bmp"
             byte 0[1000] 'a little padding just in case metadata and/or block size makes SD file bigger
