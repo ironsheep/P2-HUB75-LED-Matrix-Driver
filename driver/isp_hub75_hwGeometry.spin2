@@ -41,8 +41,8 @@ CON { Hardware Description }
     PANEL_DRIVER_CHIP = CHIP_FM6126A 
 
     ' electrical layout
-    MAX_COLUMNS = 64
-    MAX_ROWS = 32
+    MAX_PANEL_COLUMNS = 64
+    MAX_PANEL_ROWS = 32
 
     ' panels organization: visual layout
     '   [1]
@@ -70,8 +70,8 @@ CON { Hardware Description }
     PANEL_DRIVER_CHIP = CHIP_FM6126A 
 
     ' electrical layout
-    MAX_COLUMNS = 256
-    MAX_ROWS = 32
+    MAX_PANEL_COLUMNS = 256
+    MAX_PANEL_ROWS = 32
 
     ' panels organization: visual layout
     '   [1][2]      2 rows of 2 panels each
@@ -101,8 +101,8 @@ CON { Hardware Description }
     PANEL_DRIVER_CHIP = CHIP_FM6126A 
 
     ' electrical layout
-    MAX_COLUMNS = 256
-    MAX_ROWS = 32
+    MAX_PANEL_COLUMNS = 256
+    MAX_PANEL_ROWS = 32
 
     ' panels organization: visual layout
     '   [1][2][3][4]    ' one row of 4 panels
@@ -131,8 +131,8 @@ CON { Hardware Description }
     PANEL_DRIVER_CHIP = CHIPS_UNKNOWN 
 
     ' electrical layout
-    MAX_COLUMNS = 64
-    MAX_ROWS = 32
+    MAX_PANEL_COLUMNS = 64
+    MAX_PANEL_ROWS = 32
 
     ' panels organization: visual layout
     '   [1]     ' one panel
@@ -153,7 +153,7 @@ CON { Hardware Description }
 '
 ' now calculate values thare are common to all geometries of hardware
 '
-    MAX_PWM_FRAME_SIZE_IN_LONGS = ((MAX_COLUMNS * MAX_ROWS) / 2) / 4
+    MAX_PWM_FRAME_SIZE_IN_LONGS = ((MAX_PANEL_COLUMNS * MAX_PANEL_ROWS) / 2) / 4
 '
     DISPLAY_BITS_PER_COLOR = 24
     PANEL_BITS_PER_COLOR = 3

@@ -329,24 +329,24 @@ wrFrame
                     rdlong  nxtArgument, pArgument
                     cmp     nxtCommand, #CMD_DONE  wz
     if_z            jmp     #chksDone  ' redraw current buffer  
-                    debug("* cmd=", udec_(nxtCommand), ", arg=", uhex_long_(nxtArgument))
+                    'debug("* cmd=", udec_(nxtCommand), ", arg=", uhex_long_(nxtArgument))
 chkShow
                     cmp     nxtCommand, #CMD_SHOW_BUFFER    wz
     if_nz           jmp     #chkShowPwm
                     call    #loadBuffer
-                    debug(" - load done")
+                    'debug(" - load done")
                     jmp     #markCmdComplete  ' redraw current buffer  
 chkShowPwm
                     cmp     nxtCommand, #CMD_SHOW_PWM_BUFFER    wz
     if_nz           jmp     #chkFill
                     call    #loadPwmBuffers
-                    debug(" - PWM frame done")
+                    'debug(" - PWM frame done")
                     jmp     #wrFrame          ' check for next command (or same still there)
 chkFill
                     cmp     nxtCommand, #CMD_FILL_COLOR wz
     if_nz           jmp     #chksDone  ' redraw current buffer                
                     call    #fillBuffer
-                    debug(" - fill done")
+                    'debug(" - fill done")
                     jmp     #markCmdComplete  ' redraw current buffer
 '
 ' loadPwmBuffers(nxtArgument=hubAddressOfPWMFrameSet)
@@ -438,16 +438,20 @@ wrLine
 '   for bit 0 to 63
 '     toggle clock (18MHz)
                 ' this tracks when we need to toggle latch at right-edge of row
-                    mov     col_ctr, #64            ' 64 -> 0 so we can use djnz
-clkData
+                    mov     reg_ctr, #16            ' 16 -> 0 so we can use djnz
+                    mov     col_addr, #0
+clkNextReg
                 ' in buffer: RGB1 is byte-bits[0-2], RGB2 is byte-bits[3-5]
-                    SETQ    maskRgb12                   ' load Q bit RGBs mask
-                    ALTS    reg_offset, #screenBffr     ' calc addr of source byte and place in instru
-                    MUXQ    OUTB, 0-0                   ' write contents of byte anded with mask to output pins
-                    waitx   #3 ' let color settle
+                    mov     byt_offset, #4              ' 4 -> 0 so we can use djnz
+                    ALTS    reg_offset, #screenBffr     ' calc addr of source long and place in instru
+                    mov     reg_value, 0-0               ' get COG register with 4 bytes of rgb1rgb2 values
+clkNextByte
+                    SETQ    maskRgb12                   ' load Q bit w/ RGBs mask
+                    MUXQ    OUTB, reg_value              ' write contents of LS-byte anded with mask to output pins
+                    ror    reg_value, #8                ' shift next most significant into LS-byte position
 
 ' time to begin latch?
-                    cmp     col_ctr, #3     wz      ' at last three columns?
+                    cmp     col_addr, #61     wz      ' at last three columns?
     if_z            drvh    #MTX_LED_PIN_OE
     'if_z            waitx   #NS_015 + 1            ' let /OE settle
     if_z            waitx   #3  ' 17.5 - 20  nSec
@@ -456,60 +460,45 @@ clkData
     if_z            waitx   #3  ' 17.5 - 20  nSec
 
                     ' toggle clock
-
-                    ' no waitx/nop is doing 2nSec pulse  EEK!
-                    'waitx   #4     ' 27 nSec
-                    'nop     ' 1x 10-12.5 nSec
-                    'nop     ' 2x 15-17.5 nSec
-                    'drvh    #MTX_LED_PIN_CLK
-                    'waitx   #NS_015
-                    'drvl    #MTX_LED_PIN_CLK
-
                     drvnot  #MTX_LED_PIN_CLK
                     waitx   #3  ' 17.5 - 20  nSec
                     drvnot  #MTX_LED_PIN_CLK
 
                     ' setup for next column
                     add     col_addr, #1
+                    djnz    byt_offset, #clkNextByte
                     add     reg_offset, #1
-                    djnz    col_ctr, #clkData
+                    djnz    reg_ctr, #clkNextReg
 
 ' LATCH DATA complete...
-                drvl    #MTX_LED_PIN_LATCH      ' end latch data
-                'waitx   #NS_015 + 1            ' let LATCH settle
+                    drvl    #MTX_LED_PIN_LATCH      ' end latch data
 
         ' write address AFTER
-                add     row_addr, #$08          ' 1 but in upper 5-bits
-                call    #emitAddr
+                    add     row_addr, #$08          ' 1 but in upper 5-bits
+                    call    #emitAddr
 
-                cmp     row_ctr, #1 wz
-    if_nz       drvl    #MTX_LED_PIN_OE         ' enable output if NOT at end of frame!
-                'waitx   #NS_015 + 1
+                    cmp     row_ctr, #1 wz
+    if_nz           drvl    #MTX_LED_PIN_OE         ' enable output if NOT at end of frame!
 '
 ' ---  inter-line gap  ---
 '
-                'waitx  #((US_001 - 70) / 2) - 39       ' GAP End of LINE ~528 nSec
-                'waitx  #(US_001 / 8)                   ' GAP End of LINE ~372 nSec
-                'waitx   #(US_001 / 16)                  ' GAP End of LINE ~310 nSec
-                djnz    row_ctr, #wrLine
-'                drvh    #MTX_LED_PIN_OE         ' disable output (between frames)
+                    djnz    row_ctr, #wrLine
 
+'
 ' ---  inter-frame gap  ---
 '
-                'rep    #1, #25                 ' GAP end of FRAME ~25 uSec 0.87 Amp
-                'rep    #1, #100                ' GAP end of FRAME ~100.942 uSec 1.19 Amp
-                'waitx   #US_001                 ' GAP end of FRAME ~1.345 uSec 0.74 Amp
-.wrFrameEnd
-                jmp     #wrFrame
+                    waitx   #100
+wrFrameEnd
+                    jmp     #wrFrame
 
 ' ----------------------------------------------------------
 ' subroutines
 '
 emitAddr
-                SETQ    maskAddr
-                MUXQ    OUTB, row_addr          ' but in upper 5-bits of ls byte of  63-32
-                waitx   #3
-                ret
+                    SETQ    maskAddr
+                    MUXQ    OUTB, row_addr          ' but in upper 5-bits of ls byte of  63-32
+                    waitx   #3
+                    ret
 
 ' NOTES
 '
@@ -571,7 +560,7 @@ fillCount       res     1       ' [1-64] remaining count of bytes to write
 fillOffset      res     1       ' [0-63] offset into fillBffr
 
 reg_offset      res     1       ' [0-31] byte of red/grn/blu bffr[1/2]
-regvalue        res     1
+reg_value       res     1
 byt_offset      res     1
 dbgBffr         res     1
 dbgCount        res     1
@@ -580,7 +569,7 @@ dbgCount        res     1
 row_addr        res     1
 row_ctr         res     1
 col_addr        res     1
-col_ctr         res     1
+reg_ctr         res     1
 
         FIT     496
 

@@ -57,8 +57,8 @@ PUB setScreen(pScreen)
     'debug("seg:setScreen()")
     '' Save the location of our external screen buffer
     pExtScreen := pScreen
-    maxBitColumns := hardware.MAX_COLUMNS
-    maxBitRows := hardware.MAX_ROWS
+    maxBitColumns := hardware.MAX_PANEL_COLUMNS
+    maxBitRows := hardware.MAX_PANEL_ROWS
 
 PUB placeSegment(row, column, orientation, initialState, rgbColor)
     'debug("seg:placeSegment rc=(", udec_(row), ",", udec_(column), "), orient=(", udec_(orientation), "), state=(", udec_(initialState), "), RGB=(", uhex_long_(rgbColor),")")

@@ -74,7 +74,7 @@ PUB start() : ok
     setTextSize(TEXT_SIZE_DEFAULT)
     homeCursor()
     setTextColor($AAAAAA)
-    '  clearScreen()   FIXME: UNDONE REMOVE BEFORE FLIGHT!!!
+    clearScreen()   ' FIXME: UNDONE REMOVE BEFORE FLIGHT!!!
 
 PUB stop()
     '' Stop the underlying driver(s)
@@ -97,9 +97,9 @@ PUB fillScreen(rgbColor) | row, column
         repeat column from 0 to hardware.MAX_DISPLAY_COLUMNS - 1
             drawPixelAtRC(row, column, rgbColor)
 
-PUB fillScreen3Bit(threeBitColor)
+PUB fillPanel(threeBitColor)
     '' fill screen but without PWM (for testing underlying driver)
-    panel.fillScreen(threeBitColor)
+    panel.fillPanel(threeBitColor)
 
 PUB setCursor(row, column)
     '' Position the text cursor to row, column on our display
@@ -192,8 +192,12 @@ PUB setCharAtRCWithColor(row, column, cChar, rgbColor) | pCharBitMap, tlScreenOf
                 else
                     drawPixelAtRC(sRowPixIndex + cByteIdx, sColumnPixIndex + cBitIdx, rgbColor)
 
-PUB drawLine(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column
-    '' Draw line fromRC toRC with rgbColor (currently limited to horzontal/vertical lines)
+PUB drawLine(fmRow, fmColumn, toRow, toColumn)
+    '' Draw line fromRC -> toRC using current text color (currently limited to horzontal/vertical lines)
+    drawLineOfColor(fmRow, fmColumn, toRow, toColumn, currTextColor)
+
+PUB drawLineOfColor(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column
+    '' Draw line fromRC -> toRC using rgbColor (currently limited to horzontal/vertical lines)
     'debug("seg:drwLn fmRC=(", udec_(fmRow), ",", udec_(fmColumn), "), toRC=(", udec_(toRow), ",", udec_(toColumn), "), RGB=(", uhex_long(rgbColor), ")")
     fmRow :=  0 #> fmRow <# hardware.MAX_DISPLAY_ROWS - 1
     fmColumn :=  0 #> fmColumn <# hardware.MAX_DISPLAY_COLUMNS - 1
@@ -230,10 +234,11 @@ PUB drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex,
     '' Place r,g,b color pixel at r,c
     rowIndex := 0 #> row <# hardware.MAX_DISPLAY_ROWS - 1
     columnIndex :=  0 #> column <# hardware.MAX_DISPLAY_COLUMNS - 1
-    colorOffset := ((rowIndex * hardware.MAX_DISPLAY_COLUMNS * hardware.DISPLAY_BYTES_PER_COLOR) + (columnIndex * hardware.DISPLAY_BYTES_PER_COLOR))
+    colorOffset := ((rowIndex * hardware.MAX_DISPLAY_COLUMNS) + columnIndex) * hardware.DISPLAY_BYTES_PER_COLOR
     pColor := @byte[@screen0][colorOffset]
     'if isDebugLocn(rowIndex, columnIndex)
-    '    debug("- Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
+    'if row == 0 && column == 0
+    debug("- Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
     byte[pColor][0] := red
     byte[pColor][1] := green
     byte[pColor][2] := blue

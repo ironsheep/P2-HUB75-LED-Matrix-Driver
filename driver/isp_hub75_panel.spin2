@@ -67,7 +67,7 @@ PRI waits(nSeconds)
     repeat nSeconds
         waitms(1000)    ' 1 seconds
 
-PUB fillScreen(threeBitColor)
+PUB fillPanel(threeBitColor)
     '' fill screen but without PWM (for testing underlying driver)
     matrix.fillPanel(threeBitColor)
 
@@ -82,8 +82,8 @@ PUB loadScreen(p24bitScreen) | nPanelCol, nPanelRow, blue, green, red, haveError
     pPwmFrameSet := getActivePwmBuffer()    ' TESTING
 
    ' fill 8x 3-bit frames from 24-bit-screen
-    repeat nPanelRow from 0 to hardware.MAX_ROWS - 1
-        repeat nPanelCol from 0 to hardware.MAX_COLUMNS - 1
+    repeat nPanelRow from 0 to hardware.MAX_PANEL_ROWS - 1
+        repeat nPanelCol from 0 to hardware.MAX_PANEL_COLUMNS - 1
 
             red, green, blue := get24BitColorForRC(nPanelRow, nPanelCol)
             setPixelForRC(nPanelRow, nPanelCol, RGB(red, green, blue))
@@ -110,12 +110,12 @@ PUB loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, haveError,
         repeat nPanelCol from 0 to 63
             'debug("loadBitmap() - RC=(", udec_(nPanelRow), ", ", udec_(nPanelCol), ")")
             haveError := FALSE
-            if(nPanelRow > hardware.MAX_ROWS - 1) 
-                ' XYZZYpnl debug("- ERROR bad nPanelRow value [", udec_(nPanelRow), " > ", udec_(hardware.MAX_ROWS - 1), "]")
+            if(nPanelRow > hardware.MAX_PANEL_ROWS - 1) 
+                ' XYZZYpnl debug("- ERROR bad nPanelRow value [", udec_(nPanelRow), " > ", udec_(hardware.MAX_PANEL_ROWS - 1), "]")
                 haveError := TRUE
 
-            if(nPanelCol > hardware.MAX_COLUMNS - 1) 
-                ' XYZZYpnl debug("- ERROR bad nPanelCol value [", udec_(nPanelCol), " > ", udec_(hardware.MAX_COLUMNS - 1), "]")
+            if(nPanelCol > hardware.MAX_PANEL_COLUMNS - 1) 
+                ' XYZZYpnl debug("- ERROR bad nPanelCol value [", udec_(nPanelCol), " > ", udec_(hardware.MAX_PANEL_COLUMNS - 1), "]")
                 haveError := TRUE
 
             if haveError == FALSE
@@ -164,7 +164,7 @@ PRI getPwmFrameAddressForBit(nBitNumber) : pFrameBuffer | nFrameOffset, frameIdx
 PRI setPixelForRC(nPanelRow, nPanelCol, red, green, blue) | rBit, gBit, bBit, pPwmFrame, bitNumber 
     ' for each 24bit color write to PWM frames
     ' ' XYZZYpnl debug("setPixel() - x,y=(", udec_(nPanelCol), ", ", udec_(nPanelRow), ")")
-    ' expand image into 8 pwm frames
+    ' expand 24-bit pixel into 8 pwm frames of 3-bit pixel
     repeat bitNumber from hardware.MAX_PWM_FRAMES - 1 to 0
         pPwmFrame := getPwmFrameAddressForBit(bitNumber)
         rBit := red & (1 << bitNumber) > 0 ? 1 : 0
@@ -178,31 +178,31 @@ VAR { buffer addresses }
 
     long    pBitmapFileInMemory
     long    pScreenInMemory
-    long    rBuff
-    long    gBuff
-    long    bBuff
 
-
-PRI setPanelColorBitsForRC(pPwmFrame, nPanelRow, nPanelCol, rBit, gBit, bBit) | nBffrR, nBffrC, isRGB2, byteIdx, maskRgbBits, rgbBits, currByte, showDebug
+PRI setPanelColorBitsForRC(pPwmFrame, nPanelRow, nPanelCol, rBit, gBit, bBit) | nBffrR, nBffrC, isRGB2, byteIdx, maskBitsBGR, bitsBGR, currByte, showDebug
     '  write color bits to a PWM frame at frame[r][c] 
     ' FIXME: UNDONE PANEL GEOM ASSUMPTION
-    nBffrR := (0 #> nPanelRow <# hardware.MAX_ROWS - 1) // 16
-    nBffrC := 0 #> nPanelCol <# hardware.MAX_COLUMNS - 1
-    isRGB2 := (((0 #> nPanelRow <# hardware.MAX_ROWS - 1) / 32) > 0) ? TRUE : FALSE
+    nBffrR := (0 #> nPanelRow <# hardware.MAX_PANEL_ROWS - 1)
+    nBffrC := 0 #> nPanelCol <# hardware.MAX_PANEL_COLUMNS - 1
+    isRGB2 := (nBffrR > 15) ? TRUE : FALSE
+    nBffrR //= 16
 
-    maskRgbBits := %0000_0111
-    rgbBits := ((bBit & $01) << 2) | ((gBuff & $01) << 1) | (rBit & $01)
+    maskBitsBGR := %0000_0111
+    ' NOTE: our hardware uses "00 bgr bgr" for the byte value!
+    bitsBGR := ((bBit & $01) << 2) | ((gBit & $01) << 1) | (rBit & $01)
     if isRGB2
-        rgbBits <<= 3    ' mov color bits into rgb2 position
-        maskRgbBits <<= 3
+        bitsBGR <<= 3    ' mov color bits into rgb2 position
+        maskBitsBGR <<= 3
 
-    byteIdx := (nBffrR * hardware.MAX_COLUMNS) + nBffrC
+    byteIdx := (nBffrR * hardware.MAX_PANEL_COLUMNS) + nBffrC
 
-    currByte := byte[pPwmFrame][byteIdx] & !maskRgbBits
+    currByte := byte[pPwmFrame][byteIdx] & !maskBitsBGR
     if byteIdx > 1023
         debug("ERROR! byte index calc failure have=(" , udec_(byteIdx), ") of [0-1023]")
     else 
-        byte[pPwmFrame][byteIdx] := currByte | rgbBits
+        byte[pPwmFrame][byteIdx] := currByte | bitsBGR
+    'if bitsBGR <> 0
+    '    debug("bffr frame=(", uhex_long_(pPwmFrame), "), rc=(", udec_(nBffrR), ",", udec_(nBffrC), "), bytIdx=[", udec_(byteIdx), "], colorBits=(", ubin_(bitsBGR), ") [", ubin_(currByte), "] -> [", ubin_(currByte | bitsBGR), "]")
 
     'showDebug := FALSE
     ' if isDebugLocn(nBffrR, nBffrC) 
@@ -288,7 +288,7 @@ PRI isDebugLocn(nRow, nCol) : status
 
 PRI getPixelAddressForBMPRowColumn(nRow, nColumn) : pixColorAddr | nRowIndex, nColumnIndex, nOffset, fileBitsBase, showDebug
 	' Row is inverted in .BMP file...
-	nRowIndex := (hardware.MAX_ROWS - 1) - nRow
+	nRowIndex := (hardware.MAX_PANEL_ROWS - 1) - nRow
 
 	' Column is normal in file...
 	nColumnIndex := nColumn
@@ -299,7 +299,7 @@ PRI getPixelAddressForBMPRowColumn(nRow, nColumn) : pixColorAddr | nRowIndex, nC
         showDebug := TRUE ' FALSE  ' turn off debug
 
 	' now offset is simple (just multiply by 3! [bytes of color])
-    nOffset := (nRowIndex * hardware.MAX_COLUMNS * 3) + (nColumnIndex * 3)
+    nOffset := ((nRowIndex * hardware.MAX_PANEL_COLUMNS) + nColumnIndex) * hardware.DISPLAY_BYTES_PER_COLOR
 
     fileBitsBase := @byte[pBitmapFileInMemory][bfOffBits]   ' get base of image in file (skip header)
     pixColorAddr := @byte[fileBitsBase][nOffset]    ' add in offset to 24-bit color
@@ -310,22 +310,22 @@ PRI getPixelAddressForBMPRowColumn(nRow, nColumn) : pixColorAddr | nRowIndex, nC
 
 PRI getPixelAddressForRowColumn(nRow, nColumn) : pixColorAddr | nRowIndex, nColumnIndex, nOffset, screenBitsBase, showDebug
 	' Row is NOT inverted in screen image...
-    nRowIndex := 0 #> nRow <# hardware.MAX_ROWS - 1
+    nRowIndex := 0 #> nRow <# hardware.MAX_PANEL_ROWS - 1
     ' Column is normal in file...
-    nColumnIndex := 0 #> nColumn <# hardware.MAX_COLUMNS - 1
+    nColumnIndex := 0 #> nColumn <# hardware.MAX_PANEL_COLUMNS - 1
 
 	' now offset is simple (just multiply by 3! [bytes of color])
-    nOffset := (nRowIndex * hardware.MAX_COLUMNS * 3) + (nColumnIndex * 3)
+    nOffset := ((nRowIndex * hardware.MAX_PANEL_COLUMNS) + nColumnIndex) * hardware.DISPLAY_BYTES_PER_COLOR
 
     pixColorAddr := @byte[pScreenInMemory][nOffset]    ' add in offset to 24-bit color
 
 
 PRI get24BitColorForRC(nRow, nColumn) : red, green, blue | pixColorAddr
-	if(nRow > hardware.MAX_ROWS - 1) 
-		debug("- ERROR bad nRow value [", udec_(nRow), " > ", udec_(hardware.MAX_ROWS - 1), "]")
+	if(nRow > hardware.MAX_PANEL_ROWS - 1) 
+		debug("- ERROR bad nRow value [", udec_(nRow), " > ", udec_(hardware.MAX_PANEL_ROWS - 1), "]")
 	
-	if(nColumn > hardware.MAX_COLUMNS - 1) 
-		debug("- ERROR bad nColumn value [", udec_(nColumn), " > ", udec_(hardware.MAX_COLUMNS - 1), "]")
+	if(nColumn > hardware.MAX_PANEL_COLUMNS - 1) 
+		debug("- ERROR bad nColumn value [", udec_(nColumn), " > ", udec_(hardware.MAX_PANEL_COLUMNS - 1), "]")
 
     pixColorAddr := getPixelAddressForRowColumn(nRow, nColumn)
     red := byte[pixColorAddr][0]
@@ -334,11 +334,11 @@ PRI get24BitColorForRC(nRow, nColumn) : red, green, blue | pixColorAddr
 
 
 PRI get24BitBMPColorForRC(nRow, nColumn) : red, green, blue | pixColorAddr
-	if(nRow > hardware.MAX_ROWS - 1) 
-		debug("- ERROR bad nRow value [", udec_(nRow), " > ", udec_(hardware.MAX_ROWS - 1), "]")
+	if(nRow > hardware.MAX_PANEL_ROWS - 1) 
+		debug("- ERROR bad nRow value [", udec_(nRow), " > ", udec_(hardware.MAX_PANEL_ROWS - 1), "]")
 	
-	if(nColumn > hardware.MAX_COLUMNS - 1) 
-		debug("- ERROR bad nColumn value [", udec_(nColumn), " > ", udec_(hardware.MAX_COLUMNS - 1), "]")
+	if(nColumn > hardware.MAX_PANEL_COLUMNS - 1) 
+		debug("- ERROR bad nColumn value [", udec_(nColumn), " > ", udec_(hardware.MAX_PANEL_COLUMNS - 1), "]")
 
     pixColorAddr := getPixelAddressForBMPRowColumn(nRow, nColumn)
     ' our intername .bmp file byte order is BGR!

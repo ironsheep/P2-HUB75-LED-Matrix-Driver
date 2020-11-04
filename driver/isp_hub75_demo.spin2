@@ -30,7 +30,7 @@ OBJ
     screen      : "isp_hub75_display"
     digit[4]    : "isp_hub75_7seg"
 
-PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, digitIndex, color3bit
+PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, digitIndex, color3bit, color24bit
     '' start underlying drivers and run demo
     ok := cog := screen.start()   ' send buffer to driver
     if ok == -1
@@ -38,24 +38,32 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, d
         abort
 
     ' do DEMO Things!
+{
+    screen.drawLineOfColor(0, 0, 0, 3, screen.cRed)
+    screen.drawLineOfColor(0, 61, 0, 63, screen.cBlue)
+    screen.drawLineOfColor(1, 61, 1, 63, screen.cBlue)
+
+    screen.drawLineOfColor(30, 62, 30, 63, screen.cWhite)
+    screen.drawLineOfColor(31, 62, 31, 63, screen.cWhite)
+
+    screen.drawLineOfColor(31, 0, 31, 5, screen.cLime)
+    screen.commitScreenToPanel()
+}
+{    
     repeat color3bit from 7 to 0
         debug("fill w/color=(", udec_(color3bit), ")")
-        screen.fillScreen3Bit(color3bit)
-        repeat 2    ' 3 seconds
-            waitms(1000)
-
+        screen.fillPanel(color3bit)
+        repeat 8    ' 1/8 second
+            waitms(125)
+}
+{
+    color24bit := $600028
+    debug("fill w/24-bit-color=(", udec_(color24bit), ")")
+    screen.fillScreen(color24bit)
+    screen.commitScreenToPanel()
+}
     ' clear screen
     'screen.clearScreen()
-{
-        ' draw some text!
-    screen.setTextSize(screen.TEXT_SIZE__5x7)    ' font size 
-    screen.setCursor(0, 0)   ' start at top left, with one pixel of spacing
-
-    screen.setColoredTextAtRC(0,0, string("iron sheep"), screen.cMaroon)
-    'screen.setColoredTextAtRC(1,0, string("-RGB 3bit-"), screen.cOrange)
-    'screen.setColoredTextAtRC(2,0, string("24b color!"), screen.cRainbow)
-    'screen.setColoredTextAtRC(3,0, string("led matrix"), screen.cWhite)
- }
 
  {
     ' print each letter with a rainbow color
@@ -65,6 +73,17 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, d
     screen.setCharWithColor("3", screen.cGreen)
     screen.setCharWithColor("2", screen.cLime)
 }
+
+
+        ' draw some text!
+    screen.setTextSize(screen.TEXT_SIZE__5x7)    ' font size 
+    screen.setCursor(0, 0)   ' start at top left, with one pixel of spacing
+
+    screen.setColoredTextAtRC(0,0, string("iron sheep"), screen.cMaroon)
+    screen.setColoredTextAtRC(1,0, string("-RGB 3bit-"), screen.cOrange)
+    screen.setColoredTextAtRC(2,0, string("24b color!"), screen.cRainbow)
+    screen.setColoredTextAtRC(3,0, string("led matrix"), screen.cWhite)
+    screen.commitScreenToPanel()
 
 {
     repeat digitIndex from 0 to 3
