@@ -27,8 +27,8 @@ CON { Hardware Description }
 ' =================================================================================================
 #0[16], PINS_P0_P15, PINS_P16_P31, PINS_P32_P47, PINS_P48_P63
 
-    'ADAPTER_BASE_PIN = PINS_P32_P47   ' PINS_P16_31
-    ADAPTER_BASE_PIN = PINS_P16_P31
+    ADAPTER_BASE_PIN = PINS_P32_P47   ' PINS_P16_31
+    'ADAPTER_BASE_PIN = PINS_P16_P31
 
 ' =================================================================================================
 '  (2) Describe your desired effective color resolution (8-24 bit) more bits, more ram need!
@@ -57,8 +57,8 @@ CON { Hardware Description }
 ' ----------------------------------------------------------
 
 '  determine what form of signalling the driver should use
-    'PANEL_DRIVER_CHIP = CHIP_FM6124    ' CHIP_FM6126A 
-    PANEL_DRIVER_CHIP = CHIP_FM6126A 
+    PANEL_DRIVER_CHIP = CHIP_FM6124    ' CHIP_FM6126A 
+    'PANEL_DRIVER_CHIP = CHIP_FM6126A 
 
     ' electrical layout
     MAX_PANEL_COLUMNS = 64
