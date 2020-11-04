@@ -17,8 +17,8 @@ CON
 
 OBJ
 
-    screen      : "isp_hub75_screenAccess"
-    bits[4]     : "isp_hub75_binBit"
+    screen              : "isp_hub75_screenAccess"
+    bits[MAX_BITS]      : "isp_hub75_binBit"
 
 DAT { globals - initialized - class data }
 
@@ -35,43 +35,52 @@ VAR { globals - instance data }
     long    emptyRgbColor
     
     byte    isSetup
+    byte    currDigit
+    byte    instanceID
 
     
 PUB null()
     '' This is NOT a top level object
 
-PUB placeDigitAtRC(row, column, fullColor, emptyColor) | bitIndex, dispRow, dispCol
-    'debug("dig:place @RC(", udec_(row), ",", udec_(column), ") ", uhex_long(fullColor), uhex_long(emptyColor))
+
+PUB placeDigitAtRC(row, column, digitId, fullColor, emptyColor) | bitIndex, dispRow, dispCol
+    debug("dig:place @RC(", udec_(row), ",", udec_(column), ") ", udec(digitId), uhex_long(fullColor), uhex_long(emptyColor))
     if NOT isSetup
         initialize()
     dispRow := topRow := row
     dispCol := leftColumn := column
+    instanceID := digitId
     fullRgbColor := fullColor
     emptyRgbColor := emptyColor
     repeat bitIndex from 0 to MAX_BITS - 1
-        bits[bitIndex].placeBitAtRC(dispRow, dispCol, 1 << bitIndex, fullColor, emptyColor)
+        bits[bitIndex].placeBitAtRC(dispRow, dispCol, 1 << (MAX_BITS - 1) - bitIndex, fullColor, emptyColor)
         dispRow += bitHeight + vertGap
 
 PUB setValue(digit) | bitIndex, dispRow, dispCol, bitValue
-    'debug("dig:setValue ", ubin(digit))
     '' set a new value for this column [0-15]
+    debug("dig:setValue ", ubin(digit))
     repeat bitIndex from 0 to MAX_BITS - 1
-        bitValue := (digit & (1 << (3 - bitIndex))) > 0 ? 1 : 0
+        bitValue := (digit & (1 << ((MAX_BITS - 1) - bitIndex))) > 0 ? 1 : 0
         bits[bitIndex].setValue(bitValue)
 
+    currDigit := digit
+
 PUB isMovementComplete() : status | bitIndex
-    '' Return T/F where T means all segment animations are complete
+    '' Return T/F where T means all bit and flow animations are complete
     status := TRUE
     repeat bitIndex from 0 to MAX_BITS - 1
         if not bits[bitIndex].isMovementComplete()
             status := FALSE
             quit   ' we have our answer, abort loop
 
+
 PUB animateStep() | bitIndex
-    '' Have each sement do 1 animation step, if one is pending
+    '' Have each bit or flow do 1 animation step, if one is pending
     if not isMovementComplete()
+        'debug("dig:animate ", udec(instanceID))
         repeat bitIndex from 0 to MAX_BITS - 1
-            bits[bitIndex].animateStep()
+            if not bits[bitIndex].isMovementComplete()
+                bits[bitIndex].animateStep()
 
 PRI initialize()
     isSetup := TRUE
@@ -79,6 +88,7 @@ PRI initialize()
     bitHeight := 4
     bitWidth := 5
     vertGap := 2
+
 
 CON { license }
 

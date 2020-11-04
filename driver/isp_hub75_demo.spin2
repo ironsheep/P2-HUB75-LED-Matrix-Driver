@@ -33,6 +33,7 @@ VAR
 
 OBJ
 
+    color       : "isp_hub75_color"
     display      : "isp_hub75_display"
     digit[4]    : "isp_hub75_7seg"
 

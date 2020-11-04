@@ -30,13 +30,12 @@ OBJ { objects }
     display                 : "isp_hub75_display"
     color                   : "isp_hub75_color"
     digits[MAX_DIGITS]      : "isp_hub75_binDigit"
-    feeds                   : "isp_hub75_binFeeds"
 
 DAT { initialized data }
 
 isSetup         BYTE    FALSE
-digitPeriod     BYTE    20    ' 12 
-segmentPeriod   BYTE    2  ' was 5
+digitPeriod     BYTE    5    ' 12 
+segmentPeriod   BYTE    0  ' was 5
 
 
 VAR { globals }
@@ -67,13 +66,15 @@ PUB setupClock() : ok | digitIndex, row, col
     row := TOP_INSET
     col := LEFT_INSET
     repeat digitIndex from 0 to MAX_DIGITS - 1
-        digits[digitIndex].placeDigitAtRC(row, col, fullRgbColor, emptyRgbColor)
+        digits[digitIndex].placeDigitAtRC(row, col, (MAX_DIGITS - 1) - digitIndex + 1, fullRgbColor, emptyRgbColor)
         if (digitIndex & 1) == 0
             ' placed odd bit
             col += HORIZ_ODD_OFFSET + DIGIT_WIDTH
         else
             col += HORIZ_EVEN_OFFSET + DIGIT_WIDTH
     display.commitScreenToPanel()
+
+  '  repeat ' hold here
 
 PUB stopClock() : ok
     '' stop our back-end display driver
@@ -88,10 +89,6 @@ PUB setTimeHMS(hours, minutes, seconds)
     if isAnimationComplete()
         ' evaluate what needs to change, cause change
                 ' TEST checking out flows - tweaking them
-        setFlowHMS(hours, minutes, seconds)
-        display.commitScreenToPanel()
-        wait100thSecs(segmentPeriod)
-        loopUntilBitsFinish()
 
         setHMS(hours, minutes, seconds)
         display.commitScreenToPanel()
@@ -111,16 +108,6 @@ PUB setTimeHMS(hours, minutes, seconds)
 
 PUB runClock()
     '' simply increment seconds(,minutes,hours) every second (assumes time is already set! - setTimeHMS() was already called
-
-
-
-PRI setFlowHMS(hours, minutes, seconds)
-    '' set the initial time to be displayed
-    'debug("clk:set ", udec(hours), udec(minutes), udec(seconds))
-
-    ' TEST FLOWS FOR NOW...
-    feeds.setHMS(hours, minutes, seconds)
-    showSecondsDots( ((seconds // 4) // 2) )
 
 PRI setHMS(hours, minutes, seconds)
     ' set the initial time to be displayed
@@ -148,6 +135,41 @@ PRI isAnimationComplete() : status | digitIndex
             status := FALSE
             quit   ' we have our answer, abort loop
 
+PRI loopUntilBitsFinish() | digitIndex, didStep
+    debug("clk:loopUntilBitsFinish()")
+    repeat 
+        if not isAnimationComplete() 
+            didStep := FALSE
+            repeat digitIndex from 0 to MAX_DIGITS - 1
+                if not digits[digitIndex].isMovementComplete()
+                    digits[digitIndex].animateStep()
+                    didStep := TRUE ' at least 1 digit stepped
+
+                if didStep
+                    display.commitScreenToPanel()
+                    wait100thSecs(segmentPeriod)
+
+        if isAnimationComplete() 
+            quit
+
+{
+
+PRI setFlowHMS(hours, minutes, seconds)
+    '' set the initial time to be displayed
+    'debug("clk:set ", udec(hours), udec(minutes), udec(seconds))
+
+    ' TEST FLOWS FOR NOW...
+    feeds.setHMS(hours, minutes, seconds)
+    showSecondsDots( ((seconds // 4) // 2) )
+
+PRI isAnimationComplete() : status | digitIndex
+    ' Return T/F where T means all segment animations are complete
+    status := TRUE
+    repeat digitIndex from 0 to MAX_DIGITS - 1
+        if not digits[digitIndex].isMovementComplete()
+            status := FALSE
+            quit   ' we have our answer, abort loop
+
     if status == TRUE
         status := feeds.isAnimationComplete()
 
@@ -160,6 +182,7 @@ PRI animateStep() | digitIndex
             if not digits[digitIndex].isMovementComplete()
                 digits[digitIndex].animateStep()
 
+}
 
 
 PRI showSecondsDots(isBright) | rgbColor
@@ -187,15 +210,6 @@ PRI drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex,
     byte[pColor][1] := color.correctedColor(green)
     byte[pColor][2] := color.correctedColor(blue)
 
-PRI loopUntilBitsFinish()
-    repeat 
-        if not isAnimationComplete() 
-            animateStep() 
-            display.commitScreenToPanel()
-            wait100thSecs(segmentPeriod)
-
-        if isAnimationComplete() 
-            quit
 
 PRI wait100thSecs(count)
     repeat count

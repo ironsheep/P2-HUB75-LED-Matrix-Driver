@@ -13,13 +13,14 @@
 
 CON
 
-' various states of fill
-#0, STATE_UNKNOWN, STATE_FILLING_1, STATE_FILLING_2, STATE_FILLING_3, STATE_FILLING_4, STATE_FULL, STATE_EMPTYING_4, STATE_EMPTYING_3, STATE_EMPTYING_2, STATE_EMPTYING_1, STATE_EMPTY
+    ' various states of fill
+    #0, STATE_UNKNOWN, STATE_FILLING_1, STATE_FILLING_2, STATE_FILLING_3, STATE_FILLING_4, STATE_FULL, STATE_EMPTYING_4, STATE_EMPTYING_3, STATE_EMPTYING_2, STATE_EMPTYING_1, STATE_EMPTY
 
 OBJ
 
-    screen      : "isp_hub75_screenAccess"
-    color       : "isp_hub75_color"
+    screen  : "isp_hub75_screenAccess"
+    color   : "isp_hub75_color"
+    flow    : "isp_hub75_binflow"
 
 DAT { initialized data }
 
@@ -31,6 +32,7 @@ VAR { globals }
     long    bitWidth
 
     long    desiredEndState
+    long    pendingEndState
     long    currentState
     long    nextState
 
@@ -38,37 +40,94 @@ VAR { globals }
     long    emptyRgbColor
     
     byte    isSetup
-    byte    currValue
+    byte    currBitValue
+    byte    waitingOnInflowComplete
+    byte    instanceID
     
 PUB null()
     '' This is NOT a top level object
 
-PUB placeBitAtRC(row, column, value, fullColor, emptyColor) | bitIndex
-    'debug("bit:place @RC(", udec_(row), ",", udec_(column), ") ", uhex_long(fullColor), uhex_long(emptyColor))
+
+{{
+    WORK Herein:
+    if bit is turning on:
+        start-inflow
+        when inflow touches bit
+            start bit (filling itself)
+    elseif bit it turning off
+        start bit (emptying itself)
+        start outflow
+    wiat for animations to complete
+}}
+
+
+PUB placeBitAtRC(row, column, bitId, fullColor, emptyColor) | bitIndex
+    debug("bit:place @RC(", udec_(row), ",", udec_(column), ") ", ubin(bitId), uhex_long(fullColor), uhex_long(emptyColor))
     if NOT isSetup
         initialize()
     topRow := row
     leftColumn := column
+    instanceID := bitId         ' jut for info / debug, etc.
     fullRgbColor := fullColor
     emptyRgbColor := emptyColor
-    currValue := value
+    currBitValue := 0
     drawBit(topRow, leftColumn, emptyColor)
 
-PUB setValue(bit) | newEndState
-    '' set a new value for this column [0-15]
+    '' init flows for this bit
+    flow.setUpInAndOutFlows(row, column, bitWidth, bitHeight)
+
+PRI initialize()
+    isSetup := TRUE
+    bitHeight := 4
+    bitWidth := 5
+    pendingEndState := desiredEndState := nextState := currentState := STATE_EMPTY
+
+
+PUB setValue(bitValue) | newEndState
+    '' set a new value for this bit of a digit
     'debug("dig:setValue ", ubin(digit))
-    newEndState := (bit > 0) ? STATE_FULL : STATE_EMPTY
-    if desiredEndState <> newEndState
-        moveBitToState(newEndState)
+    if currBitValue <> bitValue
+        ' if bit is turning on
+        if bitValue == 1    
+            ' start inflow
+            newEndState := STATE_FULL
+            ' we are deferring bit-fill until flow reached the bit
+            waitingOnInflowComplete := TRUE
+            ' start the in-flow
+            flow.startFlow(flow.TYPE_INFLOW)
+            ' record the state the bit will go to when flow reaches bit
+            pendingEndState := newEndState
+        else
+            ' bit is turning off
+            newEndState := STATE_EMPTY
+            ' start digit emptying
+            if desiredEndState <> newEndState
+                moveBitToState(newEndState)
+            ' and start outflow
+            flow.startFlow(flow.TYPE_OUTFLOW)
+        ' record that we've done this
+        currBitValue := bitValue
 
-PUB isMovementComplete() : status
+PUB isMovementComplete() : status | flowIndex
     '' Return T/F where T means that all movement for this bit is complete
-    status := (desiredEndState == currentState)
+    status := (desiredEndState == currentState) ? TRUE : FALSE
+    if status == TRUE ' if not done, then don't check further... if done, then check flows!
+        if NOT flow.isMovementComplete()
+            status := FALSE
 
-PUB animateStep() 
+PUB animateStep()  | flowIndex, flowAnimateResult, newEndState
     '' Do one animation step, if one is pending
     if not isMovementComplete()
-        updateBitToState(nextState)
+        if not waitingOnInflowComplete
+            updateBitToState(nextState)
+        if NOT flow.isMovementComplete()
+            flowAnimateResult := flow.animateStep()
+            if flowAnimateResult == flow.FLOW_AT_BIT
+                waitingOnInflowComplete := FALSE
+                ' now let's perform our deferred movement (fill the bit!)
+                newEndState := pendingEndState
+                pendingEndState := STATE_EMPTY
+                moveBitToState(newEndState)
 
 PUB moveBitToState(newEndState) 
     '' Start sequence of segment updates to desired state (on/off)
@@ -114,6 +173,7 @@ PRI updateBitToState(newState)
                 nextState := STATE_FULL
         STATE_FULL:   ' all lines filled
                 fillBit(bitHeight, fullRgbColor)
+                'debug("bit:FULL")
         STATE_EMPTYING_4:  ' 4 lines empty
                 fillBit(bitHeight - 1, fullRgbColor)
                 nextState := STATE_EMPTYING_3
@@ -127,17 +187,12 @@ PRI updateBitToState(newState)
                 fillBit(bitHeight - 4, fullRgbColor)
                 nextState := STATE_EMPTY
         STATE_EMPTY:  ' nothing to do since we clear segment first
+                'debug("bit:EMPTY")
         OTHER:
             debug("STATE(vrtL) not yet implemented (", udec_(newstate), ")")
     currentState := newState
 
 ' FIXME: UNDONE state changes would be faster if we filled or cleared just the lines that changed!
-
-PRI initialize()
-    isSetup := TRUE
-    bitHeight := 4
-    bitWidth := 5
-    desiredEndState := nextState := currentState := STATE_EMPTY
 
 PRI fillBit(level, rgbColor) | rowIndex, rowBottom, rowTop
     if level > 0

@@ -24,6 +24,9 @@ CON { constants affecting appearance }
 
     INDEX_NOT_FOUND = -1
 
+    ' flow animate results
+    #0, FLOW_MOVING, FLOW_AT_BIT
+
     ' flow movement commands
     #0,DIR_UNKNOWN, DIR_DOWN, DIR_RIGHT, DIR_UP, DIR_LEFT, DIR_DONE, SET_ROW, SET_COL, EAT_TAIL
 
@@ -40,6 +43,11 @@ CON { constants affecting appearance }
     FLOW_2_COLOR = $002EB9
     FLOW_3_COLOR = $00D117
     FLOW_4_COLOR = $00B9B9
+
+    'FLOW_1_COLOR = $00ff00
+    'FLOW_2_COLOR = $ffff00
+    'FLOW_3_COLOR = $ff8000
+    'FLOW_4_COLOR = $ff0000
 
 DAT { initialized data }
 
@@ -58,17 +66,25 @@ activeLocations long    0[MAX_SIMULTANEOUS_FEEDS * MAX_LENGTH_OF_FLOW]
 activeLocnCount byte    0
 
 runUnitTest     byte    FALSE   ' no need to run for now...
+tableMessage    byte    "Flows Table of longs:", 0
+
 OBJ
 
     screen                  : "isp_hub75_screenAccess"
     color                   : "isp_hub75_color"
 
-
-
 CON { table offsets }
+
+#0, TYPE_UNKNOWN, TYPE_INFLOW, TYPE_OUTFLOW
 
 TBL_OFFSET_INFLOWS = 0
 TBL_OFFSET_OUTFLOWS = 4
+
+DAT { debug stops }
+
+flowPairNumber  byte    -1
+flowPairsDone   byte    0
+
 
 VAR { globals }
     ' single flow state
@@ -89,12 +105,94 @@ VAR { globals }
     byte    dripRemaining
     byte    dripEntryIndex
 
+    byte    inflowTable[6 * 2]
+    byte    outflowTable[7 * 2]
+
     byte    isSetup
 
 PUB null()
     '' This is NOT a top level object
 
-PRI initialize() | digitIndex, pTemp0, pTemp1
+PUB setUpInAndOutFlows(bitRow, bitColumn, bitWidth, bitHeight) | pCommandTable, tableOffset, pTemp0, pTemp1
+    '' set this flows' tables: generate movement tables using bitRow/bitColum
+    if not isSetup
+        initialize()
+
+    flowPairsDone += 1
+
+    debug("flo:setup ", udec(bitRow), udec(bitColumn), udec(bitWidth), udec(bitHeight))
+    
+
+    ' setup inflow table
+    pCommandTable := @inflowTable
+    tableOffset := 0
+
+    byte[pCommandTable][tableOffset++] := DIR_DOWN
+    byte[pCommandTable][tableOffset++] := 3                                 ' fixed by layout
+
+    byte[pCommandTable][tableOffset++] := DIR_LEFT
+    byte[pCommandTable][tableOffset++] := START_COLUMN - bitColumn + 2      ' adjust by bit column
+
+    byte[pCommandTable][tableOffset++] := DIR_DOWN
+    byte[pCommandTable][tableOffset++] := bitRow - 3 + 3                    ' adjust by bit row
+
+    byte[pCommandTable][tableOffset++] := DIR_RIGHT
+    byte[pCommandTable][tableOffset++] := 1                                 ' fixed by layout
+
+    byte[pCommandTable][tableOffset++] := EAT_TAIL
+    byte[pCommandTable][tableOffset++] := 0
+
+    byte[pCommandTable][tableOffset++] := DIR_DONE
+    byte[pCommandTable][tableOffset++] := 0
+
+
+    ' setup outflow table
+    pCommandTable := @outflowTable
+    tableOffset := 0
+
+    byte[pCommandTable][tableOffset++] := SET_ROW
+    byte[pCommandTable][tableOffset++] := bitRow + 2                        ' adjust by bit row
+
+    byte[pCommandTable][tableOffset++] := SET_COL
+    byte[pCommandTable][tableOffset++] := bitColumn + bitWidth              ' adjust by bit column
+
+    byte[pCommandTable][tableOffset++] := DIR_RIGHT
+    byte[pCommandTable][tableOffset++] := 1                                 ' fixed by layout
+
+    byte[pCommandTable][tableOffset++] := DIR_DOWN
+    byte[pCommandTable][tableOffset++] := 32 - bitRow - 2                   ' adjust by bit row       
+
+    byte[pCommandTable][tableOffset++] := DIR_RIGHT
+    byte[pCommandTable][tableOffset++] := 64 - bitColumn - bitWidth  - 2    ' adjust by bit column
+
+    byte[pCommandTable][tableOffset++] := EAT_TAIL
+    byte[pCommandTable][tableOffset++] := 0
+    
+    byte[pCommandTable][tableOffset++] := DIR_DONE
+    byte[pCommandTable][tableOffset++] := 0
+    
+    pTemp0 := @inflowTable
+    pTemp1 := @outflowTable
+    'screen.dbgMemDump(@tableMessage, @inflowTable, 13 * 2)
+    debug("flo:initialize ", uhex_long(pTemp0), uhex_long(pTemp1))
+
+    if flowPairsDone >= flowPairNumber && flowPairsDone <= flowPairNumber + 1
+        dumpTables(@inflowTable, 6, @outflowTable, 7)
+        if flowPairsDone == flowPairNumber + 1
+            repeat  ' stop here so we can analyze
+
+PRI dumpTables(pInflowTable, inEntryCount, pOutFlowTable, outEntryCount) | entryIndex, dripCmd, dripArg
+    repeat entryIndex from 0  to inEntryCount - 1
+        dripCmd := byte[pInflowTable][(entryIndex * 2) + 0]
+        dripArg := byte[pInflowTable][(entryIndex * 2) + 1]
+        debug("  inFlow[", udec_(entryIndex), "]", udec(dripCmd), udec(dripArg))
+
+    repeat entryIndex from 0  to outEntryCount - 1
+        dripCmd := byte[pOutFlowTable][(entryIndex * 2) + 0]
+        dripArg := byte[pOutFlowTable][(entryIndex * 2) + 1]
+        debug(" outflow[", udec_(entryIndex), "]", udec(dripCmd), udec(dripArg))
+
+PRI initialize() | digitIndex
     'debug("`term temp size 82 50 textsize 10")
 
     isSetup := TRUE
@@ -105,117 +203,26 @@ PRI initialize() | digitIndex, pTemp0, pTemp1
         testNewActiveTracking()
         runUnitTest := FALSE
 
-    'pTemp0 := @flowsSecondsTens
-    'pTemp1 := @flowsSecondsOnes
-    'screen.dbgMemDump(@tableMessage, @flowsTable, 64)
-    'debug("flo:initialize ", uhex_long(pTemp0), uhex_long(pTemp1))
 
-PUB startFlow(digitId, fmNybble, toNybble) | bitIndex, bitMask, diffCount, liveIndex, zerosCount
+PUB startFlow(direction) | pCommandTable
     '' start (1 to 6) * (1 to 4) flows at the same time : h10(2,1), h01(8,4,2,1), m10(4,2,1), m01(8,4,2,1), s10(4,2,1), s01(8,4,2,1)
     if not isSetup
         initialize()
     if not isMovementComplete()
         debug("flo:start - IGNORED already moving")
     else
-        diffCount := 0
-        repeat bitIndex from 0 to 3
-            bitMask := 1 << bitIndex
-            if fmNybble & bitMask <> toNybble & bitMask
-                diffCount++
-        if diffCount > 1
-            debug("ERROR ERROR more than 1 bit selected for nybble! Abort")
-            abort
-        elseif diffCount == 0
-            debug("ERROR no FLOW requested and nothing to clear! Abort")
-            abort
-
+        case direction
+            TYPE_INFLOW:
+                headRow := START_ROW
+                headCol := START_COLUMN
+                pCommandTable := @inflowTable
+            TYPE_OUTFLOW:
+                pCommandTable := @outflowTable
+            other:
+                debug("flo:start - IGNORED already moving")
+                abort
         ' initiate the single flow
-        initiateFlows(digitId, fmNybble, toNybble)
-
-PRI initiateFlows(digitId, fmNybble, toNybble) | pInFlowsTable, pOutFlowsTable, pFlowsTable
-    case digitId
-        DIGIT_HOURS_TENS:
-            'pInFlowsTable := @long[flowsHoursTens][TBL_OFFSET_INFLOWS]   ' BAD??!!!
-            pInFlowsTable := @flowsHoursTens + TBL_OFFSET_INFLOWS * 4
-            'pOutFlowsTable := @long[@flowsHoursTens][TBL_OFFSET_OUTFLOWS]
-            pOutFlowsTable := @flowsHoursTens + TBL_OFFSET_OUTFLOWS * 4
-
-        DIGIT_HOURS_ONES:
-            'pInFlowsTable := @long[flowsHoursOnes][TBL_OFFSET_INFLOWS]   ' BAD??!!!
-            pInFlowsTable := @flowsHoursOnes + TBL_OFFSET_INFLOWS * 4
-            'pOutFlowsTable := @long[@flowsHoursOnes][TBL_OFFSET_OUTFLOWS]
-            pOutFlowsTable := @flowsHoursOnes + TBL_OFFSET_OUTFLOWS * 4
-
-        DIGIT_MINUTES_TENS:
-            'pInFlowsTable := @long[flowsMinutesTens][TBL_OFFSET_INFLOWS]   ' BAD??!!!
-            pInFlowsTable := @flowsMinutesTens + TBL_OFFSET_INFLOWS * 4
-            'pOutFlowsTable := @long[@flowsMinutesTens][TBL_OFFSET_OUTFLOWS]
-            pOutFlowsTable := @flowsMinutesTens + TBL_OFFSET_OUTFLOWS * 4
-
-        DIGIT_MINUTES_ONES:
-            'pInFlowsTable := @long[flowsMinutesOnes][TBL_OFFSET_INFLOWS]   ' BAD??!!!
-            pInFlowsTable := @flowsMinutesOnes + TBL_OFFSET_INFLOWS * 4
-            'pOutFlowsTable := @long[@flowsMinutesOnes][TBL_OFFSET_OUTFLOWS]
-            pOutFlowsTable := @flowsMinutesOnes + TBL_OFFSET_OUTFLOWS * 4
-
-        DIGIT_SECONDS_TENS:
-            'pInFlowsTable := @long[flowsSecondsTens][TBL_OFFSET_INFLOWS]   ' BAD??!!!
-            pInFlowsTable := @flowsSecondsTens + TBL_OFFSET_INFLOWS * 4
-            'pOutFlowsTable := @long[@flowsSecondsTens][TBL_OFFSET_OUTFLOWS]
-            pOutFlowsTable := @flowsSecondsTens + TBL_OFFSET_OUTFLOWS * 4
-
-        DIGIT_SECONDS_ONES:
-            'pInFlowsTable := @long[flowsSecondsOnes][TBL_OFFSET_INFLOWS]   ' BAD??!!!
-            pInFlowsTable := @flowsSecondsOnes + TBL_OFFSET_INFLOWS * 4
-            'pOutFlowsTable := @long[flowsSecondsOnes][TBL_OFFSET_OUTFLOWS]
-            pOutFlowsTable := @flowsSecondsOnes + TBL_OFFSET_OUTFLOWS * 4
-
-        OTHER:
-            debug("ERROR! Bad digit selector - initiateFlows(), aborted")
-            abort 
-
-    'debug("flo:initiateFlows ", uhex_long(pInFlowsTable), uhex_long(pOutFlowsTable))
-
-    ' ready row,col for In-flow case
-    headRow := START_ROW
-    headCol := START_COLUMN
-    pFlowsTable := @flowsTable
-
-    if fmNybble & 8 <> toNybble & 8
-        ' something changed, update our display
-        if (fmNybble & 8) > 0
-            ' our 8 flow is one, turning off - outflow
-            initiateFlow(pFlowsTable + long[pOutFlowsTable][0])
-        else 
-            ' our 8 flow is off turning on - inflow
-            initiateFlow(pFlowsTable + long[pInFlowsTable][0])
-
-    if fmNybble & 4 <> toNybble & 4
-        ' something changed, update our display
-        if (fmNybble & 4) > 0
-            ' our 4 flow is one, turning off - outflow
-            initiateFlow(pFlowsTable + long[pOutFlowsTable][1])
-        else 
-            ' our 4 flow is off turning on - inflow
-            initiateFlow(pFlowsTable + long[pInFlowsTable][1])
-
-    if fmNybble & 2 <> toNybble & 2
-        ' something changed, update our display
-        if (fmNybble & 2) > 0
-            ' our 2 flow is one, turning off - outflow
-            initiateFlow(pFlowsTable + long[pOutFlowsTable][2])
-        else 
-            ' our 2 flow is off turning on - inflow
-            initiateFlow(pFlowsTable + long[pInFlowsTable][2])
-
-    if fmNybble & 1 <> toNybble & 1
-        ' something changed, update our display
-        if (fmNybble & 1) > 0
-            ' our 1 flow is one, turning off - outflow
-            initiateFlow(pFlowsTable + long[pOutFlowsTable][3])
-        else 
-            ' our 1 flow is off turning on - inflow
-            initiateFlow(pFlowsTable + long[pInFlowsTable][3])
+        initiateFlow(pCommandTable)
 
 PUB isInUse() : inUseStatus 
     '' return T/F where T means this flow has bits on the board...
@@ -229,10 +236,13 @@ PUB isMovementComplete() : status
     '' Return T/F where T means that all movement for this bit is complete
     status := (dripCommand == DIR_DONE || dripCommand == DIR_UNKNOWN)
 
-PUB animateStep() 
+PUB animateStep() : result | moveEndedAtBitState
     '' Do one animation step, if one is pending
+    result := FLOW_MOVING
     if not isMovementComplete()
-        moveDrip()
+        moveEndedAtBitState := moveDrip()
+        if moveEndedAtBitState == TRUE
+            result := FLOW_AT_BIT
 
 PRI initiateFlow(pFlowTable) | command, distance
     ' load first command, make initial move
@@ -242,22 +252,25 @@ PRI initiateFlow(pFlowTable) | command, distance
     dripCommand, dripRemaining := nextCommand()
     if not isMovementComplete()
         moveDrip()
+           
 
 PRI nextCommand() : command, distance | pCurrEntry
     ' return indexed command and point to next
     pCurrEntry := @byte[pCurrFlowTable][dripEntryIndex * 2]
     command := byte[pCurrEntry][0]
     distance := byte[pCurrEntry][1]
-    debug("flo:next ", udec(command), udec(distance))
+    'debug("flo:next ", udec(command), udec(distance))
     dripEntryIndex++
 
 
-PRI moveDrip() | moved, haveRow, haveColumn, finishedCommand, placeNew, tailRow, tailCol, removeTail, howMany, tailColor, headColor
+PRI moveDrip() : atBitState | moved, haveRow, haveColumn, finishedCommand, placeNew, tailRow, tailCol, removeTail, howMany, tailColor, headColor
     moved := FALSE
+    atBitState := FALSE
     finishedCommand := FALSE
     haveRow := FALSE
     haveColumn := FALSE
     removeTail := FALSE
+    'debug("flo:mov ", udec(dripCommand), udec(dripRemaining))
     repeat
         ' show a new head bit, if max bits are showing hide a tail bit
         case dripCommand
@@ -291,12 +304,16 @@ PRI moveDrip() | moved, haveRow, haveColumn, finishedCommand, placeNew, tailRow,
 
         if moved
             dripRemaining--
-            if dripRemaining == 0
+            if dripRemaining <= 0
                 finishedCommand := TRUE
         if haveRow && haveColumn
             moved := TRUE
         if finishedCommand
             dripCommand, dripRemaining := nextCommand()
+            ' when we first reach eat tail, notify caller that we are ready to animate filling the bit!
+            if dripCommand == EAT_TAIL
+                atBitState := TRUE
+               
     while not moved
 
     if not removeTail
@@ -517,398 +534,6 @@ PRI drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex,
     byte[pColor][1] := color.correctedColor(green)
     byte[pColor][2] := color.correctedColor(blue)
     
-CON { license }
-
-DAT { initialized data }
-    ' flow route descriptions
-inflowS018  byte    DIR_DOWN, 3
-            byte    DIR_LEFT, 5
-            byte    DIR_DOWN, 5
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-inflowS014  byte    DIR_DOWN, 3
-            byte    DIR_LEFT, 5
-            byte    DIR_DOWN, 11
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-inflowS012  byte    DIR_DOWN, 3
-            byte    DIR_LEFT, 5
-            byte    DIR_DOWN, 17
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-inflowS011  byte    DIR_DOWN, 3
-            byte    DIR_LEFT, 5
-            byte    DIR_DOWN, 23
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-outflowS018 byte    SET_ROW, 7
-            byte    SET_COL, 61
-            byte    DIR_RIGHT, 1
-            byte    DIR_DOWN, 24
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-outflowS014 byte    SET_ROW, 13
-            byte    SET_COL, 61
-            byte    DIR_RIGHT, 1
-            byte    DIR_DOWN, 18
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-outflowS012 byte    SET_ROW, 19
-            byte    SET_COL, 61
-            byte    DIR_RIGHT, 1
-            byte    DIR_DOWN, 12
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-outflowS011 byte    SET_ROW, 25
-            byte    SET_COL, 61
-            byte    DIR_RIGHT, 1
-            byte    DIR_DOWN, 7
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-' seconds  tens digit
-inflowS108  byte    DIR_DOWN, 3
-            byte    DIR_LEFT, 15
-            byte    DIR_DOWN, 5
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-inflowS104  byte    DIR_DOWN, 3
-            byte    DIR_LEFT, 15
-            byte    DIR_DOWN, 11
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-inflowS102  byte    DIR_DOWN, 3
-            byte    DIR_LEFT, 15
-            byte    DIR_DOWN, 17
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-inflowS101  byte    DIR_DOWN, 3
-            byte    DIR_LEFT, 15
-            byte    DIR_DOWN, 23
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-outflowS108 byte    SET_ROW, 7
-            byte    SET_COL, 51
-            byte    DIR_RIGHT, 1
-            byte    DIR_DOWN, 24
-            byte    DIR_RIGHT, 11
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-outflowS104 byte    SET_ROW, 13
-            byte    SET_COL, 51
-            byte    DIR_RIGHT, 1
-            byte    DIR_DOWN, 18
-            byte    DIR_RIGHT, 11
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-outflowS102 byte    SET_ROW, 19
-            byte    SET_COL, 51
-            byte    DIR_RIGHT, 1
-            byte    DIR_DOWN, 12
-            byte    DIR_RIGHT, 11
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-outflowS101 byte    SET_ROW, 25
-            byte    SET_COL, 51
-            byte    DIR_RIGHT, 1
-            byte    DIR_DOWN, 7
-            byte    DIR_RIGHT, 11
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-' minutes ones digit
-inflowM018  byte    DIR_DOWN, 3
-            byte    DIR_LEFT, 27
-            byte    DIR_DOWN, 5
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-inflowM014  byte    DIR_DOWN, 3
-            byte    DIR_LEFT, 27
-            byte    DIR_DOWN, 11
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-inflowM012  byte    DIR_DOWN, 3
-            byte    DIR_LEFT, 27
-            byte    DIR_DOWN, 17
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-inflowM011  byte    DIR_DOWN, 3
-            byte    DIR_LEFT, 27
-            byte    DIR_DOWN, 23
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-outflowM018 byte    SET_ROW, 7
-            byte    SET_COL, 39
-            byte    DIR_RIGHT, 1
-            byte    DIR_DOWN, 24
-            byte    DIR_RIGHT, 23
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-outflowM014 byte    SET_ROW, 13
-            byte    SET_COL, 39
-            byte    DIR_RIGHT, 1
-            byte    DIR_DOWN, 18
-            byte    DIR_RIGHT, 23
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-outflowM012 byte    SET_ROW, 19
-            byte    SET_COL, 39
-            byte    DIR_RIGHT, 1
-            byte    DIR_DOWN, 12
-            byte    DIR_RIGHT, 23
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-outflowM011 byte    SET_ROW, 25
-            byte    SET_COL, 39
-            byte    DIR_RIGHT, 1
-            byte    DIR_DOWN, 7
-            byte    DIR_RIGHT, 23
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-' minutes tens digit
-inflowM108  byte    DIR_DOWN, 3
-            byte    DIR_LEFT, 37
-            byte    DIR_DOWN, 5
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-inflowM104  byte    DIR_DOWN, 3
-            byte    DIR_LEFT, 37
-            byte    DIR_DOWN, 11
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-inflowM102  byte    DIR_DOWN, 3
-            byte    DIR_LEFT, 37
-            byte    DIR_DOWN, 17
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-inflowM101  byte    DIR_DOWN, 3
-            byte    DIR_LEFT, 37
-            byte    DIR_DOWN, 23
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-outflowM108 byte    SET_ROW, 7
-            byte    SET_COL, 17
-            byte    DIR_RIGHT, 1
-            byte    DIR_DOWN, 24
-            byte    DIR_RIGHT, 45
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-outflowM104 byte    SET_ROW, 13
-            byte    SET_COL, 17
-            byte    DIR_RIGHT, 1
-            byte    DIR_DOWN, 18
-            byte    DIR_RIGHT, 45
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-outflowM102 byte    SET_ROW, 19
-            byte    SET_COL, 17
-            byte    DIR_RIGHT, 1
-            byte    DIR_DOWN, 12
-            byte    DIR_RIGHT, 45
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-outflowM101 byte    SET_ROW, 25
-            byte    SET_COL, 17
-            byte    DIR_RIGHT, 1
-            byte    DIR_DOWN, 7
-            byte    DIR_RIGHT, 44
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-' hours ones digit
-inflowH018  byte    DIR_DOWN, 3
-            byte    DIR_LEFT, 49
-            byte    DIR_DOWN, 5
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-inflowH014  byte    DIR_DOWN, 3
-            byte    DIR_LEFT, 49
-            byte    DIR_DOWN, 11
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-inflowH012  byte    DIR_DOWN, 3
-            byte    DIR_LEFT, 49
-            byte    DIR_DOWN, 17
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-inflowH011  byte    DIR_DOWN, 3
-            byte    DIR_LEFT, 49
-            byte    DIR_DOWN, 23
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-outflowH018 byte    SET_ROW, 7
-            byte    SET_COL, 17
-            byte    DIR_RIGHT, 1
-            byte    DIR_DOWN, 24
-            byte    DIR_RIGHT, 45
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-outflowH014 byte    SET_ROW, 13
-            byte    SET_COL, 17
-            byte    DIR_RIGHT, 1
-            byte    DIR_DOWN, 18
-            byte    DIR_RIGHT, 45
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-outflowH012 byte    SET_ROW, 19
-            byte    SET_COL, 17
-            byte    DIR_RIGHT, 1
-            byte    DIR_DOWN, 12
-            byte    DIR_RIGHT, 45
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-outflowH011 byte    SET_ROW, 25
-            byte    SET_COL, 17
-            byte    DIR_RIGHT, 1
-            byte    DIR_DOWN, 7
-            byte    DIR_RIGHT, 45
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-' hours tens digit
-inflowH108  byte    DIR_DOWN, 3
-            byte    DIR_LEFT, 59
-            byte    DIR_DOWN, 5
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-inflowH104  byte    DIR_DOWN, 3
-            byte    DIR_LEFT, 59
-            byte    DIR_DOWN, 11
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-inflowH102  byte    DIR_DOWN, 3
-            byte    DIR_LEFT, 59
-            byte    DIR_DOWN, 17
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-inflowH101  byte    DIR_DOWN, 3
-            byte    DIR_LEFT, 59
-            byte    DIR_DOWN, 23
-            byte    DIR_RIGHT, 1
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-outflowH108 byte    SET_ROW, 7
-            byte    SET_COL, 7
-            byte    DIR_RIGHT, 1
-            byte    DIR_DOWN, 24
-            byte    DIR_RIGHT, 55
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-outflowH104 byte    SET_ROW, 13
-            byte    SET_COL, 7
-            byte    DIR_RIGHT, 1
-            byte    DIR_DOWN, 18
-            byte    DIR_RIGHT, 55
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-outflowH102 byte    SET_ROW, 19
-            byte    SET_COL, 7
-            byte    DIR_RIGHT, 1
-            byte    DIR_DOWN, 12
-            byte    DIR_RIGHT, 55
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-outflowH101 byte    SET_ROW, 25
-            byte    SET_COL, 7
-            byte    DIR_RIGHT, 1
-            byte    DIR_DOWN, 7
-            byte    DIR_RIGHT, 55
-            byte    EAT_TAIL, 0
-            byte    DIR_DONE, 0
-
-            ALIGNL  ' ensure that following named addreses point to our table
-flowsTable
-flowsSecondsTens
-            long    @inflowS108 - @flowsTable, @inflowS104 - @flowsTable, @inflowS102 - @flowsTable, @inflowS101 - @flowsTable
-            long    @outflowS108 - @flowsTable, @outflowS104 - @flowsTable, @outflowS102 - @flowsTable, @outflowS101 - @flowsTable
-flowsSecondsOnes
-            long    @inflowS018 - @flowsTable, @inflowS014 - @flowsTable, @inflowS012 - @flowsTable, @inflowS011 - @flowsTable
-            long    @outflowS018 - @flowsTable, @outflowS014 - @flowsTable, @outflowS012 - @flowsTable, @outflowS011 - @flowsTable
-flowsMinutesTens
-            long    @inflowM108 - @flowsTable, @inflowM104 - @flowsTable, @inflowM102 - @flowsTable, @inflowM101 - @flowsTable
-            long    @outflowM108 - @flowsTable, @outflowM104 - @flowsTable, @outflowM102 - @flowsTable, @outflowM101 - @flowsTable
-flowsMinutesOnes
-            long    @inflowM018 - @flowsTable, @inflowM014 - @flowsTable, @inflowM012 - @flowsTable, @inflowM011 - @flowsTable
-            long    @outflowM018 - @flowsTable, @outflowM014 - @flowsTable, @outflowM012 - @flowsTable, @outflowM011 - @flowsTable
-flowsHoursTens
-            long    @inflowH108 - @flowsTable, @inflowH104 - @flowsTable, @inflowH102 - @flowsTable, @inflowH101 - @flowsTable
-            long    @outflowH108 - @flowsTable, @outflowH104 - @flowsTable, @outflowH102 - @flowsTable, @outflowH101 - @flowsTable
-flowsHoursOnes
-            long    @inflowH018 - @flowsTable, @inflowH014 - @flowsTable, @inflowH012 - @flowsTable, @inflowH011 - @flowsTable
-            long    @outflowH018 - @flowsTable, @outflowH014 - @flowsTable, @outflowH012 - @flowsTable, @outflowH011 - @flowsTable
-
-tableMessage    byte    "Flows Table of longs:", 0
-
 
 CON { license }
 

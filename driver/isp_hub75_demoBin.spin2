@@ -299,27 +299,30 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
 
 '{ ---------------------------------------
     '  BINARY DEMO -> heading to liquid binary
-    digitPeriod := 20    ' 12 
-    segmentPeriod := 2  ' was 5
+    digitPeriod := 5    ' 12 
+    segmentPeriod := 0  ' was 5
 
     clock.setOnOffColors(color.cBlue, $363636)
     clock.setupClock()
 
     wait100thSecs(digitPeriod)
 
-    'repeat red from 0 to 23
-        'repeat green from 0 to 59
-            'repeat blue from 0 to 59
+    repeat red from 0 to 23
+        repeat green from 0 to 59
+            repeat blue from 0 to 59
 
-    repeat bitValue from 0 to 9
-        blue := (bitValue + 10) + bitValue
-        red := green := blue
+    'repeat bitValue from 0 to 9
+                'blue := (bitValue * 10) + bitValue
+                'red := green := blue
 
-        clock.setTimeHMS(red, green, blue)
-        
-        wait100thSecs(digitPeriod)
+                clock.setTimeHMS(red, green, blue)
 
-        clock.setTimeHMS(0, 0, 0)
+                wait100thSecs(digitPeriod)
+
+                'clock.setTimeHMS(0, 0, 0)
+
+                'wait100thSecs(digitPeriod)
+    
 
 ' ---------------------------------------}
 
