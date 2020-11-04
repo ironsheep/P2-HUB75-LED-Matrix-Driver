@@ -30,11 +30,12 @@ VAR
     long    digitIndex
     long    hours
     long    minutes
+    long    seconds
 
 OBJ
 
-    display      : "isp_hub75_display"
-    digit[4]    : "isp_hub75_7seg"
+    display     : "isp_hub75_display"
+    clock       : "isp_hub75_binClock"
 
 PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, builtPtr, color3bit, color24bit, pPixColor, colorOffset, byteOffset
     '' start underlying drivers and run demo
@@ -132,10 +133,29 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     'display.fillScreen(display.cMaroon)
     'display.commitScreenToPanel()
 
-    '  SEVEN SEGMENT DEMO
+    '  BINARY DEMO -> heading to liquid binary
 
     'repeat  ' hold forever
+    digitPeriod := 2    ' 12 
 
+    clock.setScreen(display.getScreenSetup()) 
+    clock.setOnOffColors(display.cBlue, $020202)
+    clock.setupClock()
+    display.commitScreenToPanel()
+
+    wait100thSecs(digitPeriod)
+
+    repeat hours from 0 to 12
+        repeat minutes from 0 to 59
+            repeat seconds from 0 to 59
+                clock.setHMS(hours, minutes, seconds)
+                display.commitScreenToPanel()
+
+                'wait100thSecs(digitPeriod)
+
+
+    
+{
     segmentPeriod := 8     ' 4 x 100ths of a second
     digitPeriod := 12    ' 90     ' 4 x 100ths of a second
 
@@ -183,6 +203,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
             loopUntilSegmentsFinish()
 
             wait100thSecs(digitPeriod)  
+}
 {
 ' transitional DEMO
     repeat digitIndex from 0 to 3
@@ -281,6 +302,7 @@ PRI drawSecondsDot(row, column, rgbColor)
     display.drawPixelAtRC(row+1, column, rgbColor)
     display.drawPixelAtRC(row+1, column+1, rgbColor)
 
+{
 PRI allDigitAnimationsComplete() : status
     status := TRUE
     repeat digitIndex from 0 to 3
@@ -301,7 +323,7 @@ PRI loopUntilSegmentsFinish()
 
         if allDigitAnimationsComplete() 
             quit
-
+}
 PUB wait100thSecs(count)
     repeat count
         waitms(10)  ' 1/100 seconds

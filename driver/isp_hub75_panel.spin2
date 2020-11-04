@@ -272,7 +272,7 @@ PRI clearPwmFrameBuffer() : pPwmFrameSet
     ' implement double buffering by alternating between our two pwm-frame-sets
     usePwmFrameset1 := !usePwmFrameset1
     pPwmFrameSet := getActivePwmBuffer()
-    debug("- active buffer=", uhex_long_(pPwmFrameSet))
+    'debug("- active buffer=", uhex_long_(pPwmFrameSet))
     longfill(pPwmFrameSet, 0, hardware.MAX_PWM_FRAME_SIZE_IN_LONGS * hardware.MAX_PWM_FRAMES)
 
 PRI getActivePwmBuffer() : pPwmFrameSet

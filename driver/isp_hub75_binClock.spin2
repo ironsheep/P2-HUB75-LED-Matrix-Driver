@@ -1,0 +1,127 @@
+'' =================================================================================================
+''
+''   File....... isp_hub75_binClock.spin2
+''   Purpose.... manipulate a binary clocktouch 
+''   Authors.... Stephen M Moraco
+''               -- Copyright (c) 2020 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... Oct 2020
+''   Updated.... 24 Oct 2020
+''
+'' =================================================================================================
+
+' this is a 6 digit binary clock showing HH:MM:SS but in vertical bits
+'  animation basic: bits are 5x4 and animate filling up from the bottom and empty from the top
+'
+CON { public interface constants }
+
+    MAX_DIGITS = 6
+
+    HORIZ_ODD_OFFSET = 5
+    HORIZ_EVEN_OFFSET = 7
+    DIGIT_WIDTH = 5
+    TOP_INSET = 5
+    LEFT_INSET = 2
+
+OBJ { objects }
+
+    hardware                : "isp_hub75_hwGeometry"
+    digits[MAX_DIGITS]      : "isp_hub75_binDigit"
+
+DAT { initialized data }
+
+
+VAR { globals }
+
+
+
+
+' target screen and geometry thereof
+    long    pExtScreen
+    long    maxBitRows
+    long    maxBitColumns
+    long    emptyRgbColor
+    long    fullRgbColor
+    
+    byte    defaulBrightness
+    byte    isSetup
+
+    byte    currHours
+    byte    currMinutes
+    byte    currSeconds
+
+PUB null()
+    '' This is NOT a top level object
+
+PUB setScreen(pScreen, brightness)
+    '' Save the location of our external screen buffer
+    'debug("clk:setScreen")
+    pExtScreen := pScreen
+    maxBitColumns := hardware.MAX_PANEL_COLUMNS
+    maxBitRows := hardware.MAX_PANEL_ROWS
+    defaulBrightness := brightness
+
+PUB setOnOffColors(onColor, offColor)
+    '' configure colors for full clock display
+    emptyRgbColor := offColor
+    fullRgbColor := onColor
+
+PUB setHMS(hours, minutes, seconds)
+    '' set the initial time to be displayed
+    'debug("clk:set ", udec(hours), udec(minutes), udec(seconds))
+    currHours := hours
+    currMinutes := minutes
+    currSeconds := seconds
+    digits[0].setValue(hours / 10)
+    digits[1].setValue(hours // 10)
+    digits[2].setValue(minutes / 10)
+    digits[3].setValue(minutes // 10)
+    digits[4].setValue(seconds / 10)
+    digits[5].setValue(seconds // 10)
+
+PUB setupClock() | digitIndex, row, col 
+    '' draw our initial clock bits
+    row := TOP_INSET
+    col := LEFT_INSET
+    repeat digitIndex from 0 to MAX_DIGITS - 1
+        digits[digitIndex].setScreen(pExtScreen, defaulBrightness)
+        digits[digitIndex].placeDigitAtRC(row, col, fullRgbColor, emptyRgbColor)
+        if (digitIndex & 1) == 0
+            ' placed odd bit
+            col += HORIZ_ODD_OFFSET + DIGIT_WIDTH
+        else
+            col += HORIZ_EVEN_OFFSET + DIGIT_WIDTH
+
+
+CON { license }
+
+{{
+
+
+ -------------------------------------------------------------------------------------------------
+  MIT License
+
+  Copyright (c) 2020 Iron Sheep Productions, LLC
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+ =================================================================================================
+ 
+}}
+

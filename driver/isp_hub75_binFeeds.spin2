@@ -1,0 +1,75 @@
+'' =================================================================================================
+''
+''   File....... isp_hub75_binFeeds.spin2
+''   Purpose.... manipulate a mechanical 7 segment digit
+''   Authors.... Stephen M Moraco
+''               -- Copyright (c) 2020 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... Oct 2020
+''   Updated.... 24 Oct 2020
+''
+'' =================================================================================================
+
+
+OBJ
+
+    hardware    : "isp_hub75_hwGeometry"
+
+DAT { initialized data }
+
+
+VAR { globals }
+
+
+' target screen and geometry thereof
+    long    pExtScreen
+    long    maxBitRows
+    long    maxBitColumns
+    long    defaultColor
+    
+    byte    defaulBrightness
+    byte    isSetup
+    
+PUB null()
+    '' This is NOT a top level object
+
+PUB setScreen(pScreen, brightness)
+    '' Save the location of our external screen buffer
+    'debug("7s:setScreen")
+    pExtScreen := pScreen
+    maxBitColumns := hardware.MAX_PANEL_COLUMNS
+    maxBitRows := hardware.MAX_PANEL_ROWS
+    defaulBrightness := brightness
+
+CON { license }
+
+{{
+
+
+ -------------------------------------------------------------------------------------------------
+  MIT License
+
+  Copyright (c) 2020 Iron Sheep Productions, LLC
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+ =================================================================================================
+ 
+}}
+

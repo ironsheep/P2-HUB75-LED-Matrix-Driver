@@ -254,7 +254,7 @@ PUB drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex,
 
 PUB commitScreenToPanel()
     '' Write sceen to panel driver
-    debug("- DISP: commit!")
+    'debug("- DISP: commit!")
     panel.loadScreen(@screen0)
 
 PUB cValueForRGB(red, green, blue) : combinedValue
