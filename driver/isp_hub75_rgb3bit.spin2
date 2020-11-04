@@ -487,7 +487,6 @@ clkNextByte
 '
 ' ---  inter-frame gap  ---
 '
-                    waitx   #100
 wrFrameEnd
                     jmp     #wrFrame
 
