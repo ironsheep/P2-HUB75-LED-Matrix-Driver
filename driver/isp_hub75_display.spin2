@@ -218,8 +218,8 @@ PUB drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex,
     colorOffset := ((rowIndex * screen.MAX_DISPLAY_COLUMNS) + columnIndex) * screen.DISPLAY_BYTES_PER_COLOR
     pColor := @byte[@screen0][colorOffset]
     'if isDebugLocn(rowIndex, columnIndex)
-    'if row == 0 && column == 0
-    'debug("- Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
+    'if column // 16 == 0
+        'debug("- Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
     byte[pColor][0] := color.correctedColor(red)
     byte[pColor][1] := color.correctedColor(green)
     byte[pColor][2] := color.correctedColor(blue)

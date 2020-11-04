@@ -20,21 +20,30 @@
 CON { Hardware Description }
 
 
-#0, CHIPS_UNKNOWN, CHIP_FM6126A
+#0, CHIP_UNKNOWN, CHIP_FM6126A, CHIP_FM6124
 
-' Describe your desired effective color resolution (8-24 bit) more bits, more ram need!
-'
+' =================================================================================================
+'  (1) Describe where your P2 EVAL HUB75 Adapter is plugged in
+' =================================================================================================
+#0[16], PINS_P0_P15, PINS_P16_P31, PINS_P32_P47, PINS_P48_P63
+
+    'ADAPTER_BASE_PIN = PINS_P32_P47   ' PINS_P16_31
+    ADAPTER_BASE_PIN = PINS_P16_P31
+
+' =================================================================================================
+'  (2) Describe your desired effective color resolution (8-24 bit) more bits, more ram need!
+' =================================================================================================
 ' number of pwm bits is number of PWM frames the driver needs to allocate
 ' each PWM frame is (DISPLAY PIXEL COUNT / 2) bytes in size
 '
 ' NOTE: we use 2 full PWM frame-sets so we can double buffer the screen generation
 '
-    MAX_PWM_WIDTH_IN_BITS = 23   ' use 8, 12, 16, 20, 23 or 24   NOTE: each bump uses more memory!
+    MAX_PWM_WIDTH_IN_BITS = 32   ' use 8, 12, 16, 20, 23 or 24   NOTE: each bump uses more memory!
 
-' describe the overall layout of your hardware panels:
-'
-'
 ' =================================================================================================
+'  (3) Describe the overall layout of your hardware panels:
+' =================================================================================================
+'
 ' AUTHORs  1st configuration
 ' -------------------------------------------------------------------------------------------------
 ' PANEL: ---  P3-6432-121-16s-D1.0  ---
@@ -48,6 +57,7 @@ CON { Hardware Description }
 ' ----------------------------------------------------------
 
 '  determine what form of signalling the driver should use
+    'PANEL_DRIVER_CHIP = CHIP_FM6124    ' CHIP_FM6126A 
     PANEL_DRIVER_CHIP = CHIP_FM6126A 
 
     ' electrical layout
@@ -65,7 +75,6 @@ CON { Hardware Description }
 '}
 
 
-' =================================================================================================
 ' AUTHORs  2nd configuration
 ' -------------------------------------------------------------------------------------------------
 ' PANEL: ---  P3-6432-121-16s-D1.0  ---
@@ -141,7 +150,7 @@ CON { Hardware Description }
 ' ----------------------------------------------------------
 {
 '  determine what form of signalling the driver should use
-    PANEL_DRIVER_CHIP = CHIPS_UNKNOWN 
+    PANEL_DRIVER_CHIP = CHIP_UNKNOWN 
 
     ' electrical layout
     MAX_PANEL_COLUMNS = 64

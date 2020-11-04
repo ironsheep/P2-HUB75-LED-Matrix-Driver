@@ -11,7 +11,19 @@
 ''
 '' =================================================================================================
 
-CON { reinterpret the users settings for driver internal use }
+CON { reinterpret the users selections for driver internal use }
+
+    ' possible Adapter Connections
+    PIN_GROUP_P0_P15 = user.PINS_P0_P15
+    PIN_GROUP_P16_P31 = user.PINS_P16_P31
+    PIN_GROUP_P32_P47 = user.PINS_P32_P47
+    PIN_GROUP_P48_P63 = user.PINS_P48_P63
+
+    ' the user-selected location
+    ADAPTER_BASE_PIN = user.ADAPTER_BASE_PIN
+
+    CHIP_UNKNOWN = user.CHIP_UNKNOWN
+    CHIP_FM6126A = user.CHIP_FM6126A
 
     ' which chip driver should be used
     PANEL_DRIVER_CHIP = user.PANEL_DRIVER_CHIP

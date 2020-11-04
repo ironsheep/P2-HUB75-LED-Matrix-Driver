@@ -21,7 +21,7 @@ CON { DEBUG PINs }
 
 'DEBUG_PIN = 16
 
-DEMO_COUNT = 8
+DEMO_COUNT = 9
 
 VAR
 
@@ -37,6 +37,8 @@ OBJ
 PUB main() : ok | demoIndex
     '' start underlying drivers and run demo
 
+    'repeat
+
     'debug("`term temp size 82 50 textsize 10")
 
     ok := cog := display.start()   ' send buffer to driver
@@ -50,13 +52,16 @@ PUB main() : ok | demoIndex
             display.clearScreen()
             case demoIndex
                 0: demoText()
-                1: demoHueLines()
+                '1: demoHueLines()
+                1: demoColorBrightness()
                 2: demoHueGroups()  ' needs fixing
-                3: demoColorPalette12Panels()
-                4: showFullColorSweep()
-                5: colorBlast()
-                6: demoText()
-                7: demoScreenBlast()
+                '3: demoColorBrightness()
+                3: demoHueLines()
+                4: demoColorPalette12Panels()
+                5: showFullColorSweep()
+                6: colorBlast()
+                7: demoText()
+                8: demoScreenBlast()
 
             if demoIndex <> 5
                 waitSec(demoPausePeriod)
@@ -83,19 +88,59 @@ PUB demoText()
     display.setColoredTextAtRC(0,0, string("iron sheep"), color.cMaroon)
     display.setColoredTextAtRC(1,0, string("-RGB 3bit-"), color.cOrange)
     if screen.MAX_PWM_FRAMES == 8
-        display.setColoredTextAtRC(2,0, string("(8bit pwm)"), color.cRainbow)
+        display.setColoredTextAtRC(2,0, string("(8frm pwm)"), color.cRainbow)
     elseif screen.MAX_PWM_FRAMES == 12
-        display.setColoredTextAtRC(2,0, string("12bit pwm!"), color.cRainbow)
+        display.setColoredTextAtRC(2,0, string("12frm pwm!"), color.cRainbow)
     elseif screen.MAX_PWM_FRAMES == 16
-        display.setColoredTextAtRC(2,0, string("16bit pwm!"), color.cRainbow)
+        display.setColoredTextAtRC(2,0, string("16frm pwm!"), color.cRainbow)
     elseif screen.MAX_PWM_FRAMES == 20
-        display.setColoredTextAtRC(2,0, string("20bit pwm!"), color.cRainbow)
+        display.setColoredTextAtRC(2,0, string("20frm pwm!"), color.cRainbow)
     elseif screen.MAX_PWM_FRAMES == 23
-        display.setColoredTextAtRC(2,0, string("23bit pwm!"), color.cRainbow)
+        display.setColoredTextAtRC(2,0, string("23frm pwm!"), color.cRainbow)
     elseif screen.MAX_PWM_FRAMES == 24
-        display.setColoredTextAtRC(2,0, string("24bit pwm!"), color.cRainbow)
+        display.setColoredTextAtRC(2,0, string("24frm pwm!"), color.cRainbow)
+    elseif screen.MAX_PWM_FRAMES == 32
+        display.setColoredTextAtRC(2,0, string("32frm pwm!"), color.cRainbow)
     display.setColoredTextAtRC(3,0, string("led matrix"), color.cWhite)
     display.commitScreenToPanel()
+
+PRI demoColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex, useRed, useBlue, useGreen
+
+    row := 0
+
+    repeat colorIndex from 0 to 7
+        useRed := useGreen := useBlue := FALSE
+        case colorIndex
+            0: ' red
+                useRed := TRUE
+            1: ' green
+                useGreen := TRUE
+            2: ' blue
+                useBlue := TRUE
+            3: ' cyan
+                useRed := useBlue := TRUE
+            4: ' agenta
+                useRed := useGreen  := TRUE
+            5: ' yellow
+                useGreen := useBlue := TRUE
+            OTHER: ' white
+                useRed := useGreen := useBlue := TRUE
+
+        repeat rowCtr from 0 to 3
+            repeat col from 0 to 63
+                red := green := blue := 0
+                if useRed
+                    red := col * 4
+                if useGreen
+                    green := col * 4
+                if useBlue
+                    blue := col * 4
+                display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+            row++
+
+    display.commitScreenToPanel()
+
+    'repeat  ' hold here!
 
     
 PRI demoHueLines() | row, col, colorOffset
@@ -120,7 +165,6 @@ PUB demoHueGroups() | row, col, green, panelNumber, colorOffset
                     display.drawPixelAtRC(row, col, color.rgbColorFromDegrees(green))
             row++
     display.commitScreenToPanel()
-
 
 PUB demoColorPalette12Panels() | red, panelNumber
     '' 10x10x10 COLOR PANELs + BW panel
@@ -232,7 +276,7 @@ PUB demoScreenBlast() | color3bit
 
 PUB colorBlast() | row, col, red, green, blue, blockX, blockY, subrow, subcol
     '' color blast
-    debug("- DEMO: draw colored pixels")
+    'debug("- DEMO: draw colored pixels")
     repeat blockX from 0 to 3
         repeat blockY from 0 to 1
             repeat subrow from 0 to 15

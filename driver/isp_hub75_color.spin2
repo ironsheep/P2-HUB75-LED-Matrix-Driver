@@ -57,7 +57,7 @@ PUB correctedColor(color) : adjustedColor
     'adjustedColor := color
     'return
     adjustedColor := ((color * defaultBrightness) >> 8) & $ff
-    'adjustedColor := byte[@gamma][adjustedColor]
+    adjustedColor := byte[@gamma][adjustedColor]
     adjustedColor := dutyCycleForIntensity(adjustedColor)
 
 PUB rgbColorFromDegrees(degrees) : rcbColor | offset60, fract60, red, green, blue
@@ -119,15 +119,53 @@ PUB cValueForRGB(red, green, blue) : combinedValue
     '' CONVERT: r,g,b to combined value
     combinedValue := ((red & $ff) << 16) | ((green & $ff) << 8) | (blue & $ff)
 
-PRI dutyCycleForIntensity(hex8bit) : pwmBits
+PRI dutyCycleForIntensityOld1(hex8bit) : pwmBits
     ' CALCULATE: proper duty cycle for intensity of 0-255
-    '{         --- VERSION 2 - Bits spread throughout ---
+    '         --- VERSION 1 - Bits spread throughout ---
     if hex8bit == 255
         pwmBits := $ff
     elseif hex8bit == 0
         pwmBits := $00
     else
         pwmBits := (hex8bit / screen.MAX_PWM_FRAMES - 1) + 1
+
+PRI dutyCycleForIntensityOld2(hex8bit) : pwmBits | segmentSize
+    ' CALCULATE: proper duty cycle for intensity of 0-255
+    '         --- VERSION 2 - 3/4 high, 1/4 off, rest spread throughout ---
+    segmentSize := (256 / (screen.MAX_PWM_FRAMES + 1)) / 8
+    if hex8bit >= 255 - ((segmentSize  * 6) - 1)
+        pwmBits := $ff
+    elseif hex8bit <= (segmentSize * 2)- 1
+        pwmBits := $00
+    else
+        pwmBits := (hex8bit / screen.MAX_PWM_FRAMES) + 1
+
+PRI dutyCycleForIntensityOld3(hex8bit) : pwmBits | segmentSize
+    ' WAIT!!!  Pastel colors!???!
+    ' CALCULATE: proper duty cycle for intensity of 0-255
+    '    --- VERSION 3 - Bits spread throughout ---
+    pwmBits := (hex8bit / screen.MAX_PWM_FRAMES + 1)
+
+PRI dutyCycleForIntensityOld4(hex8bit) : pwmBits | segmentSize
+    ' CALCULATE: proper duty cycle for intensity of 0-255
+    '         --- VERSION 4 - 2/6 high, 1/6 off, rest spread throughout ---
+    segmentSize := ((256 / (screen.MAX_PWM_FRAMES + 1)) / 2) / 3
+    if hex8bit >= 255 - (segmentSize * 2) + 1
+        pwmBits := $ff
+    elseif hex8bit <= 0 + segmentSize - 1
+        pwmBits := $00
+    else
+        pwmBits := ((hex8bit * 10854) / screen.MAX_PWM_FRAMES) / 10000
+
+PRI dutyCycleForIntensity(hex8bit) : pwmBits
+    ' CALCULATE: proper duty cycle for intensity of 0-255
+    '         --- VERSION 1 - Bits spread throughout ---
+    if hex8bit == 255
+        pwmBits := $ff
+    elseif hex8bit == 0
+        pwmBits := $00
+    else
+        pwmBits := (hex8bit / screen.MAX_PWM_FRAMES + 1) + 1
 
 
 DAT { tables, default values }

@@ -21,6 +21,7 @@ OBJ
 
     screen      : "isp_hub75_screenAccess"
     matrix      : "isp_hub75_rgb3bit"
+    'matrix      : "isp_hub75_rgb3bit-LE"
     color       : "isp_hub75_color"
 
 DAT { pre-initialized }
@@ -218,8 +219,8 @@ cvtTmpA2pwm
                     cmp     tmpVarA, #255       wz      ' special case: if $ff return all 1 bits
         if_z        not     tmpVarB, tmpVarB
         if_z        jmp     #noShift
-                    testbn  tmpVarB, #1         wc      ' set our CY
-                    rcl     tmpVarB, tmpVarA            ' successively move CY into lower bits
+                    sub     tmpVarA, #1  
+                    bmask   tmpVarB, tmpVarA          ' successively move CY into lower bits
                     mov     tmpVarA, tmpVarB            ' return our new value
 noShift
                     ret
