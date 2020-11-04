@@ -55,7 +55,8 @@ VAR
     long    bus           ' ram/flash
     byte    writebuf[256]  ' a comment here
     long    brightness  ' variable to scale input to reduce brightness   (0..256)
-    long    singleBuffer[192] ' red[64], green[64], blue[64]
+    long    singleBuffer[192]
+    long    pwmFrames[MAX_PWM_FRAMES * PWM_FRAME_SIZE_IN_LONGS]
 
 CON { RAM/FLASH }
 
@@ -68,18 +69,18 @@ CON { RAM/FLASH }
 
 ' ----------------------------------------------------------
 
-PUB start() | ok, color, pScreenBuffer, pImageBits, pTemp
-    debug("`term temp size 80 50 textsize 10")
+PUB start() | ok, color, pScreenBuffer, bInvalidFileStatus, pTemp, nFrameIndex, pFrameBuffer
+    'debug("`term temp size 80 50 textsize 10")
 
     'setupTerm()
-    brightness:=256  'set maximum brightness by dividing input, range 0 to 256
+    brightness := 256  'set maximum brightness by dividing input, range 0 to 256
 
     debug("- Start Matrix COG")
     ok := cog := matrix.start()   ' send buffer to driver
     waitms(1000)
 
     'return
-
+{
     debug("- fills")
     repeat color from 0 to 7
 	    debug(" -- fill w/", udec_(color))
@@ -87,36 +88,60 @@ PUB start() | ok, color, pScreenBuffer, pImageBits, pTemp
 	    waitms(250)
 
     'return
-
+}
     debug("- Study BMP")
-    pImageBits := readBitmapHeader(@BitmapFile)
-    if pImageBits == 0
+    bInvalidFileStatus := validateBmpFile(@BitmapFile)
+    if bInvalidFileStatus == FALSE
         return
 
     'dbgMemDump(@fileHeaderMsg, @byte[@BitmapFile], 64)
-    debug("`temp '- (DBG) ", udec_long(bfOffBits), " (", uhex_(bfOffBits), ")' 13")
-    debug("`temp '- (DBG) ", udec_long(biSize)," (", uhex_(biSize), ")' 13")
-    debug("`temp '- (DBG) ", udec_long(biSizeImage)," (", uhex_(biSizeImage), ")' 13")
-    pTemp := @singleBuffer
-    debug("`temp '- (DBG) ", uhex_long(pTemp), ")' 13")
+    'debug("`temp '- (DBG) ", udec_long(bfOffBits), " (", uhex_(bfOffBits), ")' 13")
+    'debug("`temp '- (DBG) ", udec_long(biSize)," (", uhex_(biSize), ")' 13")
+    'debug("`temp '- (DBG) ", udec_long(biSizeImage)," (", uhex_(biSizeImage), ")' 13")
+    'pTemp := @singleBuffer
+    'debug("`temp '- (DBG) ", uhex_long(pTemp), ")' 13")
     'dbgMemDump(@fileStartMsg, @byte[@BitmapFile+bfOffBits], 32)
     'dbgMemDump(@fileEndMsg, @byte[@BitmapFile+bfOffBits+biSizeImage-31], 32)
 
-    debug("- load image fm .bmp")
-    loadBitmap(@singleBuffer, pImageBits)
+    debug("-  load PWM frames=", uhex_long_(@pwmFrames))
+    loadBitmap()
+    'repeat     ' TESTING, unocomment to STOP here
 
-    dumpTwinRows()
+    'dumpTwinRows()
     ' dump full buffers
     'dbgMemDump(@screenRed,@long[@singleBuffer][0],256)
     'dbgMemDump(@screenGreen,@long[@singleBuffer][64],256)
     'dbgMemDump(@screenBlue,@long[@singleBuffer][128],256)
 
-    debug("-  write image to panel: screen=", uhex_long_(@singleBuffer))
-    debug("-   bit counts:  RGB=(", udec_(rCount), udec_(gCount), udec_(bCount),")")
-    matrix.writeBuffer(@singleBuffer)
+    ' check our frame alignment
+    
+    debug("-  step thru PWM frames=", uhex_long_(@pwmFrames))
+    repeat nFrameIndex from 7 to 0
+        pFrameBuffer := getPwmFrameAddressForBit(nFrameIndex)
+        matrix.writeBuffer(pFrameBuffer)
+        waits(5)
+
+    debug("-  clear panel to single color")
+    matrix.fillPanel(matrix.YELLOW)
+
+    waits(15)
+
+    debug("-  write image to panel (PWM): screen=", uhex_long_(@pwmFrames))
+    matrix.writePwmBuffer(@pwmFrames)
+
+
+
+    'debug("- hold for two minutes")
+    'waitms(120000)
+
 
     debug("- done", 13)
+    'matrix.clearPanel()
     return      ' do nothing, forever
+
+PRI waits(nSeconds)
+    repeat nSeconds
+        waitms(1000)    ' 1 seconds
 
 PUB setupTerm() | r
     'setup serial port output
@@ -144,29 +169,22 @@ PUB setupTerm() | r
 ' EA side: 1024 pixels
 ' EA side section 128 pixels
 
-PRI clearBuffer(pBuffer, wordCt, wordBytes)
-    bytefill(pBuffer, 0, wordCt * wordBytes)
-
 CON  { matrix information }
 
-  MAX_ROWS = 32
-  MAX_COLUMNS = 64
+    MAX_ROWS = 32
+    MAX_COLUMNS = 64
 
-PUB loadBitmap(pTarget, pSource) | nPanelCol, nPanelRow, blue, green, red, haveError, showDebug
-    rBuff := @long[pTarget][0]
-    gBuff := @long[pTarget][64]
-    bBuff := @long[pTarget][128]
+CON { frame buffer details }
 
-    'debug("`temp '", uhex_long(rBuff), " ' 13")
-    'debug("`temp '", uhex_long(gBuff), " ' 13")
-    'debug("`temp '", uhex_long(bBuff), " ' 13")
-    'dumpTwinRows()
+    MAX_PWM_FRAMES = 8
+    PWM_FRAME_SIZE_IN_LONGS = 192
 
-    rCount := gCount := bCount := 0
+
+PUB loadBitmap() | nPanelCol, nPanelRow, blue, green, red, haveError, showDebug
 
    ' clear buffer
-    clearBuffer(pTarget, 192, 4)  ' clear 192 4-byte longs
-    'dumpTwinRows()
+    clearPwmFrameBuffers()  ' clear PWM frames 
+
    ' fill buffer
     repeat nPanelRow from 0 to 31
         repeat nPanelCol from 0 to 63
@@ -175,11 +193,12 @@ PUB loadBitmap(pTarget, pSource) | nPanelCol, nPanelRow, blue, green, red, haveE
             if(nPanelRow > MAX_ROWS - 1) 
                 debug("- ERROR bad nPanelRow value [", udec_(nPanelRow), " > ", udec_(MAX_ROWS - 1), "]")
                 haveError := TRUE
+
             if(nPanelCol > MAX_COLUMNS - 1) 
                 debug("- ERROR bad nPanelCol value [", udec_(nPanelCol), " > ", udec_(MAX_COLUMNS - 1), "]")
                 haveError := TRUE
-            if haveError == FALSE
 
+            if haveError == FALSE
                 showDebug := FALSE
                 if isDebugLocn(nPanelRow, nPanelCol) 
                     showDebug := TRUE ' FALSE  ' turn off debug
@@ -190,65 +209,65 @@ PUB loadBitmap(pTarget, pSource) | nPanelCol, nPanelRow, blue, green, red, haveE
                     debug(" - RC=(", udec_(nPanelRow), ", ", udec_(nPanelCol), "), RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
 
                 setPixelForRC(nPanelRow, nPanelCol, RGB(red, green, blue))
-    'dumpTwinRows()
+
 
 PRI RGB(red, green, blue) : r, g, b
     ' do gamma correction - TBD
     'Blue byte first because that's how stored in bitmap...
-    'r:=brightness*gamma[red]/256
-    r := red
-    'g:=brightness*gamma[green]/256
-    g := green
-    'b:=brightness*gamma[blue]/256
-    b := blue
+    r := (brightness * gamma[red]) / 256
+    'r := red
+    g := (brightness * gamma[green]) / 256
+    'g := green
+    b := (brightness * gamma[blue]) / 256
+    'b := blue
 
-    return r,g,b
+    'return r,g,b
 
-PRI setPixelForRC(nPanelRow, nPanelCol, red, green, blue) | rBit, gBit, bBit
+PRI clearPwmFrameBuffers()                      '' clear entire PWM buffer
+    longfill(@pwmFrames, 0, PWM_FRAME_SIZE_IN_LONGS * MAX_PWM_FRAMES)
+
+PRI getPwmFrameAddressForBit(nBitNumber) : pFrameBuffer | nFrameOffset, frameIdx    '' return indexed PWM Frame address
+    frameIdx := 0 #> nBitNumber <# 7    ' MAX 8 pwm frames so limit our index
+    nFrameOffset := frameIdx * PWM_FRAME_SIZE_IN_LONGS ' 192 longs in each frame
+    pFrameBuffer := @long[@pwmFrames][nFrameOffset]
+    'debug("- PWM frame(", udec_(frameIdx), "), ", uhex_long(pFrameBuffer))
+
+PRI setPixelForRC(nPanelRow, nPanelCol, red, green, blue) | rBit, gBit, bBit, pPwmFrame, bitNumber  '' for each 24bit color write to PWM frames
     ' debug("setPixel() - x,y=(", udec_(nPanelCol), ", ", udec_(nPanelRow), ")")
-    ' do PWM 4 (or 8) buffer generation - TBD
-    ' for now just emit 1 buffer 
-    rBit := (red & $ff) > $7f ? 1 : 0
-    gBit := (green & $ff) > $7f ? 1 : 0
-    bBit := (blue & $ff) > $7f ? 1 : 0
-    ' instrumentation for debug
-    if rBit
-        rCount++
-    if gBit
-        gCount++        
-    if bBit
-        bCount++ 
-    ' only write if we are changing something
-    if rBit || gBit || bBit
-        setPanelColorBitsForRC(nPanelRow, nPanelCol, rBit, gBit, bBit)
+    ' expand image into 8 pwm frames
+    repeat bitNumber from 7 to 0
+        pPwmFrame := getPwmFrameAddressForBit(bitNumber)
+        rBit := red & (1 << bitNumber) > 0 ? 1 : 0
+        gBit := green & (1 << bitNumber) > 0 ? 1 : 0
+        bBit := blue & (1 << bitNumber) > 0 ? 1 : 0
+        setPanelColorBitsForRC(pPwmFrame, nPanelRow, nPanelCol, rBit, gBit, bBit)
+
+    'repeat  ' TEST hold right here to evaluate output
 
 VAR { buffer addresses }
 
     long    rBuff
     long    gBuff
     long    bBuff
-    long    rCount
-    long    gCount
-    long    bCount
 
-PRI setPanelColorBitsForRC(nPanelRow, nPanelCol, rBit, gBit, bBit) | nBffrR, nBffrC, bitIdx, longIdx, longBefore, showDebug, rPtr, gPtr, bPtr
+{{ write color bits to a PWM frame at frame[r][c] }}
+PRI setPanelColorBitsForRC(pPwmFrame, nPanelRow, nPanelCol, rBit, gBit, bBit) | nBffrR, nBffrC, bitIdx, longIdx, longBefore, showDebug, rPtr, gPtr, bPtr
     nBffrR := 0 #> nPanelRow <# MAX_ROWS - 1
     nBffrC := 0 #> nPanelCol <# MAX_COLUMNS - 1
 
     bitIdx := (32 - 1) - (nBffrC // (MAX_COLUMNS / 2))     ' colum left = 0, while MSB is left so invert value
     longIdx := (nBffrR * 2) + (nBffrC / (MAX_COLUMNS / 2))       ' ea. row is 2 longs and single row is left or right long, row0 is top row
 
+    rBuff := @long[pPwmFrame][0]
+    gBuff := @long[pPwmFrame][64]
+    bBuff := @long[pPwmFrame][128]
+
     rPtr := @long[rBuff][longIdx]
     gPtr := @long[gBuff][longIdx]
     bPtr := @long[bBuff][longIdx]
-    'if nPanelRow == 0 && nPanelCol == 0
-    '    debug("`temp '", uhex_long(rPtr), " ' 13")
-    '    debug("`temp '", uhex_long(gPtr), " ' 13")
-    '    debug("`temp '", uhex_long(bPtr), " ' 13")
 
     showDebug := FALSE
-    'if (bitIdx == 0 || bitIdx == 31) && nBffrR < 2
-    if isDebugLocn(nBffrR, nBffrC) 
+     if isDebugLocn(nBffrR, nBffrC) 
         showDebug := TRUE ' FALSE  ' turn off debug
 
     if showDebug
@@ -273,9 +292,10 @@ PRI setPanelColorBitsForRC(nPanelRow, nPanelCol, rBit, gBit, bBit) | nBffrR, nBf
             debug("Bbit(", udec_(rBit), ") longIdx(", udec_(longIdx), ")  bitIdx(", udec_(bitIdx), ") B-word: ", uhex_long_(longBefore), " -> ",uhex_long_(long[bPtr]))
 
 
-PRI readBitmapHeader(pBffr) : pLastByte | p, i, iStart, iEnd
+PRI validateBmpFile(pBffr) : bValidStatus | p, i, iStart, iEnd, pLastByte    '' interpret .BMP header and return pointer to image
 
     debug("- Studying in-memory file")
+    bValidStatus := TRUE
     'analyze bitmap image
     p:=pBffr
     bytemove(@bfType,p,2) 'read bmp header
@@ -316,17 +336,17 @@ PRI readBitmapHeader(pBffr) : pLastByte | p, i, iStart, iEnd
 
     if biWidth <> 64 or biHeight <> 32
         debug(" !! invalid BMP size! [NOT 64x32]")
-        pLastByte := 0
+        bValidStatus := FALSE
 
     if byte[@bfType][0] <> $42 || byte[@bfType][1] <> $4d ' B, M
         debug(" !! invalid BMP file type! [NOT 'BM']")
-        pLastByte := 0
+        bValidStatus := FALSE
 
     if biCompression <> 0
         debug(" !! invalid BMP compression! [is compressed]")
-        pLastByte := 0
+        bValidStatus := FALSE
 
-    if pLastByte == 0
+    if bValidStatus == FALSE
         debug("- ERROR invalid BMP!")
     else
         debug("-good BMP size! [64x32]")
@@ -334,7 +354,7 @@ PRI readBitmapHeader(pBffr) : pLastByte | p, i, iStart, iEnd
     'dbgMemDump(@fileHeaderMsg, pBffr, bfOffBits)
     'dbgMemDump(@fileStartMsg, iStart, 32)
     'dbgMemDump(@fileEndMsg, iEnd-32-1, 32)
-     return pLastByte
+
      
 PRI isDebugLocn(nRow, nCol) : status
     status := FALSE
@@ -343,14 +363,7 @@ PRI isDebugLocn(nRow, nCol) : status
         status := TRUE ' FALSE  ' turn off debug
 
 PUB getPixelAddressForRowColumn(nRow, nColumn) : pixColorAddr | nRowIndex, nColumnIndex, nOffset, fileBitsBase, showDebug
-
-	if(nRow > MAX_ROWS - 1) 
-		debug("- ERROR bad nRow value [", udec_(nRow), " > ", udec_(MAX_ROWS - 1), "]")
-	
-	if(nColumn > MAX_COLUMNS - 1) 
-		debug("- ERROR bad nColumn value [", udec_(nColumn), " > ", udec_(MAX_COLUMNS - 1), "]")
-	
-	' Row is inverted in file...
+	' Row is inverted in .BMP file...
 	nRowIndex := (MAX_ROWS - 1) - nRow
 
 	' Column is normal in file...
@@ -372,16 +385,19 @@ PUB getPixelAddressForRowColumn(nRow, nColumn) : pixColorAddr | nRowIndex, nColu
 
 	return
 
-PUB get24BitColorForRC(nRow, nColumn) : blue, green, red | pixColorAddr
+PUB get24BitColorForRC(nRow, nColumn) : red, green, blue | pixColorAddr
+	if(nRow > MAX_ROWS - 1) 
+		debug("- ERROR bad nRow value [", udec_(nRow), " > ", udec_(MAX_ROWS - 1), "]")
+	
+	if(nColumn > MAX_COLUMNS - 1) 
+		debug("- ERROR bad nColumn value [", udec_(nColumn), " > ", udec_(MAX_COLUMNS - 1), "]")
+
     pixColorAddr := getPixelAddressForRowColumn(nRow, nColumn)
     ' our intername .bmp file byte order is BGR!
     blue := byte[pixColorAddr][0]
     green := byte[pixColorAddr][1]
     red := byte[pixColorAddr][2]
 
-PUB showPixelAtRC(nRow, nColumn) | blue, green, red
-	blue, green, red := get24BitColorForRC(nRow,nColumn)
-	debug("- RC=(", udec_(nRow), ",", udec_(nColumn), ")  is RGB=(", uhex_(red), ",", uhex_(green), ",", uhex_(blue), ")")
 
 PRI dumpTwinRows()
     debug("`temp ' Red TL,R ", uhex_long_(long[@singleBuffer][0]), ", ", uhex_long_(long[@singleBuffer][1]), " ' 13")
@@ -427,6 +443,8 @@ screenGreen   byte    "screenBlueBuffer",0
             ALIGNL
 BitmapFile    'something to show before load is complete and also storage for bitmap
             file "TstBG-Up.bmp" '640 x 480, 8bpp bitmap     (preload buffer before file read??) odd
+            'file "TstBGCol.bmp"
+            'file "TstBGSha.bmp"
             'file "TstOrien.bmp"
             byte 0[1000] 'a little padding just in case metadata and/or block size makes SD file bigger
 
