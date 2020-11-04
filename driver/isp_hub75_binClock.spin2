@@ -34,83 +34,36 @@ OBJ { objects }
 
 DAT { initialized data }
 
+isSetup         BYTE    FALSE
+digitPeriod     BYTE    20    ' 12 
+segmentPeriod   BYTE    2  ' was 5
+
 
 VAR { globals }
 
     long    emptyRgbColor
     long    fullRgbColor
+    long    cog
     
-    byte    isSetup
-
     byte    currHours
     byte    currMinutes
     byte    currSeconds
-    byte    segmentPeriod
-    byte    digitPeriod
 
 PUB null()
     '' This is NOT a top level object
-
-PUB developmentTest() | bitValue
-    digitPeriod := 20    ' 12 
-    segmentPeriod := 5  ' was 5
-
-    setOnOffColors(color.cBlue, $363636)
-    setupClock()
-    display.commitScreenToPanel()
-
-    repeat
-
-    wait100thSecs(digitPeriod)
-
-    repeat bitValue from 0 to 9
-
-        ' TEST checking out flows - tweaking them
-        setFlowHMS(0, 0, bitValue)
-        display.commitScreenToPanel()
-        wait100thSecs(segmentPeriod)
-        loopUntilBitsFinish()
-
-        setHMS(0, 0, bitValue)
-        display.commitScreenToPanel()
-        wait100thSecs(segmentPeriod)
-        loopUntilBitsFinish()
-
-        wait100thSecs(digitPeriod)  ' -------------
-
-        setHMS(0, 0, 0)
-        display.commitScreenToPanel()
-        wait100thSecs(segmentPeriod)
-        loopUntilBitsFinish()
-
-        setFlowHMS(0, 0, 0)
-        display.commitScreenToPanel()
-        wait100thSecs(segmentPeriod)
-        loopUntilBitsFinish()
-
-        wait100thSecs(digitPeriod)  ' -------------
-
-PRI loopUntilBitsFinish()
-    repeat 
-        if not isAnimationComplete() 
-            animateStep() 
-            display.commitScreenToPanel()
-            wait100thSecs(segmentPeriod)
-
-        if isAnimationComplete() 
-            quit
-
-PRI wait100thSecs(count)
-    repeat count
-        waitms(10)  ' 1/100 seconds
 
 PUB setOnOffColors(onColor, offColor)
     '' Configure: colors for full clock display
     emptyRgbColor := offColor
     fullRgbColor := onColor  
 
-PUB setupClock() | digitIndex, row, col 
+PUB setupClock() : ok | digitIndex, row, col 
     '' Set up:  draw our initial clock bits
+    ok := cog := display.start()   ' send buffer to driver
+    if ok == -1
+        debug("- DEMO: underlying drivers failed!")
+        abort
+
     row := TOP_INSET
     col := LEFT_INSET
     repeat digitIndex from 0 to MAX_DIGITS - 1
@@ -120,8 +73,48 @@ PUB setupClock() | digitIndex, row, col
             col += HORIZ_ODD_OFFSET + DIGIT_WIDTH
         else
             col += HORIZ_EVEN_OFFSET + DIGIT_WIDTH
+    display.commitScreenToPanel()
 
-PUB setFlowHMS(hours, minutes, seconds)
+PUB stopClock() : ok
+    '' stop our back-end display driver
+  if cog
+    display.stop()
+    cog := 0
+
+PUB setTimeHMS(hours, minutes, seconds)
+    '' configure the clock with the initial time value
+    debug("clk:setTimeHMS ", udec(hours), udec(minutes), udec(seconds))
+
+    if isAnimationComplete()
+        ' evaluate what needs to change, cause change
+                ' TEST checking out flows - tweaking them
+        setFlowHMS(hours, minutes, seconds)
+        display.commitScreenToPanel()
+        wait100thSecs(segmentPeriod)
+        loopUntilBitsFinish()
+
+        setHMS(hours, minutes, seconds)
+        display.commitScreenToPanel()
+        wait100thSecs(segmentPeriod)
+        loopUntilBitsFinish()
+
+        ' preserve new time value
+        currHours := hours
+        currMinutes := minutes
+        currSeconds := seconds
+    else
+        debug("ERROR: animation NOT complete, IGNORING setTimeHMS()")
+
+    'debug("--  hold --")
+    'repeat
+
+
+PUB runClock()
+    '' simply increment seconds(,minutes,hours) every second (assumes time is already set! - setTimeHMS() was already called
+
+
+
+PRI setFlowHMS(hours, minutes, seconds)
     '' set the initial time to be displayed
     'debug("clk:set ", udec(hours), udec(minutes), udec(seconds))
 
@@ -129,8 +122,8 @@ PUB setFlowHMS(hours, minutes, seconds)
     feeds.setHMS(hours, minutes, seconds)
     showSecondsDots( ((seconds // 4) // 2) )
 
-PUB setHMS(hours, minutes, seconds)
-    '' set the initial time to be displayed
+PRI setHMS(hours, minutes, seconds)
+    ' set the initial time to be displayed
     'debug("clk:set ", udec(hours), udec(minutes), udec(seconds))
     currHours := hours
     currMinutes := minutes
@@ -147,8 +140,8 @@ PUB setHMS(hours, minutes, seconds)
 
     showSecondsDots( seconds // 2 )
 
-PUB isAnimationComplete() : status | digitIndex
-    '' Return T/F where T means all segment animations are complete
+PRI isAnimationComplete() : status | digitIndex
+    ' Return T/F where T means all segment animations are complete
     status := TRUE
     repeat digitIndex from 0 to MAX_DIGITS - 1
         if not digits[digitIndex].isMovementComplete()
@@ -158,7 +151,7 @@ PUB isAnimationComplete() : status | digitIndex
     if status == TRUE
         status := feeds.isAnimationComplete()
 
-PUB animateStep() | digitIndex
+PRI animateStep() | digitIndex
     '' Have each sement do 1 animation step, if one is pending
     if not isAnimationComplete()
         feeds.animateStep()
@@ -194,6 +187,19 @@ PRI drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex,
     byte[pColor][1] := color.correctedColor(green)
     byte[pColor][2] := color.correctedColor(blue)
 
+PRI loopUntilBitsFinish()
+    repeat 
+        if not isAnimationComplete() 
+            animateStep() 
+            display.commitScreenToPanel()
+            wait100thSecs(segmentPeriod)
+
+        if isAnimationComplete() 
+            quit
+
+PRI wait100thSecs(count)
+    repeat count
+        waitms(10)  ' 1/100 seconds
 
 CON { license }
 

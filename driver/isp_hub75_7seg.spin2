@@ -21,7 +21,7 @@ CON { public control values }
 
 OBJ
 
-    screen      : "isp_hub75_screenAccess"
+    screen          : "isp_hub75_screenAccess"
     segments[7]     : "isp_hub75_segment"
 
 DAT { initialized data }

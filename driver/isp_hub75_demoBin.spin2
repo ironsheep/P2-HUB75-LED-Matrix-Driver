@@ -36,19 +36,19 @@ OBJ
 
     color       : "isp_hub75_color"
     screen      : "isp_hub75_screenAccess"
-    display     : "isp_hub75_display"
+'    display     : "isp_hub75_display"
     clock       : "isp_hub75_binClock"
 
 PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, builtPtr, color3bit, color24bit, pPixColor, colorOffset, byteOffset, bitValue, panelNumber
     '' start underlying drivers and run demo
 
     'debug("`term temp size 82 50 textsize 10")
-
+{
     ok := cog := display.start()   ' send buffer to driver
     if ok == -1
         debug("- DEMO: underlying drivers failed!")
         abort
-
+}
 
 {
     org 
@@ -184,6 +184,67 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
 '---------------------------------------}
 
 { ---------------------------------------
+    ' basic bands - full color sweep
+    red := green := blue := 0
+    row := 2
+    col := 0
+    repeat red from 0 to 255        ' RED
+        display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        col++
+        if (col > screen.MAX_PANEL_COLUMNS - 1)
+            row++
+            col := 0
+    red := green := blue := 0
+    repeat green from 0 to 255      ' GREEN
+        display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        col++
+        if (col > screen.MAX_PANEL_COLUMNS - 1)
+            row++
+            col := 0
+    red := green := blue := 0
+    repeat blue from 0 to 255       ' BLUE
+        display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        col++
+        if (col > screen.MAX_PANEL_COLUMNS - 1)
+            row++
+            col := 0
+    red := green := blue := 0
+    repeat red from 0 to 255        ' YELLOW'
+        green := red
+        display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        col++
+        if (col > screen.MAX_PANEL_COLUMNS - 1)
+            row++
+            col := 0
+    red := green := blue := 0
+    repeat green from 0 to 255      ' CYAN
+        blue := green
+        display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        col++
+        if (col > screen.MAX_PANEL_COLUMNS - 1)
+            row++
+            col := 0
+    red := green := blue := 0
+    repeat blue from 0 to 255       ' MAGENTA
+        red := blue
+        display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        col++
+        if (col > screen.MAX_PANEL_COLUMNS - 1)
+            row++
+            col := 0
+    red := green := blue := 0
+    repeat blue from 0 to 255       ' WHITE
+        green := red := blue
+        display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        col++
+        if (col > screen.MAX_PANEL_COLUMNS - 1)
+            row++
+            col := 0
+    red := green := blue := 0
+    display.commitScreenToPanel()
+    repeat
+'---------------------------------------}
+{ ---------------------------------------
     ' TEST COLORS
     row := 0
     col := 0
@@ -191,7 +252,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     blue := 0
     red := 0
     repeat green from 0 to 255 step 4
-        display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        c
         col++
         if col > screen.MAX_PANEL_COLUMNS - 1
             col := 0
@@ -228,58 +289,40 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
             row++
     display.commitScreenToPanel()
     repeat
- ---------------------------------------}
-
-{ ---------------------------------------
-    display.fillScreen($700000)
-    display.commitScreenToPanel()
-    repeat
 ' ---------------------------------------}
 
 { ---------------------------------------
-    '  BINARY DEMO -> heading to liquid binary
-    clock.developmentTest()
+    display.fillScreen($700770)
+    display.commitScreenToPanel()
+    repeat
 ' ---------------------------------------}
 
 '{ ---------------------------------------
     '  BINARY DEMO -> heading to liquid binary
     digitPeriod := 20    ' 12 
-    segmentPeriod := 5  ' was 5
+    segmentPeriod := 2  ' was 5
 
     clock.setOnOffColors(color.cBlue, $363636)
     clock.setupClock()
-    display.commitScreenToPanel()
 
     wait100thSecs(digitPeriod)
 
+    'repeat red from 0 to 23
+        'repeat green from 0 to 59
+            'repeat blue from 0 to 59
+
     repeat bitValue from 0 to 9
+        blue := (bitValue + 10) + bitValue
+        red := green := blue
 
-        ' TEST checking out flows - tweaking them
-        clock.setFlowHMS(0, 0, bitValue)
-        display.commitScreenToPanel()
-        wait100thSecs(segmentPeriod)
-        loopUntilBitsFinish()
+        clock.setTimeHMS(red, green, blue)
+        
+        wait100thSecs(digitPeriod)
 
-        clock.setHMS(0, 0, bitValue)
-        display.commitScreenToPanel()
-        wait100thSecs(segmentPeriod)
-        loopUntilBitsFinish()
-
-        wait100thSecs(digitPeriod)  ' -------------
-
-        clock.setHMS(0, 0, 0)
-        display.commitScreenToPanel()
-        wait100thSecs(segmentPeriod)
-        loopUntilBitsFinish()
-
-        clock.setFlowHMS(0, 0, 0)
-        display.commitScreenToPanel()
-        wait100thSecs(segmentPeriod)
-        loopUntilBitsFinish()
-
-        wait100thSecs(digitPeriod)  ' -------------
+        clock.setTimeHMS(0, 0, 0)
 
 ' ---------------------------------------}
+
 { ---------------------------------------
     clock.setHMS(0, 0, 1)
     display.commitScreenToPanel()
@@ -434,6 +477,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     debug("DEMO: done")
     repeat
 
+{
 PRI generateGreenBluePanelAgainst(panelNumber, red) | panelRow, panelCol, row, col, green, blue, startCol
     panelRow := panelNumber / 4
     panelCol := panelNumber // 4
@@ -480,7 +524,8 @@ PRI drawSecondsDot(row, column, rgbColor)
     display.drawPixelAtRC(row, column+1, rgbColor)
     display.drawPixelAtRC(row+1, column, rgbColor)
     display.drawPixelAtRC(row+1, column+1, rgbColor)
-
+}
+{
 PRI loopUntilBitsFinish()
     repeat 
         if not clock.isAnimationComplete() 
@@ -490,11 +535,11 @@ PRI loopUntilBitsFinish()
 
         if clock.isAnimationComplete() 
             quit
-
+}
 PUB wait100thSecs(count)
     repeat count
         waitms(10)  ' 1/100 seconds
-
+{
 pub drawTestPattern(row,column)
     ' place six colored bits
     if column > 56
@@ -510,7 +555,7 @@ PUB stop()                  '' stop the driver
   if cog
     display.stop()
     cog := 0
-
+}
 CON { license }
 
 {{

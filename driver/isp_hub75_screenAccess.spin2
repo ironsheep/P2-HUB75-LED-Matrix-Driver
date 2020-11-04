@@ -53,6 +53,39 @@ PUB setScreen(pScreen)
 PUB screenAddress() : pScreen 
     pScreen := pExtScreen
 
+PUB dbgMemDump(bfrId, buffer, len) | bytBffr, colIdx, rowIdx, maxCol, maxRow, dispLen
+    '' Dump bytes in hex format to debug() terminal
+    debug("`temp 13 '", zstr_(bfrId), ": bffr=", uhex_long_(buffer), "(", udec_(len), ")' 13")
+    maxCol := len >= 16 ? 15 : len
+    maxRow := (len / 16)
+    if maxRow * 16 < len
+        maxRow++
+    if maxRow == 0
+        maxRow := 1
+
+    bytBffr := buffer
+    waitus(35)
+    'returns
+    dispLen := 0
+    repeat rowIdx from 1 to maxRow
+        if rowIdx < 10
+            debug("`temp ' '")	' space
+        debug("`temp '  ", uhex_long_(bytBffr), ": '")
+        repeat colIdx from 0 to maxCol
+            debug("`temp '", uhex_byte_(byte[bytBffr+colIdx]), " '")
+            dispLen++
+            if dispLen >= len
+                quit
+            if colIdx == 7
+                debug("`temp ' '")	' space
+
+        bytBffr += 16
+        debug("`temp 13")		' newline
+        waitus(85)  ' 50 too short, 70 less issue, 75 better, 
+    waitms(2)
+
+
+
 CON { license }
 
 {{

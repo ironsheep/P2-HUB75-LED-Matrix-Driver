@@ -29,6 +29,9 @@ CON { I/O PINs }
 
     'DEBUG_PIN = 16
 
+{ --------------------------------------------------
+'   FLYING LEADS setup:
+
     MTX_LED_PIN_R1 = 40
     MTX_LED_PIN_G1 = 41
     MTX_LED_PIN_B1 = 42
@@ -52,6 +55,40 @@ CON { I/O PINs }
     MTX_COLOR_PINS    = MTX_LED_PIN_R1 ADDPINS 5
 
     MTX_CTL_PINS      = MTX_LED_PIN_CLK ADDPINS 2
+' -------------------------------------------------- }
+'{ --------------------------------------------------
+' New P2 Eval Board HUB75 Adapter:
+
+    MTX_LED_BASE_PIN = 16   ' of 0, 16, 32, and 48
+
+    MTX_LED_SPARE_2 = MTX_LED_BASE_PIN + 15
+    MTX_LED_SPARE_1 = MTX_LED_BASE_PIN + 14
+
+    MTX_LED_PIN_B2 = MTX_LED_BASE_PIN + 13
+    MTX_LED_PIN_G2 = MTX_LED_BASE_PIN + 12
+    MTX_LED_PIN_R2 = MTX_LED_BASE_PIN + 11
+    MTX_LED_PIN_B1 = MTX_LED_BASE_PIN + 10
+    MTX_LED_PIN_G1 = MTX_LED_BASE_PIN + 9
+    MTX_LED_PIN_R1 = MTX_LED_BASE_PIN + 8
+
+    MTX_LED_PIN_E = MTX_LED_BASE_PIN + 7
+    MTX_LED_PIN_D = MTX_LED_BASE_PIN + 6
+    MTX_LED_PIN_C = MTX_LED_BASE_PIN + 5
+    MTX_LED_PIN_B = MTX_LED_BASE_PIN + 4
+    MTX_LED_PIN_A = MTX_LED_BASE_PIN + 3
+
+    MTX_LED_PIN_LATCH = MTX_LED_BASE_PIN + 2
+    MTX_LED_PIN_OE = MTX_LED_BASE_PIN + 1
+    MTX_LED_PIN_CLK = MTX_LED_BASE_PIN + 0
+
+    MTX_ROW_ADDR_PINS = MTX_LED_PIN_A ADDPINS 3     ' TESTING use 4, use 3 for live!
+
+    MTX_COLOR_PINS    = MTX_LED_PIN_R1 ADDPINS 5
+    MTX_COLOR_RGB1_PINS = MTX_LED_PIN_R1 ADDPINS 2
+    MTX_COLOR_RGB2_PINS = MTX_LED_PIN_R2 ADDPINS 2
+
+    MTX_CTL_PINS      = MTX_LED_PIN_CLK ADDPINS 2
+' -------------------------------------------------- }
 
 CON { Data }
 
@@ -97,7 +134,7 @@ VAR
 
 
 ' ------------------------------------------------------
-PUB start() : ok
+PUB start() : ok 'TESTING   | addr, rgb1, rgb2, ctrl
     '' Setup the pasm2 driver vars, then start a new cog running the driver
 
     stop()
@@ -112,6 +149,27 @@ PUB start() : ok
     ptrArgument := @dvrArgument
 
     dvrCommand := CMD_DONE      ' ensure we start here
+
+    { -------------------------------------------------- 
+    '  NEW LA hookup let's exercise pins to see if leads working
+    ' testing HUB75 adapter board
+
+    repeat
+
+        repeat addr from 0 to 31
+            pinwrite(MTX_ROW_ADDR_PINS, addr)
+
+        repeat rgb1 from 0 to 7
+            pinwrite(MTX_COLOR_RGB1_PINS, rgb1)
+
+        repeat rgb2 from 0 to 7
+            pinwrite(MTX_COLOR_RGB2_PINS, rgb2)
+
+        repeat ctrl from 0 to 7
+            pinwrite(MTX_CTL_PINS, ctrl)
+
+    
+    ' -------------------------------------------------- }
 
     ok := cog := coginit(16, @drive_matrix, @addr_pins) + 1
     if ok == -1
@@ -302,7 +360,7 @@ drive_matrix
                     rdlong  pCommmand, ptra[2]
                     rdlong  pArgument, ptra[3]
 
-                    or      dirb, maskAllPins   ' set all of our pings to output  for this COG
+                    or      DIRA, A16maskAllPins   ' set all of our pins to OUTPUT!  for this COG
 
                     drvl    rgb_bus
                     drvl    addr_bus
@@ -324,7 +382,7 @@ drive_matrix
                     debug("Addr pinsets: ", uhex_long(addr_bus),  uhex_long(rgb_bus))
 
 ' init row address
-                    mov     row_addr, #$78 ' 15 but in upper nybble
+                    mov     row_addr, A16addrValue15    ' reset address to 15 [A-D addr all ones]
 
 ' write address
                     call    #emitAddr
@@ -400,7 +458,7 @@ fillBuffer      ' fill panel buffer based on desired color
                     or      fillLong, fillOffset        ' 3 bytes
                     shl     fillLong, #8
                     or      fillLong, fillOffset        ' 4 bytes
-                    debug("- (DBG) ", uhex_long(fillLong))
+                    'debug("- (DBG) ", uhex_long(fillLong))
                     call    #setBuffer
                     'call    #dumpTwinRows
                     ret
@@ -419,11 +477,11 @@ nextSet
 
 dumpTwinRows
                     debug(" Red TL,R ", uhex_long_(screenBffr+0), ", ", uhex_long_(screenBffr+1))
-                    debug(" Red BL,R ", uhex_long_(screenBffr+62), ", ", uhex_long_(screenBffr+63))
-                    debug(" Grn TL,R ", uhex_long_(screenBffr+64), ", ", uhex_long_(screenBffr+65))
-                    debug(" Grn BL,R ", uhex_long_(screenBffr+126), ", ", uhex_long_(screenBffr+127))
-                    debug(" Blu TL,R ", uhex_long_(screenBffr+128), ", ", uhex_long_(screenBffr+129))
-                    debug(" Blu BL,R ", uhex_long_(screenBffr+190), ", ", uhex_long_(screenBffr+191))
+                    'debug(" Red BL,R ", uhex_long_(screenBffr+62), ", ", uhex_long_(screenBffr+63))
+                    'debug(" Grn TL,R ", uhex_long_(screenBffr+64), ", ", uhex_long_(screenBffr+65))
+                    'debug(" Grn BL,R ", uhex_long_(screenBffr+126), ", ", uhex_long_(screenBffr+127))
+                    'debug(" Blu TL,R ", uhex_long_(screenBffr+128), ", ", uhex_long_(screenBffr+129))
+                    'debug(" Blu BL,R ", uhex_long_(screenBffr+190), ", ", uhex_long_(screenBffr+191))
                     ret
 
 chksDone
@@ -436,7 +494,7 @@ markCmdComplete
 wrCurrent
                     ' repeat the following forever
                     ' set addr to start
-                    mov     row_addr, #$78              ' 15 but in upper 5-bits
+                    mov     row_addr, A16addrValue15    ' reset address to 15 [A-D addr all ones]
                     mov     row_ctr, #16                ' 16 -> 0 so we can use djnz
                     mov     reg_offset, #0              ' start of [0-1023] buffer
                     drvl    #MTX_LED_PIN_OE
@@ -453,20 +511,20 @@ clkNextReg
                     mov     byt_offset, #4              ' 4 -> 0 so we can use djnz
                     ALTS    reg_offset, #screenBffr     ' calc addr of source long and place in instru
                     mov     reg_value, 0-0              ' get COG register with 4 bytes of rgb1rgb2 values
-                    rol     reg_value, #8               ' YEAH, i've no idea why! but fixes our byte ordering problem!
+                    ror     reg_value, #8               ' YEAH, i've no idea why! but fixes our byte ordering problem! (AUGH! this change from rol -> ror with HUB75 adapter?!)
 clkNextByte
-                    SETQ    maskRgb12                   ' load Q bit w/ RGBs mask
-                    MUXQ    OUTB, reg_value             ' write contents of LS-byte anded with mask to output pins
-                    ror    reg_value, #8                ' shift next most significant into LS-byte position
+                    SETQ    A16maskRgb12                ' load Q bit w/ RGB[12] mask
+                    MUXQ    OUTA, reg_value             ' write contents of LS-byte anded with mask to output pins
+                    ror     reg_value, #8                ' shift next most significant into LS-byte position
 
 ' time to begin latch?
                     cmp     col_addr, #61     wz        ' at last three columns?
     if_z            drvh    #MTX_LED_PIN_OE
     'if_z            waitx   #NS_015 + 1                ' let /OE settle
-    if_z            waitx   #3  ' 17.5 - 20  nSec
+    if_z            waitx   #3  ' 17.5 - 20  nSec       ' let /OE settle
     if_z            drvh    #MTX_LED_PIN_LATCH
     'if_z            waitx   #NS_015 ' + 1              ' let LATCH settle
-    if_z            waitx   #3  ' 17.5 - 20  nSec
+    if_z            waitx   #3  ' 17.5 - 20  nSec       ' let LATCH settle
 
                     ' toggle clock
                     drvnot  #MTX_LED_PIN_CLK
@@ -480,14 +538,14 @@ clkNextByte
                     djnz    reg_ctr, #clkNextReg
 
 ' LATCH DATA complete...
-                    drvl    #MTX_LED_PIN_LATCH      ' end latch data
+                    drvl    #MTX_LED_PIN_LATCH          ' end latch data
 
         ' write address AFTER
-                    add     row_addr, #$08          ' 1 but in upper 5-bits
+                    add     row_addr, A16addrValue1     ' incr address by 1
                     call    #emitAddr
 
                     cmp     row_ctr, #1 wz
-    if_nz           drvl    #MTX_LED_PIN_OE         ' enable output if NOT at end of frame!
+    if_nz           drvl    #MTX_LED_PIN_OE             ' enable output if NOT at end of frame!
 '
 ' ---  inter-line gap  ---
 '
@@ -503,20 +561,12 @@ wrFrameEnd
 ' subroutines
 '
 emitAddr
-                    SETQ    maskAddr
-                    MUXQ    OUTB, row_addr          ' but in upper 5-bits of ls byte of  63-32
+                    SETQ    A16maskAddr             ' load Q with w/ Address[A-D] mask
+                    MUXQ    OUTA, row_addr          ' but in upper 5-bits of ls byte of  31-0 depending upon pingroup
                     waitx   #3
                     ret
 
-' NOTES
-'
-'   Research  SETQ  {#}D     ' Set Q to D. Use before RDLONG/WRLONG/WMLONG
-'             MUXQ  D,{#}S   ' Used after SETQ. For each '1' bit in Q, copy the corresponding bit in S into D. D = (D & !Q) | (S & Q).\\
-'
-'             SETQ  {#}D             ' write D to Q (is this our pinset?)
-'             MUXQ  OUTB, {#}S       ' write S to OUTB masked by Q (is Q our pinseet?)
-'    combination... is supposed to be means to write data to pinset as output instruction
-
+' Dummy ISR routines in case we need them
 isr1
                 nop
                 reti1
@@ -537,12 +587,32 @@ kHighBitSet     long    $8000_0000
 kAllOnes        long    $ffff_ffff
 kAllZeros       long    $0000_0000
 kScreenBuffer   long    @screenBffr
-maskAddr        long    %00000000_00000000_00000000_01111000
-'maskRgb12       long    %00000000_00000000_11101110_00000000   ' OLD
-'maskAllPins     long    %00000000_00000000_11101110_11110111   ' OLD
-maskRgb12       long    %00000000_00000000_00111111_00000000   ' NEW    rgb2rgb1 now grounded to lsbit
-maskAllPins     long    %00000000_00000000_00111111_01111111   ' NEW    adds new E addr bit (off for now)
 
+
+' for pin group prefixes are:  [A00, A16, B32, B48]
+'A00maskAddr        long    %00000000_00000000_00000000_01111000    ' pins at 00-15 A-pins
+A16maskAddr         long    %00000000_01111000_00000000_00000000    ' pins at 16-31 A-pins
+'B32maskAddr        long    %00000000_00000000_00000000_01111000    ' pins at 32-47 B-pins
+'A00maskRgb12       long    %00000000_00000000_00111111_00000000   ' rgb2rgb1 now grounded to lsbit - pins at 00-15 A-pins
+A16maskRgb12        long    %00111111_00000000_00000000_00000000   ' rgb2rgb1 now grounded to lsbit - pins at 16-31 A-pins
+'B32maskRgb12       long    %00000000_00000000_00111111_00000000   ' rgb2rgb1 now grounded to lsbit - pins at 32-47 B-pins
+'A00maskAllPins     long    %00000000_00000000_00111111_01111111   ' adds new E addr bit (off for now) - pins at 00-15 A-pins
+A16maskAllPins      long    %00111111_01111111_00000000_00000000   ' adds new E addr bit (off for now) - pins at 16-31 A-pins
+'B32maskAllPins     long    %00000000_00000000_00111111_01111111   ' adds new E addr bit (off for now) - pins at 32-47 B-pins
+
+                    ' PINS A 00-15  USE $08
+                    ' PINS A 16-31  USE $08_0000
+                    ' PINS B 32-47  USE $08
+                    ' PINS B 48-63  USE $08_0000
+A16addrValue1   long    $0008_0000          ' 1 but in upper 5-bits of byte
+'B32addrValue1     long    $0000_0008          ' 1 but in upper 5-bits of byte
+
+                    ' PINS A 00-15  USE $78
+                    ' PINS A 16-31  USE $78_0000
+                    ' PINS B 32-47  USE $78
+                    ' PINS B 48-63  USE $78_0000
+A16addrValue15  long    $0078_0000              ' 15 but in upper 5-bits of byte
+'B32addrValue15  long    $0000_0078              ' 15 but in upper 5-bits of byte
 
 'screen buffer 1024B of %00bgrbgr where byte is 00{rgb2}{rgb1}
                 ALIGNL

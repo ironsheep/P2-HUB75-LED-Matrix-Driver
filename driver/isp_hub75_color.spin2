@@ -31,9 +31,11 @@ CON { test colorset }
     cNavy = $000080
     cDarkGreen = $006400
     cOrange = $FFA500
+    cBlueViolet = $8A2BE2
+    
+    ' SPECIAL non-colors - invoke alforithm to gerate actual color used'
     cRedWhtBlu = $deadf0
     cRainbow = $deadf1
-    cBlueViolet = $8A2BE2
 
 PUB null()      '' This is not a top level object
 
@@ -115,7 +117,23 @@ PUB cValueForRGB(red, green, blue) : combinedValue
 
 PRI dutyCycleForIntensity(hex8bit) : pwmBits
     ' CALCULATE: proper duty cycle for intensity of 0-255
+    {         --- VERSION 1 - Bits spread throughout ---
+    if hex8bit >= 256 - 14 + 1
+        pwmBits := $ff
+    elseif hex8bit <= 0 + 14 - 1
+        pwmBits := $00
+    else
+        pwmBits := (hex8bit / 7) + 1
+    '}
     '{         --- VERSION 1 - Bits spread throughout ---
+    if hex8bit == 255
+        pwmBits := $ff
+    elseif hex8bit == 0
+        pwmBits := $00
+    else
+        pwmBits := (hex8bit / 7) + 1
+    '}
+    {         --- VERSION 1 - Bits spread throughout ---
     if hex8bit >= 145
         ' upper half
         if hex8bit >= 218
