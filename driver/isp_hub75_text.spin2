@@ -200,10 +200,10 @@ PUB drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex,
     '' place r,g,b color pixel at r,c
     rowIndex := 0 #> row <# MAX_SCREEN_ROWS - 1
     columnIndex :=  0 #> column <# MAX_SCREEN_COLUMNS - 1
-    colorOffset := ((rowIndex * MAX_SCREEN_COLUMNS) + columnIndex) * MAX_BYTES_PER_COLOR
+    colorOffset := ((rowIndex * MAX_SCREEN_COLUMNS * MAX_BYTES_PER_COLOR) + (columnIndex * MAX_BYTES_PER_COLOR))
     pColor := @byte[@screen0][colorOffset]
-    'if isDebugLocn(row, column)
-        'debug("- Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
+    'if isDebugLocn(rowIndex, columnIndex)
+    '    debug("- Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
     byte[pColor][0] := red
     byte[pColor][1] := green
     byte[pColor][2] := blue
@@ -245,6 +245,7 @@ PRI getCharAddrForCurrentFont(cChar) : pCharBitmap
 PRI isDebugLocn(nRow, nCol) : status
     status := FALSE
     if (nRow == 31 && nCol < 4) || (nRow < 2 && nCol < 3) || (nRow == 31 && nCol > 61) || (nRow < 2 && nCol > 61)
+    'if (nRow  > 29)
         status := TRUE ' FALSE  ' turn off debug
 
 PRI rgbColorFromDegrees(degrees) : rcbColor | offset60, fract60, red, green, blue

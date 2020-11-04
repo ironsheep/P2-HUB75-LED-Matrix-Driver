@@ -47,9 +47,9 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, d
     screen.setCursor(0, 0)   ' start at top left, with one pixel of spacing
 
     screen.setColoredTextAtRC(0,0, string("iron sheep"), screen.cMaroon)
-    screen.setColoredTextAtRC(1,0, string("-RGB 3bit-"), screen.cOrange)
-    screen.setColoredTextAtRC(2,0, string("24b color!"), screen.cRainbow)
-    screen.setColoredTextAtRC(3,0, string("led matrix"), screen.cWhite)
+    'screen.setColoredTextAtRC(1,0, string("-RGB 3bit-"), screen.cOrange)
+    'screen.setColoredTextAtRC(2,0, string("24b color!"), screen.cRainbow)
+    'screen.setColoredTextAtRC(3,0, string("led matrix"), screen.cWhite)
  
  {
     ' print each letter with a rainbow color
@@ -63,7 +63,41 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, d
     repeat digitIndex from 0 to 3
         digit[digitIndex].setScreen(screen.getScreenSetup())
 
-    digit[digitIndex].placeDigit(16, 10, 8, screen.cOrange)
+
+    digit[0].placeDigit(8, 2, 7, screen.cOrange)
+    digit[1].placeDigit(8, 18, 5, screen.cOrange)
+    digit[2].placeDigit(8, 34, 2, screen.cOrange)
+    digit[3].placeDigit(8, 50, 1, screen.cOrange)
+    screen.commitScreenToPanel()
+    repeat 1    ' 5 secs
+        waitms(1000)  
+    repeat 
+        if not allDigitAnimationsComplete() 
+            repeat digitIndex from 0 to 3
+                if not digit[digitIndex].isAnimationComplete()
+                    digit[digitIndex].animateStep() 
+            screen.commitScreenToPanel()
+            repeat 1    ' 5 secs
+                waitms(1000)  
+        if allDigitAnimationsComplete() 
+            quit
+
+
+    repeat 20    ' 20 secs
+        waitms(1000)  
+
+    digit[0].setValue(8) 
+    screen.commitScreenToPanel()
+    repeat 1    ' 2 secs
+        waitms(1000)  
+    repeat 
+        if not digit[0].isAnimationComplete()
+            digit[0].animateStep() 
+            screen.commitScreenToPanel()
+        if digit[0].isAnimationComplete()
+            quit
+        repeat 1    ' 2 secs
+            waitms(1000)  
 
 {
     screen.setTextSize(screen.TEXT_SIZE__8x8)    ' font size 
@@ -77,7 +111,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, d
     screen.setCharWithColor("2", screen.cLime)
 }
 
-    screen.commitScreenToPanel()
+    'screen.commitScreenToPanel()
     'repeat ' HOLD did clear work?
 
 {' --------------------------------------
@@ -120,6 +154,13 @@ PUB stop()                  '' stop the driver
   if cog
     screen.stop()
     cog := 0
+
+PRI allDigitAnimationsComplete() : status | digitIndex
+    status := TRUE
+    repeat digitIndex from 0 to 3
+        if not digit[digitIndex].isAnimationComplete()
+            status := FALSE
+            quit
 
 CON { license }
 
