@@ -13,9 +13,8 @@
 
 CON
 
-    MAX_SIMULTANEOUS_FEEDS = 14 + 1 ' should only ever have 14:  hours=1+3, minutes=2+3, seconds=2+3 (add 1 extra)
     MAX_DIGITS = 6
-
+    MAX_SIMULTANEOUS_FEEDS = 14 + 1 ' should only ever have 14:  hours=1+3, minutes=2+3, seconds=2+3 (add 1 extra)
 
 OBJ
 

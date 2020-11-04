@@ -275,18 +275,58 @@ PRI getPwmFrameAddressForBit(nBitNumber) : pFrameBuffer | nFrameOffset, frameIdx
     'debug("- PWM frame(", udec_(frameIdx), "), ", uhex_long(pFrameBuffer))
 
 
-PRI setPixelForRC_OLD(nPanelRow, nPanelCol, red, green, blue) | rBit, gBit, bBit, pPwmFrame, bitNumber 
+PRI setPixelForRC_OLD(nPanelRow, nPanelCol, red, green, blue) | rBit, gBit, bBit, pPwmFrame, bitNumber, rPwmBits, gPwmBits, bPwmBits
     ' for each 24bit color write to PWM frames
     ' ' XYZZYpnl debug("setPixel() - x,y=(", udec_(nPanelCol), ", ", udec_(nPanelRow), ")")
+    rPwmBits := dutyCycleForIntensity(red)
+    gPwmBits := dutyCycleForIntensity(green)
+    bPwmBits := dutyCycleForIntensity(blue)
     ' expand 24-bit pixel into 8 pwm frames of 3-bit pixel
     repeat bitNumber from hardware.MAX_PWM_FRAMES - 1 to 0
         pPwmFrame := getPwmFrameAddressForBit(bitNumber)
-        rBit := red & (1 << bitNumber) > 0 ? 1 : 0
-        gBit := green & (1 << bitNumber) > 0 ? 1 : 0
-        bBit := blue & (1 << bitNumber) > 0 ? 1 : 0
+        rBit := rPwmBits & (1 << bitNumber) > 0 ? 1 : 0
+        gBit := gPwmBits & (1 << bitNumber) > 0 ? 1 : 0
+        bBit := bPwmBits & (1 << bitNumber) > 0 ? 1 : 0
         setPanelColorBitsForRC(pPwmFrame, nPanelRow, nPanelCol, rBit, gBit, bBit)
 
-    'repeat  ' TEST hold right here to evaluate output
+PRI dutyCycleForIntensity(hex8bit) : pwmBits
+    ' CALCULATE: proper duty cycle for intensity of 0-255
+    {         --- VERSION 1 - Bits spread throughout ---
+    if hex8bit >= 145
+        ' upper half
+        if hex8bit >= 218
+            ' upper half
+            pwmBits := (hex8bit == 255) ? $ff : $7f
+        else
+            ' lower half
+            pwmBits := (hex8bit >= 181) ? $77: $37
+    else
+        ' lower half
+        if hex8bit > 73
+            ' upper half
+            pwmBits := (hex8bit >= 109) ? $33 : $31
+        else
+            ' lower half
+            pwmBits := (hex8bit == 0) ? $00 : (hex8bit >= 36) ? $11 : $01
+    '}
+    '{          --- VERSION 2 - Bits grounded to right ---
+    if hex8bit >= 145
+        ' upper half
+        if hex8bit >= 218
+            ' upper half
+            pwmBits := (hex8bit == 255) ? $ff : $7f
+        else
+            ' lower half
+            pwmBits := (hex8bit >= 181) ? $3f: $1f
+    else
+        ' lower half
+        if hex8bit > 73
+            ' upper half
+            pwmBits := (hex8bit > 109) ? $0F : $07
+        else
+            ' lower half
+            pwmBits := (hex8bit == 0) ? $00 : (hex8bit >= 36) ? $03 : $01
+    '}
 
 VAR { buffer addresses }
 

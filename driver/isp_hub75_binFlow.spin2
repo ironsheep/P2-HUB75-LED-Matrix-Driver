@@ -17,21 +17,31 @@
 
 CON { constants affecting appearance }
 
-   MAX_LENGTH_OF_FLOW = 7                           ' for every two inputs raise 1 line, for every two outputs lower 1 line
-   MAX_LENGTH_OF_QUEUE = MAX_LENGTH_OF_FLOW + 2     ' +2: allow max length without queue being full
+    MAX_LENGTH_OF_FLOW = 7                           ' for every two inputs raise 1 line, for every two outputs lower 1 line
+    MAX_LENGTH_OF_QUEUE = MAX_LENGTH_OF_FLOW + 2     ' +2: allow max length without queue being full
+
+    MAX_SIMULTANEOUS_FEEDS = 14 + 1 ' should only ever have 14:  hours=1+3, minutes=2+3, seconds=2+3 (add 1 extra)
+
+    INDEX_NOT_FOUND = -1
 
     ' flow movement commands
-   #0,DIR_UNKNOWN, DIR_DOWN, DIR_RIGHT, DIR_UP, DIR_LEFT, DIR_DONE, SET_ROW, SET_COL, EAT_TAIL
+    #0,DIR_UNKNOWN, DIR_DOWN, DIR_RIGHT, DIR_UP, DIR_LEFT, DIR_DONE, SET_ROW, SET_COL, EAT_TAIL
 
     ' digit index value names
     #0, DIGIT_HOURS_TENS, DIGIT_HOURS_ONES, DIGIT_MINUTES_TENS, DIGIT_MINUTES_ONES, DIGIT_SECONDS_TENS, DIGIT_SECONDS_ONES
 
-   START_ROW = -1   ' off screen
-   START_COLUMN = 59
+    START_ROW = -1   ' off screen
+    START_COLUMN = 59
 
-   END_ROW = 31
-   END_COLUMN = 63 
+    END_ROW = 31
+    END_COLUMN = 63 
 
+    FLOW_1_COLOR = $FF0000
+    'FLOW_1_COLOR = $000010
+    FLOW_2_COLOR = $0000FF
+    FLOW_3_COLOR = $FFFF00
+    'FLOW_3_COLOR = $001010
+    FLOW_4_COLOR = $00FFFF
 
 OBJ
 
@@ -100,6 +110,21 @@ outflowS011 byte    SET_ROW, 25
             byte    EAT_TAIL, 0
             byte    DIR_DONE, 0
 
+' we need to detect overlaps
+' one simple approach is to keep a list of all occuppied locations
+
+' this will be an unusual list as well use a max length
+' but we'll also allow items to be removed from the middle of the 
+' list so entries will be empty and then early reused
+' it will also be an unorderd list - Entry Sequence but affected by reuse
+' point of the max used count is to reduce search times when possible
+
+' each entry is a long containing { row, col, count }
+
+activeLocations long    0[MAX_SIMULTANEOUS_FEEDS * MAX_LENGTH_OF_FLOW]
+activeLocnCount byte    0
+
+runUnitTest     byte    FALSE   ' no need to run for now...
 
 
 VAR { globals }
@@ -138,6 +163,9 @@ PUB setScreen(pScreen)
     maxBitRows := hardware.MAX_PANEL_ROWS
     if not isSetup
         initialize()
+        if runUnitTest
+            testNewActiveTracking()
+            runUnitTest := FALSE
 
 PUB startFlow(digitId, fmNybble, toNybble) | bitIndex, bitMask, diffCount, liveIndex, zerosCount
     '' start (1 to 6) * (1 to 4) flows at the same time : h10(2,1), h01(8,4,2,1), m10(4,2,1), m01(8,4,2,1), s10(4,2,1), s01(8,4,2,1)
@@ -248,7 +276,7 @@ PRI nextCommand() : command, distance | pCurrEntry
     dripEntryIndex++
 
 
-PRI moveDrip() | moved, haveRow, haveColumn, finishedCommand, placeNew, tailRow, tailCol, removeTail
+PRI moveDrip() | moved, haveRow, haveColumn, finishedCommand, placeNew, tailRow, tailCol, removeTail, howMany, tailColor, headColor
     moved := FALSE
     finishedCommand := FALSE
     haveRow := FALSE
@@ -295,21 +323,181 @@ PRI moveDrip() | moved, haveRow, haveColumn, finishedCommand, placeNew, tailRow,
     while not moved
 
     if not removeTail
+        howMany := activateLocation(headRow, headCol)
+        headColor := colorForCount(howMany)
         ' place bit at row,col
-        drawPixelAtRCwithRGB(headRow, headCol, color.rgbForCValue(color.cLime))
+        drawPixelAtRCwithRGB(headRow, headCol, color.rgbForCValue(headColor))
         ' add to queue
         pushHeadBit(headRow, headCol)
+        'debug("flo:moved headRC=(", udec_(headRow), udec_(headCol), ") ct=", udec_(dripEntryCount))
 
     ' if at max entries remove a bit, freeing queue entry
     if dripEntryCount >= MAX_LENGTH_OF_FLOW || removeTail
         if dripEntryCount > 0
             tailRow, tailCol := popTailBit()
-            drawPixelAtRCwithRGB(tailRow, tailCol, color.rgbForCValue(color.cBlack))
+            howMany := deactivateLocation(tailRow, tailCol)
+            tailColor := colorForCount(howMany)
+            drawPixelAtRCwithRGB(tailRow, tailCol, color.rgbForCValue(tailColor))
 
-    debug("flo:moved headRC=(", udec_(headRow), udec_(headCol), ") ct=", udec_(dripEntryCount))
+PRI colorForCount(howMany) : rgbColor
+    case howMany
+        1: rgbColor := FLOW_1_COLOR
+        2: rgbColor := FLOW_2_COLOR
+        3: rgbColor := FLOW_3_COLOR
+        4: rgbColor := FLOW_4_COLOR
+        OTHER:
+            rgbColor := color.cBlack
 
-    'if dripCommand == EAT_TAIL
-        'repeat' hold forever while we stare
+PRI locateLocationMatch(row, col) : foundIndex | pEntry, currValue, listIndex, word highWord, word huntWord 
+    foundIndex := INDEX_NOT_FOUND
+    if activeLocnCount <> 0
+        huntWord := ((row & $ff) << 8) | (col & $ff)
+        repeat listIndex from 0 to activeLocnCount
+            pEntry := @long[@activeLocations][listIndex]
+            ' ENTRY: row,col,count = $rrcc--##
+            currValue := long[pEntry][0]
+            'debug("- checking ", uhex_long(currValue))
+            highWord := (currValue) >> 16 & $ffff
+            if highWord == huntWord
+                foundIndex := listIndex
+                quit    ' abort we have our answer
+    'debug("- flo:loc RC=(", udec_(row), ", ", udec_(col), ") ", sdec(foundIndex), uhex_long(currValue))
+
+PRI locate1stEmptyOrNewLastEntry() : foundIndex | listIndex
+    foundIndex := activeLocnCount
+    if activeLocnCount > 0
+        ' find earliest empty entry or just add new
+        repeat listIndex from 0 to activeLocnCount
+            if long[@activeLocations][listIndex] == 0
+                foundIndex := listIndex
+                quit    ' outta here we have our answer
+        ' if there are no empty slots in list, point to new location at end and incre list len
+    if foundIndex == activeLocnCount
+        activeLocnCount++
+    'debug("- flo:neA ", sdec(foundIndex), udec(activeLocnCount))
+
+PRI activateLocation(row, col) : count | listIndex, newEntry, addEntry, currEntry
+    addEntry := FALSE
+    if activeLocnCount == 0
+        addEntry := TRUE
+    else
+        listIndex := locateLocationMatch(row, col)
+        if listIndex == INDEX_NOT_FOUND
+            addEntry := TRUE
+        else
+            ' adjust existing entry
+            currEntry := long[@activeLocations][listIndex]
+            count := currEntry & $ff
+            count++
+            currEntry := (currEntry & $ffffff00) | count
+            long[@activeLocations][listIndex] := currEntry
+            newEntry := currEntry   ' to facilitate debug
+
+    if addEntry
+        ' add new entry
+        count := 1
+        ' ENTRY: row,col,count = $rrcc--##
+        newEntry := ((row & $ff) << 24) | ((col & $ff) << 16) | count
+        listIndex := locate1stEmptyOrNewLastEntry()
+        long[@activeLocations][listIndex] := newEntry
+    'debug("flo:act RET(", udec_(count), ") active[", udec_(listIndex), "] <= (", uhex_long_(newEntry), ")  Len=(", udec_(activeLocnCount), ")")
+
+PRI deactivateLocation(row, col) : count | listIndex, currEntry, removeEntry, indexUsed, oldEntry, startingActiveCount
+    count := 0
+    indexUsed := -1
+    if activeLocnCount > 0
+        listIndex := locateLocationMatch(row, col)
+        if listIndex <> INDEX_NOT_FOUND
+            ' adjust existing entry
+            ' ENTRY: row,col,count = $rrcc--##
+            currEntry := long[@activeLocations][listIndex]
+            oldEntry := currEntry   ' for debug
+            count := currEntry & $ff
+            count--
+            currEntry := (currEntry & $ffffff00) | count
+            ' if no more overlap...
+            if count == 0
+                ' wipe out this entry
+                currEntry := 0
+            indexUsed := listIndex
+            long[@activeLocations][listIndex] := currEntry
+            ' if we just wiped out the end-most entry then reduce our count of entries.. by all empty locations at tail
+            if listIndex == activeLocnCount - 1
+                startingActiveCount := activeLocnCount
+                repeat listIndex from  startingActiveCount - 1 to 0
+                    if long[@activeLocations][listIndex] == 0   
+                        activeLocnCount--
+                    else
+                        quit    ' some are not empty, don't check further
+                ' and show that index we used no longer exists
+                indexUsed := -1
+
+    'debug("flo:dea RET(", udec_(count), "), val=(", uhex_long_(currEntry), ") <= active[", sdec_(indexUsed), "] was:[", uhex_long_(oldEntry), "]  Len=(", udec_(activeLocnCount), ")")
+
+PRI testNewActiveTracking() | didFail, retCount
+    debug("-- TEST start -- ")
+    didFail := FALSE
+    didFail |= testEnsureActiveEmpty()
+    retCount := activateLocation(1,2)
+    didFail |= testEnsureReturnedCount(retCount, 1)
+    didFail |= testEnsureActive(1)
+    retCount := deactivateLocation(1,2)
+    didFail |= testEnsureReturnedCount(retCount, 0)
+    didFail |= testEnsureActiveEmpty()
+
+    retCount := activateLocation(2,2)
+    didFail |= testEnsureReturnedCount(retCount, 1)
+    retCount := activateLocation(2,3)
+    didFail |= testEnsureReturnedCount(retCount, 1)
+    didFail |= testEnsureActive(2)
+    retCount := deactivateLocation(2,2)
+    didFail |= testEnsureReturnedCount(retCount, 0)
+    didFail |= testEnsureActive(2)
+    retCount := deactivateLocation(2,3)
+    didFail |= testEnsureReturnedCount(retCount, 0)
+    didFail |= testEnsureActiveEmpty()
+
+    retCount := activateLocation(3,3)
+    didFail |= testEnsureReturnedCount(retCount, 1)
+    didFail |= testEnsureActive(1)
+    retCount := activateLocation(3,3)
+    didFail |= testEnsureReturnedCount(retCount, 2)
+    didFail |= testEnsureActive(1)
+    retCount := deactivateLocation(3,3)
+    didFail |= testEnsureReturnedCount(retCount, 1)
+    didFail |= testEnsureActive(1)
+    retCount := deactivateLocation(3,3)
+    didFail |= testEnsureReturnedCount(retCount, 0)
+    didFail |= testEnsureActiveEmpty()
+
+    if didFail
+        debug(" ---> FAILED")
+    else
+        debug(" ---> ALL TEST PASSED!")
+
+    debug("-- TEST end -- ")
+
+PRI testEnsureActiveEmpty() : failed | currEntry
+    failed := FALSE
+    if activeLocnCount <> 0
+        debug("- ERROR active NOT empty:", udec(activeLocnCount))
+        failed := TRUE
+    currEntry := long[@activeLocations][0]
+    if currEntry <> 0
+        debug("- ERROR 1st entry NOT empty:", udec(currEntry))
+        failed := TRUE
+
+PRI testEnsureActive(activeCount) : failed
+    failed := FALSE
+    if activeLocnCount <> activeCount
+        debug("- ERROR active count(", udec_(activeLocnCount), "), expected(", udec_(activeCount), ")")
+        failed := TRUE
+
+PRI testEnsureReturnedCount(actualCount, expectedCount) : failed
+    failed := FALSE
+    if actualCount <> expectedCount
+        debug("- ERROR BAD return value: actual(", udec_(actualCount), ") <> (", udec_(expectedCount), ")")
+        failed := TRUE
 
 PRI pushHeadBit(row, col) | rcLong, saveHead
     rcLong := (row << 16) | col
@@ -322,7 +510,7 @@ PRI pushHeadBit(row, col) | rcLong, saveHead
     dripEntryCount++
     if dripHead > MAX_LENGTH_OF_QUEUE - 1
         dripHead := 0
-    debug("flo:push queue[", udec_(saveHead), "] <= (", uhex_long_(rcLong), ")  newHead=(", udec_(dripHead), ")")
+    'debug("flo:push queue[", udec_(saveHead), "] <= (", uhex_long_(rcLong), ")  newHead=(", udec_(dripHead), ")")
 
 PRI popTailBit() : row, col | rcLong, saveTail
     if dripHead == dripTail
@@ -336,7 +524,7 @@ PRI popTailBit() : row, col | rcLong, saveTail
     dripEntryCount--
     if dripTail > MAX_LENGTH_OF_QUEUE - 1
         dripTail := 0
-    debug("flo:pop val=(", uhex_long_(rcLong), ") <= queue[", udec_(saveTail), "]  newTail=(", udec_(dripTail), ")")
+    'debug("flo:pop val=(", uhex_long_(rcLong), ") <= queue[", udec_(saveTail), "]  newTail=(", udec_(dripTail), ")")
 
 PRI initialize() | digitIndex
     isSetup := TRUE
@@ -351,7 +539,7 @@ PRI drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex,
     colorOffset := ((rowIndex * maxBitColumns) + columnIndex) * hardware.DISPLAY_BYTES_PER_COLOR
     pColor := @byte[pExtScreen][colorOffset]
     'if isDebugLocn(rowIndex, columnIndex)
-    debug("flo:Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
+    'debug("flo:Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
     byte[pColor][0] := color.correctedColor(red)
     byte[pColor][1] := color.correctedColor(green)
     byte[pColor][2] := color.correctedColor(blue)

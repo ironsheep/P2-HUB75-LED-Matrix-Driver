@@ -203,8 +203,7 @@ PUB drawPixelAtRC(row, column, rgbColor) | xlatedColor, fHue
     xlatedColor := rgbColor
     if rgbColor == color.cRainbow
         xlatedColor := color.rgbColorFromDegrees(6 * (column + 1))   ' replace '360 / 64' with 6 [was resulting in 5 vs. 6]
-    'elses
-	'if rgbColor == cRedWhtBlu
+    'elseif rgbColor == cRedWhtBlu
      '   case column // 3
      '       0: xlatedColor := cRed
     '       1: xlatedColor := cWhite
@@ -229,10 +228,6 @@ PUB commitScreenToPanel()
     '' Write sceen to panel driver
     debug("- DISP: commit!")
     panel.loadScreen(@screen0)
-
-
-
-
 
 PRI incrCursorWithWrap() | priorRow, priorCol
     ' increment cursor position, wrapping at end of line when needed

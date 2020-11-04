@@ -35,10 +35,11 @@ VAR
 OBJ
 
     color       : "isp_hub75_color"
+    hardware    : "isp_hub75_hwGeometry"
     display     : "isp_hub75_display"
     clock       : "isp_hub75_binClock"
 
-PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, builtPtr, color3bit, color24bit, pPixColor, colorOffset, byteOffset, bitValue
+PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, builtPtr, color3bit, color24bit, pPixColor, colorOffset, byteOffset, bitValue, panelNumber
     '' start underlying drivers and run demo
 
     'debug("`term temp size 82 50 textsize 10")
@@ -66,7 +67,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     end 
 
     debug("TEST: color addr=", uhex_long_(builtPtr), "[", uhex_long_(testLong1), "] ", uhex_long(colorValue), uhex(red), uhex(green), uhex(blue))
-}
+ ---------------------------------------}
     'return
 
     ' do DEMO Things!
@@ -80,7 +81,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
 
     display.drawLineOfColor(31, 0, 31, 5, color.cLime)
     display.commitScreenToPanel()
-}
+ ---------------------------------------}
 {
     ' TESTING driver basic paint speed
     repeat color3bit from 7 to 0
@@ -88,13 +89,13 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
         display.fillPanel(color3bit)
         repeat 2    ' 1/8 second
             waitms(125)
-}
+ ---------------------------------------}
 {
     color24bit := $600028
     debug("fill w/24-bit-color=(", udec_(color24bit), ")")
     display.fillScreen(color24bit)
     display.commitScreenToPanel()
-}
+ ---------------------------------------}
     ' clear display
     'display.clearScreen()
 
@@ -105,7 +106,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     display.setCharWithColor("x", color.cOlive)
     display.setCharWithColor("3", color.cGreen)
     display.setCharWithColor("2", color.cLime)
-}
+ ---------------------------------------}
 {
     drawTestPattern(0, 0)
     drawTestPattern(0, 63)
@@ -117,8 +118,9 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     drawTestPattern(31, 53)
 
     display.commitScreenToPanel()
-    }
-{
+ ---------------------------------------}
+
+{ ---------------------------------------
         ' draw some text!
     display.setTextSize(display.TEXT_SIZE__5x7)    ' font size 
     display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
@@ -128,8 +130,81 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     display.setColoredTextAtRC(2,0, string("24b color!"), color.cRainbow)
     display.setColoredTextAtRC(3,0, string("led matrix"), color.cWhite)
     display.commitScreenToPanel()
-}
+ ---------------------------------------}
 
+{ ---------------------------------------
+    ' COLOR PANEL
+    row := 0
+    col := 0
+    repeat red from 0 to 255 step 20
+        repeat green from 0 to 255 step 20
+            repeat blue from 0 to 255 step 20
+                display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+                col++
+                if col > hardware.MAX_PANEL_COLUMNS - 1
+                    col := 0
+                    row++
+    display.commitScreenToPanel()
+    repeat
+'---------------------------------------}
+
+'{ ---------------------------------------
+    ' 10x10x10 COLOR PANELs
+    panelNumber := 0
+    repeat red from 0 to 255 step 25
+        generateGreenBluePanelAgainst(panelNumber, red)
+        panelNumber++
+    generateBWPanel(11)
+    display.commitScreenToPanel()
+    repeat
+'---------------------------------------}
+
+{ ---------------------------------------
+    ' TEST COLORS
+    row := 0
+    col := 0
+    green := 0
+    blue := 0
+    red := 0
+    repeat green from 0 to 255 step 4
+        display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        col++
+        if col > hardware.MAX_PANEL_COLUMNS - 1
+            col := 0
+            row++
+    row++
+    col := 0
+    green := 0
+    repeat blue from 0 to 255 step 4
+        display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        col++
+        if col > hardware.MAX_PANEL_COLUMNS - 1
+            col := 0
+            row++
+    col := 0
+    row++
+    blue := 0
+    repeat blue from 0 to 255 step 4
+        display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        col++
+        if col > hardware.MAX_PANEL_COLUMNS - 1
+            col := 0
+            row++
+        green += 4
+    col := 0
+    row++
+    blue := 0
+    green := 0
+    repeat subrow from 0 to 360 step 6
+        color24bit := color.rgbColorFromDegrees(subrow)
+        display.drawPixelAtRC(row, col, color24bit)
+        col++
+        if col > hardware.MAX_PANEL_COLUMNS - 1
+            col := 0
+            row++
+    display.commitScreenToPanel()
+    repeat
+ ---------------------------------------}
 
     'display.fillScreen(color.cMaroon)
     'display.commitScreenToPanel()
@@ -138,7 +213,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
 
     'repeat  ' hold forever
     digitPeriod := 20    ' 12 
-    segmentPeriod := 5
+    segmentPeriod := 5  ' was 5
 
     clock.setScreen(display.getScreenSetup()) 
     clock.setOnOffColors(color.cBlue, $363636)
@@ -175,7 +250,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
         wait100thSecs(digitPeriod)  ' -------------
 
 
-{
+{ ---------------------------------------
     clock.setHMS(0, 0, 1)
     display.commitScreenToPanel()
     wait100thSecs(segmentPeriod)
@@ -191,8 +266,8 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     wait100thSecs(digitPeriod)
 
     repeat
-}
-{
+ ---------------------------------------}
+{ ---------------------------------------
     ' TEST run clock bits at HIGH SPEED
     repeat hours from 0 to 12
         repeat minutes from 0 to 59
@@ -202,9 +277,9 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
                 wait100thSecs(segmentPeriod)
                 loopUntilBitsFinish()
 
-}
+ ---------------------------------------}
     
-{
+{ ---------------------------------------
     segmentPeriod := 8     ' 4 x 100ths of a second
     digitPeriod := 12    ' 90     ' 4 x 100ths of a second
 
@@ -252,8 +327,8 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
             loopUntilSegmentsFinish()
 
             wait100thSecs(digitPeriod)  
-}
-{
+ ---------------------------------------}
+{ ---------------------------------------
 ' transitional DEMO
     repeat digitIndex from 0 to 3
         digit[digitIndex].setScreen(display.getScreenSetup())
@@ -283,8 +358,8 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
         loopUntilSegmentsFinish()
 
         wait100thSecs(digitPeriod)   
-}
-{
+ ---------------------------------------}
+{ ---------------------------------------
     display.setTextSize(display.TEXT_SIZE__8x8)    ' font size 
     display.setCursor(2, 0)   ' start at top left, with one pixel of spacing
  
@@ -294,12 +369,12 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     display.setCharWithColor("x", color.cOlive)
     display.setCharWithColor("3", color.cGreen)
     display.setCharWithColor("2", color.cLime)
-}
+ ---------------------------------------}
 
     'display.commitScreenToPanel()
     'repeat ' HOLD did clear work?
 
-{' --------------------------------------
+{ ---------------------------------------
     ' do color blast
     debug("- DEMO: draw colored pixels")
     repeat blockX from 0 to 3
@@ -314,9 +389,9 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
                     display.drawPixelAtRCwithRGB(row, col, red, green, blue)
 
     display.commitScreenToPanel()
-' --------------------------------------}
+ ---------------------------------------}
 
-{' --------------------------------------
+{ ---------------------------------------
     ' do corners
     display.drawPixelAtRCwithRGB(0, 0, 255, 0, 0)
     display.drawPixelAtRCwithRGB(0, 1, 255, 0, 0)
@@ -330,10 +405,41 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     display.drawPixelAtRCwithRGB(30, 63, 0, 255, 30)
     display.drawPixelAtRCwithRGB(31, 63, 0, 255, 30)
     display.commitScreenToPanel()
-' --------------------------------------}
+ ---------------------------------------}
 
     debug("DEMO: done")
     repeat
+
+PRI generateGreenBluePanelAgainst(panelNumber, red) | panelRow, panelCol, row, col, green, blue, startCol
+    panelRow := panelNumber / 4
+    panelCol := panelNumber // 4
+    row := panelRow * 11
+    startCol := col := panelCol * 17
+    'debug("clr panelNbr=(", udec_(panelNumber), "),startRC=(", udec_(row), ",", udec_(col), ")")
+    repeat green from 0 to 255 step 25
+        repeat blue from 0 to 255 step 25
+            display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+            col++
+        row++
+        col := startCol
+
+PRI generateBWPanel(panelNumber) | panelRow, panelCol, row, col, red, green, blue, startCol, colCtr
+    panelRow := panelNumber / 4
+    panelCol := panelNumber // 4
+    row := panelRow * 11
+    startCol := col := panelCol * 17
+    'debug("bw panelNbr=(", udec_(panelNumber), "),startRC=(", udec_(row), ",", udec_(col), ")")
+    colCtr := 0
+    repeat green from 0 to 255 step 2
+        red := blue := green
+        display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        col++
+        colCtr++
+        if colCtr >= 11
+            colCtr := 0
+            row++
+            col := startCol
+            'debug("bw panelNbr=(", udec_(panelNumber), "),startRC=(", udec_(row), ",", udec_(col), ")")
 
 PRI showSecondsDots(lightDark) | red, green, blue, targetColor
    ' lightDarkv[0,1] where 1 means bright color
