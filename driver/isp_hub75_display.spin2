@@ -65,6 +65,9 @@ VAR
 
 PUB start() : ok
     '' Start the underlying driver(s)
+
+    'debug("`term temp size 80 50 textsize 10")
+
     debug("- TEXT: start()")
     ok := cog := panel.start()   ' send buffer to driver
     if ok == -1
@@ -74,7 +77,7 @@ PUB start() : ok
     setTextSize(TEXT_SIZE_DEFAULT)
     homeCursor()
     setTextColor($AAAAAA)
-    clearScreen()   ' FIXME: UNDONE REMOVE BEFORE FLIGHT!!!
+    clearScreen()
 
 PUB stop()
     '' Stop the underlying driver(s)
@@ -238,7 +241,7 @@ PUB drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex,
     pColor := @byte[@screen0][colorOffset]
     'if isDebugLocn(rowIndex, columnIndex)
     'if row == 0 && column == 0
-    debug("- Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
+    'debug("- Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
     byte[pColor][0] := red
     byte[pColor][1] := green
     byte[pColor][2] := blue
