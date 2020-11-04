@@ -17,6 +17,7 @@ CON { public control values }
 
 OBJ
 
+    hardware    : "isp_hub75_hwGeometry"
     segments[7]     : "isp_hub75_segment"
 
 
@@ -49,17 +50,17 @@ VAR { globals }
     long    maxBitColumns
 
 PUB null()
-    '' this is NOT a top level object
+    '' This is NOT a top level object
 
-PUB setScreen(pScreen, pixRows, pixColumns)
-    '' Save the location and size of our external screen buffer
+PUB setScreen(pScreen)
+    '' Save the location of our external screen buffer
     'debug("7s:setScreen")
     pExtScreen := pScreen
-    maxBitColumns := pixColumns
-    maxBitRows := pixRows
+    maxBitColumns := hardware.MAX_COLUMNS
+    maxBitRows := hardware.MAX_ROWS
 
 PUB placeDigit(row, column, digit, rgbColor)
-    '' locate a desired digit on our screen. Draw initial segement if state is NOT off
+    '' Locate a desired digit on our screen. Draw initial segement if state is NOT off
     ' now we can inform segements of their own locations
     'debug("7s:placeDigit rc=(", udec_(row), ",", udec_(column),"), dgt=(", udec_(digit), "), RGB=(", uhex_long_(rgbColor),")")
     leftX :=  0 #> column <# maxBitColumns - 1
@@ -71,13 +72,13 @@ PUB placeDigit(row, column, digit, rgbColor)
         reconfigureForDigit(digit)
 
 PUB setValue(digit) 
-    '' configure display to show desired {digit}: [0-9, DIGIT_HIDDEN]
+    '' Configure display to show desired {digit}: [0-9, DIGIT_HIDDEN]
     ensureIsSetup()
     if currValue <> digit
         reconfigureForDigit(digit)
 
 PUB isAnimationComplete() : status | segmentIndex
-    '' return T/F where T means all segment animations are complete
+    '' Return T/F where T means all segment animations are complete
     status := TRUE
     repeat segmentIndex from 0 to 6
         if not segments[segmentIndex].isMovementComplete()
@@ -85,19 +86,19 @@ PUB isAnimationComplete() : status | segmentIndex
             quit   ' we have our answer, abort loop
 
 PUB animateStep() | segmentIndex
-    '' have each sement do 1 animation step if one is pending
+    '' Have each sement do 1 animation step, if one is pending
     if not isAnimationComplete()
         repeat segmentIndex from 0 to 6
             if not segments[segmentIndex].isMovementComplete()
                 segments[segmentIndex].animateStep()
 
 PRI ensureIsSetup()
-    '' do intial setup if not yet done
+    ' Do intial setup, if not yet done
     if not isSetup
         initialSetup()
 
 PRI initialSetup() | segIndex, orientation, segRow, segCol
-    '' perform initial setup
+    ' Perform initial setup
     ' initialize all segments with type, color, location and set to hidden
     repeat segIndex from 0 to 6
         case segIndex
@@ -130,7 +131,7 @@ PRI initialSetup() | segIndex, orientation, segRow, segCol
             segRow := topY + 1 + segments.SEG_LENGTH + 0 - 1
             segCol := leftX + 1 
 
-        segments[segIndex].setScreen(pExtScreen, maxBitColumns, maxBitColumns)
+        segments[segIndex].setScreen(pExtScreen)
         segments[segIndex].placeSegment(segRow, segCol, orientation, segments.STATE_OFF, currRgbColor)
 
 PRI reconfigureForDigit(digit) | byte fromSegments, byte toSegments, bitIndex
@@ -165,6 +166,8 @@ CON { license }
 
 {{
 
+
+ -------------------------------------------------------------------------------------------------
   MIT License
 
   Copyright (c) 2020 Iron Sheep Productions, LLC
@@ -186,6 +189,6 @@ CON { license }
   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   SOFTWARE.
-
+ =================================================================================================
 }}
 

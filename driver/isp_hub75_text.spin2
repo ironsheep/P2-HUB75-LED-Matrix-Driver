@@ -43,6 +43,7 @@ CON { test colors }
 
 OBJ
 
+    hardware    : "isp_hub75_hwGeometry"
     panel       : "isp_hub75_panel"
     fonts       : "isp_hub75_fonts"
 
@@ -63,6 +64,7 @@ VAR
     long    cog
 
 PUB start() : ok
+    '' Start the underlying driver(s)
     debug("- TEXT: start()")
     ok := cog := panel.start()   ' send buffer to driver
     if ok == -1
@@ -74,35 +76,39 @@ PUB start() : ok
     setTextColor($AAAAAA)
     clearScreen()
 
-PUB stop()                  '' stop the driver
-  if cog
-    panel.stop()
-    cog := 0
+PUB stop()
+    '' Stop the underlying driver(s)
+    if cog
+        panel.stop()
+        cog := 0
 
 PUB clearScreen()
-    longfill(@screen0, 0, SCREEN_SIZE_IN_BYTES / 4)
+    '' Clear the panel to BLACK
+    longfill(@screen0, 0, hardware.DISPLAY_SIZE_IN_BYTES / 4)
     commitScreenToPanel()
 
-PUB getScreenSetup() : pScreen, pixRows, pixColumns
+PUB getScreenSetup() : pScreen
     '' Save the location and size of our external screen buffer
     pScreen := @screen0
-    pixRows := 32
-    pixColumns := 64
 
 PUB fillScreen(rgbColor) | row, column
-    repeat row from 0 to MAX_SCREEN_ROWS - 1
-        repeat column from 0 to MAX_SCREEN_COLUMNS - 1
+    '' Fill the display with 24-bit color value
+    repeat row from 0 to hardware.MAX_DISPLAY_ROWS - 1
+        repeat column from 0 to hardware.MAX_DISPLAY_COLUMNS - 1
             drawPixelAtRC(row, column, rgbColor)
 
-PUB setCursor(row, column)  '' position cursor in our curent text grid size
+PUB setCursor(row, column)
+    '' Position the text cursor to row, column on our display
     ' TODO emit error on bad column/row?
     cursorRow := 0 #> row <# maxTextRows - 1
     cursorColumn := 0 #> column <# maxTextColumns - 1
     
-PUB homeCursor()    '' return the cursor to top left corner
+PUB homeCursor()
+    '' return the cursor to top left corner of our display
     setCursor(0, 0)
 
-PUB setTextSize(newSize)    '' select font and update text grid size 
+PUB setTextSize(newSize)
+    '' Select font and update text grid size 
     ' currently we only support our 8x8 and 5x7 fonts
     case newSize
         TEXT_SIZE_DEFAULT..TEXT_SIZE__5x7:
@@ -131,15 +137,15 @@ PUB setTextSize(newSize)    '' select font and update text grid size
             debug("*ERROR* unknown text size*")
 
 PUB setTextColor(rgbColor)  
-    '' set color for subsequent text
+    '' Set 24-bit color for subsequent text display
     currTextColor := rgbColor
 
 PUB setText(zString) 
-    '' place text ,zero terminated, at our current cursor position using current text color
+    '' Place text 'zero terminated' at our current cursor position using current text color
     setColoredTextAtRC(cursorRow, cursorColumn, zString, currTextColor)
 
 PUB setColoredTextAtRC(row, column, pString, rgbColor) | charIndex
-    '' place text at specific cursor position using current text color
+    '' Place text at specific cursor position using current text color
     setCursor(row, column)
     charIndex := 0
     repeat 
@@ -148,21 +154,21 @@ PUB setColoredTextAtRC(row, column, pString, rgbColor) | charIndex
     while byte[pString][charIndex] <> 0
 
 PUB setChar(cChar)
-    '' write char to curr cursor posn at curr text color, incr posn with line wrap
+    '' Write char to curr cursor position usi g curr text color, increment the cursor position with line wrap
     setCharWithColor(cChar, currTextColor)
 
 PUB setCharWithColor(cChar, rgbColor)
-    '' write char to curr cursor posn with given text color, incr posn with line wrap
+    '' Write char to curr cursor position with given text color, increment the cursor position with line wrap
     setCharAtRCWithColor(cursorRow, cursorColumn, cChar, rgbColor)
     incrCursorWithWrap()
 
 
 PUB setCharAtRC(row, column, cChar)
-    '' write character to screen with current text color
+    '' Write character to display using current text color
     setCharAtRCWithColor(row, column, cChar, currTextColor)
 
 PUB setCharAtRCWithColor(row, column, cChar, rgbColor) | pCharBitMap, tlScreenOffset, tlCharOffset, cRowIndex, cColumnIndex, sRowPixIndex, sColumnPixIndex, cBitIdx, cByteIdx, cRowBits
-    '' write character to screenRC with rgbColor
+    '' Write cChar to display R,C using rgbColor
     'debug("- setChar @RC(", udec_(row), ",", udec_(column), "), char=", uhex_(cChar), ", RGB=", uhex_long_(rgbColor))
     cRowIndex := 0 #> row <# maxTextRows - 1
     cColumnIndex :=  0 #> column <# maxTextColumns - 1
@@ -183,7 +189,7 @@ PUB setCharAtRCWithColor(row, column, cChar, rgbColor) | pCharBitMap, tlScreenOf
                     drawPixelAtRC(sRowPixIndex + cByteIdx, sColumnPixIndex + cBitIdx, rgbColor)
 
 PUB drawPixelAtRC(row, column, rgbColor) | xlatedColor, fHue
-    '' place rgbColor pixel at r,c
+    '' Place rgbColor pixel at r,c
     xlatedColor := rgbColor
     if rgbColor == cRainbow
         xlatedColor := rgbColorFromDegrees(6 * (column + 1))   ' replace '360 / 64' with 6 [was resulting in 5 vs. 6]
@@ -197,10 +203,10 @@ PUB drawPixelAtRC(row, column, rgbColor) | xlatedColor, fHue
     drawPixelAtRCwithRGB(row, column, rgbForCValue(xlatedColor))
 
 PUB drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex, colorOffset, pColor
-    '' place r,g,b color pixel at r,c
-    rowIndex := 0 #> row <# MAX_SCREEN_ROWS - 1
-    columnIndex :=  0 #> column <# MAX_SCREEN_COLUMNS - 1
-    colorOffset := ((rowIndex * MAX_SCREEN_COLUMNS * MAX_BYTES_PER_COLOR) + (columnIndex * MAX_BYTES_PER_COLOR))
+    '' Place r,g,b color pixel at r,c
+    rowIndex := 0 #> row <# hardware.MAX_DISPLAY_ROWS - 1
+    columnIndex :=  0 #> column <# hardware.MAX_DISPLAY_COLUMNS - 1
+    colorOffset := ((rowIndex * hardware.MAX_DISPLAY_COLUMNS * hardware.DISPLAY_BYTES_PER_COLOR) + (columnIndex * hardware.DISPLAY_BYTES_PER_COLOR))
     pColor := @byte[@screen0][colorOffset]
     'if isDebugLocn(rowIndex, columnIndex)
     '    debug("- Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
@@ -209,23 +215,23 @@ PUB drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex,
     byte[pColor][2] := blue
 
 PUB commitScreenToPanel()
-    '' write sceen to panel driver
+    '' Write sceen to panel driver
     debug("- TEXT: commit!")
     panel.loadScreen(@screen0)
 
 PUB cValueForRGB(red, green, blue) : combinedValue
-    '' CONVERT r,g,b to combined value
+    '' CONVERT: r,g,b to combined value
     combinedValue := ((red & $ff) << 16) | ((green & $ff) << 8) | (blue & $ff)
 
 PUB rgbForCValue(combinedValue) : red, green, blue
-    '' CONVERT combined color value to r,g,b
+    '' CONVERT: combined color value to r,g,b
     red := (combinedValue & $ff0000) >> 16
     green := (combinedValue & $ff00) >> 8
     blue := (combinedValue & $ff)
 
 
 PRI incrCursorWithWrap() | priorRow, priorCol
-    '' increment cursor position, wrapping at end of line when needed
+    ' increment cursor position, wrapping at end of line when needed
     priorRow := cursorRow
     priorCol := cursorColumn
     cursorColumn++
@@ -271,7 +277,7 @@ PRI rgbColorFromDegrees(degrees) : rcbColor | offset60, fract60, red, green, blu
     else 
         red := 255
         green := (offset60 * fract60) / 100
-    {{
+    {
     fract60 := 4.25 ' float(255 / 60)  ' 4.25             ' 255 / 60
     if degrees >= 300
         red := 255
@@ -291,26 +297,21 @@ PRI rgbColorFromDegrees(degrees) : rcbColor | offset60, fract60, red, green, blu
     else 
         red := 255
         green := offset60 * fract60
-    }}
+    }
     rcbColor := cValueForRGB(red, green, blue)
     'debug("- degrees=", udec_(degrees), ", color=", uhex_long_(rcbColor), " RGB=", udec_(red), ", ", udec_(green), ", ", udec_(blue), ")" )
 
 
-CON { screen buffer constants }
-
-    MAX_SCREEN_ROWS = 32
-    MAX_SCREEN_COLUMNS = 64
-    MAX_BYTES_PER_COLOR = 3
-    SCREEN_SIZE_IN_BYTES = (MAX_SCREEN_COLUMNS * MAX_SCREEN_ROWS * MAX_BYTES_PER_COLOR)
-
 DAT { one or more screens of 64x32-24bit color }
 
-screen0     long    0[SCREEN_SIZE_IN_BYTES / 4]  ' 6kB buffer
+screen0     long    0[hardware.DISPLAY_SIZE_IN_BYTES / 4]  ' 6kB buffer (4 bytes / long)
 
 CON { license }
 
 {{
 
+
+ -------------------------------------------------------------------------------------------------
   MIT License
 
   Copyright (c) 2020 Iron Sheep Productions, LLC
@@ -332,6 +333,7 @@ CON { license }
   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   SOFTWARE.
-
+ =================================================================================================
+ 
 }}
 

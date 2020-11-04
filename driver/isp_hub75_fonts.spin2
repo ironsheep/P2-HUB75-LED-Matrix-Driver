@@ -32,14 +32,14 @@ PUB getAddrFor5x7Char(asciiByte) : p5x7CharBitmap
 
 DAT
 
- ''   font8x8  P2_Font_8x8_AIChip_tweeked.spin2 from cluso99
+ '   font8x8  P2_Font_8x8_AIChip_tweeked.spin2 from cluso99
 '+=============================================================================+
 '+ mini font 8x8                                  reversed                     +
 '+=============================================================================+
-''
-'' Derived from: AiChip_SmallFont_Atari_lsb_001.spin                     
-'' RR20100214 modified for 1-pinTV
-'' RR20181208 modified for P2 - table of ascii $20-$7F 96chars only
+'
+' Derived from: AiChip_SmallFont_Atari_lsb_001.spin                     
+' RR20100214 modified for 1-pinTV
+' RR20181208 modified for P2 - table of ascii $20-$7F 96chars only
 '+=============================================================================+
 font          byte      %00000000               ' ........    $20  Space
               byte      %00000000               ' ........
@@ -1599,6 +1599,8 @@ CON { license }
 
 {{
 
+
+ -------------------------------------------------------------------------------------------------
   MIT License
 
   Copyright (c) 2020 Iron Sheep Productions, LLC
@@ -1620,6 +1622,6 @@ CON { license }
   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   SOFTWARE.
-
+ =================================================================================================
 }}
 

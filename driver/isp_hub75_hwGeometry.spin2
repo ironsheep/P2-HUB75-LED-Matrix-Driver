@@ -1,0 +1,201 @@
+'' =================================================================================================
+''
+''   File....... isp_hub75_hwGeometry.spin2
+''   Purpose.... Describe layout of the attached RGB LED Matrix Panel-set
+''   Authors.... Stephen M Moraco
+''               -- Copyright (c) 2020 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... Oct 2020
+''   Updated.... 21 Oct 2020
+''
+'' =================================================================================================
+''
+''  NOTE: ADJUST THIS FILE TO DESCRIBE YOUR TYPE OF PANEL and if you have connected mmore than one.
+''
+''  (This FILE only containing hardware constants, NO CODE, is used by the HUB75 driver software)
+''
+'' -------------------------------------------------------------------------------------------------
+
+CON { Hardware Description }
+
+
+#0, CHIPS_UNKNOWN, CHIP_FM6126A
+
+' describe the overall layout of your hardware panels:
+'
+' =================================================================================================
+' AUTHORs  1st configuration
+' -------------------------------------------------------------------------------------------------
+' PANEL: ---  P3-6432-121-16s-D1.0  ---
+'   panel theory  3 bits per pixel
+'   64 columns x 32 rows = 2048 pixels
+'   16 lines [0-15]: 64 pixels / line
+'   2 halves: 1024 pixels / half (top and bottom)
+'     EA half: 1024 pixels
+'     top half (lines 0-15) driven by R1,G1,B1 pins
+'     bottom half (lines 16-31) driven by R2,G2,B2 pins
+' ----------------------------------------------------------
+'
+'  determine what form of signalling the driver should use
+    PANEL_DRIVER_CHIP = CHIP_FM6126A 
+
+    ' electrical layout
+    MAX_COLUMNS = 64
+    MAX_ROWS = 32
+
+    ' panels organization: visual layout
+    '   [1]
+    '
+    MAX_DISPLAY_COLUMNS = 64
+    MAX_DISPLAY_ROWS = 32
+
+    MAX_PANELS = 1
+
+
+' =================================================================================================
+' AUTHORs  2nd configuration
+' -------------------------------------------------------------------------------------------------
+' PANEL: ---  P3-6432-121-16s-D1.0  ---
+'   panel theory  3 bits per pixel
+'   64 columns x 32 rows = 2048 pixels
+'   16 lines [0-15]: 64 pixels / line
+'   2 halves: 1024 pixels / half (top and bottom)
+'     EA half: 1024 pixels
+'     top half (lines 0-15) driven by R1,G1,B1 pins
+'     bottom half (lines 16-31) driven by R2,G2,B2 pins
+' ----------------------------------------------------------
+{
+'  determine what form of signalling the driver should use
+    PANEL_DRIVER_CHIP = CHIP_FM6126A 
+
+    ' electrical layout
+    MAX_COLUMNS = 256
+    MAX_ROWS = 32
+
+    ' panels organization: visual layout
+    '   [1][2]      2 rows of 2 panels each
+    '   [3][4]
+    '
+    MAX_DISPLAY_COLUMNS = 128
+    MAX_DISPLAY_ROWS = 64
+
+    MAX_PANELS = 4
+
+}
+'
+' =================================================================================================
+' AUTHORs  3rd configuration
+' -------------------------------------------------------------------------------------------------
+' PANEL: ---  P3-6432-121-16s-D1.0  ---
+'   panel theory  3 bits per pixel
+'   64 columns x 32 rows = 2048 pixels
+'   16 lines [0-15]: 64 pixels / line
+'   2 halves: 1024 pixels / half (top and bottom)
+'     EA half: 1024 pixels
+'     top half (lines 0-15) driven by R1,G1,B1 pins
+'     bottom half (lines 16-31) driven by R2,G2,B2 pins
+' ----------------------------------------------------------
+{
+'  determine what form of signalling the driver should use
+    PANEL_DRIVER_CHIP = CHIP_FM6126A 
+
+    ' electrical layout
+    MAX_COLUMNS = 256
+    MAX_ROWS = 32
+
+    ' panels organization: visual layout
+    '   [1][2][3][4]    ' one row of 4 panels
+    '   
+    MAX_DISPLAY_COLUMNS = 256
+    MAX_DISPLAY_ROWS = 32
+    
+    MAX_PANELS = 4
+
+}
+'
+' =================================================================================================
+' AUTHORs  4th configuration
+' -------------------------------------------------------------------------------------------------
+' PANEL: ---  P3-6432-121-16s-D1.0  ---
+'   panel theory  3 bits per pixel
+'   64 columns x 32 rows = 2048 pixels
+'   16 lines [0-15]: 64 pixels / line
+'   2 halves: 1024 pixels / half (top and bottom)
+'     EA half: 1024 pixels
+'     top half (lines 0-15) driven by R1,G1,B1 pins
+'     bottom half (lines 16-31) driven by R2,G2,B2 pins
+' ----------------------------------------------------------
+{
+'  determine what form of signalling the driver should use
+    PANEL_DRIVER_CHIP = CHIPS_UNKNOWN 
+
+    ' electrical layout
+    MAX_COLUMNS = 64
+    MAX_ROWS = 32
+
+    ' panels organization: visual layout
+    '   [1]     ' one panel
+    '   
+    MAX_DISPLAY_COLUMNS = 64
+    MAX_DISPLAY_ROWS = 32
+    
+    MAX_PANELS = 1
+
+
+}
+
+
+'              (remember to enable (uncomment) only one configuration above here)
+' -------------------------------------------------------------------------------------------------
+' ------------------------ Add your configurations below here -------------------------------------
+'
+'
+' now calculate values thare are common to all geometries of hardware
+'
+    MAX_PWM_FRAME_SIZE_IN_LONGS = (MAX_COLUMNS * MAX_ROWS) / 2
+'
+    DISPLAY_BITS_PER_COLOR = 24
+    PANEL_BITS_PER_COLOR = 3
+
+    ' (8 bits per byte)
+    DISPLAY_BYTES_PER_COLOR = DISPLAY_BITS_PER_COLOR / 8 
+
+    MAX_PWM_FRAMES = DISPLAY_BITS_PER_COLOR / PANEL_BITS_PER_COLOR ' color depth divided by color-depth of panel
+    DISPLAY_SIZE_IN_BYTES = (MAX_DISPLAY_COLUMNS * MAX_DISPLAY_ROWS * DISPLAY_BYTES_PER_COLOR)
+' ------------------------  Add ABOVE here --------------------------------------------------------
+' -------------------------------------------------------------------------------------------------
+
+PUB null()      '' This is not a top level object
+
+CON { license }
+
+{{
+
+
+ -------------------------------------------------------------------------------------------------
+  MIT License
+
+  Copyright (c) 2020 Iron Sheep Productions, LLC
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+ =================================================================================================
+ 
+}}
+

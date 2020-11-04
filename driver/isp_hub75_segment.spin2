@@ -27,9 +27,12 @@ CON { segment states, names, orientations and such }
 SEG_WIDTH = 3
 SEG_LENGTH = 10
 
-MAX_BYTES_PER_COLOR = 3
 
 cBlack = $000000
+
+OBJ 
+    hardware    : "isp_hub75_hwGeometry"
+
 
 VAR
     long    segOrientation
@@ -48,18 +51,18 @@ VAR
     long    maxBitColumns
 
 PUB null()
-    '' this is NOT a top level object
+    '' This is NOT a top level object
 
-PUB setScreen(pScreen, pixRows, pixColumns)
+PUB setScreen(pScreen)
     'debug("seg:setScreen()")
-    '' Save the location and size of our external screen buffer
+    '' Save the location of our external screen buffer
     pExtScreen := pScreen
-    maxBitColumns := pixColumns
-    maxBitRows := pixRows
+    maxBitColumns := hardware.MAX_COLUMNS
+    maxBitRows := hardware.MAX_ROWS
 
 PUB placeSegment(row, column, orientation, initialState, rgbColor)
     'debug("seg:placeSegment rc=(", udec_(row), ",", udec_(column), "), orient=(", udec_(orientation), "), state=(", udec_(initialState), "), RGB=(", uhex_long_(rgbColor),")")
-    '' locate a desired segment on our screen. Draw initial segement if state is NOT off
+    '' Locate a desired segment on our screen. Draw initial segement if state is NOT off
     ' record settings choices we are given extrapolating some
     desiredEndState := currentState := nextState := STATE_OFF
     segStartX :=  0 #> column <# maxBitColumns - 1
@@ -81,28 +84,28 @@ PUB placeSegment(row, column, orientation, initialState, rgbColor)
         updateSegmentToState(initialState)
 
 PUB hideSegment()
-    '' start the segment moving to _OFF if not already off
+    '' Start the segment moving to _OFF if not already off
     if currentState <> STATE_OFF
         moveSegmentToState(STATE_OFF)
 
 PUB showSegment()
     'debug("seg:show orient=(", udec_(segOrientation), ")")
-    '' start the segment moving to _ON if not already on
+    '' Start the segment moving to _ON if not already on
     if currentState <> STATE_ON
         moveSegmentToState(STATE_ON)
 
 PUB isMovementComplete() : status
-    '' return T/F where T means that all movement for this segment is complete
+    '' Return T/F where T means that all movement for this segment is complete
     status := (desiredEndState == currentState)
 
 PUB animateStep() 
-    '' do 1 animation step if one is pending
+    '' Do one animation step, if one is pending
     if not isMovementComplete()
         updateSegmentToState(nextState)
 
 PUB moveSegmentToState(newEndState) 
     'debug("seg:moveTo (st", udec_(newEndState), ")")
-    '' start sequence of segment updates to desired state
+    '' Start sequence of segment updates to desired state (on/off)
     ' if we are asking to be in a different state then...
     if desiredEndState <> newEndState
         ' if we are not yet at an end state (still moving) then abort
@@ -121,7 +124,7 @@ PUB moveSegmentToState(newEndState)
 
 PRI updateSegmentToState(newState)
     'debug("seg:updSegToSt(segT", udec_(segOrientation), ", st", udec_(currentState), " -> st", udec_(newState), " , end-st", udec_(desiredEndState), ")")
-    '' draw segment to specific state (marking the new state as current)
+    ' Draw segment of specific state (marking the new state as current when done)
     case segOrientation
         SEG_TOP:
             updateHorizontalSegment(newState)
@@ -135,7 +138,6 @@ PRI updateSegmentToState(newState)
             updateMiddleSegment(newState)
     currentState := newState
 
-''#0, STATE_UNKNOWN, STATE_OFF, STATE_3RD_ON, STATE_6TH_ON, STATE_ON, STATE_3RD_OFF ,STATE_6TH_OFF
 
 PRI updateVerticalSegment(newState) | pixInset, columnIndex
     'debug("seg:updVertSeg()")
@@ -319,10 +321,10 @@ PRI drawLine(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column
         abort
 
 PUB drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex, colorOffset, pColor
-    '' place r,g,b colored pixel at r,c
+    '' Place r,g,b colored pixel at r,c
     rowIndex := 0 #> row <# maxBitRows - 1
     columnIndex :=  0 #> column <# maxBitColumns - 1
-    colorOffset := ((rowIndex * maxBitColumns * MAX_BYTES_PER_COLOR) + (columnIndex * MAX_BYTES_PER_COLOR))
+    colorOffset := ((rowIndex * maxBitColumns * hardware.DISPLAY_BYTES_PER_COLOR) + (columnIndex * hardware.DISPLAY_BYTES_PER_COLOR))
     pColor := @byte[pExtScreen][colorOffset]
     'if isDebugLocn(rowIndex, columnIndex)
         'debug("- Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
@@ -348,6 +350,8 @@ CON { license }
 
 {{
 
+
+ -------------------------------------------------------------------------------------------------
   MIT License
 
   Copyright (c) 2020 Iron Sheep Productions, LLC
@@ -369,6 +373,7 @@ CON { license }
   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   SOFTWARE.
-
+ =================================================================================================
+ 
 }}
 

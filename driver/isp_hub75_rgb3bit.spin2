@@ -29,26 +29,27 @@ CON { I/O PINs }
 
     'DEBUG_PIN = 16
 
-    MTX_LED_PIN_R1 = 47
-    MTX_LED_PIN_G1 = 46
-    MTX_LED_PIN_B1 = 45
+    MTX_LED_PIN_R1 = 40
+    MTX_LED_PIN_G1 = 41
+    MTX_LED_PIN_B1 = 42
 
     MTX_LED_PIN_R2 = 43
-    MTX_LED_PIN_G2 = 42
-    MTX_LED_PIN_B2 = 41
+    MTX_LED_PIN_G2 = 44
+    MTX_LED_PIN_B2 = 45
 
-    MTX_LED_PIN_D = 39
-    MTX_LED_PIN_C = 38
-    MTX_LED_PIN_B = 37
-    MTX_LED_PIN_A = 36
+    MTX_LED_PIN_E = 39
+    MTX_LED_PIN_D = 38
+    MTX_LED_PIN_C = 37
+    MTX_LED_PIN_B = 36
+    MTX_LED_PIN_A = 35
 
     MTX_LED_PIN_LATCH = 34
     MTX_LED_PIN_OE = 33
     MTX_LED_PIN_CLK = 32
 
     MTX_ROW_ADDR_PINS = MTX_LED_PIN_A ADDPINS 3
-    MTX_LT_COLOR_PINS = MTX_LED_PIN_B1 ADDPINS 2
-    MTX_RT_COLOR_PINS = MTX_LED_PIN_B2 ADDPINS 2
+    MTX_LT_COLOR_PINS = MTX_LED_PIN_R1 ADDPINS 2
+    MTX_RT_COLOR_PINS = MTX_LED_PIN_R2 ADDPINS 2
     MTX_CTL_PINS      = MTX_LED_PIN_CLK ADDPINS 2
 
 CON { Data }
@@ -63,9 +64,6 @@ CON { Data }
     RED_OFFSET = 0
     GREEN_OFFSET = 64
     BLUE_OFFSET = 128
-
-    MAX_COLUMNS = 64
-    MAX_ROWS = 32
 
 ' bits within color
     RED_BIT = 2
@@ -99,7 +97,8 @@ VAR
 
 
 ' ------------------------------------------------------
-PUB start() : ok            '' setup the pasm2 driver vars, then start a new cog running the driver
+PUB start() : ok
+    '' Setup the pasm2 driver vars, then start a new cog running the driver
 
     stop()
 
@@ -121,44 +120,50 @@ PUB start() : ok            '' setup the pasm2 driver vars, then start a new cog
         abort
     'repeat        ' do nothing, forever (lock us up) -- for TESTING ONLY
 
-PUB stop()                                  '' stop the cog that is running the driver
-  if cog
-    cogstop(cog - 1)
+PUB stop()
+    '' Stop the cog that is running the driver
+    if cog
+        cogstop(cog - 1)
 
-  pinclear(MTX_ROW_ADDR_PINS)
-  pinclear(MTX_ROW_ADDR_PINS)
-  pinclear(MTX_ROW_ADDR_PINS)
-  pinclear(MTX_CTL_PINS)
+    pinclear(MTX_ROW_ADDR_PINS)
+    pinclear(MTX_ROW_ADDR_PINS)
+    pinclear(MTX_ROW_ADDR_PINS)
+    pinclear(MTX_CTL_PINS)
 
 ' ----------------------------------------------------------
-PUB fillPanel(color) | cValue               '' request that driver fill the buffer with {color} value
+PUB fillPanel(color) | cValue
+    '' Request that driver fill the buffer with {color} value
     cValue := 0 #> color <# 7
     dvrArgument := cValue    ' set color value of BLACK
     dvrCommand := CMD_FILL_COLOR
     repeat while (dvrCommand <> CMD_DONE)
 
-PUB clearPanel()                            '' request that driver fill the buffer with 0's - black
+PUB clearPanel()
+    '' Request that driver fill the buffer with 0's - black
     fillPanel(BLACK)
 
-PUB writeBuffer(pBuffer)                    '' request that driver copy our buffer to its buffer
+PUB writeBuffer(pBuffer)
+    '' Request that driver copy our buffer to its buffer and display it (no PWM)
     dvrArgument := pBuffer
     dvrCommand := CMD_SHOW_BUFFER
     repeat while (dvrCommand <> CMD_DONE)
 
-PUB writePwmBuffer(pBuffer)                 '' request that driver copy our buffer to its buffer
+PUB writePwmBuffer(pBuffer)
+    '' Request that driver copy each buffer of PWM bufferSet to its buffer and display it
     dvrArgument := pBuffer
     dvrCommand := CMD_SHOW_PWM_BUFFER
     ' this will keep showing same PWM buffer until caller changes command!
     ' so it just returns immediately
 
-PRI setupPins()                             '' configure Matrix Panel HUB75 pins
-  ' Enable all comm & address pins as outputs, set default states:
-  PINLOW(MTX_LED_PIN_CLK)
-  PINLOW(MTX_LED_PIN_LATCH)
-  PINHIGH(MTX_LED_PIN_OE)   ' high! (/OE)
-  PINLOW(MTX_ROW_ADDR_PINS)
-  PINLOW(MTX_LT_COLOR_PINS)
-  PINLOW(MTX_RT_COLOR_PINS)
+PRI setupPins()
+    ' configure Matrix Panel HUB75 pins
+    ' Enable all comm & address pins as outputs, set default states:
+    PINLOW(MTX_LED_PIN_CLK)
+    PINLOW(MTX_LED_PIN_LATCH)
+    PINHIGH(MTX_LED_PIN_OE)   ' high! (/OE)
+    PINLOW(MTX_ROW_ADDR_PINS)
+    PINLOW(MTX_LT_COLOR_PINS)
+    PINLOW(MTX_RT_COLOR_PINS)
 
 PRI dbgMemDump(bfrId, buffer, len) | bytBffr, colIdx, rowIdx, maxCol, maxRow
     debug("`temp 13 13 '", zstr_(bfrId), ": bffr=", uhex_long_(buffer), "(", udec_(len), ")' 13")
@@ -187,98 +192,93 @@ CON
 
 MAX_PINS = 64   ' 64 & 128 do not appear to be different?? - 64: 1x panel, 128: 2x panels, etc.
 
-PRI resetPanel() | pinIdx, groupIdx                         '' write the required init sequence to our panel drivers
+PRI resetPanel() | pinIdx, groupIdx
+    ' write the required init sequence to our panel drivers
 
-' REF: https://www.gitmemory.com/issue/mrfaptastic/ESP32-RGB64x32MatrixPanel-I2S-DMA/23/665659409
+    ' REF: https://www.gitmemory.com/issue/mrfaptastic/ESP32-RGB64x32MatrixPanel-I2S-DMA/23/665659409
 
-  PINHIGH(MTX_LED_PIN_OE)
-  PINLOW(MTX_LED_PIN_LATCH)
-  PINLOW(MTX_LED_PIN_CLK)
+    PINHIGH(MTX_LED_PIN_OE)
+    PINLOW(MTX_LED_PIN_LATCH)
+    PINLOW(MTX_LED_PIN_CLK)
 
-  ' Control Register 1 - LE w/11 clocks
-  ' Control Register 2 - LE w/12 clocks
+    ' Control Register 1 - LE w/11 clocks
+    ' Control Register 2 - LE w/12 clocks
 
-  ' All FM6126A code is based on the excellent guesswork by shades66 in https://github.com/hzeller/rpi-rgb-led-matrix/issues/746
+    ' All FM6126A code is based on the excellent guesswork by shades66 in https://github.com/hzeller/rpi-rgb-led-matrix/issues/746
 
-  ' Register 12 - brightness/gain settings, three 6bit values, aaaaaabbbbbbcccccc a= darkness?
-  '                seems to add red to the background when the leds are off, b=main brightness c=finer brightness
-  '                (i'm not sure if b & c are actually as 12 bit value but with b set to all 1's the value in c doesn't seem to make much difference)
+    ' Register 12 - brightness/gain settings, three 6bit values, aaaaaabbbbbbcccccc a= darkness?
+    '                seems to add red to the background when the leds are off, b=main brightness c=finer brightness
+    '                (i'm not sure if b & c are actually as 12 bit value but with b set to all 1's the value in c doesn't seem to make much difference)
 
-  ' Register 13 - not sure what it's doing yet, just that 1 specific bit within seems to be an overall enable function.
+    ' Register 13 - not sure what it's doing yet, just that 1 specific bit within seems to be an overall enable function.
 
-  ' Now set all the values at the top to the same value for each of register 12/13 to get the same settings across the panel, the
-  '   current code loads different settings into each 32 columns.
+    ' Now set all the values at the top to the same value for each of register 12/13 to get the same settings across the panel, the
+    '   current code loads different settings into each 32 columns.
 
-  ' clocking in the register is simply clocking in the value (i've 2 panels so 128bits of data) and for the last 12/13 bits depending
-  '   on the register setting the latch to high. the final drop of latch to low clocks in the configuration. this is done by sending
-  '   the same value to r1/r2/g1/g2/b1/b2 at the same time to load the config into all the FM6126 chips
+    ' clocking in the register is simply clocking in the value (i've 2 panels so 128bits of data) and for the last 12/13 bits depending
+    '   on the register setting the latch to high. the final drop of latch to low clocks in the configuration. this is done by sending
+    '   the same value to r1/r2/g1/g2/b1/b2 at the same time to load the config into all the FM6126 chips
 
-  ' Some necessary magic bit fields
-  ' b12  - 1  adds red tinge
-  ' b12  - 9/8/7/6/5  =  4 bit brightness
-  ' b13  - 9   =1 screen on
-  ' b13  - 6   =1 screen off
+    ' Some necessary magic bit fields
+    ' b12  - 1  adds red tinge
+    ' b12  - 9/8/7/6/5  =  4 bit brightness
+    ' b13  - 9   =1 screen on
+    ' b13  - 6   =1 screen off
 
-  ' NOTES from code:
-  '                 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1
-  '                 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5
-  '  int C12[16] = {0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}; // HIGH *NOTE* from https://github.com/2dom/PxMatrix/blob/master/PxMatrix.h#L372
-  '  int C12[16] = {0,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1}; // LOW
-  '  int C13[16] = {0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0};
+    ' NOTES from code:
+    '                 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1
+    '                 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5
+    '  int C12[16] = {0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}; // HIGH *NOTE* from https://github.com/2dom/PxMatrix/blob/master/PxMatrix.h#L372
+    '  int C12[16] = {0,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1}; // LOW
+    '  int C13[16] = {0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0};
 
-  ' send data to Control Register 11
-  repeat pinIdx from 0 to MAX_PINS - 1
-     groupIdx := pinIdx // 16
-     if groupIdx == 0
-       PINLOW(MTX_LT_COLOR_PINS)
-       PINLOW(MTX_RT_COLOR_PINS)
-     else
-       PINHIGH(MTX_LT_COLOR_PINS)
-       PINHIGH(MTX_RT_COLOR_PINS)
+    ' send data to Control Register 11
+    repeat pinIdx from 0 to MAX_PINS - 1
+        groupIdx := pinIdx // 16
+        if groupIdx == 0
+            PINLOW(MTX_LT_COLOR_PINS)
+            PINLOW(MTX_RT_COLOR_PINS)
+        else
+            PINHIGH(MTX_LT_COLOR_PINS)
+            PINHIGH(MTX_RT_COLOR_PINS)
 
-     ' mark the data
-     if pinIdx > (MAX_PINS - 12)
-       PINHIGH(MTX_LED_PIN_LATCH)
-     else
-       PINLOW(MTX_LED_PIN_LATCH)
+        ' mark the data
+        if pinIdx > (MAX_PINS - 12)
+            PINHIGH(MTX_LED_PIN_LATCH)
+        else
+            PINLOW(MTX_LED_PIN_LATCH)
 
-     ' clock the data
-     PINHIGH(MTX_LED_PIN_CLK)
-     PINLOW(MTX_LED_PIN_CLK)
+        ' clock the data
+        PINHIGH(MTX_LED_PIN_CLK)
+        PINLOW(MTX_LED_PIN_CLK)
 
-  ' end reg 11 setup
-  PINLOW(MTX_LED_PIN_LATCH)
+    ' end reg 11 setup
+    PINLOW(MTX_LED_PIN_LATCH)
 
-  ' send data to Control Register 12
-  repeat pinIdx from 0 to MAX_PINS - 1
-     groupIdx := pinIdx // 16
-     if groupIdx <> 9
-       PINLOW(MTX_LT_COLOR_PINS)
-       PINLOW(MTX_RT_COLOR_PINS)
-     else
-       PINHIGH(MTX_LT_COLOR_PINS)
-       PINHIGH(MTX_RT_COLOR_PINS)
+    ' send data to Control Register 12
+    repeat pinIdx from 0 to MAX_PINS - 1
+        groupIdx := pinIdx // 16
+        if groupIdx <> 9
+            PINLOW(MTX_LT_COLOR_PINS)
+            PINLOW(MTX_RT_COLOR_PINS)
+        else
+            PINHIGH(MTX_LT_COLOR_PINS)
+            PINHIGH(MTX_RT_COLOR_PINS)
 
-     ' mark the data
-     if pinIdx > (MAX_PINS - 13)
-       PINHIGH(MTX_LED_PIN_LATCH)
-     else
-       PINLOW(MTX_LED_PIN_LATCH)
+        ' mark the data
+        if pinIdx > (MAX_PINS - 13)
+            PINHIGH(MTX_LED_PIN_LATCH)
+        else
+            PINLOW(MTX_LED_PIN_LATCH)
 
-     ' clock the data
-     PINHIGH(MTX_LED_PIN_CLK)
-     PINLOW(MTX_LED_PIN_CLK)
+        ' clock the data
+        PINHIGH(MTX_LED_PIN_CLK)
+        PINLOW(MTX_LED_PIN_CLK)
 
-  ' end reg 12 setup
-  PINLOW(MTX_LED_PIN_LATCH)
-  PINLOW(MTX_LED_PIN_OE)
+    ' end reg 12 setup
+    PINLOW(MTX_LED_PIN_LATCH)
+    PINLOW(MTX_LED_PIN_OE)
 
-' theory  3 bits per pixel
-'  2048 pixels
-'  8 sections [0-7]: 256 pixels / section
-'  2 sides: 1024 pixels / side - / 8 sections: 128 pixels / section
-' EA side: 1024 pixels
-' EA side section 128 pixels
 
 DAT     { driver assembly code }
                     org     0       ' COG code
@@ -323,7 +323,7 @@ drive_matrix
                     debug("Addr pinsets: ", uhex_long(pinsAddr),  uhex_long(pinsRGB1RGB2))
 
 ' init row address
-                    mov     row_addr, #$f0 ' 15 but in upper nybble
+                    mov     row_addr, #$78 ' 15 but in upper nybble
 
 ' write address
                     call    #emitAddr
@@ -366,7 +366,7 @@ showPwmFrame
                     call    #loadBuffer ' load the current frame into display buffer
                     jmp     #wrCurrent  ' display it
 nextPwmFrame
-                    add     nxtArgument,##768    ' point to next frame
+                    add     nxtArgument,##1024    ' point to next frame
                     djnz    pwmFrameCt, #showPwmFrame   ' have onother of the 8 to show?
                     mov     nxtArgument, pwmBffrStart   ' no point back to first of 8 buffers
                     ret                                 ' loop again to see if we should do another PWM set
@@ -377,7 +377,7 @@ loadBuffer
                     ' copy HUB buffer pointed to by nxtArgument to display buffer
                     mov     ptrb, nxtArgument
                     mov     fillOffset, #0
-                    mov     fillCount, #192 'length in longs
+                    mov     fillCount, #256 'length in longs  1k bytes of 6bit values
 ldLoop1
                     altd    fillOffset, #screenBffr
                     rdlong	0-0,ptrb++
@@ -389,14 +389,18 @@ ldLoop1
 ' fillBuffer(nxtArgument=colorvalue3bit)
 '
 fillBuffer      ' fill panel buffer based on desired color
-                    mov     fillOffset, #RED_OFFSET
-                    testbn  nxtArgument, #RED_BIT   wz
-                    call    #setBuffer
-                    mov     fillOffset, #GREEN_OFFSET
-                    testbn  nxtArgument, #GREEN_BIT   wz
-                    call    #setBuffer
-                    mov     fillOffset, #BLUE_OFFSET
-                    testbn  nxtArgument, #BLUE_BIT   wz
+                    and     nxtArgument, $07
+                    mov     fillLong, nxtArgument
+                    shl     fillLong, #3
+                    add     fillLong, nxtArgument   ' completed one byte, do 3 more
+                    mov     fillOffset, fillLong
+                    shl     fillLong, #8
+                    or      fillLong, fillOffset
+                    shl     fillLong, #8
+                    or      fillLong, fillOffset
+                    shl     fillLong, #8
+                    or      fillLong, fillOffset
+                    mov     fillOffset, #0
                     call    #setBuffer
                     'call    #dumpTwinRows
                     ret
@@ -404,8 +408,7 @@ fillBuffer      ' fill panel buffer based on desired color
 ' setBuffer(fillOffset, Z=fillValueID)
 '
 setBuffer       ' fill red, green or blue buffer with desired long value
-                    muxnz   fillLong, kAllOnes  ' fill with $0000_0000 or $FFFF_FFFF based on Z
-                    mov     fillCount, #64
+                    mov     fillCount, #256
 nextSet
                     altd    fillOffset, #screenBffr
                     mov     0-0, fillLong   '  fill long with value
@@ -432,10 +435,9 @@ markCmdComplete
 wrCurrent
                     ' repeat the following forever
                     ' set addr to start
-                    mov     row_addr, #$f0 ' 15 but in upper nybble
+                    mov     row_addr, #$78 ' 15 but in upper nybble
                     mov     row_ctr, #16            ' 16 -> 0 so we can use djnz
-                    mov     reg_offset, #0          ' long[0-31] within red/grn/blu buffer
-                    mov     bit_offset, #31
+                    mov     reg_offset, #0          ' start of [0-1023] buffer
                     drvl    #MTX_LED_PIN_OE
 
 ' for row address 0 to 15
@@ -445,26 +447,10 @@ wrLine
                 ' this tracks when we need to toggle latch at right-edge of row
                     mov     col_ctr, #64            ' 64 -> 0 so we can use djnz
 clkData
-                ' in buffer: RGB1 is reg 0-31, RGB2 is reg 32-63
-                ' NOTE what does this look like with ALTB use?
-                    altd    reg_offset, #redBffr
-                    testb   0-0, bit_offset wz
-                    drvz    #MTX_LED_PIN_R1
-                    altd    reg_offset, #redBffr2
-                    testb   0-0, bit_offset wz
-                    drvz    #MTX_LED_PIN_R2
-                    altd    reg_offset, #grnBffr
-                    testb   0-0, bit_offset wz
-                    drvz    #MTX_LED_PIN_G1
-                    altd    reg_offset, #grnBffr2
-                    testb   0-0, bit_offset wz
-                    drvz    #MTX_LED_PIN_G2
-                    altd    reg_offset, #bluBffr
-                    testb   0-0, bit_offset wz
-                    drvz    #MTX_LED_PIN_B1
-                    altd    reg_offset, #bluBffr2
-                    testb   0-0, bit_offset wz
-                    drvz    #MTX_LED_PIN_B2
+                ' in buffer: RGB1 is byte-bits[0-2], RGB2 is byte-bits[3-5]
+                    SETQ    maskRgb12                   ' load Q bit RGBs mask
+                    ALTS    reg_offset, #screenBffr     ' calc addr of source byte and place in instru
+                    MUXQ    OUTB, 0-0                   ' write contents of byte anded with mask to output pins
                     waitx   #NS_015 ' let color settle
 
 ' time to begin latch?
@@ -492,9 +478,7 @@ clkData
 
                     ' setup for next column
                     add     col_addr, #1
-                    sub     bit_offset, #1  wc      ' cy=1 at start of next 32 bits (middle of row, or start of next row)
-    if_c            mov     bit_offset, #31         ' bits: msb=31 (2^31) to lsb=0 (2^0)
-    if_c            add     reg_offset, #1
+                    add     reg_offset, #1
                     djnz    col_ctr, #clkData
 
 ' LATCH DATA complete...
@@ -502,7 +486,7 @@ clkData
                 'waitx   #NS_015 + 1             ' let LATCH settle
 
         ' write address AFTER
-                add     row_addr, #$10 ' 1 but in upper nybble
+                add     row_addr, #$08 ' 1 but in upper 5 bits
                 call    #emitAddr
 
                 cmp     row_ctr, #1 wz
@@ -535,15 +519,15 @@ emitAddr
                 'waitx   #3
                 ret
 
-{{ NOTES
+' NOTES
+'
+'   Research  SETQ  {#}D     ' Set Q to D. Use before RDLONG/WRLONG/WMLONG
+'             MUXQ  D,{#}S   ' Used after SETQ. For each '1' bit in Q, copy the corresponding bit in S into D. D = (D & !Q) | (S & Q).\\
+'
+'             SETQ  {#}D             ' write D to Q (is this our pinset?)
+'             MUXQ  OUTB, {#}S       ' write S to OUTB masked by Q (is Q our pinseet?)
+'    combination... is supposed to be means to write data to pinset as output instruction
 
-   Research  SETQ  {#}D     ' Set Q to D. Use before RDLONG/WRLONG/WMLONG
-             MUXQ  D,{#}S   ' Used after SETQ. For each '1' bit in Q, copy the corresponding bit in S into D. D = (D & !Q) | (S & Q).\\
-
-             SETQ  {#}D             ' write D to Q (is this our pinset?)
-             MUXQ  OUTB, {#}S       ' write S to OUTB masked by Q (is Q our pinseet?)
-    combination... is supposed to be means to write data to pinset as output instruction
-}}
 isr1
                 nop
                 reti1
@@ -566,138 +550,16 @@ kAllZeros       long    $0000_0000
 kScreenBuffer   long    @screenBffr
 pinsAddr        long    MTX_LED_PIN_A addpins 3    ' 4-bit address, A is lowest pin
 pinsRGB1RGB2    long    MTX_LED_PIN_R1 addpins 5   ' ls 3-bits RGB1 next 3 are RGB2
-maskAddr        long    %00000000_00000000_00000000_11110000
-maskRgb12       long    %00000000_00000000_11101110_00000000   ' OLD
-maskAllPins     long    %00000000_00000000_11101110_11110111   ' OLD
+maskAddr        long    %00000000_00000000_00000000_01111000
+'maskRgb12       long    %00000000_00000000_11101110_00000000   ' OLD
+'maskAllPins     long    %00000000_00000000_11101110_11110111   ' OLD
+maskRgb12       long    %00000000_00000000_00111111_00000000   ' NEW    rgb2rgb1 now grounded to lsbit
+maskAllPins     long    %00000000_00000000_00111111_11111111   ' NEW    adds new E addr bit
 
-' screen buffer 768B - 3x 256B / 1x 256B red, 1x 256B green, 1x 256B blue
+'screen buffer 1024B of %00bgrbgr where byte is 00{rgb2}{rgb1}
                 ALIGNL
 screenBffr
-{{
-redBffr         ' byte  $f0[8]                  ' row 0
-                long    $c000_000f, $f000_0051  ' row 0
-                byte    $0f[8]                  ' row 1
-                byte    $00[8]                  ' row 2
-                byte    $00[88]
-                byte    $00[8]                  ' row 14
-                byte    $ff[8]                  ' row 15
-redBffr2        byte    $00[8]                  ' row 16
-                byte    $00[8]                  ' row 17
-                byte    $ff[8]                  ' row 18
-                byte    $00[88]
-                byte    $00[8]                  ' row 30
-                byte    $ff[8]                  ' row 31
-
-grnBffr         byte    $00[8]                  ' row 0
-                byte    $00[8]                  ' row 1
-                byte    $ff[8]                  ' row 2
-                byte    $00[88]
-                byte    $ff[8]                  ' row 14
-                byte    $00[8]                  ' row 15
-grnBffr2        byte    $00[8]                  ' row 16
-                byte    $ff[8]                  ' row 17
-                byte    $00[8]                  ' row 18
-                byte    $00[88]
-                byte    $f0[8]                  ' row 30
-                byte    $0f[8]                  ' row 31
-
-bluBffr         byte    $00[8]                  ' row 0
-                byte    $ff[8]                  ' row 1
-                byte    $00[8]                  ' row 2
-                byte    $00[88]
-                byte    $00[8]                  ' row 14
-                byte    $ff[8]                  ' row 15
-bluBffr2        byte    $00[8]                  ' row 16
-                byte    $00[8]                  ' row 17
-                byte    $00[8]                  ' row 18
-                byte    $ff[88]
-                byte    $00[8]                  ' row 30
-                byte    $00[8]                  ' row 31
-}}
-{{
-redBffr         byte    $ff[128]                ' 1.82 Amp at 4of8 bits full screen
-redBffr2        byte    $ee[128]                ' 3.46 Amp at all bits full screen
-grnBffr         byte    $dd[128]                ' 0.59 Amp at 1of8 bits full screen
-grnBffr2        byte    $cc[128]                ' 1.0 Amp at 2of8 bits full screen
-bluBffr         byte    $bb[128]
-bluBffr2        byte    $aa[128]
-}}
-' JumboTron frame
-redBffr
-                byte    $ff[8]
-                byte    $00[120]
-redBffr2
-                byte    $00[120]
-                byte    $FF[8]
-grnBffr
-                byte    $ff[8]
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-grnBffr2
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-                long    $0000_0000,$0000_0001
-                byte    $00[8]
-bluBffr
-                byte    $00[8]
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-bluBffr2
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-                long    $8000_0000,$0000_0000
-                byte    $ff[8]
-
+                long    0[256]
 endScreenBffr
 
 ' uninitialized data
@@ -719,7 +581,6 @@ fillLong        res     1       ' value to write to each long
 fillCount       res     1       ' [1-64] remaining count of bytes to write
 fillOffset      res     1       ' [0-63] offset into fillBffr
 
-bit_offset      res     1       ' [0-31] bit of byte within red/grn/blu register (2 registers/line)
 reg_offset      res     1       ' [0-31] byte of red/grn/blu bffr[1/2]
 
 dbgBffr         res     1
@@ -738,6 +599,8 @@ CON { license }
 
 {{
 
+
+ -------------------------------------------------------------------------------------------------
   MIT License
 
   Copyright (c) 2020 Iron Sheep Productions, LLC
@@ -759,6 +622,7 @@ CON { license }
   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   SOFTWARE.
-
+ =================================================================================================
+ 
 }}
 
