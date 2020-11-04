@@ -21,6 +21,7 @@ OBJ
 
     matrix      : "isp_hub75_rgb3bit"
     hardware    : "isp_hub75_hwGeometry"
+    color       : "isp_hub75_color"
 
 DAT { pre-initialized }
 
@@ -34,7 +35,6 @@ VAR
     long    pwmFrames1[hardware.MAX_PWM_FRAMES * hardware.MAX_PWM_FRAME_SIZE_IN_LONGS]
     long    pwmFrames2[hardware.MAX_PWM_FRAMES * hardware.MAX_PWM_FRAME_SIZE_IN_LONGS]
     long    showed
-    byte    defaultBrightness
 
 CON { RAM/FLASH }
 
@@ -47,10 +47,8 @@ CON { RAM/FLASH }
 
 ' ----------------------------------------------------------
 
-PUB start() : ok | color, pScreenBuffer, bInvalidFileStatus, pTemp, nFrameIndex, pFrameBuffer
+PUB start() : ok 
     '' Start the backend pasm2 driver for the matrix
-
-    defaultBrightness := 70    ' phasing this out for version in display.spin2
 
     debug("- PANEL: Start Matrix COG")
     ok := cog := matrix.start()   ' send buffer to driver
@@ -68,10 +66,6 @@ PUB stop()
     if cog
         matrix.stop()
         cog := 0
-
-PUB setBrightness(brightness)
-    '' set birhgtness for panel file loader to use
-    defaultBrightness := brightness
 
 PRI waits(nSeconds)
     repeat nSeconds
@@ -258,14 +252,9 @@ PUB loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, haveError,
 PRI RGB(red, green, blue) : r, g, b
     ' do gamma correction - TBD
     'Blue byte first because that's how stored in bitmap...
-    r := (defaultBrightness * gamma[red]) / 256
-    'r := red
-    g := (defaultBrightness * gamma[green]) / 256
-    'g := green
-    b := (defaultBrightness * gamma[blue]) / 256
-    'b := blue
-
-    'return r,g,b
+    r := color.correctedColor(red)
+    g := color.correctedColor(green)
+    b := color.correctedColor(blue)
 
 PRI clearPwmFrameBuffer() : pPwmFrameSet              
     ' clear entire PWM buffer

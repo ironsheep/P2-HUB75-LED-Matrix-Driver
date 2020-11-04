@@ -136,22 +136,40 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     '  BINARY DEMO -> heading to liquid binary
 
     'repeat  ' hold forever
-    digitPeriod := 2    ' 12 
+    digitPeriod := 90    ' 12 
+    segmentPeriod := 7
 
     clock.setScreen(display.getScreenSetup()) 
-    clock.setOnOffColors(display.cBlue, $020202)
+    clock.setOnOffColors(display.cBlue, $363636)
     clock.setupClock()
     display.commitScreenToPanel()
 
     wait100thSecs(digitPeriod)
 
+{
+    clock.setHMS(0, 0, 1)
+    display.commitScreenToPanel()
+    wait100thSecs(segmentPeriod)
+    loopUntilBitsFinish()
+
+    wait100thSecs(digitPeriod)
+
+    clock.setHMS(0, 0, 0)
+    display.commitScreenToPanel()
+    wait100thSecs(segmentPeriod)
+    loopUntilBitsFinish()
+
+    wait100thSecs(digitPeriod)
+
+    repeat
+}
     repeat hours from 0 to 12
         repeat minutes from 0 to 59
             repeat seconds from 0 to 59
                 clock.setHMS(hours, minutes, seconds)
                 display.commitScreenToPanel()
-
-                'wait100thSecs(digitPeriod)
+                wait100thSecs(segmentPeriod)
+                loopUntilBitsFinish()
 
 
     
@@ -302,28 +320,16 @@ PRI drawSecondsDot(row, column, rgbColor)
     display.drawPixelAtRC(row+1, column, rgbColor)
     display.drawPixelAtRC(row+1, column+1, rgbColor)
 
-{
-PRI allDigitAnimationsComplete() : status
-    status := TRUE
-    repeat digitIndex from 0 to 3
-        if not digit[digitIndex].isAnimationComplete()
-            status := FALSE
-            quit
-
-
-
-PRI loopUntilSegmentsFinish()
+PRI loopUntilBitsFinish()
     repeat 
-        if not allDigitAnimationsComplete() 
-            repeat digitIndex from 0 to 3
-                if not digit[digitIndex].isAnimationComplete()
-                    digit[digitIndex].animateStep() 
+        if not clock.isAnimationComplete() 
+            clock.animateStep() 
             display.commitScreenToPanel()
             wait100thSecs(segmentPeriod)
 
-        if allDigitAnimationsComplete() 
+        if clock.isAnimationComplete() 
             quit
-}
+
 PUB wait100thSecs(count)
     repeat count
         waitms(10)  ' 1/100 seconds

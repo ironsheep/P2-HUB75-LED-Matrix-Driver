@@ -13,23 +13,17 @@
 
 CON
 
-' various states of fill
-#0, STATE_UNKNOWN, STATE_FILLING_1, STATE_FILLING_2, STATE_FILLING_3, STATE_FILLING_4, STATE_FULL, STATE_EMPTY_4, STATE_EMPTY_3, ESTATE_MPTY_2, STATE_EMPTY_1, STATE_EMPTY
+    MAX_BITS = 4
 
 OBJ
 
     hardware    : "isp_hub75_hwGeometry"
-'    bits[4]     : "isp_hub75_binBit"
+    bits[4]     : "isp_hub75_binBit"
 
-DAT { initialized data }
+DAT { globals - initialized - class data }
 
-'bitOffsets      byte    0, 0    ' r,c
-'                byte    0, 0    ' r,c
-'                byte    0, 0    ' r,c
-'                byte    0, 0    ' r,c
 
-VAR { globals }
-    long    currState
+VAR { globals - instance data }
     long    topRow
     long    leftColumn
     long    topGap
@@ -44,20 +38,22 @@ VAR { globals }
     long    fullRgbColor
     long    emptyRgbColor
     
-    byte    defaultBrightness
     byte    isSetup
-    byte    bitOffsets[4 * 2]
+
     
 PUB null()
     '' This is NOT a top level object
 
-PUB setScreen(pScreen, brightness)
+PUB setScreen(pScreen) | bitIndex
     '' Save the location of our external screen buffer
     'debug("dig:setScreen")
     pExtScreen := pScreen
     maxBitColumns := hardware.MAX_PANEL_COLUMNS
     maxBitRows := hardware.MAX_PANEL_ROWS
-    defaultBrightness := brightness
+    if NOT isSetup
+        initialize()
+    repeat bitIndex from 0 to MAX_BITS - 1
+        bits[bitIndex].setScreen(pExtScreen)
 
 PUB placeDigitAtRC(row, column, fullColor, emptyColor) | bitIndex, dispRow, dispCol
     'debug("dig:place @RC(", udec_(row), ",", udec_(column), ") ", uhex_long(fullColor), uhex_long(emptyColor))
@@ -67,45 +63,30 @@ PUB placeDigitAtRC(row, column, fullColor, emptyColor) | bitIndex, dispRow, disp
     dispCol := leftColumn := column
     fullRgbColor := fullColor
     emptyRgbColor := emptyColor
-    repeat bitIndex from 0 to 4 - 1
-        byte [@bitOffsets][bitIndex * 2 + 0] := dispRow
-        byte [@bitOffsets][bitIndex * 2 + 1] := dispCol
+    repeat bitIndex from 0 to MAX_BITS - 1
+        bits[bitIndex].placeBitAtRC(dispRow, dispCol, 1 << bitIndex, fullColor, emptyColor)
         dispRow += bitHeight + vertGap
 
-    repeat bitIndex from 0 to 4 - 1
-        dispRow := byte[@bitOffsets][bitIndex * 2 + 0]
-        dispCol := byte[@bitOffsets][bitIndex * 2 + 1]
-        drawBit(dispRow, dispCol, emptyColor)
-
-PUB setValue(digit) | byte bits[4], rgbColor, bitIndex, dispRow, dispCol
+PUB setValue(digit) | bitIndex, dispRow, dispCol, bitValue
     'debug("dig:setValue ", ubin(digit))
     '' set a new value for this column [0-15]
-    bits[0] := (digit & 1) > 0 ? 1 : 0
-    bits[1] := (digit & 2) > 0 ? 1 : 0
-    bits[2] := (digit & 4) > 0 ? 1 : 0
-    bits[3] := (digit & 8) > 0 ? 1 : 0
+    repeat bitIndex from 0 to MAX_BITS - 1
+        bitValue := (digit & (1 << (3 - bitIndex))) > 0 ? 1 : 0
+        bits[bitIndex].setValue(bitValue)
 
-    repeat bitIndex from 0 to 4 - 1
-        dispRow := byte[@bitOffsets][bitIndex * 2 + 0]
-        dispCol := byte[@bitOffsets][bitIndex * 2 + 1]
-        rgbColor := (bits[3 - bitIndex] > 0) ? fullRgbColor : emptyRgbColor
-        drawBit(dispRow, dispCol, rgbColor)
-{
-PUB isAnimationComplete() : status | segmentIndex
+PUB isMovementComplete() : status | bitIndex
     '' Return T/F where T means all segment animations are complete
     status := TRUE
-    repeat segmentIndex from 0 to 6
-        if not segments[segmentIndex].isMovementComplete()
+    repeat bitIndex from 0 to MAX_BITS - 1
+        if not bits[bitIndex].isMovementComplete()
             status := FALSE
             quit   ' we have our answer, abort loop
 
 PUB animateStep() | bitIndex
     '' Have each sement do 1 animation step, if one is pending
-    if not isAnimationComplete()
-        repeat segmentIndex from 0 to 3
-            if not segments[segmentIndex].isMovementComplete()
-                segments[segmentIndex].animateStep()
-}
+    if not isMovementComplete()
+        repeat bitIndex from 0 to MAX_BITS - 1
+            bits[bitIndex].animateStep()
 
 PRI initialize()
     isSetup := TRUE
@@ -113,48 +94,6 @@ PRI initialize()
     bitHeight := 4
     bitWidth := 5
     vertGap := 2
-    currState := STATE_EMPTY
-
-PRI drawBit(row, column, rgbColor) | rowIndex
-    'debug("dig:drawBit @RC(", udec_(row), ",", udec_(column), ") ", uhex_long(rgbColor))
-    repeat rowIndex from row to bitHeight + row - 1
-        drawLine(rowIndex, column, rowIndex, column + bitWidth - 1, rgbColor)
-
-PRI drawLine(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column
-    'debug("seg:drwLn fmRC=(", udec_(fmRow), ",", udec_(fmColumn), "), toRC=(", udec_(toRow), ",", udec_(toColumn), "), RGB=(", uhex_long(rgbColor), ")")
-    fmRow :=  0 #> fmRow <# maxBitRows - 1
-    fmColumn :=  0 #> fmColumn <# maxBitColumns - 1
-    toRow :=  0 #> toRow <# maxBitRows - 1
-    toColumn :=  0 #> toColumn <# maxBitColumns - 1
-    if fmRow == toRow
-        ' draw Horizontal Line
-        repeat column from fmColumn to toColumn 
-            drawPixelAtRCwithRGB(fmRow, column, rgbForCValue(rgbColor))
-    elseif fmColumn == toColumn
-        ' draw Vertical Line
-        repeat row from fmRow to toRow 
-            drawPixelAtRCwithRGB(row, fmColumn, rgbForCValue(rgbColor))
-    else
-        debug("DIAG lines not implemented !")
-        abort
-
-PUB drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex, colorOffset, pColor
-    '' Place r,g,b colored pixel at r,c
-    rowIndex := 0 #> row <# maxBitRows - 1
-    columnIndex :=  0 #> column <# maxBitColumns - 1
-    colorOffset := ((rowIndex * maxBitColumns * hardware.DISPLAY_BYTES_PER_COLOR) + (columnIndex * hardware.DISPLAY_BYTES_PER_COLOR))
-    pColor := @byte[pExtScreen][colorOffset]
-    'if isDebugLocn(rowIndex, columnIndex)
-        'debug("- Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
-    byte[pColor][0] := (red * defaultBrightness) >> 8
-    byte[pColor][1] := (green * defaultBrightness) >> 8
-    byte[pColor][2] := (blue * defaultBrightness) >> 8
-
-PUB rgbForCValue(combinedValue) : red, green, blue
-    '' CONVERT: combined color value to r,g,b
-    red := (combinedValue & $ff0000) >> 16
-    green := (combinedValue & $ff00) >> 8
-    blue := (combinedValue & $ff)
 
 CON { license }
 

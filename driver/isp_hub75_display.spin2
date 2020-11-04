@@ -44,6 +44,7 @@ CON { test colors }
 OBJ
 
     hardware    : "isp_hub75_hwGeometry"
+    color       : "isp_hub75_color"
     panel       : "isp_hub75_panel"
     fonts       : "isp_hub75_fonts"
 
@@ -61,8 +62,6 @@ VAR
     long    horizontalGap
     long    invertHorizontal
 
-    byte    defaultBrightness  ' variable to scale input to reduce brightness   (0..256)
-
     long    cog
 
 PUB start() : ok
@@ -75,9 +74,6 @@ PUB start() : ok
     if ok == -1
         debug("- TEXT: underlying drivers failed!")
         abort
-
-    defaultBrightness := 255    ' overall panel brightness [0-255] 
-    panel.setBrightness(defaultBrightness)
 
     setTextSize(TEXT_SIZE_DEFAULT)
     homeCursor()
@@ -95,10 +91,9 @@ PUB clearScreen()
     longfill(@screen0, 0, hardware.DISPLAY_SIZE_IN_BYTES / 4)
     commitScreenToPanel()
 
-PUB getScreenSetup() : pScreen, brightness
+PUB getScreenSetup() : pScreen
     '' Save the location and size of our external screen buffer
     pScreen := @screen0
-    brightness := defaultBrightness
 
 PUB fillScreen(rgbColor) | row, column
     '' Fill the display with 24-bit color value
@@ -229,7 +224,7 @@ PUB drawPixelAtRC(row, column, rgbColor) | xlatedColor, fHue
     '' Place rgbColor pixel at r,c
     xlatedColor := rgbColor
     if rgbColor == cRainbow
-        xlatedColor := rgbColorFromDegrees(6 * (column + 1))   ' replace '360 / 64' with 6 [was resulting in 5 vs. 6]
+        xlatedColor := color.rgbColorFromDegrees(6 * (column + 1))   ' replace '360 / 64' with 6 [was resulting in 5 vs. 6]
     'elses
 	'if rgbColor == cRedWhtBlu
      '   case column // 3
@@ -237,7 +232,7 @@ PUB drawPixelAtRC(row, column, rgbColor) | xlatedColor, fHue
     '       1: xlatedColor := cWhite
      '       2: xlatedColor := cBlue
 
-    drawPixelAtRCwithRGB(row, column, rgbForCValue(xlatedColor))
+    drawPixelAtRCwithRGB(row, column, color.rgbForCValue(xlatedColor))
 
 PUB drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex, colorOffset, pColor
     '' Place r,g,b color pixel at r,c
@@ -248,24 +243,17 @@ PUB drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex,
     'if isDebugLocn(rowIndex, columnIndex)
     'if row == 0 && column == 0
     'debug("- Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
-    byte[pColor][0] := (red * defaultBrightness) >> 8
-    byte[pColor][1] := (green * defaultBrightness) >> 8
-    byte[pColor][2] := (blue * defaultBrightness) >> 8
+    byte[pColor][0] := color.correctedColor(red)
+    byte[pColor][1] := color.correctedColor(green)
+    byte[pColor][2] := color.correctedColor(blue)
 
 PUB commitScreenToPanel()
     '' Write sceen to panel driver
     'debug("- DISP: commit!")
     panel.loadScreen(@screen0)
 
-PUB cValueForRGB(red, green, blue) : combinedValue
-    '' CONVERT: r,g,b to combined value
-    combinedValue := ((red & $ff) << 16) | ((green & $ff) << 8) | (blue & $ff)
 
-PUB rgbForCValue(combinedValue) : red, green, blue
-    '' CONVERT: combined color value to r,g,b
-    red := (combinedValue & $ff0000) >> 16
-    green := (combinedValue & $ff00) >> 8
-    blue := (combinedValue & $ff)
+
 
 
 PRI incrCursorWithWrap() | priorRow, priorCol
@@ -292,52 +280,6 @@ PRI isDebugLocn(nRow, nCol) : status
     'if (nRow  > 29)
         status := TRUE ' FALSE  ' turn off debug
 
-PRI rgbColorFromDegrees(degrees) : rcbColor | offset60, fract60, red, green, blue
-    degrees := degrees // 360   ' ensure 0-359
-    red := green := blue:= 0
-    offset60 := degrees // 60   ' 0-59
-    fract60 := 255 * 100 / 60
-    if degrees >= 300
-        red := 255
-        blue := ((59 - offset60) * fract60) / 100
-    elseif degrees >= 240
-        blue := 255
-        red := (offset60 * fract60) / 100
-    elseif degrees >= 180
-        blue := 255
-        green := ((59 - offset60) * fract60) / 100
-    elseif degrees >= 120
-        green := 255
-        blue := (offset60 * fract60) / 100
-    elseif degrees >= 60
-        green := 255
-        red := ((59 - offset60) * fract60) / 100
-    else 
-        red := 255
-        green := (offset60 * fract60) / 100
-    {
-    fract60 := 4.25 ' float(255 / 60)  ' 4.25             ' 255 / 60
-    if degrees >= 300
-        red := 255
-        blue := (59 - offset60) * fract60
-    elseif degrees >= 240
-        blue := 255
-        red := offset60 * fract60
-    elseif degrees >= 180
-        blue := 255
-        green := (59 - offset60) * fract60
-    elseif degrees >= 120
-        green := 255
-        blue := offset60 * fract60
-    elseif degrees >= 60
-        green := 255
-        red := (59 - offset60) * fract60
-    else 
-        red := 255
-        green := offset60 * fract60
-    }
-    rcbColor := cValueForRGB(red, green, blue)
-    'debug("- degrees=", udec_(degrees), ", color=", uhex_long_(rcbColor), " RGB=", udec_(red), ", ", udec_(green), ", ", udec_(blue), ")" )
 
 
 DAT { one or more screens of 64x32-24bit color }

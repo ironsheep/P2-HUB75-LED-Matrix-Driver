@@ -27,6 +27,7 @@ CON { public interface constants }
 OBJ { objects }
 
     hardware                : "isp_hub75_hwGeometry"
+    color                   : "isp_hub75_color"
     digits[MAX_DIGITS]      : "isp_hub75_binDigit"
 
 DAT { initialized data }
@@ -44,7 +45,6 @@ VAR { globals }
     long    emptyRgbColor
     long    fullRgbColor
     
-    byte    defaulBrightness
     byte    isSetup
 
     byte    currHours
@@ -54,13 +54,12 @@ VAR { globals }
 PUB null()
     '' This is NOT a top level object
 
-PUB setScreen(pScreen, brightness)
+PUB setScreen(pScreen)
     '' Save the location of our external screen buffer
     'debug("clk:setScreen")
     pExtScreen := pScreen
     maxBitColumns := hardware.MAX_PANEL_COLUMNS
     maxBitRows := hardware.MAX_PANEL_ROWS
-    defaulBrightness := brightness
 
 PUB setOnOffColors(onColor, offColor)
     '' configure colors for full clock display
@@ -80,18 +79,60 @@ PUB setHMS(hours, minutes, seconds)
     digits[4].setValue(seconds / 10)
     digits[5].setValue(seconds // 10)
 
+    showSecondsDots( seconds // 2 )
+
+PUB isAnimationComplete() : status | digitIndex
+    '' Return T/F where T means all segment animations are complete
+    status := TRUE
+    repeat digitIndex from 0 to MAX_DIGITS - 1
+        if not digits[digitIndex].isMovementComplete()
+            status := FALSE
+            quit   ' we have our answer, abort loop
+
+PUB animateStep() | digitIndex
+    '' Have each sement do 1 animation step, if one is pending
+    if not isAnimationComplete()
+        repeat digitIndex from 0 to MAX_DIGITS - 1
+            if not digits[digitIndex].isMovementComplete()
+                digits[digitIndex].animateStep()
+
 PUB setupClock() | digitIndex, row, col 
     '' draw our initial clock bits
     row := TOP_INSET
     col := LEFT_INSET
     repeat digitIndex from 0 to MAX_DIGITS - 1
-        digits[digitIndex].setScreen(pExtScreen, defaulBrightness)
+        digits[digitIndex].setScreen(pExtScreen)
         digits[digitIndex].placeDigitAtRC(row, col, fullRgbColor, emptyRgbColor)
         if (digitIndex & 1) == 0
             ' placed odd bit
             col += HORIZ_ODD_OFFSET + DIGIT_WIDTH
         else
             col += HORIZ_EVEN_OFFSET + DIGIT_WIDTH
+
+PRI showSecondsDots(isBright) | rgbColor
+    rgbColor := (isBright) ? $ff40ff : $471247
+    showDot(12, 19, rgbColor)
+    showDot(18, 19, rgbColor)
+    showDot(12, 41, rgbColor)
+    showDot(18, 41, rgbColor)
+
+PRI showDot(row, column, rgbColor) | rowIndex, columnIndex
+    repeat rowIndex from row to row + 2
+        repeat columnIndex from column to column + 2   
+            drawPixelAtRCwithRGB(rowIndex, columnIndex, color.rgbForCValue(rgbColor))
+
+
+PRI drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex, colorOffset, pColor
+    '' Place r,g,b colored pixel at r,c
+    rowIndex := 0 #> row <# maxBitRows - 1
+    columnIndex :=  0 #> column <# maxBitColumns - 1
+    colorOffset := ((rowIndex * maxBitColumns * hardware.DISPLAY_BYTES_PER_COLOR) + (columnIndex * hardware.DISPLAY_BYTES_PER_COLOR))
+    pColor := @byte[pExtScreen][colorOffset]
+    'if isDebugLocn(rowIndex, columnIndex)
+        'debug("- Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
+    byte[pColor][0] := color.correctedColor(red)
+    byte[pColor][1] := color.correctedColor(green)
+    byte[pColor][2] := color.correctedColor(blue)
 
 
 CON { license }

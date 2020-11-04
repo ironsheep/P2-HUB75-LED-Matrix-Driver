@@ -14,27 +14,25 @@
 CON
 
 ' various states of fill
-#0, STATE_UNKNOWN, STATE_FILLING_1, STATE_FILLING_2, STATE_FILLING_3, STATE_FILLING_4, STATE_FULL, STATE_EMPTY_4, STATE_EMPTY_3, ESTATE_MPTY_2, STATE_EMPTY_1, STATE_EMPTY
+#0, STATE_UNKNOWN, STATE_FILLING_1, STATE_FILLING_2, STATE_FILLING_3, STATE_FILLING_4, STATE_FULL, STATE_EMPTYING_4, STATE_EMPTYING_3, STATE_EMPTYING_2, STATE_EMPTYING_1, STATE_EMPTY
 
 OBJ
 
     hardware    : "isp_hub75_hwGeometry"
+    color       : "isp_hub75_color"
 
 DAT { initialized data }
 
-'bitOffsets      byte    0, 0    ' r,c
-'                byte    0, 0    ' r,c
-'                byte    0, 0    ' r,c
-'                byte    0, 0    ' r,c
 
 VAR { globals }
-    long    currState
     long    topRow
     long    leftColumn
-    long    topGap
     long    bitHeight
     long    bitWidth
-    long    vertGap
+
+    long    desiredEndState
+    long    currentState
+    long    nextState
 
 ' target screen and geometry thereof
     long    pExtScreen
@@ -43,60 +41,123 @@ VAR { globals }
     long    fullRgbColor
     long    emptyRgbColor
     
-    byte    defaultBrightness
     byte    isSetup
-    byte    bitOffsets[4 * 2]
+    byte    currValue
     
 PUB null()
     '' This is NOT a top level object
 
-PUB setScreen(pScreen, brightness)
+PUB setScreen(pScreen)
     '' Save the location of our external screen buffer
     'debug("dig:setScreen")
     pExtScreen := pScreen
     maxBitColumns := hardware.MAX_PANEL_COLUMNS
     maxBitRows := hardware.MAX_PANEL_ROWS
-    defaultBrightness := brightness
-
-PUB placeDigitAtRC(row, column, fullColor, emptyColor) | bitIndex, dispRow, dispCol
-    'debug("dig:place @RC(", udec_(row), ",", udec_(column), ") ", uhex_long(fullColor), uhex_long(emptyColor))
     if NOT isSetup
         initialize()
-    dispRow := topRow := row
-    dispCol := leftColumn := column
+
+PUB placeBitAtRC(row, column, value, fullColor, emptyColor) | bitIndex
+    'debug("bit:place @RC(", udec_(row), ",", udec_(column), ") ", uhex_long(fullColor), uhex_long(emptyColor))
+    if NOT isSetup
+        initialize()
+    topRow := row
+    leftColumn := column
     fullRgbColor := fullColor
     emptyRgbColor := emptyColor
-    repeat bitIndex from 0 to 4 - 1
-        byte [@bitOffsets][bitIndex * 2 + 0] := dispRow
-        byte [@bitOffsets][bitIndex * 2 + 1] := dispCol
-        dispRow += bitHeight + vertGap
+    currValue := value
+    drawBit(topRow, leftColumn, emptyColor)
 
-    repeat bitIndex from 0 to 4 - 1
-        dispRow := byte[@bitOffsets][bitIndex * 2 + 0]
-        dispCol := byte[@bitOffsets][bitIndex * 2 + 1]
-        drawBit(dispRow, dispCol, emptyColor)
-
-PUB setValue(digit) | byte bits[4], rgbColor, bitIndex, dispRow, dispCol
-    'debug("dig:setValue ", ubin(digit))
+PUB setValue(bit) | newEndState
     '' set a new value for this column [0-15]
-    bits[0] := (digit & 1) > 0 ? 1 : 0
-    bits[1] := (digit & 2) > 0 ? 1 : 0
-    bits[2] := (digit & 4) > 0 ? 1 : 0
-    bits[3] := (digit & 8) > 0 ? 1 : 0
+    'debug("dig:setValue ", ubin(digit))
+    newEndState := (bit > 0) ? STATE_FULL : STATE_EMPTY
+    if desiredEndState <> newEndState
+        moveBitToState(newEndState)
 
-    repeat bitIndex from 0 to 4 - 1
-        dispRow := byte[@bitOffsets][bitIndex * 2 + 0]
-        dispCol := byte[@bitOffsets][bitIndex * 2 + 1]
-        rgbColor := (bits[3 - bitIndex] > 0) ? fullRgbColor : emptyRgbColor
-        drawBit(dispRow, dispCol, rgbColor)
+PUB isMovementComplete() : status
+    '' Return T/F where T means that all movement for this bit is complete
+    status := (desiredEndState == currentState)
+
+PUB animateStep() 
+    '' Do one animation step, if one is pending
+    if not isMovementComplete()
+        updateBitToState(nextState)
+
+PUB moveBitToState(newEndState) 
+    '' Start sequence of segment updates to desired state (on/off)
+    'debug("bit:id(bit", udec_(currValue), "), curr-st", udec_(currentState), " moveTo (st", udec_(desiredEndState), ") -> (st", udec_(newEndState), ")")
+    ' if we are asking to be in a different state then...
+    if desiredEndState <> newEndState
+        ' if we are not yet at an end state (still moving) then abort
+        if currentState <> STATE_EMPTY && currentState <> STATE_FULL
+            debug("SEG: state still in motion, ignoring request")
+            abort
+        if newEndState <> STATE_EMPTY && newEndState <> STATE_FULL
+            debug("SEG: BAD end-state must be EMPTY or FULL!")
+            abort        
+        if newEndState == STATE_FULL
+            ' empty filling up
+            nextState := STATE_FILLING_1    ' heading to _4 then FULL
+        else
+            ' full emptying
+            nextState := STATE_EMPTYING_4  ' heading to _1 then EMPTY
+        updateBitToState(nextState)
+        desiredEndState := newEndState
+    else
+        debug("  -- already in desiredEndState?")
+
+PRI updateBitToState(newState)
+    'debug("bit:id(bit", udec_(currValue), "), moveTo (st", udec_(currentState), ") -> (st", udec_(newState), ")")
+    if newState <> STATE_FULL
+        ' clear the bit
+        fillBit(bitHeight, emptyRgbColor)
+    ' now draw bit lines that are showing
+    case newState
+        STATE_FILLING_1:   ' 1 line filled
+                fillBit(bitHeight - 4, fullRgbColor)
+                nextState := STATE_FILLING_2
+        STATE_FILLING_2:   ' 2 lines filled
+                fillBit(bitHeight - 3, fullRgbColor)
+                nextState := STATE_FILLING_3
+        STATE_FILLING_3:   ' 3 lines filled
+                fillBit(bitHeight - 2, fullRgbColor)
+                nextState := STATE_FILLING_4
+        STATE_FILLING_4:   ' 3 lines filled
+                fillBit(bitHeight - 1, fullRgbColor)
+                nextState := STATE_FULL
+        STATE_FULL:   ' all lines filled
+                fillBit(bitHeight, fullRgbColor)
+        STATE_EMPTYING_4:  ' 4 lines empty
+                fillBit(bitHeight - 1, fullRgbColor)
+                nextState := STATE_EMPTYING_3
+        STATE_EMPTYING_3:  ' 3 lines empty
+                fillBit(bitHeight - 2, fullRgbColor)
+                nextState := STATE_EMPTYING_2
+        STATE_EMPTYING_2:  ' 2 lines empty
+                fillBit(bitHeight - 3, fullRgbColor)
+                nextState := STATE_EMPTYING_1
+        STATE_EMPTYING_1:  ' 1 line empty
+                fillBit(bitHeight - 4, fullRgbColor)
+                nextState := STATE_EMPTY
+        STATE_EMPTY:  ' nothing to do since we clear segment first
+        OTHER:
+            debug("STATE(vrtL) not yet implemented (", udec_(newstate), ")")
+    currentState := newState
+
+' FIXME: UNDONE state changes would be faster if we filled or cleared just the lines that changed!
 
 PRI initialize()
     isSetup := TRUE
-    topGap := 5
     bitHeight := 4
     bitWidth := 5
-    vertGap := 2
-    currState := STATE_EMPTY
+    desiredEndState := nextState := currentState := STATE_EMPTY
+
+PRI fillBit(level, rgbColor) | rowIndex, rowBottom, rowTop
+    if level > 0
+        rowBottom := topRow + bitHeight - 1
+        rowTop := rowBottom - (level - 1)
+        repeat rowIndex from rowBottom to rowTop
+            drawLine(rowIndex, leftColumn, rowIndex, leftColumn + bitWidth - 1, rgbColor)
 
 PRI drawBit(row, column, rgbColor) | rowIndex
     'debug("dig:drawBit @RC(", udec_(row), ",", udec_(column), ") ", uhex_long(rgbColor))
@@ -112,11 +173,11 @@ PRI drawLine(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column
     if fmRow == toRow
         ' draw Horizontal Line
         repeat column from fmColumn to toColumn 
-            drawPixelAtRCwithRGB(fmRow, column, rgbForCValue(rgbColor))
+            drawPixelAtRCwithRGB(fmRow, column, color.rgbForCValue(rgbColor))
     elseif fmColumn == toColumn
         ' draw Vertical Line
         repeat row from fmRow to toRow 
-            drawPixelAtRCwithRGB(row, fmColumn, rgbForCValue(rgbColor))
+            drawPixelAtRCwithRGB(row, fmColumn, color.rgbForCValue(rgbColor))
     else
         debug("DIAG lines not implemented !")
         abort
@@ -129,15 +190,10 @@ PUB drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex,
     pColor := @byte[pExtScreen][colorOffset]
     'if isDebugLocn(rowIndex, columnIndex)
         'debug("- Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
-    byte[pColor][0] := (red * defaultBrightness) >> 8
-    byte[pColor][1] := (green * defaultBrightness) >> 8
-    byte[pColor][2] := (blue * defaultBrightness) >> 8
+    byte[pColor][0] := color.correctedColor(red)
+    byte[pColor][1] := color.correctedColor(green)
+    byte[pColor][2] := color.correctedColor(blue)
 
-PUB rgbForCValue(combinedValue) : red, green, blue
-    '' CONVERT: combined color value to r,g,b
-    red := (combinedValue & $ff0000) >> 16
-    green := (combinedValue & $ff00) >> 8
-    blue := (combinedValue & $ff)
 
 CON { license }
 
