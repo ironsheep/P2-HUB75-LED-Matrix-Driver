@@ -11,10 +11,117 @@
 ''
 '' =================================================================================================
 
+' There are two types of segments  
+' one of which is rotated 3 times to get 4 shapes
+' the other is the middle segment
+
+' The mechanical segments slide on and back off of screen
+' the background is generally black
+' 
+
+CON { segment states, names, orientations and such }
+
+#0, SEG_UNKNOWN, SEG_LEFT, SEG_RIGHT, SEG_TOP, SEG_MIDDLE, SEG_BOTTOM
+#0, STATE_UNKNOWN, STATE_OFF, STATE_3RD_ON, STATE_6TH_ON, STATE_ON, STATE_3RD_OFF ,STATE_6TH_OFF
+
+SEG_WIDTH = 3
+SEG_LENGTH = 11
+
+VAR
+    long    segOrientation
+    long    currentState
+    long    nextState
+    long    segHeight
+    long    segWidth
+    long    segStartX
+    long    segStartY
+    long    segRgbColor    ' TODO add next color for when ea. digit value can be a diff color
+    long    desiredEndState
+
+' target screen and geometry thereof
+    long    pExtScreen
+    long    maxBitRows
+    long    maxBitColumns
+
+PUB null()
+    '' this is NOT a top level object
+
+PUB setScreen(pScreen, pixRows, pixColumns)
+    '' Save the location and size of our external screen buffer
+    pExtScreen := pScreen
+    maxBitColumns := pixColumns
+    maxBitRows := pixRows
+
+PUB placeSegment(row, column, orientation, initialState, rgbColor)
+    '' locate a desired segment on our screen. Draw initial segement if state is NOT off
+    ' record settings choices we are given extrapolating some
+    currentState := STATE_OFF
+    segStartX :=  0 #> column <# maxBitColumns - 1
+    segStartY :=  0 #> row <# maxBitRows - 1
+    segOrientation := orientation
+    segRgbColor := rgbColor
+    case orientation
+        SEG_TOP..SEG_BOTTOM:
+            segHeight := 3
+            segWidth := 11
+        SEG_LEFT..SEG_RIGHT:
+            segHeight := 11
+            segWidth := 3
+        OTHER:
+            debug("SEG: BAD segment type!")
+            abort        
+    ' if the segment is initially showing, let's draw it!
+    if initialState <> STATE_OFF
+        updateSegmentToState(initialState)
+
+PUB hideSegment()
+    '' start the segment moving to _OFF if not already off
+    if currentState <> STATE_OFF
+        moveSegmentToState(STATE_OFF)
+
+PUB showSegment()
+    '' start the segment moving to _ON if not already on
+    if currentState <> STATE_ON
+        moveSegmentToState(STATE_ON)
 
 
+PRI moveSegmentToState(newEndState) | targetState
+    '' start sequence of segment updates to desired state
+    ' if we are asking to be in a different state then...
+    if desiredEndState <> newEndState
+        ' if we are not yet at an end state (still moving) then abort
+        if currentState <> STATE_OFF && currentState <> STATE_ON
+            debug("SEG: state still in motion, ignoreing request")
+            abort
+        if newEndState <> STATE_OFF && newEndState <> STATE_ON
+            debug("SEG: BAD end state must be ON or OFF!")
+            abort        
+        desiredEndState := newEndState
+        if desiredEndState == STATE_ON
+            targetState := STATE_3RD_ON
+        else
+            targetState := STATE_3RD_OFF
+        updateSegmentToState(targetState)
 
+PRI updateSegmentToState(newState)
+    '' draw segment to specific state (marking the new state as current)
+    case segOrientation
+        SEG_TOP:
+            updateHorizontalSegment(newState)
+        SEG_LEFT:
+            updateVerticalSegment(newState)
+        SEG_RIGHT:
+            updateVerticalSegment(newState)
+        SEG_BOTTOM:
+            updateHorizontalSegment(newState)
+        SEG_MIDDLE:
+            updateMiddleSegment(newState)
 
+PRI updateVerticalSegment(newState)
+    
+PRI updateHorizontalSegment(newState)
+
+PRI updateMiddleSegment(newState)
 
 CON { license }
 

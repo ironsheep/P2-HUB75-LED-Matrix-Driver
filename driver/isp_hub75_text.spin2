@@ -83,6 +83,12 @@ PUB clearScreen()
     longfill(@screen0, 0, SCREEN_SIZE_IN_BYTES / 4)
     commitScreenToPanel()
 
+PUB getScreenSetup() : pScreen, pixRows, pixColumns
+    '' Save the location and size of our external screen buffer
+    pScreen := @screen0
+    pixRows := 32
+    pixColumns := 64
+
 PUB fillScreen(rgbColor) | row, column
     repeat row from 0 to MAX_SCREEN_ROWS - 1
         repeat column from 0 to MAX_SCREEN_COLUMNS - 1
@@ -217,7 +223,7 @@ PUB commitScreenToPanel()
     panel.loadScreen(@screen0)
 
 PUB cValueForRGB(red, green, blue) : combinedValue  '' CONVERT r,g,b to combined value
-    combinedValue := (red & $ff << 16) + (green & $ff << 8) | (blue & $ff)
+    combinedValue := ((red & $ff) << 16) | ((green & $ff) << 8) | (blue & $ff)
 
 PUB rgbForCValue(combinedValue) : red, green, blue  '' CONVERT combined color value to r,g,b
     red := (combinedValue & $ff0000) >> 16
@@ -251,28 +257,48 @@ PRI rgbColorFromDegrees(degrees) : rcbColor | offset60, fract60, red, green, blu
     degrees := degrees // 360   ' ensure 0-359
     red := green := blue:= 0
     offset60 := degrees // 60   ' 0-59
-    fract60 := 4.25             ' 255 / 60
+    fract60 := 255 * 100 / 60
     if degrees >= 300
-        blue := (59 - offset60) * fract60
         red := 255
+        blue := ((59 - offset60) * fract60) / 100
+    elseif degrees >= 240
+        blue := 255
+        red := (offset60 * fract60) / 100
+    elseif degrees >= 180
+        blue := 255
+        green := ((59 - offset60) * fract60) / 100
+    elseif degrees >= 120
+        green := 255
+        blue := (offset60 * fract60) / 100
+    elseif degrees >= 60
+        green := 255
+        red := ((59 - offset60) * fract60) / 100
+    else 
+        red := 255
+        green := (offset60 * fract60) / 100
+    {{
+    fract60 := 4.25 ' float(255 / 60)  ' 4.25             ' 255 / 60
+    if degrees >= 300
+        red := 255
+        blue := (59 - offset60) * fract60
     elseif degrees >= 240
         blue := 255
         red := offset60 * fract60
     elseif degrees >= 180
-        green := (59 - offset60) * fract60
         blue := 255
+        green := (59 - offset60) * fract60
     elseif degrees >= 120
         green := 255
         blue := offset60 * fract60
     elseif degrees >= 60
-        red := (59 - offset60) * fract60
         green := 255
+        red := (59 - offset60) * fract60
     else 
         red := 255
         green := offset60 * fract60
-
+    }}
     rcbColor := cValueForRGB(red, green, blue)
-    debug("- degrees=", udec_(degrees), ", color=", uhex_long_(rcbColor))
+    debug("- degrees=", udec_(degrees), ", color=", uhex_long_(rcbColor), " RGB=", udec_(red), ", ", udec_(green), ", ", udec_(blue), ")" )
 
 
 CON { screen buffer constants }

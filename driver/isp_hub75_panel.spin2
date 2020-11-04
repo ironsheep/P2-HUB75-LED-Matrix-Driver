@@ -45,7 +45,7 @@ PUB start() : ok | color, pScreenBuffer, bInvalidFileStatus, pTemp, nFrameIndex,
     'debug("`term temp size 80 50 textsize 10")
 
     'setupTerm()
-    brightness := 256  'set maximum brightness by dividing input, range 0 to 256
+    brightness := 100 '128  'set maximum brightness by dividing input, range 0 to 256
 
     debug("- PANEL: Start Matrix COG")
     ok := cog := matrix.start()   ' send buffer to driver
