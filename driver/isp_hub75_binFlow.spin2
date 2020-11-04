@@ -1,0 +1,437 @@
+'' =================================================================================================
+''
+''   File....... isp_hub75_binFlow.spin2
+''   Purpose.... Animate a single flow input or output for Binary water Clock
+''   Authors.... Stephen M Moraco
+''               -- Copyright (c) 2020 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... Oct 2020
+''   Updated.... 24 Oct 2020
+''
+'' =================================================================================================
+
+' NOTE: this object is built to be any in-flow or out-flow for any digit
+'   However, it can't do more than one flow at a time
+'   A flow exists from the time an inflow occurs to the time it becomes an outflow and it leaves the display
+
+CON { constants affecting appearance }
+
+   MAX_LENGTH_OF_FLOW = 7                           ' for every two inputs raise 1 line, for every two outputs lower 1 line
+   MAX_LENGTH_OF_QUEUE = MAX_LENGTH_OF_FLOW + 2     ' +2: allow max length without queue being full
+
+    ' flow movement commands
+   #0,DIR_UNKNOWN, DIR_DOWN, DIR_RIGHT, DIR_UP, DIR_LEFT, DIR_DONE, SET_ROW, SET_COL, EAT_TAIL
+
+    ' digit index value names
+    #0, DIGIT_HOURS_TENS, DIGIT_HOURS_ONES, DIGIT_MINUTES_TENS, DIGIT_MINUTES_ONES, DIGIT_SECONDS_TENS, DIGIT_SECONDS_ONES
+
+   MAX_DIGITS = 6
+
+   START_ROW = -1   ' off screen
+   START_COLUMN = 59
+
+   END_ROW = 31
+   END_COLUMN = 63 
+
+
+OBJ
+
+    hardware                : "isp_hub75_hwGeometry"
+    color                   : "isp_hub75_color"
+
+DAT { initialized data }
+    ' flow route descriptions
+inflowS018  byte    DIR_DOWN, 3
+            byte    DIR_LEFT, 5
+            byte    DIR_DOWN, 5
+            byte    DIR_RIGHT, 1
+            byte    EAT_TAIL, 0
+            byte    DIR_DONE, 0
+
+inflowS014  byte    DIR_DOWN, 3
+            byte    DIR_LEFT, 5
+            byte    DIR_DOWN, 11
+            byte    DIR_RIGHT, 1
+            byte    EAT_TAIL, 0
+            byte    DIR_DONE, 0
+
+inflowS012  byte    DIR_DOWN, 3
+            byte    DIR_LEFT, 5
+            byte    DIR_DOWN, 17
+            byte    DIR_RIGHT, 1
+            byte    EAT_TAIL, 0
+            byte    DIR_DONE, 0
+
+inflowS011  byte    DIR_DOWN, 3
+            byte    DIR_LEFT, 5
+            byte    DIR_DOWN, 23
+            byte    DIR_RIGHT, 1
+            byte    EAT_TAIL, 0
+            byte    DIR_DONE, 0
+
+outflowS018 byte    SET_ROW, 7
+            byte    SET_COL, 61
+            byte    DIR_RIGHT, 1
+            byte    DIR_DOWN, 24
+            byte    DIR_RIGHT, 1
+            byte    EAT_TAIL, 0
+            byte    DIR_DONE, 0
+
+outflowS014 byte    SET_ROW, 13
+            byte    SET_COL, 61
+            byte    DIR_RIGHT, 1
+            byte    DIR_DOWN, 18
+            byte    DIR_RIGHT, 1
+            byte    EAT_TAIL, 0
+            byte    DIR_DONE, 0
+
+outflowS012 byte    SET_ROW, 19
+            byte    SET_COL, 61
+            byte    DIR_RIGHT, 1
+            byte    DIR_DOWN, 12
+            byte    DIR_RIGHT, 1
+            byte    EAT_TAIL, 0
+            byte    DIR_DONE, 0
+
+outflowS011 byte    SET_ROW, 25
+            byte    SET_COL, 61
+            byte    DIR_RIGHT, 1
+            byte    DIR_DOWN, 7
+            byte    DIR_RIGHT, 1
+            byte    EAT_TAIL, 0
+            byte    DIR_DONE, 0
+
+
+
+VAR { globals }
+    ' single flow state
+    long    headRow
+    long    headCol
+    long    headCount
+    long    seqIndex
+
+' target screen and geometry thereof
+    long    pExtScreen
+    long    maxBitRows
+    long    maxBitColumns
+    long    defaultColor
+    
+    long    pCurrFlowTable
+    long    drip[MAX_LENGTH_OF_QUEUE]
+    byte    dripHead
+    byte    dripTail
+    byte    dripEntryCount
+
+    byte    dripCommand
+    byte    dripRemaining
+    byte    dripEntryIndex
+
+    byte    currValue[MAX_DIGITS]
+    byte    isSetup
+
+PUB null()
+    '' This is NOT a top level object
+
+PUB setScreen(pScreen)
+    '' Save the location of our external screen buffer
+    'debug("7s:setScreen")
+    pExtScreen := pScreen
+    maxBitColumns := hardware.MAX_PANEL_COLUMNS
+    maxBitRows := hardware.MAX_PANEL_ROWS
+    if not isSetup
+        initialize()
+
+PUB startFlow(hours, minutes, seconds) | byte newValue[MAX_DIGITS], digitIndex, bitIndex, isValueOK, bitCount, nybbleCount, liveIndex, zerosCount
+    '' start (1 to 6) * (1 to 4) flows at the same time : h10(2,1), h01(8,4,2,1), m10(4,2,1), m01(8,4,2,1), s10(4,2,1), s01(8,4,2,1)
+    if not isMovementComplete()
+        debug("flo:start - IGNORED already moving")
+    else
+    newValue[0] := hours / 10
+    newValue[1] := hours // 10    
+    newValue[2] := minutes / 10
+    newValue[3] := minutes // 10    
+    newValue[4] := seconds / 10
+    newValue[5] := seconds // 10    
+
+    ' now let's check for more than one nybble being set (only 1 can be at a time)
+    nybbleCount := 0
+    zerosCount := 0
+    repeat digitIndex from 0 to MAX_DIGITS - 1
+        if newValue[digitIndex] > 0
+            nybbleCount++
+            liveIndex := digitIndex
+        else 
+            zerosCount++
+
+    if nybbleCount > 1
+        debug("ERROR more than 1 value selected - can only set 1 flow, Abort")
+        abort
+
+    if nybbleCount == 0 && zerosCount == 6
+        ' we've no incoming values do we have values set to be cleared?
+        nybbleCount := 0
+        zerosCount := 0
+        repeat digitIndex from 0 to MAX_DIGITS - 1
+            if currValue[digitIndex] > 0
+                nybbleCount++
+                liveIndex := digitIndex
+            else 
+                zerosCount++
+        if nybbleCount == 0 && zerosCount == 6
+            debug("ERROR no FLOW requested and nothing to clear! Abort")
+            abort    
+
+    ' Ensure that only 1 flow is selected by our input
+    isValueOK := TRUE
+    bitCount := 0
+    repeat bitIndex from 0 to 3 ' we are checking a 4-bit value
+        if (newValue[liveIndex] & (1 << bitIndex)) > 0
+            bitCount++
+        if bitCount > 1
+            isValueOK := FALSE
+            quit
+
+    if not isValueOK
+        debug("ERROR more than 1 bit selected for nybble(", udec_(liveIndex), ")=", ubin_(newValue[liveIndex]))
+        abort
+
+    if currValue[liveIndex] <> newValue[liveIndex]
+        ' go initiate the single flow
+        initiateFlows(liveIndex, currValue[liveIndex], newValue[liveIndex])
+        currValue[liveIndex] := newValue[liveIndex]
+    else
+        debug("ERROR no FLOW requested - curr&new values are the same! Abort")
+        abort    
+
+PRI initiateFlows(digitId, fmValue, toValue)
+    case digitId
+        DIGIT_HOURS_TENS:
+        DIGIT_HOURS_ONES:
+        DIGIT_MINUTES_TENS:
+        DIGIT_MINUTES_ONES:
+        DIGIT_SECONDS_TENS:
+        DIGIT_SECONDS_ONES:
+            if fmValue & 8 <> toValue & 8
+                ' something changed, update our display
+                if (fmValue & 8) > 0
+                    ' our 8 flow is one, turning off - outflow
+                    initiateFlow(@outflowS018)
+                else 
+                    ' our 8 flow is off turning on - inflow
+                    headRow := START_ROW
+                    headCol := START_COLUMN
+                    initiateFlow(@inflowS018)
+
+            if fmValue & 4 <> toValue & 4
+                ' something changed, update our display
+                if (fmValue & 4) > 0
+                    ' our 4 flow is one, turning off - outflow
+                    initiateFlow(@outflowS014)
+                else 
+                    ' our 4 flow is off turning on - inflow
+                    headRow := START_ROW
+                    headCol := START_COLUMN
+                    initiateFlow(@inflowS014)
+
+            if fmValue & 2 <> toValue & 2
+                ' something changed, update our display
+                if (fmValue & 2) > 0
+                    ' our 2 flow is one, turning off - outflow
+                    initiateFlow(@outflowS012)
+                else 
+                    ' our 2 flow is off turning on - inflow
+                    headRow := START_ROW
+                    headCol := START_COLUMN
+                    initiateFlow(@inflowS012)
+
+            if fmValue & 1 <> toValue & 1
+                ' something changed, update our display
+                if (fmValue & 1) > 0
+                    ' our 1 flow is one, turning off - outflow
+                    initiateFlow(@outflowS011)
+                else 
+                    ' our 1 flow is off turning on - inflow
+                    headRow := START_ROW
+                    headCol := START_COLUMN
+                    initiateFlow(@inflowS011)
+        OTHER:
+            debug("ERROR! Bad digit selector - initiateFlows(), aborted")
+            abort 
+
+PUB isInUse() : inUseStatus | zerosCount, digitIndex
+    '' return T/F where T means this flow has bits on the board...
+    ' now let's check for any nibbles being set (meaning we did inflow but now outflow)
+    zerosCount := 0
+    repeat digitIndex from 0 to MAX_DIGITS - 1
+        if currValue[digitIndex] == 0
+            zerosCount++
+    ' if we've a nybble set or we still moving this flow is in use
+    inUseStatus := ((dripCommand == DIR_DONE || dripCommand == DIR_UNKNOWN) && zerosCount == MAX_DIGITS) ? FALSE : TRUE
+    debug("flo:check ", udec(inUseStatus), udec(dripCommand), udec(zerosCount))
+
+PUB isMovementComplete() : status
+    '' Return T/F where T means that all movement for this bit is complete
+    status := (dripCommand == DIR_DONE || dripCommand == DIR_UNKNOWN)
+
+PUB animateStep() 
+    '' Do one animation step, if one is pending
+    if not isMovementComplete()
+        moveDrip()
+
+PRI initiateFlow(pFlowTable) | command, distance
+    ' load first command, make initial move
+    pCurrFlowTable := pFlowTable
+    dripEntryIndex := 0
+    dripCommand, dripRemaining := nextCommand()
+    if not isMovementComplete()
+        moveDrip()
+
+PRI nextCommand() : command, distance | pCurrEntry
+    ' return indexed command and point to next
+    pCurrEntry := @byte[pCurrFlowTable][dripEntryIndex * 2]
+    command := byte[pCurrEntry][0]
+    distance := byte[pCurrEntry][1]
+    debug("flo:next ", udec(command), udec(distance))
+    dripEntryIndex++
+
+
+PRI moveDrip() | moved, haveRow, haveColumn, finishedCommand, placeNew, tailRow, tailCol, removeTail
+    moved := FALSE
+    finishedCommand := FALSE
+    haveRow := FALSE
+    haveColumn := FALSE
+    removeTail := FALSE
+    repeat
+        ' show a new head bit, if max bits are showing hide a tail bit
+        case dripCommand
+            SET_ROW:
+                headRow := dripRemaining
+                haveRow := TRUE
+                finishedCommand := TRUE
+            SET_COL:
+                headCol := dripRemaining
+                haveColumn := TRUE
+                finishedCommand := TRUE
+            DIR_DOWN:
+                headRow++
+                moved := TRUE
+            DIR_RIGHT:
+                headCol++
+                moved := TRUE
+            DIR_UP:
+                headRow--
+                moved := TRUE
+            DIR_LEFT:
+                headCol--
+                moved := TRUE
+            EAT_TAIL:
+                moved := TRUE
+                removeTail := TRUE
+                dripRemaining := dripEntryCount + 1
+            OTHER:
+                debug("dig: bad drip command (", udec_(dripCommand), ")")
+
+        if moved
+            dripRemaining--
+            if dripRemaining == 0
+                finishedCommand := TRUE
+        if haveRow && haveColumn
+            moved := TRUE
+        if finishedCommand
+            dripCommand, dripRemaining := nextCommand()
+    while not moved
+
+    if not removeTail
+        ' place bit at row,col
+        drawPixelAtRCwithRGB(headRow, headCol, color.rgbForCValue(color.cLime))
+        ' add to queue
+        pushHeadBit(headRow, headCol)
+
+    ' if at max entries remove a bit, freeing queue entry
+    if dripEntryCount >= MAX_LENGTH_OF_FLOW || removeTail
+        if dripEntryCount > 0
+            tailRow, tailCol := popTailBit()
+            drawPixelAtRCwithRGB(tailRow, tailCol, color.rgbForCValue(color.cBlack))
+
+    debug("flo:moved headRC=(", udec_(headRow), udec_(headCol), ") ct=", udec_(dripEntryCount))
+
+    'if dripCommand == EAT_TAIL
+        'repeat' hold forever while we stare
+
+PRI pushHeadBit(row, col) | rcLong, saveHead
+    rcLong := (row << 16) | col
+    if dripHead + 1 == dripTail
+        debug("fullQueue - abort")
+        abort     
+    saveHead := dripHead
+    drip[dripHead] := rcLong
+    dripHead++ 
+    dripEntryCount++
+    if dripHead > MAX_LENGTH_OF_QUEUE - 1
+        dripHead := 0
+    debug("flo:push queue[", udec_(saveHead), "] <= (", uhex_long_(rcLong), ")  newHead=(", udec_(dripHead), ")")
+
+PRI popTailBit() : row, col | rcLong, saveTail
+    if dripHead == dripTail
+        debug("emptyQueue - abort")
+        abort 
+    saveTail := dripTail
+    rcLong := drip[dripTail]
+    row := (rcLong >> 16) & $ff
+    col :=  rcLong        & $ff
+    dripTail++ 
+    dripEntryCount--
+    if dripTail > MAX_LENGTH_OF_QUEUE - 1
+        dripTail := 0
+    debug("flo:pop val=(", uhex_long_(rcLong), ") <= queue[", udec_(saveTail), "]  newTail=(", udec_(dripTail), ")")
+
+PRI initialize() | digitIndex
+    isSetup := TRUE
+    dripCommand := DIR_UNKNOWN
+    headRow := headCol := 0
+    repeat digitIndex from 0 to MAX_DIGITS - 1
+        currValue[digitIndex] := 0  ' no bit is filled
+
+PRI drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex, colorOffset, pColor
+    '' Place r,g,b colored pixel at r,c
+    rowIndex := 0 #> row <# maxBitRows - 1
+    columnIndex :=  0 #> column <# maxBitColumns - 1
+    colorOffset := ((rowIndex * maxBitColumns) + columnIndex) * hardware.DISPLAY_BYTES_PER_COLOR
+    pColor := @byte[pExtScreen][colorOffset]
+    'if isDebugLocn(rowIndex, columnIndex)
+    debug("flo:Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
+    byte[pColor][0] := color.correctedColor(red)
+    byte[pColor][1] := color.correctedColor(green)
+    byte[pColor][2] := color.correctedColor(blue)
+CON { license }
+
+{{
+
+
+ -------------------------------------------------------------------------------------------------
+  MIT License
+
+  Copyright (c) 2020 Iron Sheep Productions, LLC
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+ =================================================================================================
+ 
+}}
+

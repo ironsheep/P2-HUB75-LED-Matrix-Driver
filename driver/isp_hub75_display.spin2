@@ -16,29 +16,7 @@ CON
 ' supported Text Sizes
 #0, TEXT_SIZE_DEFAULT, TEXT_SIZE__5x7, TEXT_SIZE__8x8
 
-CON { test colors }
-
-    cBlack = $000000
-    cWhite = $FFFFFF
-    cRed = $FF0000
-    cLime = $00FF00
-    cBlue = $0000FF
-    cYellow = $FFFF00
-    cCyan = $00FFFF
-    cMagenta = $FF00FF
-    cSilver = $C0C0C0
-    cGray = $808080
-    cMaroon = $800000
-    cOlive = $808000
-    cGreen = $008000
-    cPurple = $800080
-    cTeal = $08080
-    cNavy = $000080
-    cDarkGreen = $006400
-    cOrange = $FFA500
-    cRedWhtBlu = $deadf0
-    cRainbow = $deadf1
-    cBlueViolet = $8A2BE2
+CON 
 
 
 OBJ
@@ -223,7 +201,7 @@ PUB drawLineOfColor(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column
 PUB drawPixelAtRC(row, column, rgbColor) | xlatedColor, fHue
     '' Place rgbColor pixel at r,c
     xlatedColor := rgbColor
-    if rgbColor == cRainbow
+    if rgbColor == color.cRainbow
         xlatedColor := color.rgbColorFromDegrees(6 * (column + 1))   ' replace '360 / 64' with 6 [was resulting in 5 vs. 6]
     'elses
 	'if rgbColor == cRedWhtBlu
@@ -249,7 +227,7 @@ PUB drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex,
 
 PUB commitScreenToPanel()
     '' Write sceen to panel driver
-    'debug("- DISP: commit!")
+    debug("- DISP: commit!")
     panel.loadScreen(@screen0)
 
 

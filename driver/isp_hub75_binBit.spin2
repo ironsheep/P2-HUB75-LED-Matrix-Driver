@@ -186,7 +186,7 @@ PUB drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex,
     '' Place r,g,b colored pixel at r,c
     rowIndex := 0 #> row <# maxBitRows - 1
     columnIndex :=  0 #> column <# maxBitColumns - 1
-    colorOffset := ((rowIndex * maxBitColumns * hardware.DISPLAY_BYTES_PER_COLOR) + (columnIndex * hardware.DISPLAY_BYTES_PER_COLOR))
+    colorOffset := ((rowIndex * maxBitColumns) + columnIndex) * hardware.DISPLAY_BYTES_PER_COLOR
     pColor := @byte[pExtScreen][colorOffset]
     'if isDebugLocn(rowIndex, columnIndex)
         'debug("- Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")

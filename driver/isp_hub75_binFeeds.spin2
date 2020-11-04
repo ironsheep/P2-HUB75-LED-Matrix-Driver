@@ -1,7 +1,7 @@
 '' =================================================================================================
 ''
 ''   File....... isp_hub75_binFeeds.spin2
-''   Purpose.... manipulate a mechanical 7 segment digit
+''   Purpose.... Manage fill and empty flows in Binary water clock
 ''   Authors.... Stephen M Moraco
 ''               -- Copyright (c) 2020 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
@@ -11,10 +11,17 @@
 ''
 '' =================================================================================================
 
+CON
+
+    MAX_SIMULTANEOUS_FEEDS = 10
+    MAX_DIGITS = 6
+
 
 OBJ
 
-    hardware    : "isp_hub75_hwGeometry"
+    hardware                        : "isp_hub75_hwGeometry"
+    flows[MAX_SIMULTANEOUS_FEEDS]   : "isp_hub75_binflow"
+
 
 DAT { initialized data }
 
@@ -29,16 +36,98 @@ VAR { globals }
     long    defaultColor
     
     byte    isSetup
+    byte    nextFlowIndex
+    byte    currValue[MAX_DIGITS]
     
+
 PUB null()
     '' This is NOT a top level object
 
-PUB setScreen(pScreen)
+PUB setHMS(hours, minutes, seconds) | byte newValue[MAX_DIGITS], idleFlowIndex, nybbleIndex, bitIndex, bitMask, bitHours, bitMinutes, bitSeconds
+    '' set the initial time to be displayed
+    'debug("clk:set ", udec(hours), udec(minutes), udec(seconds))
+    newValue[0] := hours / 10
+    newValue[1] := hours // 10    
+    newValue[2] := minutes / 10
+    newValue[3] := minutes // 10    
+    newValue[4] := seconds / 10
+    newValue[5] := seconds // 10    
+
+    ' check for nybbles that are changing value
+    repeat nybbleIndex from 0 to MAX_DIGITS - 1
+        ' if value changed...
+        if currValue[nybbleIndex] <> newValue[nybbleIndex]
+            ' check for bit(s) in nybble that are changing...
+            repeat bitIndex from 0 to 3
+                bitMask := 1 << bitIndex
+                'if this bit is changing...
+                if currValue[nybbleIndex] & bitMask <> newValue[nybbleIndex] & bitMask
+                    ' we need to animate the change, let's get the next avail. flow
+                    idleFlowIndex := nextIdleFlow() ' no error return: called routine will abort if NONE avail.
+                    case nybbleIndex
+                        0:
+                            bitHours := hours & (bitMask << 4)
+                            bitMinutes := bitSeconds := 0
+                        1:
+                            bitHours := hours & bitMask
+                            bitMinutes := bitSeconds := 0
+                        2:
+                            bitMinutes := minutes & (bitMask << 4)
+                            bitHours := bitSeconds := 0
+                        3:
+                            bitMinutes := minutes & bitMask
+                            bitHours := bitSeconds := 0
+                        4:
+                            bitSeconds := seconds & (bitMask << 4)
+                            bitHours := bitMinutes := 0
+                        5:
+                            bitSeconds := seconds & bitMask
+                            bitHours := bitMinutes := 0
+
+                        flows[idleFlowIndex].startFlow(bitHours, bitMinutes, bitSeconds)
+
+            currValue[nybbleIndex] := newValue[nybbleIndex]
+
+PUB isAnimationComplete() : status | flowIndex
+    '' Return T/F where T means all segment animations are complete
+    status := TRUE
+    repeat flowIndex from 0 to MAX_SIMULTANEOUS_FEEDS - 1
+        if not flows[flowIndex].isMovementComplete()
+            status := FALSE
+            quit   ' we have our answer, abort loop
+
+PUB animateStep() | flowIndex
+    '' Have each sement do 1 animation step, if one is pending
+    if not isAnimationComplete()
+        repeat flowIndex from 0 to MAX_SIMULTANEOUS_FEEDS - 1
+            flows[flowIndex].animateStep()
+
+PUB setScreen(pScreen) : flowIndex
     '' Save the location of our external screen buffer
     'debug("7s:setScreen")
     pExtScreen := pScreen
     maxBitColumns := hardware.MAX_PANEL_COLUMNS
     maxBitRows := hardware.MAX_PANEL_ROWS
+    repeat flowIndex from 0 to MAX_SIMULTANEOUS_FEEDS - 1
+        flows[flowIndex].setScreen(pScreen)
+
+PRI nextIdleFlow() : nextIdleFlowIndex | flowsCheckedCount, flowBusyStatus
+    flowsCheckedCount := 0
+    nextIdleFlowIndex := -1
+    repeat 
+        flowBusyStatus :=  flows[nextFlowIndex].isInUse()
+        if not flowBusyStatus
+            nextIdleFlowIndex := nextFlowIndex
+            quit
+        nextFlowIndex++
+        flowsCheckedCount++
+        if nextFlowIndex >= MAX_SIMULTANEOUS_FEEDS
+            nextFlowIndex := 0
+    while flowsCheckedCount < MAX_SIMULTANEOUS_FEEDS
+    if flowBusyStatus
+        debug("- no INACTIVE FLOWS, aborting")
+        abort
+
 
 CON { license }
 

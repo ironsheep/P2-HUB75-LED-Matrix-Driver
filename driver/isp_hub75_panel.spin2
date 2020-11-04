@@ -103,7 +103,7 @@ nextColumn
                     ' locate 24-bit color for pixel
                     ' calculate address of 24-bit color
                     '
-                    'nOffset := ((nRowIndex * hardware.MAX_PANEL_COLUMNS) + nColumnIndex) * hardware.DISPLAY_BYTES_PER_COLOR
+                    'nOffset := ((rowIndex * hardware.MAX_PANEL_COLUMNS) + columnIndex) * hardware.DISPLAY_BYTES_PER_COLOR
                     'pixColorAddr := @byte[pScreenInMemory][nOffset]    ' add in offset to 24-bit color
                     mov     p24bitColor, panelRow                            
                     sub     p24bitColor, #1                                  ' get rowIndex - 1 [32-1] -> [31-0]
@@ -400,12 +400,12 @@ PRI isDebugLocn(nRow, nCol) : status
     if (nRow == 31 && nCol < 4) || (nRow < 2 && nCol < 3) || (nRow == 31 && nCol > 61) || (nRow < 2 && nCol > 61)
         status := TRUE ' FALSE  ' turn off debug
 
-PRI getPixelAddressForBMPRowColumn(nRow, nColumn) : pixColorAddr | nRowIndex, nColumnIndex, nOffset, fileBitsBase, showDebug
+PRI getPixelAddressForBMPRowColumn(nRow, nColumn) : pixColorAddr | rowIndex, columnIndex, nOffset, fileBitsBase, showDebug
 	' Row is inverted in .BMP file...
-	nRowIndex := (hardware.MAX_PANEL_ROWS - 1) - nRow
+	rowIndex := (hardware.MAX_PANEL_ROWS - 1) - nRow
 
 	' Column is normal in file...
-	nColumnIndex := nColumn
+	columnIndex := nColumn
 
     showDebug := FALSE
     'if (bitIdx == 0 || bitIdx == 31) && nBffrR < 2
@@ -413,7 +413,7 @@ PRI getPixelAddressForBMPRowColumn(nRow, nColumn) : pixColorAddr | nRowIndex, nC
         showDebug := TRUE ' FALSE  ' turn off debug
 
 	' now offset is simple (just multiply by 3! [bytes of color])
-    nOffset := ((nRowIndex * hardware.MAX_PANEL_COLUMNS) + nColumnIndex) * hardware.DISPLAY_BYTES_PER_COLOR
+    nOffset := ((rowIndex * hardware.MAX_PANEL_COLUMNS) + columnIndex) * hardware.DISPLAY_BYTES_PER_COLOR
 
     fileBitsBase := @byte[pBitmapFileInMemory][bfOffBits]   ' get base of image in file (skip header)
     pixColorAddr := @byte[fileBitsBase][nOffset]    ' add in offset to 24-bit color
@@ -422,14 +422,14 @@ PRI getPixelAddressForBMPRowColumn(nRow, nColumn) : pixColorAddr | nRowIndex, nC
 	    ' XYZZYpnl debug("- FileOffset=", udec_(nOffset), ", RC=(", udec_(nRow), ",", udec_(nColumn), ", ofst=", uhex_long_(pixColorAddr), ", base=", uhex_long_(fileBitsBase), ")")
 
 
-PRI getPixelAddressForRowCol_OLD(nRow, nColumn) : pixColorAddr | nRowIndex, nColumnIndex, nOffset, screenBitsBase, showDebug
+PRI getPixelAddressForRowCol_OLD(nRow, nColumn) : pixColorAddr | rowIndex, columnIndex, nOffset, screenBitsBase, showDebug
 	' Row is NOT inverted in screen image...
-    nRowIndex := 0 #> nRow <# hardware.MAX_PANEL_ROWS - 1
+    rowIndex := 0 #> nRow <# hardware.MAX_PANEL_ROWS - 1
     ' Column is normal in file...
-    nColumnIndex := 0 #> nColumn <# hardware.MAX_PANEL_COLUMNS - 1
+    columnIndex := 0 #> nColumn <# hardware.MAX_PANEL_COLUMNS - 1
 
 	' now offset is simple (just multiply by 3! [bytes of color])
-    nOffset := ((nRowIndex * hardware.MAX_PANEL_COLUMNS) + nColumnIndex) * hardware.DISPLAY_BYTES_PER_COLOR
+    nOffset := ((rowIndex * hardware.MAX_PANEL_COLUMNS) + columnIndex) * hardware.DISPLAY_BYTES_PER_COLOR
 
     pixColorAddr := @byte[pScreenInMemory][nOffset]    ' add in offset to 24-bit color
 

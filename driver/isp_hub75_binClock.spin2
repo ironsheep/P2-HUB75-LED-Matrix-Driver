@@ -29,6 +29,7 @@ OBJ { objects }
     hardware                : "isp_hub75_hwGeometry"
     color                   : "isp_hub75_color"
     digits[MAX_DIGITS]      : "isp_hub75_binDigit"
+    feeds                   : "isp_hub75_binFeeds"
 
 DAT { initialized data }
 
@@ -60,9 +61,23 @@ PUB setScreen(pScreen)
     pExtScreen := pScreen
     maxBitColumns := hardware.MAX_PANEL_COLUMNS
     maxBitRows := hardware.MAX_PANEL_ROWS
+    feeds.setScreen(pScreen)
+    
+PUB setupClock() | digitIndex, row, col 
+    '' Set up:  draw our initial clock bits
+    row := TOP_INSET
+    col := LEFT_INSET
+    repeat digitIndex from 0 to MAX_DIGITS - 1
+        digits[digitIndex].setScreen(pExtScreen)
+        digits[digitIndex].placeDigitAtRC(row, col, fullRgbColor, emptyRgbColor)
+        if (digitIndex & 1) == 0
+            ' placed odd bit
+            col += HORIZ_ODD_OFFSET + DIGIT_WIDTH
+        else
+            col += HORIZ_EVEN_OFFSET + DIGIT_WIDTH
 
 PUB setOnOffColors(onColor, offColor)
-    '' configure colors for full clock display
+    '' Configure: colors for full clock display
     emptyRgbColor := offColor
     fullRgbColor := onColor
 
@@ -72,6 +87,14 @@ PUB setHMS(hours, minutes, seconds)
     currHours := hours
     currMinutes := minutes
     currSeconds := seconds
+
+    ' TEST FLOWS FOR NOW...
+    feeds.setHMS(hours, minutes, seconds)
+
+    showSecondsDots( seconds // 2 )
+
+    return  ' TESTING exit
+
     digits[0].setValue(hours / 10)
     digits[1].setValue(hours // 10)
     digits[2].setValue(minutes / 10)
@@ -89,25 +112,19 @@ PUB isAnimationComplete() : status | digitIndex
             status := FALSE
             quit   ' we have our answer, abort loop
 
+    if status == TRUE
+        status := feeds.isAnimationComplete()
+
 PUB animateStep() | digitIndex
     '' Have each sement do 1 animation step, if one is pending
     if not isAnimationComplete()
+        feeds.animateStep()
+
         repeat digitIndex from 0 to MAX_DIGITS - 1
             if not digits[digitIndex].isMovementComplete()
                 digits[digitIndex].animateStep()
 
-PUB setupClock() | digitIndex, row, col 
-    '' draw our initial clock bits
-    row := TOP_INSET
-    col := LEFT_INSET
-    repeat digitIndex from 0 to MAX_DIGITS - 1
-        digits[digitIndex].setScreen(pExtScreen)
-        digits[digitIndex].placeDigitAtRC(row, col, fullRgbColor, emptyRgbColor)
-        if (digitIndex & 1) == 0
-            ' placed odd bit
-            col += HORIZ_ODD_OFFSET + DIGIT_WIDTH
-        else
-            col += HORIZ_EVEN_OFFSET + DIGIT_WIDTH
+
 
 PRI showSecondsDots(isBright) | rgbColor
     rgbColor := (isBright) ? $ff40ff : $471247
@@ -126,7 +143,7 @@ PRI drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex,
     '' Place r,g,b colored pixel at r,c
     rowIndex := 0 #> row <# maxBitRows - 1
     columnIndex :=  0 #> column <# maxBitColumns - 1
-    colorOffset := ((rowIndex * maxBitColumns * hardware.DISPLAY_BYTES_PER_COLOR) + (columnIndex * hardware.DISPLAY_BYTES_PER_COLOR))
+    colorOffset := ((rowIndex * maxBitColumns) + columnIndex) * hardware.DISPLAY_BYTES_PER_COLOR
     pColor := @byte[pExtScreen][colorOffset]
     'if isDebugLocn(rowIndex, columnIndex)
         'debug("- Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")

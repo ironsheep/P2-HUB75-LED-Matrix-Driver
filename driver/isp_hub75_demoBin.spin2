@@ -34,10 +34,11 @@ VAR
 
 OBJ
 
+    color       : "isp_hub75_color"
     display     : "isp_hub75_display"
     clock       : "isp_hub75_binClock"
 
-PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, builtPtr, color3bit, color24bit, pPixColor, colorOffset, byteOffset
+PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, builtPtr, color3bit, color24bit, pPixColor, colorOffset, byteOffset, bitValue
     '' start underlying drivers and run demo
 
     'debug("`term temp size 82 50 textsize 10")
@@ -70,14 +71,14 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
 
     ' do DEMO Things!
 {
-    display.drawLineOfColor(0, 0, 0, 3, display.cRed)
-    display.drawLineOfColor(0, 61, 0, 63, display.cBlue)
-    display.drawLineOfColor(1, 61, 1, 63, display.cBlue)
+    display.drawLineOfColor(0, 0, 0, 3, color.cRed)
+    display.drawLineOfColor(0, 61, 0, 63, color.cBlue)
+    display.drawLineOfColor(1, 61, 1, 63, color.cBlue)
 
-    display.drawLineOfColor(30, 62, 30, 63, display.cWhite)
-    display.drawLineOfColor(31, 62, 31, 63, display.cWhite)
+    display.drawLineOfColor(30, 62, 30, 63, color.cWhite)
+    display.drawLineOfColor(31, 62, 31, 63, color.cWhite)
 
-    display.drawLineOfColor(31, 0, 31, 5, display.cLime)
+    display.drawLineOfColor(31, 0, 31, 5, color.cLime)
     display.commitScreenToPanel()
 }
 {
@@ -99,11 +100,11 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
 
  {
     ' print each letter with a rainbow color
-    display.setCharWithColor("6", display.cRed)
-    display.setCharWithColor("4", display.cYellow)
-    display.setCharWithColor("x", display.cOlive)
-    display.setCharWithColor("3", display.cGreen)
-    display.setCharWithColor("2", display.cLime)
+    display.setCharWithColor("6", color.cRed)
+    display.setCharWithColor("4", color.cYellow)
+    display.setCharWithColor("x", color.cOlive)
+    display.setCharWithColor("3", color.cGreen)
+    display.setCharWithColor("2", color.cLime)
 }
 {
     drawTestPattern(0, 0)
@@ -122,29 +123,48 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     display.setTextSize(display.TEXT_SIZE__5x7)    ' font size 
     display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
 
-    display.setColoredTextAtRC(0,0, string("iron sheep"), display.cMaroon)
-    display.setColoredTextAtRC(1,0, string("-RGB 3bit-"), display.cOrange)
-    display.setColoredTextAtRC(2,0, string("24b color!"), display.cRainbow)
-    display.setColoredTextAtRC(3,0, string("led matrix"), display.cWhite)
+    display.setColoredTextAtRC(0,0, string("iron sheep"), color.cMaroon)
+    display.setColoredTextAtRC(1,0, string("-RGB 3bit-"), color.cOrange)
+    display.setColoredTextAtRC(2,0, string("24b color!"), color.cRainbow)
+    display.setColoredTextAtRC(3,0, string("led matrix"), color.cWhite)
     display.commitScreenToPanel()
 }
 
 
-    'display.fillScreen(display.cMaroon)
+    'display.fillScreen(color.cMaroon)
     'display.commitScreenToPanel()
 
     '  BINARY DEMO -> heading to liquid binary
 
     'repeat  ' hold forever
-    digitPeriod := 90    ' 12 
-    segmentPeriod := 7
+    digitPeriod := 20    ' 12 
+    segmentPeriod := 5
 
     clock.setScreen(display.getScreenSetup()) 
-    clock.setOnOffColors(display.cBlue, $363636)
+    clock.setOnOffColors(color.cBlue, $363636)
     clock.setupClock()
     display.commitScreenToPanel()
 
     wait100thSecs(digitPeriod)
+
+    repeat bitValue from 0 to 15
+
+        ' TEST checking out flows - tweaking them
+        clock.setHMS(0, 0, bitValue)
+        display.commitScreenToPanel()
+        wait100thSecs(segmentPeriod)
+
+        loopUntilBitsFinish()
+
+        wait100thSecs(digitPeriod)
+
+        clock.setHMS(0, 0, 0)
+        display.commitScreenToPanel()
+        wait100thSecs(segmentPeriod)
+
+        loopUntilBitsFinish()
+
+        wait100thSecs(digitPeriod)
 
 {
     clock.setHMS(0, 0, 1)
@@ -163,6 +183,8 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
 
     repeat
 }
+{
+    ' TEST run clock bits at HIGH SPEED
     repeat hours from 0 to 12
         repeat minutes from 0 to 59
             repeat seconds from 0 to 59
@@ -171,7 +193,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
                 wait100thSecs(segmentPeriod)
                 loopUntilBitsFinish()
 
-
+}
     
 {
     segmentPeriod := 8     ' 4 x 100ths of a second
@@ -182,7 +204,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
 
 
-    display.setColoredTextAtRC(0,0, string("iron sheep"), display.cMaroon)
+    display.setColoredTextAtRC(0,0, string("iron sheep"), color.cMaroon)
     display.commitScreenToPanel()
 
     ' High Speed CLOCK demo
@@ -191,10 +213,10 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
 
     hours := minutes := 0
 
-    digit[0].placeDigit(8, 2, 0, display.cOrange)
-    digit[1].placeDigit(8, 17, 0, display.cOrange)
-    digit[2].placeDigit(8, 35, 0, display.cOrange)
-    digit[3].placeDigit(8, 50, 0, display.cOrange)
+    digit[0].placeDigit(8, 2, 0, color.cOrange)
+    digit[1].placeDigit(8, 17, 0, color.cOrange)
+    digit[2].placeDigit(8, 35, 0, color.cOrange)
+    digit[3].placeDigit(8, 50, 0, color.cOrange)
 
     display.commitScreenToPanel()
     wait100thSecs(segmentPeriod)
@@ -228,10 +250,10 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
         digit[digitIndex].setScreen(display.getScreenSetup())
 
 
-    digit[0].placeDigit(8, 2, 5, display.cOrange)
-    digit[1].placeDigit(8, 18, 7, display.cOrange)
-    digit[2].placeDigit(8, 34, 1, display.cOrange)
-    digit[3].placeDigit(8, 50, 4, display.cOrange)
+    digit[0].placeDigit(8, 2, 5, color.cOrange)
+    digit[1].placeDigit(8, 18, 7, color.cOrange)
+    digit[2].placeDigit(8, 34, 1, color.cOrange)
+    digit[3].placeDigit(8, 50, 4, color.cOrange)
 
     display.commitScreenToPanel()
     wait100thSecs(segmentPeriod)
@@ -258,11 +280,11 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     display.setCursor(2, 0)   ' start at top left, with one pixel of spacing
  
     ' print each letter with a rainbow color
-    display.setCharWithColor("6", display.cRed)
-    display.setCharWithColor("4", display.cYellow)
-    display.setCharWithColor("x", display.cOlive)
-    display.setCharWithColor("3", display.cGreen)
-    display.setCharWithColor("2", display.cLime)
+    display.setCharWithColor("6", color.cRed)
+    display.setCharWithColor("4", color.cYellow)
+    display.setCharWithColor("x", color.cOlive)
+    display.setCharWithColor("3", color.cGreen)
+    display.setCharWithColor("2", color.cLime)
 }
 
     'display.commitScreenToPanel()
@@ -338,12 +360,12 @@ pub drawTestPattern(row,column)
     ' place six colored bits
     if column > 56
         column := 56 
-    display.drawPixelAtRC(row, column+0, display.cRed)     ' long $xx998877
-    display.drawPixelAtRC(row, column+1, display.cLime)
-    display.drawPixelAtRC(row, column+2, display.cBlue)
-    display.drawPixelAtRC(row, column+5, display.cWhite)   ' long $665544xx
-    display.drawPixelAtRC(row, column+6, display.cYellow)
-    display.drawPixelAtRC(row, column+7, display.cOlive)
+    display.drawPixelAtRC(row, column+0, color.cRed)     ' long $xx998877
+    display.drawPixelAtRC(row, column+1, color.cLime)
+    display.drawPixelAtRC(row, column+2, color.cBlue)
+    display.drawPixelAtRC(row, column+5, color.cWhite)   ' long $665544xx
+    display.drawPixelAtRC(row, column+6, color.cYellow)
+    display.drawPixelAtRC(row, column+7, color.cOlive)
 
 PUB stop()                  '' stop the driver
   if cog
