@@ -1,0 +1,439 @@
+{{
+    SCREEN buffer in HUB RAM
+        LATCH 3-clock as last 3 of 64 columns
+        ADDR change first (during /LATCH, OE before LATCH CLOCKS)
+
+                - OR - (comment out 1 or other form)
+
+        ADDR change last (during /LATCH, OE afer LATCH CLOCKS)
+}}
+
+CON { timing }
+  CLK_FREQ = 335_000_000                                        ' system freq as a constant
+
+  MS_001   = CLK_FREQ / 1_000                                   ' ticks in 1ms
+  US_001   = CLK_FREQ / 1_000_000                               ' ticks in 1us
+
+  NS_015   = 5 ' - 2 '15 / (1_000_000_000 / CLK_FREQ)                   ' tics in 15 nSec
+  NS_030   = 10 - 2 '30 / (1_000_000_000 / CLK_FREQ)            ' tics in 30 nSec
+
+  BR_TERM  = 2_000_000                                          ' debug baud rate
+  _clkfreq = CLK_FREQ                                           ' set system clock
+
+
+
+CON { SD Card PIN SETTINGS }   '' Note:  Make sure "Flash" jumper is not on...
+
+    ' P2-ES SD CARD
+    MISO  = 58
+    MOSI  = 59
+    CS  = 60
+    CLK = 61
+
+CON { serial term settings }   ''Note:  Select serial baud here
+
+  RXPIN=63                      ' Prop pins used for comms
+  TXPIN=62                      ' for regular terminal
+
+  Baudrate = 115200             '230400     ' baud rate for serial communications
+
+
+CON { I/O PINs }
+
+'DEBUG_PIN = 16
+
+OBJ
+
+    matrix      : "Matrix-driver-3bit"
+    uart        : "jm_serial"
+    f           : "ers_fmt"
+
+
+VAR
+
+    long    cog
+    long    bus           ' ram/flash
+    byte    writebuf[256]  ' a comment here
+    long    brightness  ' variable to scale input to reduce brightness   (0..256)
+    long    singleBuffer[192] ' red[64], green[64], blue[64]
+
+CON { RAM/FLASH }
+
+    BASE  = 0          ' Base P2 pin of your HyperRAM module
+    RAM   = $00_000000  ' external start address of RAM
+    FLASH = $02_000000  ' external start address of flash
+
+    'FLAGS = mem.F_FASTREAD    ' enable sysclk/1 reads
+
+
+' ----------------------------------------------------------
+
+PUB start() | ok, color, pScreenBuffer, pImageBits, pTemp
+    debug("`term temp size 80 50 textsize 10")
+
+    'setupTerm()
+    brightness:=256  'set maximum brightness by dividing input, range 0 to 256
+
+    debug("- Start Matrix COG")
+    ok := cog := matrix.start()   ' send buffer to driver
+    waitms(1000)
+
+    'return
+
+    debug("- fills")
+    repeat color from 0 to 7
+	    debug(" -- fill w/", udec_(color))
+    	matrix.fillPanel(color)
+	    waitms(250)
+
+    'return
+
+    debug("- Study BMP")
+    pImageBits := readBitmapHeader(@BitmapFile)
+    if pImageBits == 0
+        return
+
+    'dbgMemDump(@fileHeaderMsg, @byte[@BitmapFile], 64)
+    debug("`temp '- (DBG) ", udec_long(bfOffBits), " (", uhex_(bfOffBits), ")' 13")
+    debug("`temp '- (DBG) ", udec_long(biSize)," (", uhex_(biSize), ")' 13")
+    debug("`temp '- (DBG) ", udec_long(biSizeImage)," (", uhex_(biSizeImage), ")' 13")
+    pTemp := @singleBuffer
+    debug("`temp '- (DBG) ", uhex_long(pTemp), ")' 13")
+    'dbgMemDump(@fileStartMsg, @byte[@BitmapFile+bfOffBits], 32)
+    'dbgMemDump(@fileEndMsg, @byte[@BitmapFile+bfOffBits+biSizeImage-31], 32)
+
+    debug("- load image fm .bmp")
+    loadBitmap(@singleBuffer, pImageBits)
+    ' dump full buffers
+    'dbgMemDump(@screenRed,@long[@singleBuffer][0],256)
+    'dbgMemDump(@screenGreen,@long[@singleBuffer][64],256)
+    dbgMemDump(@screenBlue,@long[@singleBuffer][128],256)
+
+    debug("-  write image to panel: screen=", uhex_long_(@singleBuffer))
+    debug("-   bit counts:  RGB=(", udec_(rCount), udec_(gCount), udec_(bCount),")")
+    matrix.writeBuffer(@singleBuffer)
+
+    debug("- done", 13)
+    return      ' do nothing, forever
+
+PUB setupTerm() | r
+    'setup serial port output
+    'uart.start(Baudrate)
+    'send := @uart.tx
+
+    'wait a few seconds for terminal to get ready
+
+    'repeat r from 4 to 1
+      'waitms(1000)
+      'uart.dec(r)
+      'uart.tx(13)
+
+    'send("- TERM set up 13")
+
+    return
+
+
+
+' ----------------------------------------------------------
+' theory  3 bits per pixel
+'  2048 pixels
+'  8 sections [0-7]: 256 pixels / section
+'  2 sides: 1024 pixels / side - / 8 sections: 128 pixels / section
+' EA side: 1024 pixels
+' EA side section 128 pixels
+
+PRI clearBuffer(pBuffer, wordCt, wordBytes)
+    bytefill(pBuffer, 0, wordCt * wordBytes)
+
+CON  { matrix information }
+
+  MAX_ROWS = 32
+  MAX_COLUMNS = 64
+
+PUB loadBitmap(pTarget, pSource) | nPanelCol, nPanelRow, blue, green, red, haveError
+    rBuff := @long[pTarget+0]
+    gBuff := @long[pTarget+256]
+    bBuff := @long[pTarget+512]
+
+    'debug("`temp '", uhex_long(rBuff), " ' 13")
+    'debug("`temp '", uhex_long(gBuff), " ' 13")
+    'debug("`temp '", uhex_long(bBuff), " ' 13")
+    'dumpTwinRows()
+
+    rCount := gCount := bCount := 0
+
+   ' clear buffer
+    clearBuffer(pTarget, 192, 4)  ' clear 192 4-byte longs
+    'dumpTwinRows()
+   ' fill buffer
+    repeat nPanelRow from 0 to 31
+        repeat nPanelCol from 0 to 63
+            'debug("loadBitmap() - RC=(", udec_(nPanelRow), ", ", udec_(nPanelCol), ")")
+            haveError := FALSE
+            if(nPanelRow > MAX_ROWS - 1) 
+                debug("- ERROR bad nPanelRow value [", udec_(nPanelRow), " > ", udec_(MAX_ROWS - 1), "]")
+                haveError := TRUE
+            if(nPanelCol > MAX_COLUMNS - 1) 
+                debug("- ERROR bad nPanelCol value [", udec_(nPanelCol), " > ", udec_(MAX_COLUMNS - 1), "]")
+                haveError := TRUE
+            if haveError == FALSE
+                blue, green, red := get24BitColorForRC(nPanelRow, nPanelCol)
+                setPixelForRC(nPanelRow, nPanelCol, RGB(red, green, blue))
+    'dumpTwinRows()
+
+PRI RGB(red, green, blue) : r, g, b
+    ' do gamma correction - TBD
+    'Blue byte first because that's how stored in bitmap...
+    'r:=brightness*gamma[red]/256
+    r := red
+    'g:=brightness*gamma[green]/256
+    g := green
+    'b:=brightness*gamma[blue]/256
+    b := blue
+
+    return r,g,b
+
+PRI setPixelForRC(nPanelRow, nPanelCol, red, green, blue) | rBit, gBit, bBit
+    ' debug("setPixel() - x,y=(", udec_(nPanelCol), ", ", udec_(nPanelRow), ")")
+    ' do PWM 4 (or 8) buffer generation - TBD
+    ' for now just emit 1 buffer 
+    rBit := (red & $ff) > $7f ? 1 : 0
+    gBit := (green & $ff) > $7f ? 1 : 0
+    bBit := (blue & $ff) > $7f ? 1 : 0
+    ' instrumentation for debug
+    if rBit
+        rCount++
+    if gBit
+        gCount++        
+    if bBit
+        bCount++ 
+    ' only write if we are changing something
+    if rBit || gBit || bBit
+        setColorBitsForRC(nPanelRow, nPanelCol, rBit, gBit, bBit)
+
+VAR { buffer addresses }
+
+    long    rBuff
+    long    gBuff
+    long    bBuff
+    long    rCount
+    long    gCount
+    long    bCount
+
+PRI setColorBitsForRC(nPanelRow, nPanelCol, rBit, gBit, bBit) | nBffrR, nBffrC, bitIdx, longIdx, longBefore, showDebug, rPtr, gPtr, bPtr
+    nBffrR := 0 #> nPanelRow <# MAX_ROWS - 1
+    nBffrC := 0 #> nPanelCol <# MAX_COLUMNS - 1
+
+    bitIdx := (32 - 1) - (nBffrC // (MAX_COLUMNS / 2))     ' colum left = 0, while MSB is left so invert value
+    longIdx := (nBffrR * 2) + (nBffrC / (MAX_COLUMNS / 2))       ' ea. row is 2 longs and single row is left or right long, row0 is top row
+
+    rPtr := @long[rBuff][longIdx]
+    gPtr := @long[gBuff][longIdx]
+    bPtr := @long[bBuff][longIdx]
+    if nPanelRow == 0 && nPanelCol == 0
+        debug("`temp '", uhex_long(rPtr), " ' 13")
+        debug("`temp '", uhex_long(gPtr), " ' 13")
+        debug("`temp '", uhex_long(bPtr), " ' 13")
+
+    showDebug := FALSE
+    'if (bitIdx == 0 || bitIdx == 31) && nBffrR < 2
+    if nBffrR == 31 && nBffrC > 31
+        showDebug := TRUE ' FALSE  ' turn off debug
+
+    if showDebug
+        debug("- Panel RC=(", udec_(nPanelCol), ", ", udec_(nPanelRow), "), bffr RC=(", udec_(nBffrR), ", ", udec_(nBffrC), "), long[", udec_(longIdx), "][", udec_(bitIdx), "]")
+ 
+    if rBit > 0
+        longBefore := long[rPtr]
+        long[rPtr] |= 1 << bitIdx
+        if showDebug
+            'debug("Rbit(", udec_(rBit), ") longIdx(", udec_(longIdx), ")  bitIdx(", udec_(bitIdx), ") R-word: ", uhex_long_(longBefore), " -> ",uhex_long_(long[rPtr]))
+
+    if gBit > 0
+        longBefore := long[gPtr]
+        long[gPtr] |= 1 << bitIdx
+        if showDebug
+            'debug("Gbit(", udec_(rBit), ") longIdx(", udec_(longIdx), ")  bitIdx(", udec_(bitIdx), ") G-word: ", uhex_long_(longBefore), " -> ",uhex_long_(long[gPtr]))
+
+    if bBit > 0
+        longBefore := long[bPtr]
+        long[bPtr] |= 1 << bitIdx
+        if showDebug
+            debug("Bbit(", udec_(rBit), ") longIdx(", udec_(longIdx), ")  bitIdx(", udec_(bitIdx), ") B-word: ", uhex_long_(longBefore), " -> ",uhex_long_(long[bPtr]))
+
+
+PRI readBitmapHeader(pBffr) : pLastByte | p, i, iStart, iEnd
+
+    debug("- Studying in-memory file")
+    'analyze bitmap image
+    p:=pBffr
+    bytemove(@bfType,p,2) 'read bmp header
+    p+=2
+    bytemove(@bfSize,p,4) 'read bmp header
+    p+=4
+    bytemove(@bfReserved1,p,4) 'read bmp header
+    p+=4
+    bytemove(@bfOffBits,p,16) 'read bmp header
+    p+=16
+    bytemove(@biPlanes,p,4)
+    p+=4
+    bytemove(@biCompression,p,24)
+    p+=24
+
+    'calculate actual bytes in palette
+    i := bfOffBits-54
+    p += i
+
+    iStart := pBffr + bfOffBits
+    iEnd := iStart + (biHeight*biWidth*3)-1
+
+    ' return pointer to last byte in bitmap
+    pLastByte := p+(biHeight*biWidth*3)-1
+
+    debug("BitMap file @0x", uhex_(pBffr))
+    debug(" - size=", udec_(bfSize))
+    debug(" - OffsetBits=", udec_(bfOffBits))
+    'debug(" - #planes=", udec_(biPlanes))
+    debug(" - w,l=", udec_(biWidth), ",", udec_(biHeight))
+    debug(" - szImage=", udec_(biSizeImage))
+    'debug(" - compression=", udec_(biCompression))
+    debug(" - bitCount=", udec_(biBitCount))
+    debug(" - end @0x", uhex_(pLastByte))
+
+    debug(" - Img-start @0x", uhex_(iStart))
+    debug(" - Img-end @0x", uhex_(iEnd))
+
+    if biWidth <> 64 or biHeight <> 32
+        debug(" !! invalid BMP size! [NOT 64x32]")
+        pLastByte := 0
+
+    if byte[@bfType][0] <> $42 || byte[@bfType][1] <> $4d ' B, M
+        debug(" !! invalid BMP file type! [NOT 'BM']")
+        pLastByte := 0
+
+    if biCompression <> 0
+        debug(" !! invalid BMP compression! [is compressed]")
+        pLastByte := 0
+
+    if pLastByte == 0
+        debug("- ERROR invalid BMP!")
+    else
+        debug("-good BMP size! [64x32]")
+
+    'dbgMemDump(@fileHeaderMsg, pBffr, bfOffBits)
+    'dbgMemDump(@fileStartMsg, iStart, 32)
+    'dbgMemDump(@fileEndMsg, iEnd-32-1, 32)
+     return pLastByte
+
+PUB getPixelAddressForRowColumn(nRow, nColumn) : pixColorAddr | nRowIndex, nColumnIndex, nOffset, fileBitsBase
+
+	if(nRow > MAX_ROWS - 1) 
+		debug("- ERROR bad nRow value [", udec_(nRow), " > ", udec_(MAX_ROWS - 1), "]")
+	
+	if(nColumn > MAX_COLUMNS - 1) 
+		debug("- ERROR bad nColumn value [", udec_(nColumn), " > ", udec_(MAX_COLUMNS - 1), "]")
+	
+	' Row is inverted in file...
+	nRowIndex := (MAX_ROWS - 1) - nRow
+	' Column is normal in file...
+	nColumnIndex := nColumn
+	' now offset is simple 
+	nOffset := (nRowIndex * MAX_COLUMNS * 3) + (nColumnIndex * 3)
+	'debug("- FileOffset=", udec_(nOffset), ", RC=(", udec_(nRow), ",", udec_(nColumn), ")")
+
+    fileBitsBase := byte[@BitmapFile + bfOffBits]
+    pixColorAddr := @byte[fileBitsBase + nOffset]
+
+	return
+
+PUB get24BitColorForRC(nRow, nColumn) : blue, green, red | pixColorAddr
+    pixColorAddr := getPixelAddressForRowColumn(nRow, nColumn)
+    blue := byte[pixColorAddr+0]
+    green := byte[pixColorAddr+1]
+    red := byte[pixColorAddr+2]
+
+PUB showPixelAtRC(nRow, nColumn) | blue, green, red
+	blue, green, red := get24BitColorForRC(nRow,nColumn)
+	debug("- RC=", udec_(nRow), ",", udec_(nColumn), "  is RGB=(", uhex_(red), ",", uhex_(green), ",", uhex_(blue), ")")
+
+PRI dumpTwinRows()
+    debug("`temp ' Red TL,R ", uhex_long_(singleBuffer+0), ", ", uhex_long_(singleBuffer+1), " ' 13")
+    debug("`temp ' Red BL,R ", uhex_long_(singleBuffer+62), ", ", uhex_long_(singleBuffer+63), " ' 13")
+    debug("`temp ' Grn TL,R ", uhex_long_(singleBuffer+64), ", ", uhex_long_(singleBuffer+65), " ' 13")
+    debug("`temp ' Grn BL,R ", uhex_long_(singleBuffer+126), ", ", uhex_long_(singleBuffer+127), " ' 13")
+    debug("`temp ' Blu TL,R ", uhex_long_(singleBuffer+128), ", ", uhex_long_(singleBuffer+129), " ' 13")
+    debug("`temp ' Blu BL,R ", uhex_long_(singleBuffer+190), ", ", uhex_long_(singleBuffer+191), " ' 13")
+
+
+PUB dbgMemDump(bfrId, buffer, len) | bytBffr, colIdx, rowIdx, maxCol, maxRow
+    debug("`temp 13 '", zstr_(bfrId), ": bffr=", uhex_long_(buffer), "(", udec_(len), ")' 13")
+    maxCol := len >= 16 ? 15 : len
+    maxRow := (len / 16)
+    if maxRow == 0
+        maxRow := 1
+
+    bytBffr := buffer
+    waitus(35)
+    'returns
+    repeat rowIdx from 1 to maxRow
+        'if rowIdx < 10
+        '  debug("`temp ' '")	' space
+        debug("`temp '  ", uhex_long_(bytBffr), ": '")
+        repeat colIdx from 0 to maxCol
+            debug("`temp '", uhex_byte_(byte[bytBffr+colIdx]), " '")
+            if colIdx == 7
+                debug("`temp ' '")	' space
+        bytBffr += 16
+        debug("`temp 13")		' newline
+        waitus(85)  ' 50 too short, 70 less issue, 75 better, 
+    waitms(1)
+
+DAT
+fileHeaderMsg byte    "File Header",0
+fileStartMsg byte    "FileImage start",0
+fileEndMsg byte    "FileImage end",0
+screenMessage   byte    "screenBuffer",0
+screenRed   byte    "screenRedBuffer",0
+screenBlue   byte    "screenGreenBuffer",0
+screenGreen   byte    "screenBlueBuffer",0
+
+            ALIGNL
+BitmapFile    'something to show before load is complete and also storage for bitmap
+            file "TstBG-Up.bmp" '640 x 480, 8bpp bitmap     (preload buffer before file read??) odd
+            byte 0[1000] 'a little padding just in case metadata and/or block size makes SD file bigger
+
+BMPHeader     'Mostly using info from here:  http://www.fortunecity.com/skyscraper/windows/364/bmpffrmt.html
+bfType        byte "B","M"
+bfSize        long 0
+bfReserved1   word 0
+bfReserved2   word 0
+bfOffBits     long 54
+biSize        long 40
+biWidth       long 0
+biHeight      long 10
+biPlanes      word 1
+biBitCount    word 24
+biCompression long 0
+biSizeImage   long 0
+
+biXPelsPerMeter         long 0
+biYPelsPerMeter         long 0
+
+biClrUsed               long 0
+biClrImportant          long 0
+
+DAT 'Gamma curve
+gamma   byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        byte 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5
+        byte 5, 6, 6, 6, 6, 7, 7, 7, 8, 8, 8, 9, 9, 9, 10, 10, 10, 11, 11, 11, 12, 12, 13, 13, 14
+        byte 14, 14, 15, 15, 16, 16, 17, 17, 18, 18, 19, 19, 20, 21, 21, 22, 22, 23, 23, 24, 25
+        byte 25, 26, 27, 27, 28, 29, 29, 30, 31, 31, 32, 33, 34, 34, 35, 36, 37, 37, 38, 39, 40
+        byte 41, 42, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 52, 53, 54, 55, 56, 57, 59, 60
+        byte 61, 62, 63, 64, 65, 66, 67, 68, 69, 71, 72, 73, 74, 75, 77, 78, 79, 80, 82, 83, 84
+        byte 85, 87, 88, 89, 91, 92, 93, 95, 96, 98, 99, 100, 102, 103, 105, 106, 108, 109, 111
+        byte 112, 114, 115, 117, 119, 120, 122, 123, 125, 127, 128, 130, 132, 133, 135, 137, 138
+        byte 140, 142, 144, 145, 147, 149, 151, 153, 155, 156, 158, 160, 162, 164, 166, 168, 170
+        byte 172, 174, 176, 178, 180, 182, 184, 186, 188, 190, 192, 194, 197, 199, 201, 203, 205
+        byte 207, 210, 212, 214, 216, 219, 221, 223, 226, 228, 230, 233, 235, 237, 240, 242, 245
+        byte 247, 250, 252, 255
+ 
