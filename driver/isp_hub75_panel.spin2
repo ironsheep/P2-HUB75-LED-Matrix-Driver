@@ -28,6 +28,21 @@ DAT { pre-initialized }
     usePwmFrameset1     byte    TRUE
     didShow             byte    FALSE
     didShowCount        byte    2       ' just the first two screens
+
+' TEMP while figuring out code
+pwm12Bit
+                word    $0fff, $07ff, $03ff, $01ff
+                word    $00ff, $007f, $003f, $001f
+                word    $000f, $0007, $0003, $0001
+                word    0
+
+pwm16Bit
+                word    $ffff, $7fff, $3fff, $1fff
+                word    $0fff, $07ff, $03ff, $01ff 
+                word    $00ff, $007f, $003f, $001f
+                word    $000f, $0007, $0003, $0001
+                word    $0000
+
 VAR
 
     long    cog
@@ -35,6 +50,8 @@ VAR
     long    pwmFrames1[screen.MAX_PWM_FRAMES * screen.MAX_PWM_FRAME_SIZE_IN_LONGS]
     long    pwmFrames2[screen.MAX_PWM_FRAMES * screen.MAX_PWM_FRAME_SIZE_IN_LONGS]
     long    showed
+
+
 
 CON { RAM/FLASH }
 
@@ -95,10 +112,10 @@ PUB loadScreen(p24bitScreen) | redByte, greenByte, blueByte, pPwmFrame, pPwmFram
                     ' for each row...
                     ' FOLLOWING use redByte tempoerarily ... as our columnIndex (multiply value)
                     'encod   redByte, #screen.MAX_PANEL_COLUMNS        ' pre-calculate our shift vs. multiply value
-                    mov     panelRow, #screen.MAX_PANEL_ROWS
+                    mov     panelRow, #screen.MAX_DISPLAY_ROWS
 nextRow
                     ' for each column
-                    mov     panelCol, #screen.MAX_PANEL_COLUMNS
+                    mov     panelCol, #screen.MAX_DISPLAY_COLUMNS
 nextColumn
                     ' locate 24-bit color for pixel
                     ' calculate address of 24-bit color
@@ -107,26 +124,32 @@ nextColumn
                     'pixColorAddr := @byte[pScreenInMemory][nOffset]    ' add in offset to 24-bit color
                     mov     p24bitColor, panelRow                            
                     sub     p24bitColor, #1                                  ' get rowIndex - 1 [32-1] -> [31-0]
-                    mul     p24bitColor, #screen.MAX_PANEL_COLUMNS         ' x maxColumns
+                    mul     p24bitColor, #screen.MAX_DISPLAY_COLUMNS         ' x maxColumns
                     add     p24bitColor, panelCol                            ' + columnIndex
                     sub     p24bitColor, #1                                   ' - 1 [64-1] -> [63-0]
                     mul     p24bitColor, #screen.DISPLAY_BYTES_PER_COLOR    ' * bytes / 24-bit color
                     add     p24bitColor, p24bitScreen                         ' + base address of screen
                     rdlong  colorValue, p24bitColor
                     ' red := byte[p24bitScreen][p24bitColor][0]   
-                    GETBYTE redByte, colorValue,#0
+                    GETBYTE tmpVarA, colorValue,#0
+                    call    #cvtTmpA2pwm
+                    mov     redByte, tmpVarA
                     ' green := byte[p24bitScreen][p24bitColor][1]
-                    GETBYTE greenByte, colorValue,#1
+                    GETBYTE tmpVarA, colorValue,#1
+                    call    #cvtTmpA2pwm
+                    mov     greenByte, tmpVarA
                     ' blue := byte[p24bitScreen][p24bitColor][2]
-                    GETBYTE blueByte, colorValue,#2
+                    GETBYTE tmpVarA, colorValue,#2
+                    call    #cvtTmpA2pwm
+                    mov     blueByte, tmpVarA
 
                     ' FYI GAMMA correction, brightness are adjusted as the byte is place into our source screen buffer!!
 
                     ' write color information to our PWM buffers
                     ' expand 24-bit pixel into 8 pwm frames of 3-bit pixel
                     ' for ea. bit do...
-                    mov     bitCount, #8                                    ' 8 bits in byte
-                    mov     bitNumber, #0                                   ' start with bit0 of [0-7]
+                    mov     bitCount, #screen.MAX_PWM_FRAMES        ' MAX_PWM_WIDTH_IN_BITS bits to scan in LONG
+                    mov     bitNumber, #0                           ' start with bit0 of [0-MAX_PWM_WIDTH_IN_BITS - 1]
 nextBit
                     ' calculate offset to frame for this bit #
                     '   frameIdx := 0 #> nBitNumber <# screen.MAX_PWM_FRAMES - 1    ' MAX 8 pwm frames so limit our index
@@ -165,7 +188,7 @@ nextBit
         if_z        shl     colorMask, #3               '   and move mask as well
                     '   byteIdx := (nBffrR * screen.MAX_PANEL_COLUMNS) + nBffrC
                     mov     tmpVarB, tmpVarA
-                    mul     tmpVarB, #screen.MAX_PANEL_COLUMNS
+                    mul     tmpVarB, #screen.MAX_DISPLAY_COLUMNS
                     add     tmpVarB, panelCol
                     sub     tmpVarB, #1
                     add     tmpVarB, pPwmFrame
@@ -185,6 +208,23 @@ nextBit
                     djnz    panelCol, #nextColumn
                     ' count this row, go do next row if not yet done
                     djnz    panelRow, #nextRow
+                    jmp     #done
+
+' tmpVarA := cvtTmpA2pwm(tmpVarA)   ' NOTE wipes tmpVarB
+cvtTmpA2pwm
+                    sub     tmpVarB, tmpVarB
+                    cmp     tmpVarA, #0         wz      ' special case: if zero return all 0 bits
+        if_z        jmp     #noShift
+                    cmp     tmpVarA, #255       wz      ' special case: if $ff return all 1 bits
+        if_z        not     tmpVarB, tmpVarB
+        if_z        jmp     #noShift
+                    testbn  tmpVarB, #1         wc      ' set our CY
+                    rcl     tmpVarB, tmpVarA            ' successively move CY into lower bits
+                    mov     tmpVarA, tmpVarB            ' return our new value
+noShift
+                    ret
+
+done
     end
 {
     if not didShow
@@ -197,7 +237,7 @@ nextBit
 
 PRI dumpFrameSet(pPwmFrameSet) | pFrameBuffer, frameIndex
         repeat frameIndex from 0 to 7
-            pFrameBuffer := @long [pPwmFrameSet][frameIndex * 256]
+            pFrameBuffer := @long [pPwmFrameSet][frameIndex * screen.MAX_PWM_FRAME_SIZE_IN_LONGS]
             dumpFrame(pFrameBuffer)
     
 PRI dumpFrame(pFrameBuffer)
@@ -206,6 +246,9 @@ PRI dumpFrame(pFrameBuffer)
 
 PUB loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, haveError, showDebug, bInvalidFileStatus, pPwmFrameSet
     '' Load a 24-bit .bmp file image into PWM frame buffers
+    ' HEADS UP!!! 
+    '     this is currently limited to "single panel size" untill we rerite this code
+
     ' save address of 24bit file image for use by called routines
     pBitmapFileInMemory := pBitmapFile
 
@@ -219,8 +262,8 @@ PUB loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, haveError,
     pPwmFrameSet := clearPwmFrameBuffer()  ' clear PWM frames  and get pointer to buffer
 
    ' fill buffer
-    repeat nPanelRow from 0 to 31
-        repeat nPanelCol from 0 to 63
+    repeat nPanelRow from 0 to screen.MAX_PANEL_ROWS - 1
+        repeat nPanelCol from 0 to screen.MAX_PANEL_COLUMNS - 1
             'debug("loadBitmap() - RC=(", udec_(nPanelRow), ", ", udec_(nPanelCol), ")")
             haveError := FALSE
             if(nPanelRow > screen.MAX_PANEL_ROWS - 1) 
@@ -330,8 +373,8 @@ VAR { buffer addresses }
 PRI setPanelColorBitsForRC(pPwmFrame, nPanelRow, nPanelCol, rBit, gBit, bBit) | nBffrR, nBffrC, isRGB2, byteIdx, maskBitsBGR, bitsBGR, currByte, showDebug
     '  write color bits to a PWM frame at frame[r][c] 
     ' FIXME: UNDONE PANEL GEOM ASSUMPTION
-    nBffrR := (0 #> nPanelRow <# screen.MAX_PANEL_ROWS - 1)
-    nBffrC := 0 #> nPanelCol <# screen.MAX_PANEL_COLUMNS - 1
+    nBffrR := 0 #> nPanelRow <# screen.MAX_DISPLAY_ROWS - 1
+    nBffrC := 0 #> nPanelCol <# screen.MAX_DISPLAY_COLUMNS - 1
     isRGB2 := (nBffrR > 15) ? TRUE : FALSE
     nBffrR //= 16
 
@@ -349,18 +392,6 @@ PRI setPanelColorBitsForRC(pPwmFrame, nPanelRow, nPanelCol, rBit, gBit, bBit) | 
         debug("ERROR! byte index calc failure have=(" , udec_(byteIdx), ") of [0-1023]")
     else 
         byte[pPwmFrame][byteIdx] := currByte | bitsBGR
-    'if bitsBGR <> 0
-    '    debug("bffr frame=(", uhex_long_(pPwmFrame), "), rc=(", udec_(nBffrR), ",", udec_(nBffrC), "), bytIdx=[", udec_(byteIdx), "], colorBits=(", ubin_(bitsBGR), ") [", ubin_(currByte), "] -> [", ubin_(currByte | bitsBGR), "]")
-
-    'showDebug := FALSE
-    ' if isDebugLocn(nBffrR, nBffrC) 
-    '    showDebug := TRUE ' FALSE  ' turn off debug
-
-    'if showDebug
-        ' XYZZYpnl debug("- Panel RC=(", udec_(nPanelCol), ", ", udec_(nPanelRow), "), bffr RC=(", udec_(nBffrR), ", ", udec_(nBffrC), "), long[", udec_(longIdx), "][", udec_(bitIdx), "]")
-
-        'if showDebug
-            ' XYZZYpnl debug("Bbit(", udec_(rBit), ") longIdx(", udec_(longIdx), ")  bitIdx(", udec_(bitIdx), ") B-word: ", uhex_long_(longBefore), " -> ",uhex_long_(long[bPtr]))
 
 
 PRI validateBmpFile(pBffr) : bValidStatus | p, i, iStart, iEnd, pLastByte
@@ -454,31 +485,6 @@ PRI getPixelAddressForBMPRowColumn(nRow, nColumn) : pixColorAddr | rowIndex, col
 
     if showDebug
 	    ' XYZZYpnl debug("- FileOffset=", udec_(nOffset), ", RC=(", udec_(nRow), ",", udec_(nColumn), ", ofst=", uhex_long_(pixColorAddr), ", base=", uhex_long_(fileBitsBase), ")")
-
-
-PRI getPixelAddressForRowCol_OLD(nRow, nColumn) : pixColorAddr | rowIndex, columnIndex, nOffset, screenBitsBase, showDebug
-	' Row is NOT inverted in screen image...
-    rowIndex := 0 #> nRow <# screen.MAX_PANEL_ROWS - 1
-    ' Column is normal in file...
-    columnIndex := 0 #> nColumn <# screen.MAX_PANEL_COLUMNS - 1
-
-	' now offset is simple (just multiply by 3! [bytes of color])
-    nOffset := ((rowIndex * screen.MAX_PANEL_COLUMNS) + columnIndex) * screen.DISPLAY_BYTES_PER_COLOR
-
-    pixColorAddr := @byte[pScreenInMemory][nOffset]    ' add in offset to 24-bit color
-
-
-PRI get24BitColorForRC_OLD(nRow, nColumn) : red, green, blue | pixColorAddr
-	if(nRow > screen.MAX_PANEL_ROWS - 1) 
-		debug("- ERROR bad nRow value [", udec_(nRow), " > ", udec_(screen.MAX_PANEL_ROWS - 1), "]")
-	
-	if(nColumn > screen.MAX_PANEL_COLUMNS - 1) 
-		debug("- ERROR bad nColumn value [", udec_(nColumn), " > ", udec_(screen.MAX_PANEL_COLUMNS - 1), "]")
-
-    pixColorAddr := getPixelAddressForRowCol_OLD(nRow, nColumn)
-    red := byte[pixColorAddr][0]
-    green := byte[pixColorAddr][1]
-    blue := byte[pixColorAddr][2]
 
 
 PRI get24BitBMPColorForRC(nRow, nColumn) : red, green, blue | pixColorAddr

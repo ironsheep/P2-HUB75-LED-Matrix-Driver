@@ -38,15 +38,38 @@ OBJ
     screen      : "isp_hub75_screenAccess"
     clock       : "isp_hub75_binClock"
 
-PUB start() : ok
+PUB start() : ok | bitCount, newMask
 
     '' run demo - counting clock in dec or hex
+
+'{
+' TESTING TESTING TESTING
+    repeat bitCount from 0 to 7
+        newMask := getBitMask(bitCount)
+        debug("- TEST ", ubin_long(newMask), " = getBitMask(", udec(bitCount), ")")
+
+    return
+' TESTING TESTING TESTING
+'}
 
     digitPeriod := 3    ' 12 
     segmentPeriod := 0  ' was 5
 
     binaryClockDemo()
     'allDigitsDemo()
+
+'{
+PRI getBitMask(bitCount) :newMask
+    debug("- getBitMask(", udec(bitCount), ")")
+    org
+                'sub     newMask, newMask
+                cmp     bitCount, #0    wz
+        if_z    jmp     #exitMaskGen      
+                sub     bitCount, #1  
+                bmask   newMask, bitCount          ' successively move CY into lower bits
+    exitMaskGen
+    end
+'}
 
 PUB binaryClockDemo() | red, green, blue
     ''  BINARY DEMO -> heading to liquid binary

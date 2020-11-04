@@ -37,6 +37,10 @@ CON { test colorset }
     cRedWhtBlu = $deadf0
     cRainbow = $deadf1
 
+OBJ
+
+    screen      : "isp_hub75_screenAccess"
+
 PUB null()      '' This is not a top level object
 
 
@@ -53,7 +57,7 @@ PUB correctedColor(color) : adjustedColor
     'adjustedColor := color
     'return
     adjustedColor := ((color * defaultBrightness) >> 8) & $ff
-    adjustedColor := byte[@gamma][adjustedColor]
+    'adjustedColor := byte[@gamma][adjustedColor]
     adjustedColor := dutyCycleForIntensity(adjustedColor)
 
 PUB rgbColorFromDegrees(degrees) : rcbColor | offset60, fract60, red, green, blue
@@ -117,58 +121,13 @@ PUB cValueForRGB(red, green, blue) : combinedValue
 
 PRI dutyCycleForIntensity(hex8bit) : pwmBits
     ' CALCULATE: proper duty cycle for intensity of 0-255
-    {         --- VERSION 1 - Bits spread throughout ---
-    if hex8bit >= 256 - 14 + 1
-        pwmBits := $ff
-    elseif hex8bit <= 0 + 14 - 1
-        pwmBits := $00
-    else
-        pwmBits := (hex8bit / 7) + 1
-    '}
-    '{         --- VERSION 1 - Bits spread throughout ---
+    '{         --- VERSION 2 - Bits spread throughout ---
     if hex8bit == 255
         pwmBits := $ff
     elseif hex8bit == 0
         pwmBits := $00
     else
-        pwmBits := (hex8bit / 7) + 1
-    '}
-    {         --- VERSION 1 - Bits spread throughout ---
-    if hex8bit >= 145
-        ' upper half
-        if hex8bit >= 218
-            ' upper half
-            pwmBits := (hex8bit == 255) ? $ff : $7f
-        else
-            ' lower half
-            pwmBits := (hex8bit >= 181) ? $77: $37
-    else
-        ' lower half
-        if hex8bit > 73
-            ' upper half
-            pwmBits := (hex8bit >= 109) ? $33 : $31
-        else
-            ' lower half
-            pwmBits := (hex8bit == 0) ? $00 : (hex8bit >= 36) ? $11 : $01
-    '}
-    {          --- VERSION 2 - Bits grounded to right ---
-    if hex8bit >= 145
-        ' upper half
-        if hex8bit >= 218
-            ' upper half
-            pwmBits := (hex8bit == 255) ? $ff : $7f
-        else
-            ' lower half
-            pwmBits := (hex8bit >= 181) ? $3f: $1f
-    else
-        ' lower half
-        if hex8bit > 73
-            ' upper half
-            pwmBits := (hex8bit > 109) ? $0F : $07
-        else
-            ' lower half
-            pwmBits := (hex8bit == 0) ? $00 : (hex8bit >= 36) ? $03 : $01
-    '}
+        pwmBits := (hex8bit / screen.MAX_PWM_FRAMES - 1) + 1
 
 
 DAT { tables, default values }

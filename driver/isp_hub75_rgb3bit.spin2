@@ -119,6 +119,9 @@ CON { Data }
     WHITE   = $07
 
     #0, CMD_DONE, CMD_CLEAR, CMD_SHOW_BUFFER, CMD_FILL_COLOR, CMD_SHOW_PWM_BUFFER
+OBJ
+
+    screen      : "isp_hub75_screenAccess"
 
 VAR
     long  addr_pins       ' ptra[0]
@@ -420,12 +423,12 @@ chkFill
 '
 loadPwmBuffers
                     mov     pwmBffrStart, nxtArgument   ' preserve our new start address
-                    mov     pwmFrameCt, #8              ' set loop to PWM 8 frames then stop to see what to do next
+                    mov     pwmFrameCt, #screen.MAX_PWM_FRAMES              ' set loop to PWM 8 frames then stop to see what to do next
 showPwmFrame
                     call    #loadBuffer                 ' load the current frame into display buffer
                     jmp     #wrCurrent                  ' display it
 nextPwmFrame
-                    add     nxtArgument,##1024          ' point to next frame
+                    add     nxtArgument,##screen.MAX_PWM_FRAME_SIZE_IN_BYTES          ' point to next frame
                     djnz    pwmFrameCt, #showPwmFrame   ' have onother of the 8 to show?
                     mov     nxtArgument, pwmBffrStart   ' no point back to first of 8 buffers
                     ret                                 ' loop again to see if we should do another PWM set
@@ -436,7 +439,7 @@ loadBuffer
                     ' copy HUB buffer pointed to by nxtArgument to display buffer
                     mov     ptrb, nxtArgument           ' get addr of HUB RAM 256-longs buffer
                     mov     fillOffset, #0              ' set initial offset to '0' beginning of COG RAM area (screenBffr)
-                    mov     fillCount, #256             'l ength in longs  1k bytes of 6bit values
+                    mov     fillCount, ##screen.MAX_PWM_FRAME_SIZE_IN_LONGS             ' length in longs  e.g., 64x32 is 1k bytes of 6bit values
 ldLoop1
                     altd    fillOffset, #screenBffr     ' calculate addr of next register in COG
                     rdlong	0-0,ptrb++                  ' read long from HUB RAM
@@ -467,7 +470,7 @@ fillBuffer      ' fill panel buffer based on desired color
 '
 setBuffer       ' fill red, green or blue buffer with desired long value
                     mov     fillOffset, #0
-                    mov     fillCount, #256
+                    mov     fillCount, ##screen.MAX_PWM_FRAME_SIZE_IN_LONGS
 nextSet
                     altd    fillOffset, #screenBffr
                     mov     0-0, fillLong               '  fill long with value
@@ -617,7 +620,8 @@ A16addrValue15  long    $0078_0000              ' 15 but in upper 5-bits of byte
 'screen buffer 1024B of %00bgrbgr where byte is 00{rgb2}{rgb1}
                 ALIGNL
 screenBffr
-                long    0[256]
+                ' test compiling 2kB LUT use for 256x64 display
+                long    0[screen.MAX_PWM_FRAME_SIZE_IN_LONGS]
 endScreenBffr
 
 ' uninitialized data

@@ -82,7 +82,18 @@ PUB demoText()
 
     display.setColoredTextAtRC(0,0, string("iron sheep"), color.cMaroon)
     display.setColoredTextAtRC(1,0, string("-RGB 3bit-"), color.cOrange)
-    display.setColoredTextAtRC(2,0, string("(8bit pwm)"), color.cRainbow)
+    if screen.MAX_PWM_FRAMES == 8
+        display.setColoredTextAtRC(2,0, string("(8bit pwm)"), color.cRainbow)
+    elseif screen.MAX_PWM_FRAMES == 12
+        display.setColoredTextAtRC(2,0, string("12bit pwm!"), color.cRainbow)
+    elseif screen.MAX_PWM_FRAMES == 16
+        display.setColoredTextAtRC(2,0, string("16bit pwm!"), color.cRainbow)
+    elseif screen.MAX_PWM_FRAMES == 20
+        display.setColoredTextAtRC(2,0, string("20bit pwm!"), color.cRainbow)
+    elseif screen.MAX_PWM_FRAMES == 23
+        display.setColoredTextAtRC(2,0, string("23bit pwm!"), color.cRainbow)
+    elseif screen.MAX_PWM_FRAMES == 24
+        display.setColoredTextAtRC(2,0, string("24bit pwm!"), color.cRainbow)
     display.setColoredTextAtRC(3,0, string("led matrix"), color.cWhite)
     display.commitScreenToPanel()
 

@@ -11,20 +11,35 @@
 ''
 '' =================================================================================================
 
-CON
+CON { reinterpret the users settings for driver internal use }
+
+    ' which chip driver should be used
     PANEL_DRIVER_CHIP = user.PANEL_DRIVER_CHIP
 
+    ' how big is each panel
     MAX_PANEL_ROWS = user.MAX_PANEL_ROWS
     MAX_PANEL_COLUMNS = user.MAX_PANEL_COLUMNS
 
+    ' how big is our overall display
     MAX_DISPLAY_COLUMNS = user.MAX_DISPLAY_COLUMNS
     MAX_DISPLAY_ROWS = user.MAX_DISPLAY_ROWS
 
+    ' how many panels are connected
     MAX_PANELS = user.MAX_PANELS
 
+    ' we have to generate clocks and latching based on physical size of hardware
+    '  the larger of the values DISPLAY* or PANEL* is our proxy for PHYSICAL size
+    '  this allows us to have a display smaller than 1 panel should we wish!
+    MAX_PHYSICAL_COLUMNS = (MAX_DISPLAY_COLUMNS > MAX_PANEL_COLUMNS) ? MAX_DISPLAY_COLUMNS : MAX_PANEL_COLUMNS
+    MAX_PHYSICAL_ROWS = (MAX_DISPLAY_ROWS > MAX_PANEL_ROWS) ? MAX_DISPLAY_ROWS : MAX_PANEL_ROWS
 
-    MAX_PWM_FRAME_SIZE_IN_BYTES = ((user.MAX_PANEL_COLUMNS * user.MAX_PANEL_ROWS) / 2)
+    ' what is our PWM frame size
+    MAX_PWM_FRAME_SIZE_IN_BYTES = ((MAX_PHYSICAL_COLUMNS * MAX_PHYSICAL_ROWS) / 2)
     MAX_PWM_FRAME_SIZE_IN_LONGS = MAX_PWM_FRAME_SIZE_IN_BYTES / 4
+
+    ' how many PWM frames does our user want to use?
+    MAX_PWM_FRAMES = user.MAX_PWM_WIDTH_IN_BITS ' user desired color depth
+
 '
     DISPLAY_BITS_PER_COLOR = 24
     PANEL_BITS_PER_COLOR = 3
@@ -32,10 +47,12 @@ CON
     ' (8 bits per byte)
     DISPLAY_BYTES_PER_COLOR = DISPLAY_BITS_PER_COLOR / 8 
 
-    MAX_PWM_FRAMES = DISPLAY_BITS_PER_COLOR / PANEL_BITS_PER_COLOR ' color depth divided by color-depth of panel
-    DISPLAY_SIZE_IN_BYTES = (user.MAX_DISPLAY_COLUMNS * user.MAX_DISPLAY_ROWS * DISPLAY_BYTES_PER_COLOR)
+    ' (rounded up to fill a full long - leaves 0-3 bytes unused at end)
+    DISPLAY_SIZE_IN_BYTES = (((MAX_DISPLAY_COLUMNS * MAX_DISPLAY_ROWS * DISPLAY_BYTES_PER_COLOR) + 3) / 4) * 4
+    DISPLAY_SIZE_IN_LONGS = (DISPLAY_SIZE_IN_BYTES / 4)
 
-OBJ 
+OBJ { include the users' settings }
+
     user    : "isp_hub75_hwGeometry"
 
 PUB null()      '' This is not a top level object

@@ -22,7 +22,17 @@ CON { Hardware Description }
 
 #0, CHIPS_UNKNOWN, CHIP_FM6126A
 
+' Describe your desired effective color resolution (8-24 bit) more bits, more ram need!
+'
+' number of pwm bits is number of PWM frames the driver needs to allocate
+' each PWM frame is (DISPLAY PIXEL COUNT / 2) bytes in size
+'
+' NOTE: we use 2 full PWM frame-sets so we can double buffer the screen generation
+'
+    MAX_PWM_WIDTH_IN_BITS = 23   ' use 8, 12, 16, 20, 23 or 24   NOTE: each bump uses more memory!
+
 ' describe the overall layout of your hardware panels:
+'
 '
 ' =================================================================================================
 ' AUTHORs  1st configuration
@@ -36,7 +46,7 @@ CON { Hardware Description }
 '     top half (lines 0-15) driven by R1,G1,B1 pins
 '     bottom half (lines 16-31) driven by R2,G2,B2 pins
 ' ----------------------------------------------------------
-'
+
 '  determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = CHIP_FM6126A 
 
@@ -46,11 +56,13 @@ CON { Hardware Description }
 
     ' panels organization: visual layout
     '   [1]
-    '
+
+    ' logical/visual display layout
     MAX_DISPLAY_COLUMNS = 64
     MAX_DISPLAY_ROWS = 32
 
     MAX_PANELS = 1
+'}
 
 
 ' =================================================================================================
@@ -76,13 +88,14 @@ CON { Hardware Description }
     ' panels organization: visual layout
     '   [1][2]      2 rows of 2 panels each
     '   [3][4]
-    '
+
+    ' logical/visual display layout
     MAX_DISPLAY_COLUMNS = 128
     MAX_DISPLAY_ROWS = 64
 
     MAX_PANELS = 4
 
-}
+'}
 '
 ' =================================================================================================
 ' AUTHORs  3rd configuration

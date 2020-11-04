@@ -18,7 +18,7 @@ CON
 
 DAT { one or more screens of 64x32-24bit color }
 
-screen0     long    0[screen.DISPLAY_SIZE_IN_BYTES / 4]  ' 6kB buffer (4 bytes / long)
+screen0     long    0[screen.DISPLAY_SIZE_IN_LONGS]  ' 6kB buffer (4 bytes / long)
 
 OBJ
 
@@ -70,7 +70,7 @@ PUB stop()
 
 PUB clearScreen()
     '' Clear the panel to BLACK
-    longfill(@screen0, 0, screen.DISPLAY_SIZE_IN_BYTES / 4)
+    longfill(@screen0, 0, screen.DISPLAY_SIZE_IN_LONGS)
     commitScreenToPanel()
 
 PUB fillScreen(rgbColor) | row, column
