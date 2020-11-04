@@ -147,9 +147,33 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     display.commitScreenToPanel()
     repeat
 '---------------------------------------}
+{ ---------------------------------------
+    ' COLOR PANEL using hue  - all in one line 
+    col := 2
+    repeat row from 0 to 31
+        repeat colorOffset from 0 to 350 step 6
+            display.drawPixelAtRC(row, col, color.rgbColorFromDegrees(colorOffset))
+            col++
+            if col > 62         ' 62 is fun!  60 is desired
+                col := 2
+    display.commitScreenToPanel()
+    repeat
+'---------------------------------------}
+{ ---------------------------------------
+    ' COLOR PANEL using hue  6 groups
+    row := 0
+    repeat panelNumber from 0 to 350 step 60
+        repeat colorOffset from 0 to 4
+            repeat col from 0 to 59
+                    green := panelNumber + col
+                    display.drawPixelAtRC(row, col, color.rgbColorFromDegrees(green))
+            row++
+    display.commitScreenToPanel()
+    repeat
+'---------------------------------------}
 
-'{ ---------------------------------------
-    ' 10x10x10 COLOR PANELs
+{ ---------------------------------------
+    ' 10x10x10 COLOR PANELs + BW panel
     panelNumber := 0
     repeat red from 0 to 255 step 25
         generateGreenBluePanelAgainst(panelNumber, red)

@@ -52,6 +52,7 @@ PUB correctedColor(color) : adjustedColor
     'return
     adjustedColor := ((color * defaultBrightness) >> 8) & $ff
     adjustedColor := byte[@gamma][adjustedColor]
+    adjustedColor := dutyCycleForIntensity(adjustedColor)
 
 PUB rgbColorFromDegrees(degrees) : rcbColor | offset60, fract60, red, green, blue
     '' CONVERT: 0-355 degrees to color
@@ -112,6 +113,46 @@ PUB cValueForRGB(red, green, blue) : combinedValue
     '' CONVERT: r,g,b to combined value
     combinedValue := ((red & $ff) << 16) | ((green & $ff) << 8) | (blue & $ff)
 
+PRI dutyCycleForIntensity(hex8bit) : pwmBits
+    ' CALCULATE: proper duty cycle for intensity of 0-255
+    '{         --- VERSION 1 - Bits spread throughout ---
+    if hex8bit >= 145
+        ' upper half
+        if hex8bit >= 218
+            ' upper half
+            pwmBits := (hex8bit == 255) ? $ff : $7f
+        else
+            ' lower half
+            pwmBits := (hex8bit >= 181) ? $77: $37
+    else
+        ' lower half
+        if hex8bit > 73
+            ' upper half
+            pwmBits := (hex8bit >= 109) ? $33 : $31
+        else
+            ' lower half
+            pwmBits := (hex8bit == 0) ? $00 : (hex8bit >= 36) ? $11 : $01
+    '}
+    {          --- VERSION 2 - Bits grounded to right ---
+    if hex8bit >= 145
+        ' upper half
+        if hex8bit >= 218
+            ' upper half
+            pwmBits := (hex8bit == 255) ? $ff : $7f
+        else
+            ' lower half
+            pwmBits := (hex8bit >= 181) ? $3f: $1f
+    else
+        ' lower half
+        if hex8bit > 73
+            ' upper half
+            pwmBits := (hex8bit > 109) ? $0F : $07
+        else
+            ' lower half
+            pwmBits := (hex8bit == 0) ? $00 : (hex8bit >= 36) ? $03 : $01
+    '}
+
+
 DAT { tables, default values }
 
 defaultBrightness   word    205  '256      ' 205 = 80%  [0-255,256]   where 256 is NO brightness adjustment
@@ -119,8 +160,8 @@ defaultBrightness   word    205  '256      ' 205 = 80%  [0-255,256]   where 256 
 ' Gamma curve (lookup table)
 
 ' REF https://gist.github.com/hexagon5un/3df734ad08d8dc8d9ace0491ef97cc58
-{
-gammaOld   byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+'{
+gamma   byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         byte 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2
         byte 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5
         byte 5, 6, 6, 6, 7, 7, 7, 7, 8, 8, 8, 9, 9, 10, 10, 10
@@ -139,7 +180,7 @@ gammaOld   byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 '}
 
 ' REF Rayman code: http://www.rayslogic.com/propeller/Programming/AdafruitRGB/AdafruitRGB.htm
-gamma   byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+gammaOld   byte 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
         byte 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5
         byte 5, 6, 6, 6, 6, 7, 7, 7, 8, 8, 8, 9, 9, 9, 10, 10, 10, 11, 11, 11, 12, 12, 13, 13, 14
         byte 14, 14, 15, 15, 16, 16, 17, 17, 18, 18, 19, 19, 20, 21, 21, 22, 22, 23, 23, 24, 25

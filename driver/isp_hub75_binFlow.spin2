@@ -36,12 +36,10 @@ CON { constants affecting appearance }
     END_ROW = 31
     END_COLUMN = 63 
 
-    FLOW_1_COLOR = $FF0000
-    'FLOW_1_COLOR = $000010
-    FLOW_2_COLOR = $0000FF
-    FLOW_3_COLOR = $FFFF00
-    'FLOW_3_COLOR = $001010
-    FLOW_4_COLOR = $00FFFF
+    FLOW_1_COLOR = $00592E
+    FLOW_2_COLOR = $002EB9
+    FLOW_3_COLOR = $00D117
+    FLOW_4_COLOR = $00B9B9
 
 OBJ
 
