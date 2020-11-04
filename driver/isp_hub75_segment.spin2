@@ -17,11 +17,16 @@
 
 ' The mechanical segments slide on and back off of screen
 ' the background is generally black
-' 
+'
+'       A 
+'     F   B
+'       G 
+'     E   C
+'       D 
 
 CON { segment states, names, orientations and such }
 
-#0, SEG_UNKNOWN, SEG_LEFT, SEG_RIGHT, SEG_TOP, SEG_MIDDLE, SEG_BOTTOM
+#0, SEG_UNKNOWN, SEG_LEFT_E, SEG_LEFT_F, SEG_RIGHT_B, SEG_RIGHT_C, SEG_TOP, SEG_MIDDLE, SEG_BOTTOM
 #0, STATE_UNKNOWN, STATE_OFF, STATE_3RD_ON, STATE_6TH_ON, STATE_ON, STATE_3RD_OFF ,STATE_6TH_OFF
 
 SEG_WIDTH = 3
@@ -73,7 +78,7 @@ PUB placeSegment(row, column, orientation, initialState, rgbColor)
         SEG_TOP..SEG_BOTTOM:
             segHeight := 3
             segWidth := 10
-        SEG_LEFT..SEG_RIGHT:
+        SEG_LEFT_E..SEG_RIGHT_C:
             segHeight := 10
             segWidth := 3
         OTHER:
@@ -85,14 +90,16 @@ PUB placeSegment(row, column, orientation, initialState, rgbColor)
 
 PUB hideSegment()
     '' Start the segment moving to _OFF if not already off
-    if currentState <> STATE_OFF
-        moveSegmentToState(STATE_OFF)
+    if isMovementComplete()
+        if currentState <> STATE_OFF
+            moveSegmentToState(STATE_OFF)
 
 PUB showSegment()
     'debug("seg:show orient=(", udec_(segOrientation), ")")
     '' Start the segment moving to _ON if not already on
-    if currentState <> STATE_ON
-        moveSegmentToState(STATE_ON)
+    if isMovementComplete()
+        if currentState <> STATE_ON
+            moveSegmentToState(STATE_ON)
 
 PUB isMovementComplete() : status
     '' Return T/F where T means that all movement for this segment is complete
@@ -104,8 +111,8 @@ PUB animateStep()
         updateSegmentToState(nextState)
 
 PUB moveSegmentToState(newEndState) 
-    'debug("seg:moveTo (st", udec_(newEndState), ")")
     '' Start sequence of segment updates to desired state (on/off)
+    'debug("seg:id(segT", udec_(segOrientation), "), moveTo (st", udec_(desiredEndState), ") -> (st", udec_(newEndState), ")")
     ' if we are asking to be in a different state then...
     if desiredEndState <> newEndState
         ' if we are not yet at an end state (still moving) then abort
@@ -115,12 +122,14 @@ PUB moveSegmentToState(newEndState)
         if newEndState <> STATE_OFF && newEndState <> STATE_ON
             debug("SEG: BAD end-state must be ON or OFF!")
             abort        
-        desiredEndState := newEndState
         if newEndState == STATE_ON
             nextState := STATE_3RD_ON
         else
             nextState := STATE_3RD_OFF
         updateSegmentToState(nextState)
+        desiredEndState := newEndState
+    else
+        debug("  -- already in desiredEndState?")
 
 PRI updateSegmentToState(newState)
     'debug("seg:updSegToSt(segT", udec_(segOrientation), ", st", udec_(currentState), " -> st", udec_(newState), " , end-st", udec_(desiredEndState), ")")
@@ -128,9 +137,9 @@ PRI updateSegmentToState(newState)
     case segOrientation
         SEG_TOP:
             updateHorizontalSegment(newState)
-        SEG_LEFT:
+        SEG_LEFT_E..SEG_LEFT_F:
             updateVerticalSegment(newState)
-        SEG_RIGHT:
+        SEG_RIGHT_B..SEG_RIGHT_C:
             updateVerticalSegment(newState)
         SEG_BOTTOM:
             updateHorizontalSegment(newState)
@@ -142,7 +151,7 @@ PRI updateSegmentToState(newState)
 PRI updateVerticalSegment(newState) | pixInset, columnIndex
     'debug("seg:updVertSeg()")
     ' row,col points to upper-left of WIDTH columns by LENGTH rows
-    if segOrientation == SEG_LEFT
+    if segOrientation == SEG_LEFT_E || segOrientation == SEG_LEFT_F
         ' pointing right
         if newState <> STATE_ON
             ' clear the segment
@@ -301,6 +310,7 @@ PRI updateMiddleSegment(newState) | pixInset, rowIndex
         STATE_OFF:  ' nothing to do since we clear segment first
         OTHER:
             debug("STATE(mid) not yet implemented (", udec_(newstate), ")")
+
 
 PRI drawLine(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column
     'debug("seg:drwLn fmRC=(", udec_(fmRow), ",", udec_(fmColumn), "), toRC=(", udec_(toRow), ",", udec_(toColumn), "), RGB=(", uhex_long(rgbColor), ")")

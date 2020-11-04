@@ -24,8 +24,9 @@ OBJ
 
 DAT { pre-initialized }
 
-    usePwmFrameset1 byte    TRUE
-
+    usePwmFrameset1     byte    TRUE
+    didShow             byte    FALSE
+    didShowCount        byte    2       ' just the first two screens
 VAR
 
     long    cog
@@ -33,6 +34,7 @@ VAR
     long    brightness  ' variable to scale input to reduce brightness   (0..256)
     long    pwmFrames1[hardware.MAX_PWM_FRAMES * hardware.MAX_PWM_FRAME_SIZE_IN_LONGS]
     long    pwmFrames2[hardware.MAX_PWM_FRAMES * hardware.MAX_PWM_FRAME_SIZE_IN_LONGS]
+    long    showed
 
 CON { RAM/FLASH }
 
@@ -47,7 +49,7 @@ CON { RAM/FLASH }
 
 PUB start() : ok | color, pScreenBuffer, bInvalidFileStatus, pTemp, nFrameIndex, pFrameBuffer
     '' Start the backend pasm2 driver for the matrix
-    brightness := 100 ' 256 '128  'set maximum brightness by dividing input, range 0 to 256
+    brightness := 255 ' 256 '128  'set maximum brightness by dividing input, range 0 to 256
 
     debug("- PANEL: Start Matrix COG")
     ok := cog := matrix.start()   ' send buffer to driver
@@ -56,6 +58,7 @@ PUB start() : ok | color, pScreenBuffer, bInvalidFileStatus, pTemp, nFrameIndex,
         abort
 
     'dbgMemDump(testValueMsg, @testValue, 4)
+    showed := didShowCount
 
     clearPwmFrameBuffer()  ' clear PWM frames  and get pointer to buffer
 
@@ -83,11 +86,17 @@ PUB loadScreen(p24bitScreen) | redByte, greenByte, blueByte, pPwmFrame, pPwmFram
   ' clear 8x 3-bit frames
     pPwmFrameSet := clearPwmFrameBuffer()  ' clear PWM frames  and get pointer to buffer
 
+{
+    if not didShow
+        dbgMemDump(@screenMessage, p24bitScreen, 128)
+        showed--
+}
+
    ' fill 8x 3-bit frames from 24-bit-screen
     org
                     ' for each row...
                     ' FOLLOWING use redByte tempoerarily ... as our columnIndex (multiply value)
-                    encod   redByte, #hardware.MAX_PANEL_COLUMNS        ' pre-calculate our shift vs. multiply value
+                    'encod   redByte, #hardware.MAX_PANEL_COLUMNS        ' pre-calculate our shift vs. multiply value
                     mov     panelRow, #hardware.MAX_PANEL_ROWS
 nextRow
                     ' for each column
@@ -98,13 +107,14 @@ nextColumn
                     '
                     'nOffset := ((nRowIndex * hardware.MAX_PANEL_COLUMNS) + nColumnIndex) * hardware.DISPLAY_BYTES_PER_COLOR
                     'pixColorAddr := @byte[pScreenInMemory][nOffset]    ' add in offset to 24-bit color
-                    mov     p24bitColor, panelRow                            ' get rowIndex
-                    shl     p24bitColor, redByte                             ' x columnIndex
+                    mov     p24bitColor, panelRow                            
+                    sub     p24bitColor, #1                                  ' get rowIndex - 1 [32-1] -> [31-0]
+                    mul     p24bitColor, #hardware.MAX_PANEL_COLUMNS         ' x maxColumns
                     add     p24bitColor, panelCol                            ' + columnIndex
+                    sub     p24bitColor, #1                                   ' - 1 [64-1] -> [63-0]
                     mul     p24bitColor, #hardware.DISPLAY_BYTES_PER_COLOR    ' * bytes / 24-bit color
                     add     p24bitColor, p24bitScreen                         ' + base address of screen
                     rdlong  colorValue, p24bitColor
-
                     ' red := byte[p24bitScreen][p24bitColor][0]   
                     GETBYTE redByte, colorValue,#0
                     ' green := byte[p24bitScreen][p24bitColor][1]
@@ -115,23 +125,22 @@ nextColumn
                     ' write color information to our PWM buffers
                     ' expand 24-bit pixel into 8 pwm frames of 3-bit pixel
                     ' for ea. bit do...
-                    mov     bitCount, #8
-                    mov     bitNumber, #0
+                    mov     bitCount, #8                                    ' 8 bits in byte
+                    mov     bitNumber, #0                                   ' start with bit0 of [0-7]
 nextBit
                     ' calculate offset to frame for this bit #
                     '   frameIdx := 0 #> nBitNumber <# hardware.MAX_PWM_FRAMES - 1    ' MAX 8 pwm frames so limit our index
                     '   nFrameOffset := frameIdx * hardware.MAX_PWM_FRAME_SIZE_IN_LONGS ' 256 longs in each frame
                     '   pPwmFrame := @long[getActivePwmBuffer()][nFrameOffset]
-                    mov     tmpVarA, bitNumber
-                    mul     tmpVarA, #hardware.MAX_PWM_FRAME_SIZE_IN_LONGS
+                    mov     pPwmFrame, bitNumber
+                    mul     pPwmFrame, ##hardware.MAX_PWM_FRAME_SIZE_IN_BYTES 
                     ' calculate pointer to frame for thic bit #
-                    mov     pPwmFrame, pPwmFrameSet
-                    add     pPwmFrame, tmpVarA
+                    add     pPwmFrame, pPwmFrameSet
                     ' build RGB1 or RGB2 bits to be stored in panel word 
                     '   rBit := red & (1 << bitNumber) > 0 ? 1 : 0
                     '   gBit := green & (1 << bitNumber) > 0 ? 1 : 0
                     '   bBit := blue & (1 << bitNumber) > 0 ? 1 : 0
-                    mov     panelBGR, #0
+                    mov     panelBGR, #0                    ' clear color value
                     testb   redByte, bitNumber     wc
         if_c        or      panelBGR, #$01
                     testb   greenByte, bitNumber   wc
@@ -139,11 +148,12 @@ nextBit
                     testb   blueByte, bitNumber    wc
         if_c        or      panelBGR, #$04
                     '    tmpVarB := (nBffrR > 15) ? TRUE : FALSE
-                    cmp     panelRow, #16       wc      ' loading top or bottom half of screen?
+                    mov     tmpVarA, panelRow
+                    sub     tmpVarA, #1         ' now [0-31]
+                    cmp     tmpVarA, #16       wc      ' loading top or bottom half of screen?
         if_c        mov     tmpVarB, #0                  ' NO, is RGB1 (top)
         if_nc       mov     tmpVarB, #1                  ' YES, is RGB2 (bottom)
                     ' convert row number to row number of top-half of panel 
-                    mov     tmpVarA, panelRow
         if_nc       sub     tmpVarA, #16              ' 0-31 -> 0-15
                     ' is top-RGB1 or bottom-RGB2 color?
                     '    if tmpVarB
@@ -157,6 +167,7 @@ nextBit
                     mov     tmpVarB, tmpVarA
                     mul     tmpVarB, #hardware.MAX_PANEL_COLUMNS
                     add     tmpVarB, panelCol
+                    sub     tmpVarB, #1
                     add     tmpVarB, pPwmFrame
                     ' get byte value
                     '    currByte := byte[pPwmFrame][byteIdx] & !maskBitsBGR
@@ -167,6 +178,7 @@ nextBit
                     or      tmpVarA, panelBGR
                     wrbyte  tmpVarA, tmpVarB
                     ' this one done, if not all 8 bits done, go do next
+                    add     bitNumber, #1
                     djnz    bitCount, #nextBit
 
                     ' count this column, go do next column if not yet done
@@ -174,9 +186,22 @@ nextBit
                     ' count this row, go do next row if not yet done
                     djnz    panelRow, #nextRow
     end
-
+{
+    if not didShow
+        dumpFrameSet(pPwmFrameSet)
+        if showed == 0
+            didShow := TRUE
+}
     ' write 8x 3-bit frames to panel
     matrix.writePwmBuffer(pPwmFrameSet)
+
+PRI dumpFrameSet(pPwmFrameSet) | pFrameBuffer, frameIndex
+        repeat frameIndex from 0 to 7
+            pFrameBuffer := @long [pPwmFrameSet][frameIndex * 256]
+            dumpFrame(pFrameBuffer)
+    
+PRI dumpFrame(pFrameBuffer)
+    dbgMemDump(@frameMessage, pFrameBuffer, 32)
 
 
 PUB loadScreen_OLD(p24bitScreen) | nPanelCol, nPanelRow, blue, green, red, haveError, showDebug, pPwmFrameSet
@@ -494,7 +519,7 @@ PUB dbgMemDump(bfrId, buffer, len) | bytBffr, colIdx, rowIdx, maxCol, maxRow, di
         bytBffr += 16
         debug("`temp 13")		' newline
         waitus(85)  ' 50 too short, 70 less issue, 75 better, 
-    waitms(1)
+    waitms(2)
 
 DAT  { .bmp fiile work area }
 
@@ -502,6 +527,8 @@ DAT  { .bmp fiile work area }
 
 testValue           long    $87654321
 testValueMsg       byte    "Test value",0
+
+frameMessage       byte    "FrameBuffer",0
 
 fileHeaderMsg       byte    "File Header",0
 fileStartMsg        byte    "FileImage start",0

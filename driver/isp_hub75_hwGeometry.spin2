@@ -153,7 +153,8 @@ CON { Hardware Description }
 '
 ' now calculate values thare are common to all geometries of hardware
 '
-    MAX_PWM_FRAME_SIZE_IN_LONGS = ((MAX_PANEL_COLUMNS * MAX_PANEL_ROWS) / 2) / 4
+    MAX_PWM_FRAME_SIZE_IN_BYTES = ((MAX_PANEL_COLUMNS * MAX_PANEL_ROWS) / 2)
+    MAX_PWM_FRAME_SIZE_IN_LONGS = MAX_PWM_FRAME_SIZE_IN_BYTES / 4
 '
     DISPLAY_BITS_PER_COLOR = 24
     PANEL_BITS_PER_COLOR = 3

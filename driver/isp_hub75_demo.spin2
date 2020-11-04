@@ -24,16 +24,20 @@ CON { DEBUG PINs }
 VAR
 
     long    cog
+    long    segmentPeriod
+    long    digitPeriod
+    long    digitVal
+    long    digitIndex
 
 OBJ
 
     display      : "isp_hub75_display"
     digit[4]    : "isp_hub75_7seg"
 
-PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, builtPtr, color3bit, color24bit, pPixColor, colorOffset, digitIndex, byteOffset
+PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, builtPtr, color3bit, color24bit, pPixColor, colorOffset, byteOffset
     '' start underlying drivers and run demo
 
-    'debug("`term temp size 80 50 textsize 10")
+    'debug("`term temp size 82 50 textsize 10")
 
     ok := cog := display.start()   ' send buffer to driver
     if ok == -1
@@ -122,44 +126,51 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     display.commitScreenToPanel()
 }
 
+
+    'display.fillScreen(display.cMaroon)
+    'display.commitScreenToPanel()
+
+    'repeat  ' hold forever
+
+    segmentPeriod := 8     ' 4 x 100ths of a second
+    digitPeriod := 90    '7     ' 4 x 100ths of a second
+
         ' draw some text!
     display.setTextSize(display.TEXT_SIZE__5x7)    ' font size 
     display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
 
+
     display.setColoredTextAtRC(0,0, string("iron sheep"), display.cMaroon)
+    display.commitScreenToPanel()
 
     repeat digitIndex from 0 to 3
         digit[digitIndex].setScreen(display.getScreenSetup())
 
 
-    digit[0].placeDigit(8, 2, 7, display.cOrange)
-    digit[1].placeDigit(8, 18, 5, display.cOrange)
-    digit[2].placeDigit(8, 34, 2, display.cOrange)
-    digit[3].placeDigit(8, 50, 1, display.cOrange)
+    digit[0].placeDigit(8, 2, 5, display.cOrange)
+    digit[1].placeDigit(8, 18, 7, display.cOrange)
+    digit[2].placeDigit(8, 34, 1, display.cOrange)
+    digit[3].placeDigit(8, 50, 4, display.cOrange)
+
     display.commitScreenToPanel()
+    wait100thSecs(segmentPeriod)
 
-    repeat 
-        if not allDigitAnimationsComplete() 
-            repeat digitIndex from 0 to 3
-                if not digit[digitIndex].isAnimationComplete()
-                    digit[digitIndex].animateStep() 
-            display.commitScreenToPanel()
-        if allDigitAnimationsComplete() 
-            quit
+    loopUntilSegmentsFinish()
 
+    ' PAUSE to see digit before next morph
+    wait100thSecs(digitPeriod)
 
-    repeat 3    ' 3 secs
-        waitms(1000)  
+    'repeat ' hold here
 
-    digit[0].setValue(8) 
-    display.commitScreenToPanel()
-    repeat 
-        if not digit[0].isAnimationComplete()
-            digit[0].animateStep() 
-            display.commitScreenToPanel()
-        if digit[0].isAnimationComplete()
-            quit
+    repeat digitVal from 1 to 9
+        repeat digitIndex from 0 to 3
+            digit[digitIndex].incrementValue(digit.WITH_WRAP)
+        display.commitScreenToPanel()
+        wait100thSecs(segmentPeriod)
 
+        loopUntilSegmentsFinish()
+
+        wait100thSecs(digitPeriod)   
 
 {
     display.setTextSize(display.TEXT_SIZE__8x8)    ' font size 
@@ -212,6 +223,31 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     debug("DEMO: done")
     repeat
 
+PRI allDigitAnimationsComplete() : status
+    status := TRUE
+    repeat digitIndex from 0 to 3
+        if not digit[digitIndex].isAnimationComplete()
+            status := FALSE
+            quit
+
+
+
+PRI loopUntilSegmentsFinish()
+    repeat 
+        if not allDigitAnimationsComplete() 
+            repeat digitIndex from 0 to 3
+                if not digit[digitIndex].isAnimationComplete()
+                    digit[digitIndex].animateStep() 
+            display.commitScreenToPanel()
+            wait100thSecs(segmentPeriod)
+
+        if allDigitAnimationsComplete() 
+            quit
+
+PUB wait100thSecs(count)
+    repeat count
+        waitms(10)  ' 1/100 seconds
+
 pub drawTestPattern(row,column)
     ' place six colored bits
     if column > 56
@@ -227,13 +263,6 @@ PUB stop()                  '' stop the driver
   if cog
     display.stop()
     cog := 0
-
-PRI allDigitAnimationsComplete() : status | digitIndex
-    status := TRUE
-    repeat digitIndex from 0 to 3
-        if not digit[digitIndex].isAnimationComplete()
-            status := FALSE
-            quit
 
 CON { license }
 
