@@ -645,14 +645,14 @@ outInst3of3         MUXQ    OUTA, row_addr          ' but in upper 5-bits of ls 
 
 ' Dummy ISR routines in case we need them
 isr1
-                nop
-                reti1
+                    nop
+                    reti1
 isr2
-                nop
-                reti2
+                    nop
+                    reti2
 isr3
-                nop
-                reti3
+                    nop
+                    reti3
                
 
 'DAT    { data }

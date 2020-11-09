@@ -32,17 +32,17 @@ DAT { pre-initialized }
 
 ' TEMP while figuring out code
 pwm12Bit
-                word    $0fff, $07ff, $03ff, $01ff
-                word    $00ff, $007f, $003f, $001f
-                word    $000f, $0007, $0003, $0001
-                word    0
+                    word    $0fff, $07ff, $03ff, $01ff
+                    word    $00ff, $007f, $003f, $001f
+                    word    $000f, $0007, $0003, $0001
+                    word    0
 
 pwm16Bit
-                word    $ffff, $7fff, $3fff, $1fff
-                word    $0fff, $07ff, $03ff, $01ff 
-                word    $00ff, $007f, $003f, $001f
-                word    $000f, $0007, $0003, $0001
-                word    $0000
+                    word    $ffff, $7fff, $3fff, $1fff
+                    word    $0fff, $07ff, $03ff, $01ff 
+                    word    $00ff, $007f, $003f, $001f
+                    word    $000f, $0007, $0003, $0001
+                    word    $0000
 
 VAR
 

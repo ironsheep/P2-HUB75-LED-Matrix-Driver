@@ -41,8 +41,9 @@ OBJ
 
     screen      : "isp_hub75_screenAccess"
 
-PUB null()      '' This is not a top level object
+PUB null()
 
+    '' This is not a top level object
 
 
 PUB setBrightness(newBrightness)

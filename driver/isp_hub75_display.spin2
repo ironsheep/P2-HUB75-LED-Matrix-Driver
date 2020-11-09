@@ -11,23 +11,23 @@
 ''
 '' =================================================================================================
 
-CON 
+CON { Object Interface: PUBLIC ENUMs }
 
 ' supported Text Sizes
 #0, TEXT_SIZE_DEFAULT, TEXT_SIZE__5x7, TEXT_SIZE__8x8
 
-DAT { one or more screens of 64x32-24bit color }
+DAT { one or more screens of pixels of 24bit color }
 
 screen0     long    0[screen.DISPLAY_SIZE_IN_LONGS]  ' 6kB buffer (4 bytes / long)
 
-OBJ
+OBJ { Objects Used by this Object }
 
     screen      : "isp_hub75_screenAccess"
     color       : "isp_hub75_color"
     panel       : "isp_hub75_panel"
     fonts       : "isp_hub75_fonts"
 
-VAR
+VAR { Object Instance Variables }
     long    currTextColor
     long    cursorRow
     long    cursorColumn

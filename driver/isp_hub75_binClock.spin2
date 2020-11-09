@@ -24,7 +24,7 @@ CON { public interface constants }
     TOP_INSET = 5
     LEFT_INSET = 2
 
-#0, BASE_UNKNOWN, BASE_DECIMAL_DIGITS, BASE_HEX_DIGITS
+    #0, BASE_UNKNOWN, BASE_DECIMAL_DIGITS, BASE_HEX_DIGITS
 
 OBJ { objects }
 

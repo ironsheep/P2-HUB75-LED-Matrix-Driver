@@ -11,7 +11,7 @@
 ''
 '' =================================================================================================
 
-CON
+CON { Object Interface: PUBLIC ENUMs }
   
     FONT_8x8_BYTES_PER_CHAR = 8
     FONT_5x7_BYTES_PER_CHAR = 7
@@ -30,7 +30,7 @@ PUB getAddrFor5x7Char(asciiByte) : p5x7CharBitmap
     if(asciiByte >= $20 && asciiByte <= $7f)
         p5x7CharBitmap := @byte[@font5x7][(asciiByte - $20) * FONT_5x7_BYTES_PER_CHAR]
 
-DAT
+DAT { Font Bitmaps }
 
  '   font8x8  P2_Font_8x8_AIChip_tweeked.spin2 from cluso99
 '+=============================================================================+

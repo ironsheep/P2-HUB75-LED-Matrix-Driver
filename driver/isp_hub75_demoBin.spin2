@@ -86,6 +86,7 @@ PUB allDigitsDemo() | red, green, blue, bitValue
     wait100thSecs(digitPeriod)
 
 PUB wait100thSecs(count)
+    '' wait for N 110ths of a second
     repeat count
         waitms(10)  ' 1/100 seconds
 

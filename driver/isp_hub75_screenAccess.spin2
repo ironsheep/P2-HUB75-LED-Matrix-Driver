@@ -67,7 +67,9 @@ OBJ { include the users' settings }
 
     user    : "isp_hub75_hwGeometry"
 
-PUB null()      '' This is not a top level object
+PUB null()
+
+    '' This is not a top level object
 
 DAT { shared access variables }
 

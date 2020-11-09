@@ -38,7 +38,7 @@ CON { Hardware Description }
 '
 ' NOTE: we use 2 full PWM frame-sets so we can double buffer the screen generation
 '
-    MAX_PWM_WIDTH_IN_BITS = 32   ' use 8, 12, 16, 20, 23 or 24   NOTE: each bump uses more memory!
+    MAX_PWM_WIDTH_IN_BITS = 16   ' use 8, 12, 16, 20, 23 or 24   NOTE: each bump uses more memory!
 
 ' =================================================================================================
 '  (3) Describe the overall layout of your hardware panels:
