@@ -27,8 +27,13 @@ CON { Hardware Description }
 ' =================================================================================================
 #0[16], PINS_P0_P15, PINS_P16_P31, PINS_P32_P47, PINS_P48_P63
 
+	' my P2 EVAL Baord
     ADAPTER_BASE_PIN = PINS_P32_P47   ' PINS_P16_31
     'ADAPTER_BASE_PIN = PINS_P16_P31
+    
+    ' my JonnyMac Board
+    'ADAPTER_BASE_PIN = PINS_P0_P15   ' PINS_P0_P15
+    
 
 ' =================================================================================================
 '  (2) Describe your desired effective color resolution (8-24 bit) more bits, more ram need!
@@ -37,8 +42,10 @@ CON { Hardware Description }
 ' each PWM frame is (DISPLAY PIXEL COUNT / 2) bytes in size
 '
 ' NOTE: we use 2 full PWM frame-sets so we can double buffer the screen generation
+
+'  NOTE: 16 or 20 seem useful without going crazy with ram usage
 '
-    MAX_PWM_WIDTH_IN_BITS = 16   ' use 8, 12, 16, 20, 23 or 24   NOTE: each bump uses more memory!
+    MAX_PWM_WIDTH_IN_BITS = 20   ' use 8, 12, 16, 20, 23 or 24   NOTE: each bump uses more memory!
 
 ' =================================================================================================
 '  (3) Describe the overall layout of your hardware panels:
@@ -211,4 +218,3 @@ CON { license }
  =================================================================================================
  
 }}
-

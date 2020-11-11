@@ -290,9 +290,9 @@ PUB loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, haveError,
 
 PRI RGB(red, green, blue) : r, g, b
     'Blue byte first because that's how stored in bitmap...
-    r := color.correctedColor(red)
-    g := color.correctedColor(green)
-    b := color.correctedColor(blue)
+    r := color.correctedSingleColor(color.LED_RED, red)
+    g := color.correctedSingleColor(color.LED_GREEN, green)
+    b := color.correctedSingleColor(color.LED_BLUE, blue)
 
 PRI clearPwmFrameBuffer() : pPwmFrameSet              
     ' clear entire PWM buffer

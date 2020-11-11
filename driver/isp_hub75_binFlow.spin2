@@ -530,9 +530,9 @@ PRI drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex,
     pColor := @byte[screen.screenAddress()][colorOffset]
     'if isDebugLocn(rowIndex, columnIndex)
     'debug("flo:Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
-    byte[pColor][0] := color.correctedColor(red)
-    byte[pColor][1] := color.correctedColor(green)
-    byte[pColor][2] := color.correctedColor(blue)
+    byte[pColor][0] := color.correctedSingleColor(color.LED_RED, red)
+    byte[pColor][1] := color.correctedSingleColor(color.LED_GREEN, green)
+    byte[pColor][2] := color.correctedSingleColor(color.LED_BLUE, blue)
     
 
 CON { license }

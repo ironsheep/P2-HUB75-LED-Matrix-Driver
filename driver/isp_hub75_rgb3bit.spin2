@@ -18,6 +18,8 @@ CON { timing }
     MS_001   = CLK_FREQ / 1_000                                   ' ticks in 1ms
     US_001   = CLK_FREQ / 1_000_000                               ' ticks in 1us
 
+    TM_64US = US_001 * 64
+
     NS_015   = 5 ' - 2 '15 / (1_000_000_000 / CLK_FREQ)                   ' tics in 15 nSec
     NS_030   = 10 - 2 '30 / (1_000_000_000 / CLK_FREQ)            ' tics in 30 nSec
 
@@ -108,7 +110,7 @@ VAR
 
 
 ' --------------------------------------------------------------------------------------------------
-PUB start() : ok | testT, testF
+PUB start() : ok | bSetLowPins
     '' Setup the pasm2 driver vars, then start a new cog running the driver
 
     stop()
@@ -139,39 +141,35 @@ PUB start() : ok | testT, testF
         overlappedLatch := FALSE
 
     ' configure our driver
+    bSetLowPins := FALSE
     case screen.ADAPTER_BASE_PIN
         screen.PIN_GROUP_P0_P15:
             debug("- I/O P00 - P15")
+            bSetLowPins := TRUE
+            usingPortA  := TRUE
+        screen.PIN_GROUP_P16_P31:
+            debug("- I/O P16 - P31")
+            usingPortA  := TRUE
+        screen.PIN_GROUP_P32_P47:
+            debug("- I/O P32 - P47")
+            bSetLowPins := TRUE
+            usingPortA  := FALSE
+        screen.PIN_GROUP_P48_P63:
+            debug("- I/O P48 - P63")
+            usingPortA  := FALSE
+
+    if bSetLowPins
             maskAddr    := %00000000_00000000_00000000_01111000     ' pins at 00-15 A-pins
             maskRgb12   := %00000000_00000000_00111111_00000000     ' rgb2rgb1 now grounded to lsbit - pins at 00-15 A-pins
             maskAllPins := %00000000_00000000_00111111_01111111     ' adds new E addr bit (off for now) - pins at 00-15 A-pins
             addrValue1  := $0000_0008                               ' 1 but in upper 5-bits of byte
             addrValue15 := $0000_0078                               ' 15 but in upper 5-bits of byte
-            usingPortA  := TRUE
-        screen.PIN_GROUP_P16_P31:
-            debug("- I/O P16 - P31")
+    else
             maskAddr    := %00000000_01111000_00000000_00000000     ' pins at 16-31 A-pins
             maskRgb12   := %00111111_00000000_00000000_00000000     ' rgb2rgb1 now grounded to lsbit - pins at 16-31 A-pins
             maskAllPins := %00111111_01111111_00000000_00000000     ' adds new E addr bit (off for now) - pins at 16-31 A-pins
             addrValue1  := $0008_0000                               ' 1 but in upper 5-bits of byte
             addrValue15 := $0078_0000                               ' 15 but in upper 5-bits of byte
-            usingPortA  := TRUE
-        screen.PIN_GROUP_P32_P47:
-            debug("- I/O P32 - P47")
-            maskAddr    := %00000000_00000000_00000000_01111000     ' pins at 32-47 B-pins
-            maskRgb12   := %00000000_00000000_00111111_00000000     ' rgb2rgb1 now grounded to lsbit - pins at 32-47 B-pins
-            maskAllPins := %00000000_00000000_00111111_01111111     ' adds new E addr bit (off for now) - pins at 32-47 B-pins
-            addrValue1  := $0000_0008                               ' 1 but in upper 5-bits of byte
-            addrValue15 := $0000_0078                               ' 15 but in upper 5-bits of byte
-            usingPortA  := FALSE
-        screen.PIN_GROUP_P48_P63:
-            debug("- I/O P48 - P63")
-            maskAddr    := %00000000_01111000_00000000_00000000     ' pins at 16-31 A-pins
-            maskRgb12   := %00111111_00000000_00000000_00000000     ' rgb2rgb1 now grounded to lsbit - pins at 16-31 A-pins
-            maskAllPins := %00111111_01111111_00000000_00000000     ' adds new E addr bit (off for now) - pins at 16-31 A-pins
-            addrValue1  := $0008_0000                               ' 1 but in upper 5-bits of byte
-            addrValue15 := $0078_0000                               ' 15 but in upper 5-bits of byte
-            usingPortA  := FALSE
 
     debug("- ", ubin_long(maskAddr))
     debug("- ", ubin_long(maskRgb12))
@@ -502,7 +500,7 @@ nextSet
                     ret
 
 dumpTwinRows
-                    debug(" Red TL,R ", uhex_long_(screenBffr+0), ", ", uhex_long_(screenBffr+1))
+                    'debug(" Red TL,R ", uhex_long_(screenBffr+0), ", ", uhex_long_(screenBffr+1))
                     'debug(" Red BL,R ", uhex_long_(screenBffr+62), ", ", uhex_long_(screenBffr+63))
                     'debug(" Grn TL,R ", uhex_long_(screenBffr+64), ", ", uhex_long_(screenBffr+65))
                     'debug(" Grn BL,R ", uhex_long_(screenBffr+126), ", ", uhex_long_(screenBffr+127))
@@ -513,7 +511,7 @@ dumpTwinRows
 chksDone
                     cmp     nxtCommand, #CMD_DONE  wz
     if_z            jmp     #wrCurrent  ' redraw current buffer  
-                    debug("--> *ERROR* Unknown cmd(", udec_(nxtCommand), ")   arg=", uhex_long_(nxtArgument))
+                    'debug("--> *ERROR* Unknown cmd(", udec_(nxtCommand), ")   arg=", uhex_long_(nxtArgument))
 markCmdComplete
                     'debug(" - unknown cmd done")
                     wrlong  #CMD_DONE, pCommmand        ' signal command completed
@@ -632,6 +630,8 @@ outInst2of3         MUXQ    OUTA, reg_value             ' write contents of LS-b
                     '
                     ' ---  inter-frame gap  ---
                     '
+                    ' EXPERIMENT: can we get better brightness range if we stall for a full frame at the end of each frame?
+                    waitx   ##TM_64US
                     jmp     #getCommand
 
 ' --------------------------------------------------------------------------------------------------
@@ -751,4 +751,3 @@ CON { license }
  =================================================================================================
  
 }}
-

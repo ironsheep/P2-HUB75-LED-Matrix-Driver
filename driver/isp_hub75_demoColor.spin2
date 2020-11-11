@@ -46,6 +46,20 @@ PUB main() : ok | demoIndex
         debug("- DEMO: underlying drivers failed!")
         abort
 
+    demoIndex := 0
+    'repeat
+        repeat demoIndex from 0 to 5
+            display.clearScreen()
+            case demoIndex
+                0: demoTest256ColorBrightness()
+                1: demoTest32ColorBrightness()
+                2: demoTest16ColorBrightness()
+                3: demoTest360ColorBrightness()
+                4: demoTestGammaTuneBrightness()
+                5: demoTest12x9ColorBrightness()
+            waitSec(5)
+    repeat
+
     demoPausePeriod := 5   ' seconds
     repeat 20
         repeat demoIndex from 0 to DEMO_COUNT - 1
@@ -104,6 +118,286 @@ PUB demoText()
     display.setColoredTextAtRC(3,0, string("led matrix"), color.cWhite)
     display.commitScreenToPanel()
 
+PUB demoTestGammaTuneBrightness() | red, green, blue, row, col, rowOffset, colorGroup, bUseRed, bUseGreen, bUseBlue, colorValue
+
+    repeat colorGroup from 0 to 2
+        bUseRed := bUseGreen := bUseBlue := FALSE
+        case colorGroup
+            0:
+                row := 4
+                col := 6
+                bUseRed := bUseGreen := TRUE
+            1:
+                row := 4
+                col := 37
+                bUseBlue := bUseGreen := TRUE
+            2:
+                row := 16
+                col := 22
+                bUseBlue := bUseRed := TRUE
+            other:
+                debug("- invalid color group index")
+                abort
+
+        rowOffset := 0
+        repeat colorValue from 15 to 255 step 35
+            red := (bUseRed) ? colorValue : 0
+            green := (bUseGreen) ? colorValue : 0
+            blue := (bUseBlue) ? colorValue : 0
+            drawGammaTuneSwatch(7, row + rowOffset, col, red, green, blue)
+            rowOffset++
+
+    display.commitScreenToPanel()
+
+PRI drawGammaTuneSwatch(width, row, col, red, green, blue) | ltCol, midCol, rtCol, colOffset, ltClr, midClr, rtClr
+    ltCol := col
+    midCol := col + width
+    rtCol := col + (width * 2)
+    '     combinedValue := ((red & $ff) << 16) | ((green & $ff) << 8) | (blue & $ff)
+    green := green << 8
+    red := red << 16
+    if red == 0
+        ltClr := green
+        midClr := green | blue
+        rtClr := blue
+    elseif green == 0
+        ltClr := blue
+        midClr := blue | red
+        rtClr := red
+    else ' blue == 0
+        ltClr := red
+        midClr := red | green
+        rtClr := green
+
+    repeat colOffset from 0 to width - 1
+        display.drawPixelAtRC(row, ltCol + colOffset, ltClr)
+        display.drawPixelAtRC(row, midCol + colOffset, midClr)
+        display.drawPixelAtRC(row, rtCol + colOffset, rtClr)
+
+
+PUB demoTest12x9ColorBrightness() | red, green, blue, row, col, rowCtr, colCtr, clrLow, clrMed, clrHigh, clrBW, bThirdClr
+
+    repeat rowCtr from 0 to 8
+        clrLow := 0
+        case rowCtr
+            0:
+                clrMed := 25
+                clrHigh := 51
+                clrBW := 0
+            1:
+                clrMed := 51
+                clrHigh := 102
+                clrBW := 32
+            2:
+                clrMed := 76
+                clrHigh := 153
+                clrBW := 64
+            3:
+                clrMed := 102
+                clrHigh := 204
+                clrBW := 96
+            4:
+                clrMed := 128
+                clrHigh := 255
+                clrBW := 128
+            5:
+                clrMed := 128
+                clrHigh := 255
+                clrBW := 128
+            6:
+                clrMed := 51
+                clrHigh := 255
+                clrBW := 128
+                clrLow := 51
+            7:
+                clrMed := 102
+                clrHigh := 255
+                clrBW := 128
+                clrLow := 102
+            8:
+                clrMed := 153
+                clrHigh := 255
+                clrBW := 128
+                clrLow := 153
+            9:
+                clrMed := 204
+                clrHigh := 255
+                clrBW := 128
+                clrLow := 204
+            other:
+                clrMed := 0
+                clrHigh := 0
+                clrBW := 0
+
+        repeat colCtr from 0 to 12  ' last is BW
+            red := green := blue := 0
+            case colCtr
+                0:  ' rH
+                    red := clrHigh
+                    green := blue := clrLow
+                1:  ' rH, gM
+                    red := clrHigh
+                    green := clrMed
+                    blue := clrLow
+                2:  ' rH, gH
+                    red := clrHigh
+                    green := clrHigh
+                    blue := clrLow
+                3:  ' rM, gH
+                    red := clrMed
+                    green := clrHigh
+                    blue := clrLow
+                4:  ' gH
+                    green := clrHigh
+                    red := blue := clrLow
+                5:  ' gH, bM
+                    green := clrHigh
+                    blue := clrMed
+                    red := clrLow
+                6:  ' gH, bH
+                    green := clrHigh
+                    blue := clrHigh
+                    red := clrLow
+                7:  ' gM, bH
+                    green := clrMed
+                    blue := clrHigh
+                    red := clrLow
+                8:  ' bH
+                    blue := clrHigh
+                    red := green := clrLow
+                9:  ' rM, bH
+                    red := clrMed
+                    blue := clrHigh
+                    green := clrLow
+                10:  ' rH, bH
+                    red := clrHigh
+                    blue := clrHigh
+                    green := clrLow
+                11:  ' rH, bM
+                    red := clrHigh
+                    blue := clrMed
+                    green := clrLow
+                12:
+                    red := blue := green := clrBW
+
+            row := rowCtr * 3
+            if rowCtr <> 0 && rowCtr // 2 == 0
+                row++
+            col := colCtr * 5
+            drawSwatch(4, 3, row, col, color.cValueForRGB(red, green, blue))
+    display.commitScreenToPanel()
+
+PRI drawSwatch(width, height, row, col, rgbColor) | rowOffset, colOffset
+    repeat rowOffset from 0 to height - 1
+        repeat colOffset from 0 to width - 1
+            display.drawPixelAtRC(row + rowOffset, col + colOffset, rgbColor)
+
+PRI demoTest360ColorBrightness() | red, green, blue, row, col, rowCtr, degrees, colorValue
+
+    row := col := 0
+    repeat degrees from 0 to 359
+        colorValue := color.rgbColorFromDegrees(degrees)
+        repeat rowCtr from 0 to 4
+            display.drawPixelAtRC(row, col, colorValue)
+            col++
+            if col > 63
+                col := 0
+                row++
+    display.commitScreenToPanel()
+
+
+PRI demoTest16ColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex, useRed, useBlue, useGreen, colorValue, colorHue
+    row := 0
+
+    repeat colorHue from 0 to 255 step 16
+        colorValue := color.rgbColorFromDegrees(colorHue)
+        repeat rowCtr from 0 to 2
+            repeat col from 0 to 63
+                display.drawPixelAtRC(row, col, colorValue)
+            row++
+    display.commitScreenToPanel()
+
+
+PRI demoTest32ColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex, useRed, useBlue, useGreen, colorValue
+
+    row := 0
+
+    repeat colorIndex from 0 to 6
+        useRed := useGreen := useBlue := FALSE
+        case colorIndex
+            0: ' red
+                useRed := TRUE
+            1: ' green
+                useGreen := TRUE
+            2: ' blue
+                useBlue := TRUE
+            3: ' cyan
+                useRed := useBlue := TRUE
+            4: ' agenta
+                useRed := useGreen  := TRUE
+            5: ' yellow
+                useGreen := useBlue := TRUE
+            OTHER: ' white
+                useRed := useGreen := useBlue := TRUE
+
+        colorValue := 0
+        repeat rowCtr from 0 to 3
+            repeat col from 0 to 63
+                red := green := blue := 0
+                if useRed
+                    red := colorValue
+                if useGreen
+                    green := colorValue
+                if useBlue
+                    blue := colorValue
+
+                display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+                if col // 4 == 0
+                    colorValue++
+            row++
+
+    display.commitScreenToPanel()
+
+PRI demoTest256ColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex, useRed, useBlue, useGreen, colorValue
+
+    row := 0
+
+    repeat colorIndex from 0 to 7
+        useRed := useGreen := useBlue := FALSE
+        case colorIndex
+            0: ' red
+                useRed := TRUE
+            1: ' green
+                useGreen := TRUE
+            2: ' blue
+                useBlue := TRUE
+            3: ' cyan
+                useRed := useBlue := TRUE
+            4: ' agenta
+                useRed := useGreen  := TRUE
+            5: ' yellow
+                useGreen := useBlue := TRUE
+            OTHER: ' white
+                useRed := useGreen := useBlue := TRUE
+
+        colorValue := 0
+        repeat rowCtr from 0 to 3
+            repeat col from 0 to 63
+                red := green := blue := 0
+                if useRed
+                    red := colorValue
+                if useGreen
+                    green := colorValue
+                if useBlue
+                    blue := colorValue
+
+                display.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+                colorValue++
+            row++
+
+    display.commitScreenToPanel()
+
+    'repeat  ' hold here!
 PRI demoColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex, useRed, useBlue, useGreen
 
     row := 0
