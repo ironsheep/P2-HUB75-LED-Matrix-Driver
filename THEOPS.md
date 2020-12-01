@@ -7,6 +7,10 @@ On this page you'll learn what files make up the driver (and/or come with it) an
 
 (*I expect that this file will continue to grow over time as our driver becomes more capable. -Stephen*)
 
+
+### Pages: [README](README.md) | [Hardware Turn-on](HardwareTurnon.md) | Driver Details | [Change Log](ChangeLog.md)
+
+
 ## Driver file organization
 
 The driver files consist of demo-top-level files as well as the driver itself.

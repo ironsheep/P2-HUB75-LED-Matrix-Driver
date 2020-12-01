@@ -3,8 +3,6 @@
 ## Awakening the HUB75 LED Matrix Driver for Propeller 2
 
 ![Project Maintenance][maintenance-shield]
-
-
 **<= This is a work in progress =>**
 
 There are many RGB LED matrices available. This drivers is built specifically for **HUB75** driven matrices which are usually found in sizes ranging from 16x16 to 64x64 and ranging in horizontal/vertical spacing form 2mm (P2) to 8mm (P8) between individual LEDs.  The version i'm developing with is actually a P3 64x32 Matrix which I originally bought from Amazon.
@@ -16,44 +14,14 @@ While the 64x32 Matrices all appear to be similar the manufacturing of them has 
 In general i'm finding so far that there are 3 or 4 commmon choices for ICs used on the panels. One GitHub user **Piotr Esden-Tempski**  offers  doc's for some of the panels [esden/led-panel-docs](https://github.com/esden/led-panel-docs) showing images of the panels, schematics and datasheets for the ICs used on the panel. (*I'm planning on contributing my schematic and various finds to his repo as a Pull request before this project is completed.*) There are many more that he does not have but this is a good reference.
 
 
+### Pages: [README](README.md) | Hardware Turn-on | [Driver Details](THEOPS.md) | [Change Log](ChangeLog.md)
+
+
 ## My Panel
 
 The panels I'm using are marked with **P3-6432-121-16s-D1.0**  Which tell us that it is 64w x 32h (6432) and 16 addressed lines (16s).  This board uses FM6126A driver chips and TC7258EN chips for line address decoding. Lastly is uses 74HC245s to buffer the incoming signals and forward them to the output conector.  The FM6126A requires that we latch the data very differently in that instead of latching after the stream of bits for a line, we set the latch during the last 3 bits of each line. (per the Datasheet)  Additionally, the FM6126A requires initialization of two registers before it runs as a normal panel. This was quite the discovery as the Chinese Datasheet says the two registers exist but doesn't provide detail. Finding details and implementing the initialization was an effort of blending what I saw in posts which showed various forms of coce and other posts describing their reverse engineering of the same effort. But, it's all working, so I'm past this!
 
 ![MyPanel](https://user-images.githubusercontent.com/540005/96038418-53a70b80-0e24-11eb-93fe-7af0301d349e.jpg)
-
-## Current Project state
-
-**20 Oct 2020:** I've made wonderful advances in this past week.
-
-Things now working are:
-
-- Loading and displaying images from .bmp files
-- PWMing images to achieve 24-bit color
-- Displaying text in both 5x7 and 8x8 fonts
-
-![Working 24-bit color](https://user-images.githubusercontent.com/540005/96498745-b4aa5700-1209-11eb-996d-6e3b6089b578.jpg)
-
-Here you can see a demonstration of the 24bit color. Of course these panels are amazingly bright. I'm running here at ~50% brightness and it's still overwhelming the camera in a lighted room.
-
-Up next: 
-
-- Rapid display of sequences of frames.
-- This will be for drawing animations, scrolling text, and even display of video when we get that far.
-- I've even some fun animated clocks coming (sorry, I'm been doing software clocks of many, many, forms for a long time.)
-
-**27 Oct 2020:** More engineering and the boards arrive!
-
-This week I've been:
-
-- Working to formally structure the code for release
-- Studied gamma correction and now have a better performing table in place
-- Studied PWM for the LEDs and now have a much more accurate PWM in place (colors are looking much better)
-- Have been working on more tests, demos for animation rates of display
-- More videos will be coming, meanwhile, have you seen these? [YouTube Playlist for Propeller Related Videos](https://www.youtube.com/playlist?list=PLkXxMjp58T0pk1dd8pH1OV7NCf-8Tbx1M)
-- **Exciting!** The initial run of the Adapter PCBs arrived!
-- I checked them out mechanically, soldered the parts to one, then checked it out electrically and lastly started using it!  It came up beautifully! (*See pictures and turn on description below*)
-
 
 
 ## Development Environment
