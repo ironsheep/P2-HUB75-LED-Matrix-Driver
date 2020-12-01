@@ -1,4 +1,6 @@
-# Awakening the HUB75 LED Matrix Driver for Propeller 2
+# Hardware Turn-on
+
+## Awakening the HUB75 LED Matrix Driver for Propeller 2
 
 ![Project Maintenance][maintenance-shield]
 

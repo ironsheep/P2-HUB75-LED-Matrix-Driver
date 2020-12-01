@@ -15,6 +15,13 @@ The P2 HUB75 Driver is available from a couple of sources:
 - [The P2 Object Exchange](https://github.com/parallaxinc/propeller/tree/master/libraries/community/p2)
 - From this repository from the [Releases page](https://github.com/ironsheep/p2-LED-Matrix-Driver/releases)
 
+## Additional Documents
+
+- This README has been repurposed to reflect the current state of the released driver
+- Moved initial readme content to the [HardwareTurnon](HardwareTurnon.md) document
+- Added the [Driver Details](THEOPS.md) document to provide more detail about the driver itself
+- Added a [Change Log](ChangeLog.md) to capture notes about each release of the dirver
+
 ## Current Project state
 
 What's working today with the current driver:
@@ -27,7 +34,7 @@ What's working today with the current driver:
 - Basic drawing primitives
 - Loading and displaying images from .bmp files (that are identically sized to your panel)
 
-**NOTE:** *With every update we post we also update the [ChangeLog](ChangeLog.md). It will have the most up-to-date project status.*
+**NOTE:** *With every update we post we also update the [ChangeLog](ChangeLog.md). It will have the most up-to-date driver code/feature status.*
 
 
 ## Driver Setup and Configuration
@@ -95,7 +102,7 @@ In general i'm finding so far that there are 3 or 4 commmon choices for ICs used
 
 
 
-## Project goals
+## ## BACKGROUND: Project goals
 
 Overall: Let's see what performance we can achieve by driving from the Propeller 2 directly! 
 
