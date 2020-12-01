@@ -1,6 +1,6 @@
 '' =================================================================================================
 ''
-''   File....... isp_hub75_demo.spin2
+''   File....... isp_hub75_demo7Seg.spin2
 ''   Purpose.... Top-level Demonstration - showing off our HUB75 matrix
 ''   Authors.... Stephen M Moraco
 ''               -- Copyright (c) 2020 Iron Sheep Productions, LLC
@@ -35,6 +35,7 @@ OBJ
 
     color       : "isp_hub75_color"
     display     : "isp_hub75_display"
+    pixels      : "isp_hub75_screenUtils"
     digit[4]    : "isp_hub75_7seg"
 
 PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, builtPtr, color3bit, color24bit, pPixColor, colorOffset, byteOffset
@@ -53,11 +54,11 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     digitPeriod := 12    ' 90     ' 4 x 100ths of a second
 
         ' draw some text!
-    display.setTextSize(display.TEXT_SIZE__5x7)    ' font size 
+    display.setTextFont(display.TEXT_FONT_5x7)    ' font size 
     display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
 
 
-    display.setColoredTextAtRC(0,0, string("iron sheep"), color.cMaroon)
+    display.setColoredTextAtLnCol(0,0, string("iron sheep"), color.cMaroon)
     display.commitScreenToPanel()
 
     ' High Speed CLOCK demo
@@ -138,10 +139,10 @@ PRI showSecondsDots(lightDark) | red, green, blue, targetColor
     drawSecondsDot(23, 31, targetColor)
 
 PRI drawSecondsDot(row, column, rgbColor)
-    display.drawPixelAtRC(row, column, rgbColor)
-    display.drawPixelAtRC(row, column+1, rgbColor)
-    display.drawPixelAtRC(row+1, column, rgbColor)
-    display.drawPixelAtRC(row+1, column+1, rgbColor)
+    pixels.drawPixelAtRC(row, column, rgbColor)
+    pixels.drawPixelAtRC(row, column+1, rgbColor)
+    pixels.drawPixelAtRC(row+1, column, rgbColor)
+    pixels.drawPixelAtRC(row+1, column+1, rgbColor)
 
 PRI allDigitAnimationsComplete() : status
     status := TRUE
@@ -172,12 +173,12 @@ pub drawTestPattern(row,column)
     ' place six colored bits
     if column > 56
         column := 56 
-    display.drawPixelAtRC(row, column+0, color.cRed)     ' long $xx998877
-    display.drawPixelAtRC(row, column+1, color.cLime)
-    display.drawPixelAtRC(row, column+2, color.cBlue)
-    display.drawPixelAtRC(row, column+5, color.cWhite)   ' long $665544xx
-    display.drawPixelAtRC(row, column+6, color.cYellow)
-    display.drawPixelAtRC(row, column+7, color.cOlive)
+    pixels.drawPixelAtRC(row, column+0, color.cRed)     ' long $xx998877
+    pixels.drawPixelAtRC(row, column+1, color.cLime)
+    pixels.drawPixelAtRC(row, column+2, color.cBlue)
+    pixels.drawPixelAtRC(row, column+5, color.cWhite)   ' long $665544xx
+    pixels.drawPixelAtRC(row, column+6, color.cYellow)
+    pixels.drawPixelAtRC(row, column+7, color.cOlive)
 
 PUB stop()                  '' stop the driver
   if cog

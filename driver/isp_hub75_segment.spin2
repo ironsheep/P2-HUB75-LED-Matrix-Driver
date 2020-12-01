@@ -37,6 +37,7 @@ cBlack = $000000
 
 OBJ 
     screen      : "isp_hub75_screenAccess"
+    pixels      : "isp_hub75_screenUtils"
     color       : "isp_hub75_color"
 
 VAR
@@ -310,26 +311,15 @@ PRI drawLine(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column
     if fmRow == toRow
         ' draw Horizontal Line
         repeat column from fmColumn to toColumn 
-            drawPixelAtRCwithRGB(fmRow, column, color.rgbForCValue(rgbColor))
+            pixels.drawPixelAtRCwithRGB(fmRow, column, color.rgbForCValue(rgbColor))
     elseif fmColumn == toColumn
         ' draw Vertical Line
         repeat row from fmRow to toRow 
-            drawPixelAtRCwithRGB(row, fmColumn, color.rgbForCValue(rgbColor))
+            pixels.drawPixelAtRCwithRGB(row, fmColumn, color.rgbForCValue(rgbColor))
     else
         debug("DIAG lines not implemented !")
         abort
 
-PUB drawPixelAtRCwithRGB(row, column, red, green, blue) | rowIndex, columnIndex, colorOffset, pColor
-    '' Place r,g,b colored pixel at r,c
-    rowIndex := 0 #> row <# screen.MAX_DISPLAY_ROWS - 1
-    columnIndex :=  0 #> column <# screen.MAX_DISPLAY_COLUMNS - 1
-    colorOffset := ((rowIndex * screen.MAX_DISPLAY_COLUMNS) + columnIndex) * screen.DISPLAY_BYTES_PER_COLOR
-    pColor := @byte[screen.screenAddress()][colorOffset]
-    'if isDebugLocn(rowIndex, columnIndex)
-        'debug("- Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
-    byte[pColor][0] := color.correctedSingleColor(color.LED_RED, red)
-    byte[pColor][1] := color.correctedSingleColor(color.LED_GREEN, green)
-    byte[pColor][2] := color.correctedSingleColor(color.LED_BLUE, blue)
 
 PRI isDebugLocn(nRow, nCol) : status
     ' return T/F where T means we should show debug for this RC

@@ -43,6 +43,10 @@ OBJ
 
     screen      : "isp_hub75_screenAccess"
 
+DAT { driver controls for testing }
+
+bGammaEnable BYTE   TRUE
+
 PUB null()
 
     '' This is not a top level object
@@ -64,21 +68,45 @@ PUB correctedColor(color) : adjustedColor
     adjustedColor := byte[@gamma][adjustedColor]
     adjustedColor := dutyCycleForIntensity(adjustedColor)
 
+PUB gammaPeek(color) : adjustedColor | gammmaIndex, lowColor, highColor
+    '' return index of nearest matching value in gamma table
+    if bGammaEnable
+        adjustedColor := byte[@gamma][color]
+        repeat gammmaIndex from 0 to 255
+            if BYTE[@gamma][gammmaIndex] > color
+                quit
+        if gammmaIndex == 0
+            adjustedColor := 0
+        lowColor := BYTE[@gamma][gammmaIndex - 1]
+        highColor := BYTE[@gamma][gammmaIndex]
+        if lowColor == color
+            adjustedColor := gammmaIndex - 1
+        elseif highColor == color
+            adjustedColor := gammmaIndex
+        else
+            if color - lowColor > highColor - color
+                adjustedColor := gammmaIndex
+            else
+                adjustedColor := gammmaIndex - 1
+    else
+        adjustedColor := color
+
 PUB correctedSingleColor(led, colorValue) : adjustedColor | pGammaTable
     '' correct the color for a specific LED (R, G, or B)
     adjustedColor := colorValue
     'adjustedColor := ((adjustedColor * defaultBrightness) >> 8) & $ff
     case led
         LED_RED:
-            pGammaTable := @gammaRed
+            pGammaTable := @gamma
         LED_GREEN:
-            pGammaTable := @gammaGreen
+            pGammaTable := @gamma
         LED_BLUE:
-            pGammaTable := @gammaBlue
+            pGammaTable := @gamma
         other:
             abort
 
-    adjustedColor := byte[pGammaTable][adjustedColor]
+    if bGammaEnable
+        adjustedColor := byte[pGammaTable][adjustedColor]
     adjustedColor := dutyCycleForIntensity(adjustedColor)
 
 PUB rgbColorFromDegrees(degrees) : rcbColor | offset60, fract60, red, green, blue
@@ -127,7 +155,7 @@ PUB rgbColorFromDegrees(degrees) : rcbColor | offset60, fract60, red, green, blu
         green := offset60 * fract60
     }
     rcbColor := cValueForRGB(red, green, blue)
-    debug("- degrees=", udec_(degrees), ", color=", uhex_long_(rcbColor), " RGB=", udec_(red), ", ", udec_(green), ", ", udec_(blue), ")" )
+    'debug("- degrees=", udec_(degrees), ", color=", uhex_long_(rcbColor), " RGB=", udec_(red), ", ", udec_(green), ", ", udec_(blue), ")" )
 
 
 PUB rgbForCValue(combinedValue) : red, green, blue
@@ -183,10 +211,8 @@ PRI dutyCycleForIntensity(hex8bit) : pwmBits
     '         --- VERSION 1 - Bits spread throughout ---
     if hex8bit == 255
         pwmBits := $ff
-    elseif hex8bit == 0
-        pwmBits := $00
     else
-        pwmBits := (hex8bit / screen.MAX_PWM_FRAMES + 1) + 1
+        pwmBits := hex8bit / screen.MAX_PWM_FRAMES
 
 
 
