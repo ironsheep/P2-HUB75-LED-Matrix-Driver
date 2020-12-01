@@ -8,6 +8,74 @@
 
 **<= This is a work in progress =>**
 
+**This P2 HUB75 driver is built to work with the P2 Eval HUB75 Adapter which will soon be available from [Parallax.com Store](https://www.parallax.com/product-category/propeller-2/)**
+
+The P2 HUB75 Driver is available from a couple of sources:
+
+- [The P2 Object Exchange](https://github.com/parallaxinc/propeller/tree/master/libraries/community/p2)
+- From this repository from the [Releases page](https://github.com/ironsheep/p2-LED-Matrix-Driver/releases)
+
+## Current Project state
+
+What's working today with the current driver:
+
+- Single panel support working well, up to 2048 leds (64x32)
+- PWM'ing images to achieve reasonable color
+- Displaying text in both 5x7 and 8x8 fonts
+- Initial version of scrolling text - will get more performant in future updates
+- Basic color pixel placement at row, column
+- Basic drawing primitives
+- Loading and displaying images from .bmp files (that are identically sized to your panel)
+
+**NOTE:** *With every update we post we also update the [ChangeLog](ChangeLog.md). It will have the most up-to-date project status.*
+
+
+## Driver Setup and Configuration
+
+Once you haave the driver downloaded and the source files added to your project you will first need to configure the driver by modifying the following values in the file **isp\_hub75_hwGeometry.spin2**:
+
+| Name            | Default | Description |
+|-----------------|-------------|-------------|
+| `ADAPTER_BASE_PIN` | PINS\_P16_P31 |  Identify which pin-group your HUB75 board is connected |
+| `PANEL_DRIVER_CHIP` | CHIP_UNKNOWN | in most cases UNKNOWN will work. Some specialized panels need a specific driver chip (e.g., those using the FM6126A) |
+| `MAX_PANEL_COLUMNS` | {none} | The number of LEDs in each row of your panel ( # pixels-wide) |
+| `MAX_PANEL_ROWS` | {none} | The number of LEDs in each column of your panel ( # pixels-high) |
+
+Once we support multiple panels then the following will also have to be configured:
+
+| Name            | Default | Description |
+|-----------------|-------------|-------------|
+| `MAX_PANELS` | 1 | **NOTE:** Currently only 1 in supported in the initial release |
+| `MAX_DISPLAY_COLUMNS` | {none} | The number of LEDs in each row of your multi-panel display |
+| `MAX_DISPLAY_ROWS` | {none} | The number of LEDs in each column of your multi-panel display |
+
+**NOTE:** once we get to multi-panel display there may also be configuration values for decribing the organization of the panels in more detail than the above setting describe.  We'll see...
+
+Once these values are set correctly, according to your own hardware set up, then you should be able to compile your code and run.
+
+More detail can be found in [Driver Introduction & Configuration](THEOPS.md)
+
+## Writing display code for your panels
+
+As soon are you are configured you will want to display stuff on your panel(s)!
+
+There are a number of demos which you can review then copy and past from.  These are:
+
+| DEMO Program            |  Purpose |
+|-----------------|-------------|
+| isp\_hub75_demoColor.spin2 | presents the color features of the panel driver |
+| isp\_hub75_demoText.spin2 | presents the text and scrolling features of the panel driver |
+| isp\_hub75_demo7seg.spin2 | presents a technique for doing multi-step animations using the panel driver |
+
+**NOTE:** these demo's are built for a 64x32 panel. You may have to modify them to run on your panel.
+
+Once you have a sense for what these demo's do and how, writing your own display code should be very easy and initially maybe even a copy-n-paste effort from the demo source to your own display code.
+
+Please enjoy and let me know if there are features you want to see in this driver!
+
+
+## BACKGROUND: HUB75 RGB LED Matrix Panels
+
 There are many RGB LED matrices available. This drivers is built specifically for **HUB75** driven matrices which are usually found in sizes ranging from 16x16 to 64x64 and ranging in horizontal/vertical spacing form 2mm (P2) to 8mm (P8) between individual LEDs.  The version i'm developing with is actually a P3 64x32 Matrix which I originally bought from Amazon. The specific ones I'm using are no longer avail. but the are many others.  
 
 Example 32x64 panels:
@@ -19,58 +87,13 @@ Example 32x64 panels:
 - [Amazon 64x32 P5](https://www.amazon.com/Pixels-Indoor-SMD2121-320x160mm-320160mm/dp/B07SDMWX9R)
 - [Amazon 64x32 P4](https://www.amazon.com/NovaeLED-Display-100000hrs-Bright-Colored-Picture/dp/B07LFJD5GY) good price for two identical panels
 
-These panels are receive serial data, clock signal signalling when to latch the data bits, a latch signal signalling that a whole rows of data should be sent to the LEDs a set of address lines (A, B, C, and D) idenitfying which row should be displayed and an output-enable signal causing an addressed row LEDs to be driven.
+These panels are receive serial data, clock signal indicating when to latch the data bits, a latch signal indicating that a whole rows of data should be sent to the LEDs a set of address lines (A, B, C, and D) idenitfying which row should be displayed and an output-enable signal causing an addressed row LEDs to be driven.
 
 While the 64x32 Matrices all appear to be similar the manufacturing of them has been rapid and varied. For us this means that a HUB75 panel can have very different Integrated Circuits (ICs) on the panel driving the LEDs. With these IC changes comes the need alter the signals sent to the panels so that the ICs your panel uses understands the input signals.
 
 In general i'm finding so far that there are 3 or 4 commmon choices for ICs used on the panels. One GitHub user **Piotr Esden-Tempski**  offers  doc's for some of the panels [esden/led-panel-docs](https://github.com/esden/led-panel-docs) showing images of the panels, schematics and datasheets for the ICs used on the panel. (*I'm planning on contributing my schematic and various finds to his repo as a Pull request before this project is completed.*) There are many more that he does not have but this is a good reference.
 
 
-## My Panel
-
-The panels I'm using are marked with **P3-6432-121-16s-D1.0**  Which tell us that it is 64w x 32h (6432) and 16 addressed lines (16s).  This board uses FM6126A driver chips and TC7258EN chips for line address decoding. Lastly is uses 74HC245s to buffer the incoming signals and forward them to the output conector.  The FM6126A requires that we latch the data very differently in that instead of latching after the stream of bits for a line, we set the latch during the last 3 bits of each line. (per the Datasheet)  Additionally, the FM6126A requires initialization of two registers before it runs as a normal panel. This was quite the discovery as the Chinese Datasheet says the two registers exist but doesn't provide detail. Finding details and implementing the initialization was an effort of blending what I saw in posts which showed various forms of coce and other posts describing their reverse engineering of the same effort. But, it's all working, so I'm past this!
-
-![MyPanel](https://user-images.githubusercontent.com/540005/96038418-53a70b80-0e24-11eb-93fe-7af0301d349e.jpg)
-
-## Current Project state
-
-**20 Oct 2020:** I've made wonderful advances in this past week.
-
-Things now working are:
-
-- Loading and displaying images from .bmp files
-- PWMing images to achieve 24-bit color
-- Displaying text in both 5x7 and 8x8 fonts
-
-![Working 24-bit color](https://user-images.githubusercontent.com/540005/96498745-b4aa5700-1209-11eb-996d-6e3b6089b578.jpg)
-
-Here you can see a demonstration of the 24bit color. Of course these panels are amazingly bright. I'm running here at ~50% brightness and it's still overwhelming the camera in a lighted room.
-
-Up next: 
-
-- Rapid display of sequences of frames.
-- This will be for drawing animations, scrolling text, and even display of video when we get that far.
-- I've even some fun animated clocks coming (sorry, I'm been doing software clocks of many, many, forms for a long time.)
-
-**27 Oct 2020:** More engineering and the boards arrive!
-
-This week I've been:
-
-- Working to formally structure the code for release
-- Studied gamma correction and now have a better performing table in place
-- Studied PWM for the LEDs and now have a much more accurate PWM in place (colors are looking much better)
-- Have been working on more tests, demos for animation rates of display
-- More videos will be coming, meanwhile, have you seen these? [YouTube Playlist for Propeller Related Videos](https://www.youtube.com/playlist?list=PLkXxMjp58T0pk1dd8pH1OV7NCf-8Tbx1M)
-- **Exciting!** The initial run of the Adapter PCBs arrived!
-- I checked them out mechanically, soldered the parts to one, then checked it out electrically and lastly started using it!  It came up beautifully! (*See pictures and turn on description below*)
-
-
-
-## Development Environment
-
-Here we see my P2 Eval board with flying leads going to a splitter board I hand made so I can feed the panel and watch the signals with a Logic Analyzer.
-
-![WorkBench](https://user-images.githubusercontent.com/540005/96038234-13478d80-0e24-11eb-9f1e-623a94d56024.jpg)
 
 ## Project goals
 
@@ -89,9 +112,9 @@ But let's be more specific:
 | Reusable Driver | - | Ensure driver can be configured for (1) single panel size, (2) organization of multi-panel chains, and (3) the various panel chip-sets which require different clocking styles (within practical limits: *all panels must use the same chip-set*) |
 | long-term | - | Can we drive multiple panel chains - we have 64 GPIO pins on the P2... we should easily be able to connect 3 HUB75 adapters. Can we drive them all at video frame rates?  What is our limitation here? |
 
-**NOTE:** Initial turn-on of the pasm2 driver code (1st draft reasonably performant code, not the fastest possible) shows that I'm getting a 400fps rate with 3 bit color.  So far this means that before tuning we might be able to get 50fps of 24bit color for single panel.  For a 4x4 panel this means we might get 12.5fps to 33fps depending upon our color depth.  
+**NOTE:** Initial turn-on of the pasm2 driver code (1st draft reasonably performant code, not the fastest possible) shows that I'm getting a 1000fps rate with 3 bit color.  This will be derated by PWM especially as we get a much better PWM in place more usefully handling brightness control.
 
-Remember, this is without yet tuning the driver for best performance based on what the chip can do.  Based on the limits of the panel chipset, for the panels on this project, I should be able to drive the panel itself around 1.7x faster than I am in the 1st draft code.  So, there's room to get better here.
+Remember, this is without yet tuning the driver for best performance based on what the chip can do.  Based on the limits of the panel chipset, for the panels on this project, I should be able to drive the panel itself faster than I am in the 1st draft code.  So, there's room to get better here.
 
 ----
 
@@ -101,29 +124,9 @@ If you like my work and/or this has helped you in some way then feel free to hel
 
 ----
 
-### Next Environment Upgrade
 
-Since the project goals are going to be speed related, I'm going to need a better than flying leads to get to my higher speeds... so I'm building this Eval Adapter board:
+## Typical Panels
 
-![P2 Eval Adapter](https://user-images.githubusercontent.com/540005/96038186-062a9e80-0e24-11eb-8299-f5e8fcb03460.png)
-
-On this board you see 3.3v to 5v level shifters. I found that at higher speeds the clock, latch and OEb signals were falling below the signal threshold. This was a great exercise in Logic Analyzer use as I had originally set my input thresholds for 3.3v signals and of course they looked perfectly timed.  When I couldn't get reliable shifting and latching a had the thought that I'm dealing with 5v logic on the panels. Silly me, I had the LA configured for the output logic form, not the panel form of signal. So I switched to 5v threshold and then immediately saw that I was not at all clocking cleanly. quickly interposed the level shifer pcb that I had laying around and all the signals snapped to, as I really needed to see!  I was back in the land of the code I write now drives the signals I expect...  whew!
-
-### 1st Order of HUB75 Adapter Boards arrived!
-
-The boards arrived from JLCPCB! After determing that mechanically they fit Figure (1) below, then I built one up - Figure 2 and then after some power and ground double checks, I connected the new adapter PCB - Figure (3), lastly I connected up the Logic Analyzer flying leads so that I can verify all of the control/data signals to the panel - Figure (4).
-
-![P2 Eval Adapter- Turn On](https://user-images.githubusercontent.com/540005/97406458-df0dab80-18be-11eb-9624-995a85ff7937.png)
-
-It turned on completely. It also scared me at first (*you'll notice that it's on a different connector than my original flying leads test setup.*) This caused my driver to have a few hickups as I was straightening out what the new pins were! 
-
-But, I can't complain. After the driver issues were "sorted" this 1st run of boards turned out to be 100% functional. It's a good feeling!
-
-## Up Next, Cascaded Panels
-
-The next panel configuration i'm planning on playting with is daisy-chaining 4 of these panels so I can play with larger images. Here you see three more panels waiting for the fourth to be moved from the bench to join them.
-
-![2x2 Panels Daisy-Chained](https://user-images.githubusercontent.com/540005/96038541-818c5000-0e24-11eb-8789-b1d77364fd7d.jpg)
 
 ## Credits
 
