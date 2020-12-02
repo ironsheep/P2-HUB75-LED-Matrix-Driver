@@ -14,7 +14,7 @@ Work to appear in upcoming releases:
 - More advanced PWM algorithm yielding better brightness control
 - I've even some fun animated clocks coming (sorry, I'm been doing software clocks of many, many, forms for a long time.)
 
-## [1.0.0] 2020-12-03
+## [0.1.0] 2020-12-01
 
 ### Initial Release - Single Panel
 

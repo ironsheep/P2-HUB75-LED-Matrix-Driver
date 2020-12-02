@@ -12,7 +12,7 @@
 
 The P2 HUB75 Driver is available from a couple of sources:
 
-- [The P2 Object Exchange](https://github.com/parallaxinc/propeller/tree/master/libraries/community/p2)
+- [The P2 Object Exchange](https://github.com/parallaxinc/propeller/tree/master/libraries/community/p2) as "ISP HUB75 Matrix"
 - From this repository from the [Releases page](https://github.com/ironsheep/p2-LED-Matrix-Driver/releases)
 
 ## Additional Documents
@@ -100,7 +100,9 @@ While the 64x32 Matrices all appear to be similar the manufacturing of them has 
 
 In general i'm finding so far that there are 3 or 4 commmon choices for ICs used on the panels. One GitHub user **Piotr Esden-Tempski**  offers  doc's for some of the panels [esden/led-panel-docs](https://github.com/esden/led-panel-docs) showing images of the panels, schematics and datasheets for the ICs used on the panel. (*I'm planning on contributing my schematic and various finds to his repo as a Pull request before this project is completed.*) There are many more that he does not have but this is a good reference.
 
+![Hub75 Panels](images/example-panels.png)
 
+**Example Panels** backside of 64x32 p3 and 64x64 p2 panels with cables for power and data.
 
 ## ## BACKGROUND: Project goals
 
@@ -133,6 +135,11 @@ If you like my work and/or this has helped you in some way then feel free to hel
 
 
 ## Typical Panels
+
+
+
+
+
 
 
 ## Credits
