@@ -17,9 +17,9 @@ The P2 HUB75 Driver is available from a couple of sources:
 
 ## Additional Documents
 
-- This README has been repurposed to reflect the current state of the released driver
+- This README has been repurposed to reflect the current state of the driver as currently released
 - Moved initial readme content to the [HardwareTurnon](HardwareTurnon.md) document
-- Added the [Driver Details](THEOPS.md) document to provide more detail about the driver itself
+- Added the [Driver Details](THEOPS.md) document to provide more detail about the driver and driver-configuration
 - Added a [Change Log](ChangeLog.md) to capture notes about each release of the dirver
 
 ## Current Project state
@@ -29,7 +29,7 @@ What's working today with the current driver:
 - Single panel support working well, up to 2048 leds (64x32)
 - PWM'ing images to achieve reasonable color
 - Displaying text in both 5x7 and 8x8 fonts
-- Initial version of scrolling text - will get more performant in future updates
+- Initial version of scrolling text - will get more performant in future updates (right to left scroll only)
 - Basic color pixel placement at row, column
 - Basic drawing primitives
 - Loading and displaying images from .bmp files (that are identically sized to your panel)
@@ -48,6 +48,8 @@ Once you haave the driver downloaded and the source files added to your project 
 | `MAX_PANEL_COLUMNS` | {none} | The number of LEDs in each row of your panel ( # pixels-wide) |
 | `MAX_PANEL_ROWS` | {none} | The number of LEDs in each column of your panel ( # pixels-high) |
 
+*The easiest way to do this would be to find an example configuration in that file, copy it and modify it to describe your hardware set up. Makgin sure, of course that the others are commented out.*
+
 Once we support multiple panels then the following will also have to be configured:
 
 | Name            | Default | Description |
@@ -64,13 +66,13 @@ More detail can be found in [Driver Introduction & Configuration](THEOPS.md)
 
 ## Writing display code for your panels
 
-As soon are you are configured you will want to display stuff on your panel(s)!
+As soon are you are configured you will want to make pixels light up on your panel(s)!
 
-There are a number of demos which you can review then copy and past from.  These are:
+There are a couple of demos which you can review then copy and paste from.  These are:
 
-| DEMO Program            |  Purpose |
+| DEMO Program    |  Purpose |
 |-----------------|-------------|
-| isp\_hub75_demoColor.spin2 | presents the color features of the panel driver |
+| isp\_hub75_demoColor.spin2 | presents the color features of the panel driver, displays a .bmp file |
 | isp\_hub75_demoText.spin2 | presents the text and scrolling features of the panel driver |
 | isp\_hub75_demo7seg.spin2 | presents a technique for doing multi-step animations using the panel driver |
 
@@ -83,7 +85,7 @@ Please enjoy and let me know if there are features you want to see in this drive
 
 ## BACKGROUND: HUB75 RGB LED Matrix Panels
 
-There are many RGB LED matrices available. This drivers is built specifically for **HUB75** driven matrices which are usually found in sizes ranging from 16x16 to 64x64 and ranging in horizontal/vertical spacing form 2mm (P2) to 8mm (P8) between individual LEDs.  The version i'm developing with is actually a P3 64x32 Matrix which I originally bought from Amazon. The specific ones I'm using are no longer avail. but the are many others.  
+There are many RGB LED matrices available. This driver is built specifically for **HUB75** driven matrices which are usually found in sizes ranging from 16x16 to 64x64 and ranging in horizontal/vertical spacing form 1.5mm (P1.5) to 8mm (P8) between individual LEDs.  The version I'm developing with is actually a P3 64x32 Matrix which I originally bought from Amazon. The specific ones I'm using are no longer avail. but the are many others.  
 
 Example 32x64 panels:
 
@@ -94,7 +96,7 @@ Example 32x64 panels:
 - [Amazon 64x32 P5](https://www.amazon.com/Pixels-Indoor-SMD2121-320x160mm-320160mm/dp/B07SDMWX9R)
 - [Amazon 64x32 P4](https://www.amazon.com/NovaeLED-Display-100000hrs-Bright-Colored-Picture/dp/B07LFJD5GY) good price for two identical panels
 
-These panels are receive serial data, clock signal indicating when to latch the data bits, a latch signal indicating that a whole rows of data should be sent to the LEDs a set of address lines (A, B, C, and D) idenitfying which row should be displayed and an output-enable signal causing an addressed row LEDs to be driven.
+These panels expect to receive six lines of serial color data, a clock signal indicating when to latch the color data, a latch signal indicating that a whole rows of color data should be sent to the LEDs,a set of address lines (A, B, C, and D) identifying which row should be displayed and an output-enable signal causing an addressed row of LEDs to be driven.
 
 While the 64x32 Matrices all appear to be similar the manufacturing of them has been rapid and varied. For us this means that a HUB75 panel can have very different Integrated Circuits (ICs) on the panel driving the LEDs. With these IC changes comes the need alter the signals sent to the panels so that the ICs your panel uses understands the input signals.
 
@@ -132,15 +134,6 @@ If you like my work and/or this has helped you in some way then feel free to hel
 [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep)
 
 ----
-
-
-## Typical Panels
-
-
-
-
-
-
 
 ## Credits
 

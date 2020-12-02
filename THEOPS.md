@@ -31,23 +31,25 @@ Here are the reference programs you can study when learning to display to your p
 
 The driver itself is composed of the following files (with a few extras thrown in for fun):
 
-
 | group / Driver File           |  Purpose |
 |-----------------|-------------|
 | **- User Configuration -** | |
 | isp\_hub75_hwGeometry.spin2 | USER MODIFIED configuration file |
 | **- Core Driver -** | |
-| isp\_hub75_color.spin2 | | Core - Color constants, translation, routines, etc. |
+| isp\_hub75_color.spin2 |  Core - Color constants, translation, routines, etc. |
 | isp\_hub75_display.spin2 | Core - the drawing primitives and screen buffer |
 | isp\_hub75_fonts.spin2 | Core - fonts for text support |
 | isp\_hub75_panel.spin2 | Core - the layer translating screen buffer to PWM buffers |
 | isp\_hub75_rgb3bit.spin2 | Core - the PASM Hub75 driver |
 | isp\_hub75_screenAccess.spin2 | Core - light-weight access to Screen Buffer |
 | isp\_hub75_screenUtils.spin2 | Core - non-panal drawing primitives |
-| isp\_hub75_scrollingText.spin2 | Optional - include to use Scrolling Text |
 | **- Extras -** | |
-| isp\_hub75_7seg.spin2 | Optional - part of 7seg demo |
-| isp\_hub75_segment.spin2 | Optional - part of 7seg demo |
+| isp\_hub75\_display_bmp.spin2 | **Optional** - load .bmp file content into screen buffer |
+| isp\_hub75_scrollingText.spin2 | **Optional** - adds Scrolling Text |
+| isp\_hub75_7seg.spin2 | **Optional** - part of 7-segment demo - a digit |
+| isp\_hub75_segment.spin2 | **Optional** - part of 7-segment demo - a segment within a digit |
+
+The structure of these files was chosen in order to (1) make it easier and less memory usage for part of the driver to access other parts and (2) make it easier for you to chose to compile the **optional** parts or not. 
 
 Now let's see how to configure the driver.
 

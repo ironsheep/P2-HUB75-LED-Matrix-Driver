@@ -10,7 +10,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for reminders on how to str
 
 Work to appear in upcoming releases:
 
-- Multi Board support easily user configurable
+- Multi-Panel support easily user configurable
 - More advanced PWM algorithm yielding better brightness control
 - I've even some fun animated clocks coming (sorry, I'm been doing software clocks of many, many, forms for a long time.)
 
@@ -34,6 +34,9 @@ Work to appear in upcoming releases:
 - rundimentary scrolling text is now working
 - multiple panel types are now supported (will add more as users identify the need)
 
+**26 Nov 2020:** v1.4 PCB order placed for production run.
+
+**16 Nov 2020:** v1.3 (green) PCB's arrived today these are better mechanical fit and have plated vias on the EVal board connectors.  This is a final form and function run before we go to production.
 
 **20 Oct 2020:** I've made wonderful advances in this past week.
 
@@ -48,7 +51,7 @@ Things now working are:
 Here you can see a demonstration of the 16-bit pwm color. Of course these panels are amazingly bright. I'm running here at ~50% brightness and it's still overwhelming the camera in a lighted room.
 
 
-**27 Oct 2020:** More engineering and the boards arrive!
+**27 Oct 2020:** More engineering and the (red) boards arrive!
 
 This week I've been:
 
