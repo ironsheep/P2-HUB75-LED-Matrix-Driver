@@ -90,7 +90,7 @@ PRI waits(nSeconds)
         waitms(1000)    ' 1 seconds
 
 PUB fillPanel(threeBitColor)
-    '' fill screen but without PWM (for testing underlying driver)
+    '' Fill screen but without PWM (for testing underlying driver)
     matrix.fillPanel(threeBitColor)
 
 PUB loadScreen(p24bitScreen) | redByte, greenByte, blueByte, pPwmFrame, pPwmFrameSet, panelCol, panelRow, p24bitColor, colorValue, colorMask, bitCount, bitNumber, panelBGR, tmpVarA, tmpVarB
@@ -246,7 +246,7 @@ PRI dumpFrame(pFrameBuffer)
 
 
 PUB loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, haveError, showDebug, bInvalidFileStatus, pPwmFrameSet
-    '' Load a 24-bit .bmp file image into PWM frame buffers
+    '' Load a 24-bit .bmp file image into screen buffer
     ' HEADS UP!!! 
     '     this is currently limited to "single panel size" untill we rerite this code
 

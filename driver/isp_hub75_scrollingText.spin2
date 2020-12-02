@@ -84,7 +84,7 @@ PUB null()
     '' This is NOT a top level object
 
 PUB initialize()
-    '' call once before use to init this scroller
+    '' Call once before use to init this scroller
     isSetup := FALSE
     bScrolling := FALSE
     ctCharsToScroll := 0
@@ -95,7 +95,7 @@ PUB initialize()
     debug("stx:initialize() ", udec(instanceID))
 
 PUB setFontInfo(nbrTextColumns, charWidth, charHeight, leadingGap, horizontalGap, hBitmapOffset, textFont)
-    '' call any time font changes - so we can keep up
+    '' Call any time font changes - so we can keep up
     'debug("stx:setFontInfo() ", udec(instanceID), ", TCol=", udec_(nbrTextColumns), ", fnt=", udec_(textFont), ", wxh=(", udec_(charWidth), ", ", udec_(charHeight), "), ltGap=", udec_(leadingGap), ", hGap=", udec_(horizontalGap))
     maxTextColumns := nbrTextColumns
     charWidthInPix := charWidth
@@ -108,11 +108,12 @@ PUB setFontInfo(nbrTextColumns, charWidth, charHeight, leadingGap, horizontalGap
 ' EXAMPLES
 '    scrollText(row, column, widthInChars, "hello world", display.DIR_LEFT, rgbColor)
 PUB isIdle() : statusValue
+    '' Return T/F where T means this scroller instance is IDLE
     statusValue := isSetup && isScrollingComplete()
     'debug("stx:isIdle(", udec_(instanceID), ") RET=", sdec_(statusValue))
 
 PUB scrollText(loopMode) | bValidRequest
-    '' specify scrolling text duration (forever, once, twice, etc.)
+    '' Specify scrolling text duration (forever, once, twice, etc.)
     bValidRequest := TRUE
     case loopMode
         SCROLL_FOREVER:
@@ -136,7 +137,7 @@ PUB scrollText(loopMode) | bValidRequest
 
 
 PUB scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbColor) | nextToAppearIndex, colIndex, charColumn
-    '' place scolling text at R,C, of pZString scrolling in direction using rgbColor
+    '' Place scolling text at R,C, of pZString scrolling in direction using rgbColor
     if isIdle()
         scrollTextColor := rgbColor
         ' our string length is smaller of length given or our receiving buffer length

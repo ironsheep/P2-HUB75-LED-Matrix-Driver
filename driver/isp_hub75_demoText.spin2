@@ -56,8 +56,8 @@ PUB main() : ok | bitCount, newMask
     if ok <> -1
         display.stop()
 
-PUB demoScrollingText() | scrollerID, textSize
-    '' draw some scrolling text
+PRI demoScrollingText() | scrollerID, textSize
+    ' draw some scrolling text
 
     scrollPeriod := 0    ' 50 * 10 mSec :: 50/100th Sec
 
@@ -118,8 +118,8 @@ PRI showDuration(startTimeValue, pFuncTitle) | duration, converted
     converted := muldiv64(duration, 1_000_000, clkfreq)
     debug("- elapsed ", zstr_(pFuncTitle), ": ", udec_(converted), " uSec")
 
-PUB demoText()
-    '' draw some text!
+PRI demoText()
+    ' draw some text!
     display.clearScreen()
     display.setTextFont(display.TEXT_FONT_5x7)    ' font size 
     display.setCursor(0, 0)   ' start at top left, with one pixel of spacing

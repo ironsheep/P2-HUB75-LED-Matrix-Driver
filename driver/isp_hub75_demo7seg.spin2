@@ -39,7 +39,7 @@ OBJ
     digit[4]    : "isp_hub75_7seg"
 
 PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, builtPtr, color3bit, color24bit, pPixColor, colorOffset, byteOffset
-    '' start underlying drivers and run demo
+    '' Start underlying drivers and run demo
 
     'debug("`term temp size 82 50 textsize 10")
 
@@ -166,24 +166,16 @@ PRI loopUntilSegmentsFinish()
             quit
 
 PUB wait100thSecs(count)
+    '' Wait for {count} 100ths of a second
     repeat count
         waitms(10)  ' 1/100 seconds
 
-pub drawTestPattern(row,column)
-    ' place six colored bits
-    if column > 56
-        column := 56 
-    pixels.drawPixelAtRC(row, column+0, color.cRed)     ' long $xx998877
-    pixels.drawPixelAtRC(row, column+1, color.cLime)
-    pixels.drawPixelAtRC(row, column+2, color.cBlue)
-    pixels.drawPixelAtRC(row, column+5, color.cWhite)   ' long $665544xx
-    pixels.drawPixelAtRC(row, column+6, color.cYellow)
-    pixels.drawPixelAtRC(row, column+7, color.cOlive)
 
-PUB stop()                  '' stop the driver
-  if cog
-    display.stop()
-    cog := 0
+PUB stop()                 
+    '' Stop the driver
+    if cog
+        display.stop()
+        cog := 0
 
 CON { license }
 

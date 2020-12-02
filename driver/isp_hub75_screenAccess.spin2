@@ -77,11 +77,12 @@ DAT { shared access variables }
 pExtScreen      long    0
 
 PUB setScreen(pScreen)
-    '' Save the location of our external screen buffer
+    '' Save the location of the external screen buffer
     'debug("7s:setScreen")
     pExtScreen := pScreen
 
 PUB screenAddress() : pScreen 
+    '' Return the address of the external screen buffer
     pScreen := pExtScreen
 
 PUB dbgMemDump(bfrId, buffer, len) | bytBffr, colIdx, rowIdx, maxCol, maxRow, dispLen

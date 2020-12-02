@@ -97,7 +97,7 @@ PUB main() : ok | demoIndex
     stop()
 
 PRI stop()
-    '' stop the driver
+    ' Stop the driver
     if cog
         display.stop()
         cog := 0
@@ -108,7 +108,7 @@ PRI waitSec(countSeconds)
 
     ' do DEMO Things!
 
-PUB demoParallax() | rtCol, ltCol, topRow, botRow
+PRI demoParallax() | rtCol, ltCol, topRow, botRow
     display.setTextFont(display.TEXT_FONT_5x7)    ' font size 
     display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
 
@@ -125,7 +125,7 @@ PUB demoParallax() | rtCol, ltCol, topRow, botRow
     display.setColoredTextAtLnCol(2, 0, string("Propeller2"), color.cBlue)
     display.commitScreenToPanel()
 
-PUB demoAlignmentText()
+PRI demoAlignmentText()
     display.setTextFont(display.TEXT_FONT_5x7)    ' font size 
     display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
     display.setColoredTextAtLnCol(0, 0, string("Line 1"), color.cBlue)
@@ -134,8 +134,8 @@ PUB demoAlignmentText()
     display.setColoredTextAtLnCol(3, 0, string("Line 4"), color.cBlue)
     display.commitScreenToPanel()
 
-PUB demoText()
-    '' draw some text!
+PRI demoText()
+    ' draw some text!
     display.setTextFont(display.TEXT_FONT_5x7)    ' font size 
     display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
 
@@ -158,7 +158,7 @@ PUB demoText()
     display.setColoredTextAtLnCol(3,0, string("led matrix"), color.cWhite)
     display.commitScreenToPanel()
 
-PUB demoTestGammaTuneBrightness() | red, green, blue, row, col, rowOffset, colorGroup, bUseRed, bUseGreen, bUseBlue, colorValue
+PRI demoTestGammaTuneBrightness() | red, green, blue, row, col, rowOffset, colorGroup, bUseRed, bUseGreen, bUseBlue, colorValue
 
     repeat colorGroup from 0 to 2
         bUseRed := bUseGreen := bUseBlue := FALSE
@@ -215,7 +215,7 @@ PRI drawGammaTuneSwatch(width, row, col, red, green, blue) | ltCol, midCol, rtCo
         pixels.drawPixelAtRC(row, rtCol + colOffset, rtClr)
 
 
-PUB demoTest12x9ColorBrightness() | red, green, blue, row, col, rowCtr, colCtr, clrLow, clrMed, clrHigh, clrBW, bThirdClr
+PRI demoTest12x9ColorBrightness() | red, green, blue, row, col, rowCtr, colCtr, clrLow, clrMed, clrHigh, clrBW, bThirdClr
 
     repeat rowCtr from 0 to 8
         clrLow := 0
@@ -483,7 +483,7 @@ PRI demoColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex, useR
 
     
 PRI demoHueLines() | row, col, colorOffset
-    '' COLOR PANEL using hue  - all in one line 
+    ' COLOR PANEL using hue  - all in one line 
     col := 2
     repeat row from 0 to 31
         repeat colorOffset from 0 to 350 step 6
@@ -494,7 +494,7 @@ PRI demoHueLines() | row, col, colorOffset
     display.commitScreenToPanel()
 
 PRI demoHueLinesToo() | row, col, colorOffset
-    '' COLOR PANEL using hue  - all in one line 
+    ' COLOR PANEL using hue  - all in one line 
     col := 0
     repeat row from 0 to 31
         repeat colorOffset from 0 to 350 step 6
@@ -505,8 +505,8 @@ PRI demoHueLinesToo() | row, col, colorOffset
     display.commitScreenToPanel()
 
 
-PUB demoHueGroups() | row, col, green, panelNumber, colorOffset
-    '' COLOR PANEL using hue  6 groups
+PRI demoHueGroups() | row, col, green, panelNumber, colorOffset
+    ' COLOR PANEL using hue  6 groups
     row := 0
     repeat panelNumber from 0 to 350 step 60
         repeat colorOffset from 0 to 4
@@ -516,8 +516,8 @@ PUB demoHueGroups() | row, col, green, panelNumber, colorOffset
             row++
     display.commitScreenToPanel()
 
-PUB demoColorPalette12Panels() | red, panelNumber
-    '' 10x10x10 COLOR PANELs + BW panel
+PRI demoColorPalette12Panels() | red, panelNumber
+    ' 10x10x10 COLOR PANELs + BW panel
     panelNumber := 0
     repeat red from 0 to 255 step 25
         generateGreenBluePanelAgainst(panelNumber, red)
@@ -556,8 +556,8 @@ PRI generateBWPanel(panelNumber) | panelRow, panelCol, row, col, red, green, blu
             col := startCol
             'debug("bw panelNbr=(", udec_(panelNumber), "),startRC=(", udec_(row), ",", udec_(col), ")")
 
-PUB showFullColorSweep() | row, col, red, green, blue
-    '' basic bands - full color sweep
+PRI showFullColorSweep() | row, col, red, green, blue
+    ' basic bands - full color sweep
     red := green := blue := 0
     row := 2
     col := 0
@@ -617,15 +617,15 @@ PUB showFullColorSweep() | row, col, red, green, blue
     display.commitScreenToPanel()
 
 
-PUB demoScreenBlast() | color3bit
+PRI demoScreenBlast() | color3bit
     repeat 5
         repeat color3bit from 0 to 7
             display.fillPanel(color3bit)
             waitms(150)
 
 
-PUB colorBlast() | row, col, red, green, blue, blockX, blockY, subrow, subcol
-    '' color blast
+PRI colorBlast() | row, col, red, green, blue, blockX, blockY, subrow, subcol
+    ' color blast
     'debug("- DEMO: draw colored pixels")
     repeat blockX from 0 to 3
         repeat blockY from 0 to 1
@@ -641,13 +641,13 @@ PUB colorBlast() | row, col, red, green, blue, blockX, blockY, subrow, subcol
     display.commitScreenToPanel()
 
 
-PUB demoScreenBlastRed() | color3bit
-            color3bit := 1
-            display.fillPanel(color3bit)
+PRI demoScreenBlastRed() | color3bit
+    color3bit := 1
+    display.fillPanel(color3bit)
 
-PUB demoScreenBlastWhite() | color3bit
-            color3bit := 7
-            display.fillPanel(color3bit)
+PRI demoScreenBlastWhite() | color3bit
+    color3bit := 7
+    display.fillPanel(color3bit)
 
 
 CON { license }
