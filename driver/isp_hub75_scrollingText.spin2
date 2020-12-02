@@ -130,7 +130,7 @@ PUB scrollText(loopMode) | bValidRequest
         if loopMode == SCROLL_ONCE_TO_CLEAR
             remainingPixToScroll := (ctCharsToScroll * (charWidthInPix + horizontalGapInPix))
             ' bug 3 chars short font8A
-        else 
+        else
             remainingPixToScroll := ((ctCharsToScroll * (charWidthInPix + horizontalGapInPix)) - horizontalGapInPix) - windowWidthInPix
             ' bug 1 char short font 8A
     debug("stx:scrlTxt() ", udec(instanceID), ", ", udec(remainingPixToScroll), udec(ctCharsToScroll), udec(maxVisibleChars), udec(charWidthInPix), udec(horizontalGapInPix))
@@ -150,7 +150,7 @@ PUB scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbCol
         remainingPixToScroll := ((ctCharsToScroll * (charWidthInPix + horizontalGapInPix)) - horizontalGapInPix) - windowWidthInPix
         ' if our string is shorter than our window then right is string-end, else right is window-end
         nextToAppearIndex := min(maxVisibleChars, ctCharsToScroll)
-        
+
         debug("- scrollTxAtRCOfClr() ", udec(instanceID), ", RC=(", udec_(row), udec_(column), "), ", zstr(pZString), ", CT=", udec_(ctCharsToScroll), ", VIS=", udec_(maxVisibleChars), ", NTAI=", udec_(nextToAppearIndex))
         if ctCharsToScroll > 0
             bytemove(@scrollChars, pZString, ctCharsToScroll)
@@ -178,7 +178,7 @@ PUB scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbCol
         if direction == DIR_TO_LEFT
             placeCharsAtRCWithColor(topRow, leftColumn, charPixOffset, windowWidthInPix, firstVisCharIndex, scrollTextColor)
             charPixOffset++  ' we showed first window content just now
-        else    
+        else
             placeCharsAtRCWithColor(topRow, leftColumn, charPixOffset, windowWidthInPix, firstVisCharIndex, scrollTextColor)
             charPixOffset--  ' we showed first window content just now
             if charPixOffset < 0
@@ -189,10 +189,10 @@ PUB scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbCol
         debug("stx:scrollTxAtRCOfClr() - NOT IDLE!")
 
 
-PUB animateScroll() 
+PUB animateScroll()
     '' Do one scroll step, if one is pending
     if not isScrollingComplete()
-        'startTime := getct() 
+        'startTime := getct()
         'debug("stx:AS()")
         ' if scrolling left then head is next loosing left most pixel (offset dictates)
         '   and tail if moving left most pixel onscreen
@@ -212,7 +212,7 @@ PUB animateScroll()
                 firstVisCharIndex++
                 if firstVisCharIndex > ctCharsToScroll - 1 && scrollMode <> SCROLL_ONCE_TO_CLEAR
                     firstVisCharIndex := 0
-        else    
+        else
             placeCharsAtRCWithColor(topRow, leftColumn, charPixOffset, windowWidthInPix, firstVisCharIndex, scrollTextColor)
             charPixOffset--  ' we showed one just now
             ' if finished scrolling first char offscreen then reset to show head of next char
@@ -301,12 +301,12 @@ PRI placeSpaceAtRC(row, column, widthInPix) : endColumn | colIndex, rowIndex
 
 
 PRI placeBitmapFrontAtRCWithColor(row, column, bitInset, nbrFieldBits, pCharBitmap, rgbColor) : endColumn | cBitIdx, cByteIdx, cRowBits, pixColor, colOffset, pixColumn, pixRow, cBitOffset, nbrCharBits
-    ' Write cChar to display R,C using rgbColor using given bitmap 
-    'startTime := getct() 
+    ' Write cChar to display R,C using rgbColor using given bitmap
+    'startTime := getct()
     nbrCharBits := (nbrFieldBits > 0) ? nbrFieldBits - horizontalGapInPix : 0
     'debug("stx:pbF ", udec(column), udec(bitInset), udec(nbrFieldBits), udec(nbrCharBits), uhex_long(pCharBitmap))
     ' if we have some but not all char bits then we are leading char
-    'if nbrCharBits <> charWidthInPix    ' TESTING                        
+    'if nbrCharBits <> charWidthInPix    ' TESTING
     '    rgbColor := $00ff00             ' TESTING color our leading char green
     endColumn := column + nbrCharBits   ' point to gap locn
     if nbrCharBits > 0
@@ -333,8 +333,8 @@ PRI placeBitmapFrontAtRCWithColor(row, column, bitInset, nbrFieldBits, pCharBitm
 
 
 PRI placeBitmapBackAtRCWithColor(row, column, bitInset, nbrCharBits, pCharBitmap, rgbColor) : endColumn | cBitIdx, cByteIdx, cRowBits, pixColor, colOffset, pixColumn, pixRow, cBitOffset
-    ' Write cChar to display R,C using rgbColor using given bitmap 
-    'startTime := getct() 
+    ' Write cChar to display R,C using rgbColor using given bitmap
+    'startTime := getct()
     'debug("stx:pbB ", udec(column), udec(bitInset), udec(nbrCharBits), uhex_long(pCharBitmap))
     'rgbColor := $ffff00 ' TESTING color our trailing char yellow
     endColumn := column + nbrCharBits
@@ -390,4 +390,3 @@ CON { license }
   SOFTWARE.
  =================================================================================================
 }}
-

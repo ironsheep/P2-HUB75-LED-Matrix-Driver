@@ -39,13 +39,13 @@ segmentsByDigit
     byte    %0111_1011   ' 9 abcd-fg
 
 VAR { globals }
-    long    currValue 
+    long    currValue
     long    currRgbColor
     long    topY
     long    leftX
 
     long    defaultColor
-    
+
     byte    isSetup
 
 PUB null()
@@ -65,20 +65,20 @@ PUB placeDigit(row, column, digit, rgbColor)
     if digit <> DIGIT_HIDDEN
         reconfigureForDigit(digit)
 
-PUB setValue(digit) 
+PUB setValue(digit)
     '' Configure display to show desired {digit}: [0-9, DIGIT_HIDDEN]
     ensureIsSetup()
     if currValue <> digit
         reconfigureForDigit(digit)
 
 PUB incrementValue(shouldWrap) | nextValue
-    '' Increment to the next digit [0->9] 
+    '' Increment to the next digit [0->9]
     ''  if wrap is requested, return to 0 after 9, else just stop at 9
     nextValue := currValue + 1
-    if nextValue > 9 
+    if nextValue > 9
         if shouldWrap <> WITH_WRAP
             nextValue := 9
-        else 
+        else
             nextValue := 0
     setValue(nextValue)
 
@@ -135,7 +135,7 @@ PRI initialSetup() | segIndex, orientation, segRow, segCol
           0: ' G MIDDLE
             orientation := segments.SEG_MIDDLE
             segRow := topY + 1 + segments.SEG_LENGTH + 0 - 1
-            segCol := leftX + 1 
+            segCol := leftX + 1
 
         segments[segIndex].placeSegment(segRow, segCol, orientation, segments.STATE_OFF, currRgbColor)
 
@@ -156,15 +156,15 @@ PRI reconfigureForDigit(digit) | byte fromSegments, byte toSegments, bitIndex
                     if toSegments & (1 << bitIndex) > 0
                         ' to segment should be showing
                         '   NO CHANGE
-                    else 
+                    else
                         ' to segment should be hidden
                         segments[bitIndex].moveSegmentToState(segments.STATE_OFF)
-                else 
+                else
                     ' from segment is hidden
                     if toSegments & (1 << bitIndex) > 0
                         ' to segment should be showing
                         segments[bitIndex].moveSegmentToState(segments.STATE_ON)
-                    else 
+                    else
                         ' to segment should be hidden
                         '   NO CHANGE
         else
@@ -200,4 +200,3 @@ CON { license }
   SOFTWARE.
  =================================================================================================
 }}
-

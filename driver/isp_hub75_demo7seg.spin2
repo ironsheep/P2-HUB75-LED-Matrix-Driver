@@ -54,7 +54,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     digitPeriod := 12    ' 90     ' 4 x 100ths of a second
 
         ' draw some text!
-    display.setTextFont(display.TEXT_FONT_5x7)    ' font size 
+    display.setTextFont(display.TEXT_FONT_5x7)    ' font size
     display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
 
 
@@ -93,8 +93,8 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
 
             loopUntilSegmentsFinish()
 
-            wait100thSecs(digitPeriod)  
-            
+            wait100thSecs(digitPeriod)
+
 {
 ' transitional DEMO
 
@@ -121,7 +121,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
 
         loopUntilSegmentsFinish()
 
-        wait100thSecs(digitPeriod)   
+        wait100thSecs(digitPeriod)
 }
 
 
@@ -132,7 +132,7 @@ PRI showSecondsDots(lightDark) | red, green, blue, targetColor
    ' lightDarkv[0,1] where 1 means bright color
     if lightDark == 0
         targetColor := $00006F
-    else 
+    else
         targetColor := $0080FF
 
     drawSecondsDot(15, 31, targetColor)
@@ -154,15 +154,15 @@ PRI allDigitAnimationsComplete() : status
 
 
 PRI loopUntilSegmentsFinish()
-    repeat 
-        if not allDigitAnimationsComplete() 
+    repeat
+        if not allDigitAnimationsComplete()
             repeat digitIndex from 0 to 3
                 if not digit[digitIndex].isAnimationComplete()
-                    digit[digitIndex].animateStep() 
+                    digit[digitIndex].animateStep()
             display.commitScreenToPanel()
             wait100thSecs(segmentPeriod)
 
-        if allDigitAnimationsComplete() 
+        if allDigitAnimationsComplete()
             quit
 
 PUB wait100thSecs(count)
@@ -171,7 +171,7 @@ PUB wait100thSecs(count)
         waitms(10)  ' 1/100 seconds
 
 
-PUB stop()                 
+PUB stop()
     '' Stop the driver
     if cog
         display.stop()
@@ -206,4 +206,3 @@ CON { license }
   SOFTWARE.
  =================================================================================================
 }}
-

@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 17 Oct 2020
+''   Updated.... 01 Dec 2020
 ''
 '' =================================================================================================
 
@@ -34,6 +34,7 @@ OBJ
     pixels      : "isp_hub75_screenUtils"
     screen      : "isp_hub75_screenAccess"
     display     : "isp_hub75_display"
+    bmpHandler  : "isp_hub75_display_bmp"
 
 PUB main() : ok | demoIndex
     '' start underlying drivers and run demo
@@ -46,52 +47,26 @@ PUB main() : ok | demoIndex
     if ok == -1
         debug("- DEMO: underlying drivers failed!")
         abort
-{
-    demoIndex := 0
-    'repeat
-        repeat demoIndex from 0 to 5
-            display.clearScreen()
-            case demoIndex
-                0: demoTest256ColorBrightness()
-                1: demoTest32ColorBrightness()
-                2: demoTest16ColorBrightness()
-                3: demoTest360ColorBrightness()
-                4: demoTestGammaTuneBrightness()
-                5: demoTest12x9ColorBrightness()
-            waitSec(5)
-    repeat
-'}
-{
-    demoTest12x9ColorBrightness()
-    repeat
-'}
-    'demoColorPalette12Panels()
-    'demoScreenBlastRed()
-    'repeat
-    'demoScreenBlastWhite()
-    'repeat
-{
-    demoAlignmentText()
-    repeat
-'}
+
     demoPausePeriod := 3   ' seconds
+
     repeat 20
         repeat demoIndex from 0 to DEMO_COUNT - 1
             display.clearScreen()
             case demoIndex + 1
                 1: demoText()
                 2: demoParallax()
-                3: demoColorBrightness()
-                4: demoHueGroups()  ' needs fixing
-                5: demoHueLines()
-                6: demoColorPalette12Panels()
-                7: showFullColorSweep()
-                8: demoTest12x9ColorBrightness()
-                9: colorBlast()
-               10: demoText()
-               11: demoScreenBlast()
+                3: demoHueGroups()  ' needs fixing
+                4: demoHueLines()
+                5: demoColorPalette12Panels()
+                6: showFullColorSweep()
+                7: demoTest12x9ColorBrightness()
+                8: colorBlast()
+                9: demoText()
+               10: demoScreenBlast()
+               11: demoBmpFileLoad()
 
-            if demoIndex + 1 <> 11
+            if demoIndex + 1 <> 10
                 waitSec(demoPausePeriod)
 
     stop()
@@ -109,7 +84,7 @@ PRI waitSec(countSeconds)
     ' do DEMO Things!
 
 PRI demoParallax() | rtCol, ltCol, topRow, botRow
-    display.setTextFont(display.TEXT_FONT_5x7)    ' font size 
+    display.setTextFont(display.TEXT_FONT_5x7)    ' font size
     display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
 
     ltCol := 0
@@ -126,7 +101,7 @@ PRI demoParallax() | rtCol, ltCol, topRow, botRow
     display.commitScreenToPanel()
 
 PRI demoAlignmentText()
-    display.setTextFont(display.TEXT_FONT_5x7)    ' font size 
+    display.setTextFont(display.TEXT_FONT_5x7)    ' font size
     display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
     display.setColoredTextAtLnCol(0, 0, string("Line 1"), color.cBlue)
     display.setColoredTextAtLnCol(1, 0, string("Propeller"), color.cBlue)
@@ -136,7 +111,7 @@ PRI demoAlignmentText()
 
 PRI demoText()
     ' draw some text!
-    display.setTextFont(display.TEXT_FONT_5x7)    ' font size 
+    display.setTextFont(display.TEXT_FONT_5x7)    ' font size
     display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
 
     display.setColoredTextAtLnCol(0,0, string("iron sheep"), color.cMaroon)
@@ -481,9 +456,9 @@ PRI demoColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex, useR
 
     'repeat  ' hold here!
 
-    
+
 PRI demoHueLines() | row, col, colorOffset
-    ' COLOR PANEL using hue  - all in one line 
+    ' COLOR PANEL using hue  - all in one line
     col := 2
     repeat row from 0 to 31
         repeat colorOffset from 0 to 350 step 6
@@ -494,7 +469,7 @@ PRI demoHueLines() | row, col, colorOffset
     display.commitScreenToPanel()
 
 PRI demoHueLinesToo() | row, col, colorOffset
-    ' COLOR PANEL using hue  - all in one line 
+    ' COLOR PANEL using hue  - all in one line
     col := 0
     repeat row from 0 to 31
         repeat colorOffset from 0 to 350 step 6
@@ -649,6 +624,15 @@ PRI demoScreenBlastWhite() | color3bit
     color3bit := 7
     display.fillPanel(color3bit)
 
+PRI demoBmpFileLoad()
+
+    bmpHandler.fillScreenFromBMP(@bmpFile1)
+    display.commitScreenToPanel()
+
+DAT
+
+'bmpFile1    FILE    "TstBGCol.bmp"
+bmpFile1    FILE    "TstBG-Up.bmp"
 
 CON { license }
 
@@ -679,4 +663,3 @@ CON { license }
   SOFTWARE.
  =================================================================================================
 }}
-

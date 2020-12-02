@@ -11,18 +11,18 @@
 ''
 '' =================================================================================================
 
-' There are two types of segments  
+' There are two types of segments
 ' one of which is rotated 3 times to get 4 shapes
 ' the other is the middle segment
 
 ' The mechanical segments slide on and back off of screen
 ' the background is generally black
 '
-'       A 
+'       A
 '     F   B
-'       G 
+'       G
 '     E   C
-'       D 
+'       D
 
 CON { segment states, names, orientations and such }
 
@@ -35,7 +35,7 @@ SEG_LENGTH = 10
 
 cBlack = $000000
 
-OBJ 
+OBJ
     screen      : "isp_hub75_screenAccess"
     pixels      : "isp_hub75_screenUtils"
     color       : "isp_hub75_color"
@@ -73,7 +73,7 @@ PUB placeSegment(row, column, orientation, initialState, rgbColor)
             segWidth := 3
         OTHER:
             debug("SEG: BAD segment type!")
-            abort        
+            abort
     ' if the segment is initially showing, let's draw it!
     if initialState <> currentState
         updateSegmentToState(initialState)
@@ -95,12 +95,12 @@ PUB isMovementComplete() : status
     '' Return T/F where T means that all movement for this segment is complete
     status := (desiredEndState == currentState)
 
-PUB animateStep() 
+PUB animateStep()
     '' Do one animation step, if one is pending
     if not isMovementComplete()
         updateSegmentToState(nextState)
 
-PUB moveSegmentToState(newEndState) 
+PUB moveSegmentToState(newEndState)
     '' Start sequence of segment updates to desired state (on/off)
     'debug("seg:id(segT", udec_(segOrientation), "), moveTo (st", udec_(desiredEndState), ") -> (st", udec_(newEndState), ")")
     ' if we are asking to be in a different state then...
@@ -111,7 +111,7 @@ PUB moveSegmentToState(newEndState)
             abort
         if newEndState <> STATE_OFF && newEndState <> STATE_ON
             debug("SEG: BAD end-state must be ON or OFF!")
-            abort        
+            abort
         if newEndState == STATE_ON
             nextState := STATE_3RD_ON
         else
@@ -162,7 +162,7 @@ PRI updateVerticalSegment(newState) | pixInset, columnIndex
                 pixInset := 0
                 repeat columnIndex from 0 to SEG_WIDTH - 1
                     drawLine(segStartY + pixInset, segStartX + columnIndex, segStartY + SEG_LENGTH - 1 - pixInset, segStartX + columnIndex, segRgbColor)
-                    pixInset++ 
+                    pixInset++
             STATE_3RD_OFF:  ' smallest 2 lines showing
                     drawLine(segStartY + 0, segStartX + 0, segStartY + SEG_LENGTH - 1 - 0, segStartX + 0, segRgbColor)   ' mid
                     drawLine(segStartY + 1, segStartX + 1, segStartY + SEG_LENGTH - 1 - 1, segStartX + 1, segRgbColor)   ' shortest
@@ -310,11 +310,11 @@ PRI drawLine(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column
     toColumn :=  0 #> toColumn <# screen.MAX_DISPLAY_COLUMNS - 1
     if fmRow == toRow
         ' draw Horizontal Line
-        repeat column from fmColumn to toColumn 
+        repeat column from fmColumn to toColumn
             pixels.drawPixelAtRCwithRGB(fmRow, column, color.rgbForCValue(rgbColor))
     elseif fmColumn == toColumn
         ' draw Vertical Line
-        repeat row from fmRow to toRow 
+        repeat row from fmRow to toRow
             pixels.drawPixelAtRCwithRGB(row, fmColumn, color.rgbForCValue(rgbColor))
     else
         debug("DIAG lines not implemented !")
@@ -357,6 +357,5 @@ CON { license }
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   SOFTWARE.
  =================================================================================================
- 
-}}
 
+}}
