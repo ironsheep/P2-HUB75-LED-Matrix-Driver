@@ -20,8 +20,8 @@ The HUB75 adapter board is compatible with both the P2 Eval board and the new P2
 | **Upper Connector** | | |
 | io+15 | J4-1, J5-1 | Unused avail. at J4 at 3.3v or J5 at 5v |
 | io+14 | J4-2, J5-2 | Unused avail. at J4 at 3.3v or J5 at 5v |
-| io+13 | J3-6, J7-6 | Green 2 |
-| io+12 | J3-7, J7-7 | Blue 2 |
+| io+13 | J3-7, J7-7 | Blue 2 |
+| io+12 | J3-6, J7-6 | Green 2 |
 | io+11 | J3-5, J7-5 | Red 2 |
 | io+10 | J3-3, J7-3 | Blue 1 |
 | io+9 | J3-2, J7-2 | Green 1|
