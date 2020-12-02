@@ -111,6 +111,6 @@ If you find this kind of written explanation useful, helpful I would be honored 
 
 ---
 
-Last Updated: 02 Aug 2020, 02:02 MST
+Last Updated: 02 Dec 2020, 00:58 MST
 
-[maintenance-shield]: https://img.shields.io/badge/maintainer-S%20M%20Moraco%20%40ironsheepbiz-blue.svg?style=for-the-badge
+[maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep.biz-blue.svg?style=for-the-badge
