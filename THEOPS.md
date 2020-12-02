@@ -86,7 +86,11 @@ Here's a quick diagram you can use to gain a general understanding of how this d
 
 **Figure 2**: Flow of data within the driver.
 
+Basically, this image shows that the user code draws in 24-bit color values. As these are written to the screen buffer they are translated into PWM values. WHen the screen is committed (the image is transferred to the display) the screen image is split out into individual PWM buffers one for each of the 16 sub-frames which together comprise one full color video frame being displayed at roughtly 60 fps.
 
+The storage format is shown in the diagram at the various points of translation.
+
+Another view we'll later be adding to this page is how we allocate and use memory for these buffers as our display sizes change (these sizes are what you configured before you compiled the driver.)  This is only now being decided as we begin to add the multi-panel support.
 
 
 ---
