@@ -82,7 +82,7 @@ Once you haave the driver source files added to your project you will first need
 
 Here's a quick diagram you can use to gain a general understanding of how this driver operates:
 
-![Driver Data Flow](images/hub75-driver-data-flow.png)
+![Driver Data Flow](images/hub75-driver-data-flow.jpg)
 
 **Figure 2**: Flow of data within the driver.
 
@@ -92,9 +92,9 @@ The storage format is shown in the diagram at the various points of translation.
 
 Another view we'll later be adding to this page is how we allocate and use memory for these buffers as our display sizes change (these sizes are what you configured before you compiled the driver.)  This is only now being decided as we begin to add the multi-panel support.
 
-## Notes HUB75 pins used by driver
+## Notes on HUB75 pins used by driver
 
-Our P2 Eval HUB75 Adapter board is built to drive up to 5 address pins (A-E) so we can drive many HUB75 panel varients.
+Our P2 Eval HUB75 Adapter board is built to drive up to 5 address pins (A-E) so we can drive many HUB75 panel variants.
 
 Here's a simple diagram showing related pin groups:
 
