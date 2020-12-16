@@ -11,7 +11,7 @@ You likely received a small bag of header pins cut specifically so they can be s
 
 The HUB75 adapter board is compatible with both the P2 Eval board and the new P2 Edge Board.  Simply choose a connector-pair then attach the board. Lastly you'll need to configure the driver so it knows which connector-pair to use. See [Driver Configuration Details](THEOPS.md)
 
-![Driver Data Flow](images/example-board-connnet.png)
+![Driving a panel](images/p2-driving-panel.jpg)
 
 ## HUB75 Adapter Board Pinout
 
@@ -35,6 +35,10 @@ The HUB75 adapter board is compatible with both the P2 Eval board and the new P2
 | io+2 | J3-14, J7-14 | Latch Enable |
 | io+1 | J3-15, J7-15 | Output Enable bar |
 | io+0 | J3-13, J7-13 | Clock |
+
+Here's a simple diagram showing related pin groups:
+
+![Hub75 pinout](images/hub75e_pinout.png)
 
 ---
 

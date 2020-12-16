@@ -106,7 +106,13 @@ In general i'm finding so far that there are 3 or 4 commmon choices for ICs used
 
 **Example Panels** backside of 64x32 p3 and 64x64 p2 panels with cables for power and data.
 
-## ## BACKGROUND: Project goals
+## BACKGROUND: Driving the panels with our P2
+
+Hooking up our string of panels to the P2 Eval board or the P2 Edge Module Breadboard (*AKA the JonnyMac board*) is quite easy. We will have a **P2 Eval HUB75 Adapter board** for sale at Parallax.com.  It is hooked up as shown in this image:
+
+![](images/p2-driving-panel.jpg)
+
+## BACKGROUND: Project goals
 
 Overall: Let's see what performance we can achieve by driving from the Propeller 2 directly! 
 

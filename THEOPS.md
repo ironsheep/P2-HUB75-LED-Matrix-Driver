@@ -92,6 +92,13 @@ The storage format is shown in the diagram at the various points of translation.
 
 Another view we'll later be adding to this page is how we allocate and use memory for these buffers as our display sizes change (these sizes are what you configured before you compiled the driver.)  This is only now being decided as we begin to add the multi-panel support.
 
+## Notes HUB75 pins used by driver
+
+Our P2 Eval HUB75 Adapter board is built to drive up to 5 address pins (A-E) so we can drive many HUB75 panel varients.
+
+Here's a simple diagram showing related pin groups:
+
+![Hub75 pinout](images/hub75e_pinout.png)
 
 ---
 

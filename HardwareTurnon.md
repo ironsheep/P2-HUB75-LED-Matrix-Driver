@@ -3,6 +3,7 @@
 ## Awakening the HUB75 LED Matrix Driver for Propeller 2
 
 ![Project Maintenance][maintenance-shield]
+
 **<= This is a work in progress =>**
 
 There are many RGB LED matrices available. This drivers is built specifically for **HUB75** driven matrices which are usually found in sizes ranging from 16x16 to 64x64 and ranging in horizontal/vertical spacing form 2mm (P2) to 8mm (P8) between individual LEDs.  The version i'm developing with is actually a P3 64x32 Matrix which I originally bought from Amazon.
@@ -96,7 +97,7 @@ Follow these links for more information:
 
 ### [Copyright](copyright) | [License](LICENSE)
 
-[maintenance-shield]: https://img.shields.io/badge/maintainer-S%20M%20Moraco%20%40ironsheepbiz-blue.svg?style=for-the-badge
+[maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep.biz-blue.svg?style=for-the-badge
 
 [license-shield]: https://camo.githubusercontent.com/bc04f96d911ea5f6e3b00e44fc0731ea74c8e1e9/68747470733a2f2f696d672e736869656c64732e696f2f6769746875622f6c6963656e73652f69616e74726963682f746578742d646976696465722d726f772e7376673f7374796c653d666f722d7468652d6261646765
 
