@@ -20,9 +20,11 @@ This  HUB75 add-on board (#65032) is designed for use with Propeller 2 developme
 ### Specifications
 
 - Voltage : +5 VDC (supplied by P2-ES Eval Board)
-- Maximum clock rate : 30 MHz (limited by the level shifter I/Cs)
+- Maximum clock rate : 70 MHz (limited by the level shifter I/Cs)  [*see note*]
 - Form factor: dual 2×6-pin female passthrough headers with 0.1″ spacing
 - PCB dimensions: 1.9 x 2.8 in (48 x 71 mm)
+
+NOTE: *The I/Cs on this board were selected so that we can drive our panels as fast as they support. Hoever, our panels will likely require a much slower clock rate than this board can achieve. The maximum clock speeds for your panels will depend upon the actual chips they use.  Most of our panels are different and the manufacturers are constantly improving what the ship to us.*
 
 
 ## Downloads & Resources

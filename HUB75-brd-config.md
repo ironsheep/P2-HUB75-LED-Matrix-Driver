@@ -1,5 +1,7 @@
 # P2 Eval HUB75 Adaptor Board
 
+![Project Maintenance][maintenance-shield]
+
 ## Use of optional connectors (Rev 1.4 black)
 
 The optional connectors allow you to monitor the signals output to the HUB75 connector by the P2 driver and possibly make use of the unused P2 Pins IO+14 and IO+15.  
@@ -54,7 +56,7 @@ Here's a simple diagram showing related pin groups:
 
 *If you have any questions about what I've written here, file an issue and I'll respond with edits to this doc to attempt to make things more clear.*
 
-Thanks for Reading, following along. I look forward to seeing what adaptations you come up with. Please let me know when you do!
+Thanks for Reading, following along. I look forward to seeing what displays you come up with. Please let me know when you do!
 
 ```
 Stephen M. Moraco
