@@ -12,16 +12,15 @@ This  HUB75 add-on board (#65032) is designed for use with Propeller 2 developme
 
 ### Features
 
-- Provides 3.3v to 5V level shifting for all signals at the HUB75 Connector
+- Provides 3.3v to 5v level shifting for all signals at the HUB75 Connector
 - Supports HUB75 panels which use A-B-C, A-B-C-D and A-B-C-D-E Address lines
 - Perfect for use with the [ISP HUB75 Driver](https://github.com/parallaxinc/propeller/tree/master/libraries/community/p2/All/isp_hub75_matrix) found in the P2 Object Exchange (OBEX)
 
 
 ### Specifications
 
-- Voltage : +3.3 VDC (supplied by P2-ES Eval Board)
 - Voltage : +5 VDC (supplied by P2-ES Eval Board)
-- Maximum clock rate : 30 MHz (200 MB/s, limited by the level shifter I/Cs)
+- Maximum clock rate : 30 MHz (limited by the level shifter I/Cs)
 - Form factor: dual 2×6-pin female passthrough headers with 0.1″ spacing
 - PCB dimensions: 1.9 x 2.8 in (48 x 71 mm)
 

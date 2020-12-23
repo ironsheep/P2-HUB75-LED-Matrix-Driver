@@ -1,9 +1,18 @@
 # P2 Eval HUB75 Adaptor Board
 
-## Use of optional connectors (Rev 1.2 red & 1.3 green)
-The optional connectors allow you to use monitor the signals output to the HUB75 connector by the P2 driver.  J4 and J5 allow access to the 2 pins not being used to drive the HUB75 devices.  While J3 allows one to fully monitor all signals at the HUB75 connector. Just connect high-impedance probes to monitor.
+## Use of optional connectors (Rev 1.4 black)
+
+The optional connectors allow you to monitor the signals output to the HUB75 connector by the P2 driver and possibly make use of the unused P2 Pins IO+14 and IO+15.  
+
+J4 and J5 allow access to the 2 pins not being used to drive the HUB75 devices, while J3 allows you to fully monitor all signals at the HUB75 connector. Simply connect high-impedance probes to the header pins.
 
 You likely received a small bag of header pins cut specifically so they can be soldered at these locations should you wish to use J3, J4 or J5.
+
+![Driver Data Flow](images/adapter-board-r1_4-anno.jpg)
+
+## Use of optional connectors (Rev 1.2 red & 1.3 green)
+
+The optional connectors are the same for the r1.2 and r1.3 boards as r1.4 but do not have the associated ground pins at J4 and J5.
 
 ![Driver Data Flow](images/adapter-board-anno.png)
 
@@ -35,6 +44,7 @@ The HUB75 adapter board is compatible with both the P2 Eval board and the new P2
 | io+2 | J3-14, J7-14 | Latch Enable |
 | io+1 | J3-15, J7-15 | Output Enable bar |
 | io+0 | J3-13, J7-13 | Clock |
+| +5v|  | VCC for the two I/Cs |
 
 Here's a simple diagram showing related pin groups:
 
