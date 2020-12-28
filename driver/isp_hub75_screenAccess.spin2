@@ -22,11 +22,21 @@ CON { reinterpret the users selections for driver internal use }
     ' the user-selected location
     ADAPTER_BASE_PIN = user.ADAPTER_BASE_PIN
 
+    ' chip types
     CHIP_UNKNOWN = user.CHIP_UNKNOWN
     CHIP_FM6126A = user.CHIP_FM6126A
 
     ' which chip driver should be used
     PANEL_DRIVER_CHIP = user.PANEL_DRIVER_CHIP
+
+    ' address ranges
+    ADDR_UNKNOWN = user.ADDR_UNKNOWN
+    ADDR_ABC = user.ADDR_ABC
+    ADDR_ABCD = user.ADDR_ABCD
+    ADDR_ABCDE = user.ADDR_ABCDE
+
+    ' how many address lines are being used
+    ADDR_ROWS = user.ADDR_ROWS
 
     ' how big is each panel
     MAX_PANEL_ROWS = user.MAX_PANEL_ROWS

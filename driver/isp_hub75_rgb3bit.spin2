@@ -159,23 +159,37 @@ PUB start() : ok | bSetLowPins
             usingPortA  := FALSE
 
     if bSetLowPins
-            maskAddr    := %00000000_00000000_00000000_01111000     ' pins at 00-15 A-pins
-            maskRgb12   := %00000000_00000000_00111111_00000000     ' rgb2rgb1 now grounded to lsbit - pins at 00-15 A-pins
-            maskAllPins := %00000000_00000000_00111111_01111111     ' adds new E addr bit (off for now) - pins at 00-15 A-pins
-            addrValue1  := $0000_0008                               ' 1 but in upper 5-bits of byte
-            addrValue15 := $0000_0078                               ' 15 but in upper 5-bits of byte
+        if screen.ADDR_ROWS == screen.ADDR_ABCDE
+            maskAddr    := %00000000_00000000_00000000_11111000     ' pins at 00-15 A/B-pins
+            addrValueMax := $0000_00F8                               ' 15 but in upper 5-bits of byte
+        elseif screen.ADDR_ROWS == screen.ADDR_ABCD
+            maskAddr    := %00000000_00000000_00000000_01111000     ' pins at 00-15 A/B-pins
+            addrValueMax := $0000_0078                               ' 15 but in upper 5-bits of byte
+        else  '  == screen.ADDR_ABC
+            maskAddr    := %00000000_00000000_00000000_00111000     ' pins at 00-15 A/B-pins
+            addrValueMax := $0000_0038                               ' 15 but in upper 5-bits of byte
+        maskRgb12   := %00000000_00000000_00111111_00000000     ' rgb2rgb1 now grounded to lsbit - pins at 00-15 A/B-pins
+        maskAllPins := %00000000_00000000_00111111_01111111     ' adds new E addr bit (off for now) - pins at 00-15 A/B-pins
+        addrValue1  := $0000_0008                               ' 1 but in upper 5-bits of byte
     else
-            maskAddr    := %00000000_01111000_00000000_00000000     ' pins at 16-31 A-pins
-            maskRgb12   := %00111111_00000000_00000000_00000000     ' rgb2rgb1 now grounded to lsbit - pins at 16-31 A-pins
-            maskAllPins := %00111111_01111111_00000000_00000000     ' adds new E addr bit (off for now) - pins at 16-31 A-pins
-            addrValue1  := $0008_0000                               ' 1 but in upper 5-bits of byte
-            addrValue15 := $0078_0000                               ' 15 but in upper 5-bits of byte
+        if screen.ADDR_ROWS == screen.ADDR_ABCDE
+            maskAddr    := %00000000_11111000_00000000_00000000     ' pins at 16-31 A/B-pins
+            addrValueMax := $00F8_0000                               ' 31 but in upper 5-bits of byte
+        elseif screen.ADDR_ROWS == screen.ADDR_ABCD
+            maskAddr    := %00000000_01111000_00000000_00000000     ' pins at 16-31 A/B-pins
+            addrValueMax := $0078_0000                               ' 15 but in upper 5-bits of byte
+        else  '  == screen.ADDR_ABC
+            maskAddr    := %00000000_00111000_00000000_00000000     ' pins at 16-31 A/B-pins
+            addrValueMax := $0038_0000                               ' 7 but in upper 5-bits of byte
+        maskRgb12   := %00111111_00000000_00000000_00000000     ' rgb2rgb1 now grounded to lsbit - pins at 16-31 A/B-pins
+        maskAllPins := %00111111_01111111_00000000_00000000     ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
+        addrValue1  := $0008_0000                               ' 1 but in upper 5-bits of byte
 
     debug("- ", ubin_long(maskAddr))
     debug("- ", ubin_long(maskRgb12))
     debug("- ", ubin_long(maskAllPins))
     debug("- ", uhex_long(addrValue1))
-    debug("- ", uhex_long(addrValue15))
+    debug("- ", uhex_long(addrValueMax))
 
     ' pass values to our driver
     ptrCommand := @dvrCommand
@@ -406,7 +420,7 @@ drive_matrix
 
 
 ' init row address
-                    mov     row_addr, addrValue15    ' reset address to 15 [A-D addr all ones]
+                    mov     row_addr, addrValueMax    ' reset address to 15 [A-D addr all ones]
 
 ' write address
                     call    #emitAddr
@@ -518,7 +532,7 @@ markCmdComplete
 wrCurrent
                     ' repeat the following forever
                     ' set addr to start
-                    mov     row_addr, addrValue15    ' reset address to 15 [A-D addr all ones]
+                    mov     row_addr, addrValueMax    ' reset address to 15 [A-D addr all ones]
                     mov     row_ctr, #16                ' 16 -> 0 so we can use djnz
                     mov     reg_offset, #0              ' start of [0-1023] buffer
                     drvl    #MTX_LED_PIN_OE
@@ -666,9 +680,9 @@ usingPortA      long    FALSE
 overlappedLatch long    FALSE
 
 ' the follwing are I/O pin masks and data values we use for our primary I/O
-maskAddr         long    %00000000_01111000_00000000_00000000   ' pins at 16-31 A-pins
-maskRgb12        long    %00111111_00000000_00000000_00000000   ' rgb2rgb1 now grounded to lsbit - pins at 16-31 A-pins
-maskAllPins      long    %00111111_01111111_00000000_00000000   ' adds new E addr bit (off for now) - pins at 16-31 A-pins
+maskAddr         long    %00000000_01111000_00000000_00000000   ' pins at 16-31 A/B-pins
+maskRgb12        long    %00111111_00000000_00000000_00000000   ' rgb2rgb1 now grounded to lsbit - pins at 16-31 A/B-pins
+maskAllPins      long    %00111111_01111111_00000000_00000000   ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
 
                     ' PINS A 00-15  USE $0000_0008
                     ' PINS A 16-31  USE $0008_0000
@@ -680,7 +694,7 @@ addrValue1   long    $0008_0000                                 ' 1 but in upper
                     ' PINS A 16-31  USE $0078_0000
                     ' PINS B 32-47  USE $0000_0078
                     ' PINS B 48-63  USE $0078_0000
-addrValue15  long    $0078_0000                                 ' 15 but in upper 5-bits of byte
+addrValueMax  long    $0078_0000                                 ' 15 but in upper 5-bits of byte
 '
 ' --------------------------------------------------------------------------------------------------
 'screen buffer 1024B of %00bgrbgr where byte is 00{rgb2}{rgb1}

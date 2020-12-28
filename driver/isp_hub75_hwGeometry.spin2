@@ -21,6 +21,7 @@ CON { Hardware Description }
 
 
 #0, CHIP_UNKNOWN, CHIP_FM6126A, CHIP_FM6124
+#2, ADDR_UNKNOWN, ADDR_ABC, ADDR_ABCD, ADDR_ABCDE
 
 ' =================================================================================================
 '  (1) Describe where your P2 EVAL HUB75 Adapter is plugged in
@@ -30,12 +31,12 @@ CON { Hardware Description }
 	' my P2 EVAL Baord
     'ADAPTER_BASE_PIN = PINS_P32_P47   ' PINS_P16_31
     ADAPTER_BASE_PIN = PINS_P16_P31
-    
+
     ' my JonnyMac Board
     'ADAPTER_BASE_PIN = PINS_P0_P15   ' PINS_P0_P15
     'ADAPTER_BASE_PIN = PINS_P32_P47   ' PINS_P0_P15
     'ADAPTER_BASE_PIN = PINS_P48_P63   ' PINS_P0_P15
-    
+
 
 ' =================================================================================================
 '  (2) Describe the overall layout of your hardware panels:
@@ -52,10 +53,10 @@ CON { Hardware Description }
 '     top half (lines 0-15) driven by R1,G1,B1 pins
 '     bottom half (lines 16-31) driven by R2,G2,B2 pins
 ' ----------------------------------------------------------
-
+{
 '  determine what form of signalling the driver should use
-    'PANEL_DRIVER_CHIP = CHIP_FM6124    ' CHIP_FM6126A 
-    PANEL_DRIVER_CHIP = CHIP_FM6126A 
+    'PANEL_DRIVER_CHIP = CHIP_FM6124    ' CHIP_FM6126A
+    PANEL_DRIVER_CHIP = CHIP_FM6126A
 
     ' electrical layout
     MAX_PANEL_COLUMNS = 64
@@ -69,6 +70,8 @@ CON { Hardware Description }
     MAX_DISPLAY_ROWS = 32
 
     MAX_PANELS = 1
+
+    ADDR_ROWS = ADDR_ABCD
 '}
 
 
@@ -85,7 +88,7 @@ CON { Hardware Description }
 ' ----------------------------------------------------------
 {
 '  determine what form of signalling the driver should use
-    PANEL_DRIVER_CHIP = CHIP_FM6126A 
+    PANEL_DRIVER_CHIP = CHIP_FM6126A
 
     ' electrical layout
     MAX_PANEL_COLUMNS = 256
@@ -100,6 +103,8 @@ CON { Hardware Description }
     MAX_DISPLAY_ROWS = 64
 
     MAX_PANELS = 4
+
+    ADDR_ROWS = ADDR_ABCD
 
 '}
 '
@@ -117,7 +122,7 @@ CON { Hardware Description }
 ' ----------------------------------------------------------
 {
 '  determine what form of signalling the driver should use
-    PANEL_DRIVER_CHIP = CHIP_FM6126A 
+    PANEL_DRIVER_CHIP = CHIP_FM6126A
 
     ' electrical layout
     MAX_PANEL_COLUMNS = 256
@@ -125,11 +130,13 @@ CON { Hardware Description }
 
     ' panels organization: visual layout
     '   [1][2][3][4]    ' one row of 4 panels
-    '   
+    '
     MAX_DISPLAY_COLUMNS = 256
     MAX_DISPLAY_ROWS = 32
-    
+
     MAX_PANELS = 4
+
+    ADDR_ROWS = ADDR_ABCD
 
 }
 '
@@ -147,7 +154,7 @@ CON { Hardware Description }
 ' ----------------------------------------------------------
 {
 '  determine what form of signalling the driver should use
-    PANEL_DRIVER_CHIP = CHIP_UNKNOWN 
+    PANEL_DRIVER_CHIP = CHIP_UNKNOWN
 
     ' electrical layout
     MAX_PANEL_COLUMNS = 64
@@ -155,15 +162,48 @@ CON { Hardware Description }
 
     ' panels organization: visual layout
     '   [1]     ' one panel
-    '   
+    '
     MAX_DISPLAY_COLUMNS = 64
     MAX_DISPLAY_ROWS = 32
-    
+
     MAX_PANELS = 1
 
+    ADDR_ROWS = ADDR_ABCD
 
 }
 
+'
+' =================================================================================================
+' AUTHORs  5th configuration
+' -------------------------------------------------------------------------------------------------
+' PANEL: ---  P2-2020210240-200  ---
+'   panel theory  3 bits per pixel
+'   64 columns x 64 rows = 4096 pixels
+'   32 lines [0-31]: 64 pixels / line
+'   2 halves: 2048 pixels / half (top and bottom)
+'     EA half: 2048 pixels
+'     top half (lines 0-31) driven by R1,G1,B1 pins
+'     bottom half (lines 32-63) driven by R2,G2,B2 pins
+' ----------------------------------------------------------
+
+'  determine what form of signalling the driver should use
+    PANEL_DRIVER_CHIP = CHIP_UNKNOWN
+
+    ' electrical layout
+    MAX_PANEL_COLUMNS = 64
+    MAX_PANEL_ROWS = 32
+
+    ' panels organization: visual layout
+    '   [1]     ' one panel
+    '
+    MAX_DISPLAY_COLUMNS = 64
+    MAX_DISPLAY_ROWS = 32
+
+    MAX_PANELS = 1
+
+    ADDR_ROWS = ADDR_ABCDE
+
+'}
 
 '              (remember to enable (uncomment) only one configuration above here)
 ' -------------------------------------------------------------------------------------------------
@@ -206,5 +246,5 @@ CON { license }
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   SOFTWARE.
  =================================================================================================
- 
+
 }}
