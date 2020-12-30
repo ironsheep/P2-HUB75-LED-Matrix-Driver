@@ -118,9 +118,9 @@ PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader, i, iStart, iEnd
     'else
         ' XYZZYpnl debug("-good BMP size! [64x32]")
 
-    'dbgMemDump(@fileHeaderMsg, pBmpFileImage, bfOffBits)
-    'dbgMemDump(@fileStartMsg, iStart, 32)
-    'dbgMemDump(@fileEndMsg, iEnd-32-1, 32)
+    'screen.dbgMemDump(@fileHeaderMsg, pBmpFileImage, bfOffBits)
+    'screen.dbgMemDump(@fileStartMsg, iStart, 32)
+    'screen.dbgMemDump(@fileEndMsg, iEnd-32-1, 32)
 
 PRI get24BitBMPColorForRC(nRow, nColumn) : red, green, blue | pixColorAddr
 	if(nRow > screen.MAX_PANEL_ROWS - 1)

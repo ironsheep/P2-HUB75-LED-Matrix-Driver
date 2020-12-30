@@ -14,18 +14,7 @@
 
 CON { timing }
 
-    CLK_FREQ = 335_000_000                                        ' system freq as a constant
-    MS_001   = CLK_FREQ / 1_000                                   ' ticks in 1ms
-    US_001   = CLK_FREQ / 1_000_000                               ' ticks in 1us
-
-    TM_64US = US_001 * 64
-
-    NS_015   = 5 ' - 2 '15 / (1_000_000_000 / CLK_FREQ)                   ' tics in 15 nSec
-    NS_030   = 10 - 2 '30 / (1_000_000_000 / CLK_FREQ)            ' tics in 30 nSec
-
-    BR_TERM  = 2_000_000                                          ' debug baud rate
-
-    '_clkfreq = CLK_FREQ                                           ' set system clock
+' clock is setup in top-level file
 
 CON { I/O PINs }
 
@@ -57,7 +46,7 @@ CON { I/O PINs }
     MTX_LED_PIN_OE = MTX_LED_BASE_PIN + 1
     MTX_LED_PIN_CLK = MTX_LED_BASE_PIN + 0
 
-    MTX_ROW_ADDR_PINS = MTX_LED_PIN_A ADDPINS 3     ' TESTING use 4, use 3 for live!
+    MTX_ROW_ADDR_PINS = MTX_LED_PIN_A ADDPINS 4     ' TESTING use 4, use 3 for live!
 
     MTX_COLOR_PINS    = MTX_LED_PIN_R1 ADDPINS 5
     MTX_COLOR_RGB1_PINS = MTX_LED_PIN_R1 ADDPINS 2
@@ -94,6 +83,9 @@ CON { Data }
     WHITE   = $07
 
     #0, CMD_DONE, CMD_CLEAR, CMD_SHOW_BUFFER, CMD_FILL_COLOR, CMD_SHOW_PWM_BUFFER, CMD_STOP
+
+    MAX_COG_BUFFER_SIZE_IN_LONGS = 256
+
 OBJ
 
     screen      : "isp_hub75_screenAccess"
@@ -115,19 +107,10 @@ PUB start() : ok | bSetLowPins
 
     stop()
 
-
-
-    'repeat
-    '    PINLOW(MTX_LED_PIN_OE)   ' high! (/OE)
-    '    PINHIGH(MTX_LED_PIN_OE)   ' high! (/OE)
-
-
-    'testT := TRUE
-    'testF := FALSE
-
-    'debug("TEST T/F ", uhex_long(testT), uhex_long(testF))
-
-
+    ' calc time constants
+    msec_001 := CLKFREQ / 1_000                                   ' ticks in 1ms
+    usec_001 := CLKFREQ / 1_000_000                               ' ticks in 1us
+    tm_64usec := usec_001 * 64
 
     ' when using a panel w/FM6126A chips we have to issue a reset!
     '   before attempting to use the panel
@@ -136,12 +119,16 @@ PUB start() : ok | bSetLowPins
         overlappedLatch := TRUE
         setupPins()
         resetPanel()
+    elseif screen.PANEL_DRIVER_CHIP == screen.CHIP_LATCH_END_ENCL
+        debug("- have LE-OE ENCL")
+        overlappedLatch := FALSE
+        latchEnclosed := TRUE
     else
         debug("- have OTHER")
         overlappedLatch := FALSE
+        latchEnclosed := FALSE
 
     ' configure our driver
-    bSetLowPins := FALSE
     case screen.ADAPTER_BASE_PIN
         screen.PIN_GROUP_P0_P15:
             debug("- I/O P00 - P15")
@@ -149,6 +136,7 @@ PUB start() : ok | bSetLowPins
             usingPortA  := TRUE
         screen.PIN_GROUP_P16_P31:
             debug("- I/O P16 - P31")
+            bSetLowPins := FALSE
             usingPortA  := TRUE
         screen.PIN_GROUP_P32_P47:
             debug("- I/O P32 - P47")
@@ -156,35 +144,56 @@ PUB start() : ok | bSetLowPins
             usingPortA  := FALSE
         screen.PIN_GROUP_P48_P63:
             debug("- I/O P48 - P63")
+            bSetLowPins := FALSE
             usingPortA  := FALSE
 
     if bSetLowPins
         if screen.ADDR_ROWS == screen.ADDR_ABCDE
+            maskAllPins := %00000000_00000000_00111111_11111111         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
             maskAddr    := %00000000_00000000_00000000_11111000     ' pins at 00-15 A/B-pins
-            addrValueMax := $0000_00F8                               ' 15 but in upper 5-bits of byte
+            addrValueMax := $0000_00F8                              ' 31 but in upper 5-bits of byte
+            rowCtrMax   := 32
         elseif screen.ADDR_ROWS == screen.ADDR_ABCD
+            maskAllPins := %00000000_00000000_00111111_01111111         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
             maskAddr    := %00000000_00000000_00000000_01111000     ' pins at 00-15 A/B-pins
-            addrValueMax := $0000_0078                               ' 15 but in upper 5-bits of byte
+            addrValueMax := $0000_0078                              ' 15 but in upper 5-bits of byte
+            rowCtrMax   := 16
         else  '  == screen.ADDR_ABC
+            maskAllPins := %00000000_00000000_00111111_00111111         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
             maskAddr    := %00000000_00000000_00000000_00111000     ' pins at 00-15 A/B-pins
-            addrValueMax := $0000_0038                               ' 15 but in upper 5-bits of byte
-        maskRgb12   := %00000000_00000000_00111111_00000000     ' rgb2rgb1 now grounded to lsbit - pins at 00-15 A/B-pins
-        maskAllPins := %00000000_00000000_00111111_01111111     ' adds new E addr bit (off for now) - pins at 00-15 A/B-pins
-        addrValue1  := $0000_0008                               ' 1 but in upper 5-bits of byte
+            addrValueMax := $0000_0038                              ' 7 but in upper 5-bits of byte
+            rowCtrMax   := 8
+        maskRgb12   := %00000000_00000000_00111111_00000000         ' rgb2rgb1 now grounded to lsbit - pins at 00-15 A/B-pins
+        addrValue1  := $0000_0008                                   ' 1 but in upper 5-bits of byte
     else
         if screen.ADDR_ROWS == screen.ADDR_ABCDE
+            maskAllPins := %00111111_11111111_00000000_00000000         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
             maskAddr    := %00000000_11111000_00000000_00000000     ' pins at 16-31 A/B-pins
-            addrValueMax := $00F8_0000                               ' 31 but in upper 5-bits of byte
+            addrValueMax := $00F8_0000                              ' 31 but in upper 5-bits of byte
+            rowCtrMax   := 32
         elseif screen.ADDR_ROWS == screen.ADDR_ABCD
+            maskAllPins := %00111111_01111111_00000000_00000000         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
             maskAddr    := %00000000_01111000_00000000_00000000     ' pins at 16-31 A/B-pins
-            addrValueMax := $0078_0000                               ' 15 but in upper 5-bits of byte
+            addrValueMax := $0078_0000                              ' 15 but in upper 5-bits of byte
+            rowCtrMax   := 16
         else  '  == screen.ADDR_ABC
+            maskAllPins := %00111111_00111111_00000000_00000000         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
             maskAddr    := %00000000_00111000_00000000_00000000     ' pins at 16-31 A/B-pins
-            addrValueMax := $0038_0000                               ' 7 but in upper 5-bits of byte
-        maskRgb12   := %00111111_00000000_00000000_00000000     ' rgb2rgb1 now grounded to lsbit - pins at 16-31 A/B-pins
-        maskAllPins := %00111111_01111111_00000000_00000000     ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
-        addrValue1  := $0008_0000                               ' 1 but in upper 5-bits of byte
-
+            addrValueMax := $0038_0000                              ' 7 but in upper 5-bits of byte
+            rowCtrMax   := 8
+        maskRgb12   := %00111111_00000000_00000000_00000000         ' rgb2rgb1 now grounded to lsbit - pins at 16-31 A/B-pins
+        addrValue1  := $0008_0000                                   ' 1 but in upper 5-bits of byte
+{
+    ' test mask off rgb1 or rgb2 in ABCDE case (testing matrix)
+    if bSetLowPins
+        if screen.ADDR_ROWS == screen.ADDR_ABCDE
+            'maskAllPins := %00000000_00000000_00111000_11111111         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
+            maskAllPins := %00000000_00000000_00000111_11111111         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
+    else
+        if screen.ADDR_ROWS == screen.ADDR_ABCDE
+            'maskAllPins := %00111000_11111111_00000000_00000000         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
+            maskAllPins := %00000111_11111111_00000000_00000000         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
+}
     debug("- ", ubin_long(maskAddr))
     debug("- ", ubin_long(maskRgb12))
     debug("- ", ubin_long(maskAllPins))
@@ -256,36 +265,6 @@ PRI setupPins()
     PINLOW(MTX_ROW_ADDR_PINS)
     PINLOW(MTX_COLOR_PINS)
 
-PRI dbgMemDump(bfrId, buffer, len) | bytBffr, colIdx, rowIdx, maxCol, maxRow, dispLen
-    '' Dump bytes in hex format to debug() terminal
-    debug("`temp 13 '", zstr_(bfrId), ": bffr=", uhex_long_(buffer), "(", udec_(len), ")' 13")
-    maxCol := len >= 16 ? 15 : len
-    maxRow := (len / 16)
-    if maxRow * 16 < len
-        maxRow++
-    if maxRow == 0
-        maxRow := 1
-
-    bytBffr := buffer
-    waitus(35)
-    'returns
-    dispLen := 0
-    repeat rowIdx from 1 to maxRow
-        if rowIdx < 10
-            debug("`temp ' '")	' space
-        debug("`temp '  ", uhex_long_(bytBffr), ": '")
-        repeat colIdx from 0 to maxCol
-            debug("`temp '", uhex_byte_(byte[bytBffr+colIdx]), " '")
-            dispLen++
-            if dispLen >= len
-                quit
-            if colIdx == 7
-                debug("`temp ' '")	' space
-
-        bytBffr += 16
-        debug("`temp 13")		' newline
-        waitus(85)  ' 50 too short, 70 less issue, 75 better,
-    waitms(1)
 
 ' --------------------------------------------------------------------------------------------------
 
@@ -390,38 +369,26 @@ drive_matrix
                     rdlong  pCommmand, ptra[0]
                     rdlong  pArgument, ptra[1]
 
+                    ' configure our output & dir instructions to use A or B set of pins
+                    '  (if usingPortA is FALSE...)
                     cmp     usingPortA, #0      wz
-    if_nz           or      DIRA, maskAllPins   ' set all of our pins to OUTPUT!  for this COG
-    if_z            or      DIRB, maskAllPins   ' set all of our pins to OUTPUT!  for this COG
-
-                    drvl    #MTX_LED_PIN_CLK
-                    drvl    #MTX_LED_PIN_LATCH
-                    drvh    #MTX_LED_PIN_OE     ' start with panel OFF
-
-                    mov     pwmFrameCt, #0  ' initial setup: NOT doing PWM
-
-' clear screen color - RED/GREEN
-                    drvl #MTX_LED_PIN_R1
-                    drvl #MTX_LED_PIN_G1
-                    drvl #MTX_LED_PIN_B1
-                    drvl #MTX_LED_PIN_R2
-                    drvl #MTX_LED_PIN_G2
-                    drvl #MTX_LED_PIN_B2
-
-                    ' configure our output instructions to use A or B set of pins
-                    '  if usingPortA is FALSE...
-                    cmp     usingPortA, #0      wz
+    if_nz           setd    dirInst1of1, #DIRA
     if_nz           setd    outInst1of3, #OUTA
     if_nz           setd    outInst2of3, #OUTA
     if_nz           setd    outInst3of3, #OUTA
+    if_z            setd    dirInst1of1, #DIRB
     if_z            setd    outInst1of3, #OUTB
     if_z            setd    outInst2of3, #OUTB
     if_z            setd    outInst3of3, #OUTB
 
+' configure all pins
+dirInst1of1         or      DIRA, maskAllPins   ' set all of our pins to OUTPUT!  for this COG
+
+' default to NOT using PWM
+                    mov     pwmFrameCt, #0  ' initial setup: NOT doing PWM
 
 ' init row address
-                    mov     row_addr, addrValueMax    ' reset address to 15 [A-D addr all ones]
-
+                    mov     row_addr, addrValueMax    ' reset address to 31|15|7 - [A-E|D|C] addr: all ones
 ' write address
                     call    #emitAddr
                     'call    #dumpTwinRows
@@ -474,7 +441,7 @@ loadBuffer
                     ' copy HUB buffer pointed to by nxtArgument to display buffer
                     mov     ptrb, nxtArgument           ' get addr of HUB RAM 256-longs buffer
                     mov     fillOffset, #0              ' set initial offset to '0' beginning of COG RAM area (screenBffr)
-                    mov     fillCount, ##screen.MAX_PWM_FRAME_SIZE_IN_LONGS             ' length in longs  e.g., 64x32 is 1k bytes of 6bit values
+                    mov     fillCount, ##MAX_COG_BUFFER_SIZE_IN_LONGS             ' length in longs  e.g., 64x32 is 1k bytes of 6bit values
 ldLoop1
                     altd    fillOffset, #screenBffr     ' calculate addr of next register in COG
                     rdlong	0-0,ptrb++                  ' read long from HUB RAM
@@ -505,7 +472,7 @@ fillBuffer      ' fill panel buffer based on desired color
 '
 setBuffer       ' fill single pwm buffer with desired long value
                     mov     fillOffset, #0
-                    mov     fillCount, ##screen.MAX_PWM_FRAME_SIZE_IN_LONGS
+                    mov     fillCount, ##MAX_COG_BUFFER_SIZE_IN_LONGS
 nextSet
                     altd    fillOffset, #screenBffr
                     mov     0-0, fillLong               '  fill long with value
@@ -532,8 +499,8 @@ markCmdComplete
 wrCurrent
                     ' repeat the following forever
                     ' set addr to start
-                    mov     row_addr, addrValueMax    ' reset address to 15 [A-D addr all ones]
-                    mov     row_ctr, #16                ' 16 -> 0 so we can use djnz
+                    mov     row_addr, addrValueMax      ' reset address to 31|15|7 [A-E|D|C addr all ones]
+                    mov     row_ctr, rowCtrMax          ' 32|16|8 -> 0 so we can use djnz
                     mov     reg_offset, #0              ' start of [0-1023] buffer
                     drvl    #MTX_LED_PIN_OE
                     '  if overlappedLatch is FALSE...
@@ -547,20 +514,21 @@ wrLineLatchOvlp
 '   for bit 0 to 63
 '     toggle clock (18MHz)
                 ' this tracks when we need to toggle latch at right-edge of row
-                    mov     reg_ctr, #16                ' 16 -> 0 so we can use djnz
+                    mov     reg_ctr, rowCtrMax                ' 32|16|8 -> 0 so we can use djnz
                     mov     col_addr, #0
 clkNextReg
                 ' in buffer: RGB1 is byte-bits[0-2], RGB2 is byte-bits[3-5]
                     mov     byt_ctr, #4              ' 4 -> 0 so we can use djnz
                     ALTS    reg_offset, #screenBffr     ' calc addr of source long and place in instru
                     mov     reg_value, 0-0              ' get COG register with 4 bytes of rgb1rgb2 values
-                    ror     reg_value, #8               ' YEAH, i've no idea why! but fixes our byte ordering problem! (AUGH! this change from rol -> ror with HUB75 adapter?!)
+                    rol     reg_value, #8               ' YEAH, i've no idea why! but fixes our byte ordering problem! (AUGH! this change from rol -> ror with HUB75 adapter?!)
 clkNextByte
                     SETQ    maskRgb12                ' load Q bit w/ RGB[12] mask
 outInst1of3         MUXQ    OUTA, reg_value             ' write contents of LS-byte anded with mask to output pins
                     ror     reg_value, #8                ' shift next most significant into LS-byte position
 
 ' time to begin latch?
+        ' FIXME: UNDONE following needs to be 'display width - 3'
                     cmp     col_addr, #61     wz        ' at last three columns?
     if_z            drvh    #MTX_LED_PIN_OE
     if_z            drvh    #MTX_LED_PIN_LATCH
@@ -602,7 +570,7 @@ wrLineLatchAtEnd
 '   for bit 0 to 63
 '     toggle clock (18MHz)
                 ' this tracks when we need to toggle latch at right-edge of row
-                    mov     reg_ctr, #16                ' 16 -> 0 so we can use djnz
+                    mov     reg_ctr, rowCtrMax                ' 32|16|8 -> 0 so we can use djnz
 clkNONextReg
                 ' in buffer: RGB1 is byte-bits[0-2], RGB2 is byte-bits[3-5]
                     mov     byt_ctr, #4                 ' 4 -> 0 so we can use djnz
@@ -634,8 +602,12 @@ outInst2of3         MUXQ    OUTA, reg_value             ' write contents of LS-b
                     waitx   #3  ' 2 + 3 x clk           ' let LATCH settle
 
                     ' LATCH DATA complete...
-                    drvl    #MTX_LED_PIN_OE
-                    drvl    #MTX_LED_PIN_LATCH          ' end latch data
+                    cmp     latchEnclosed, #0      wz
+    if_z            drvl    #MTX_LED_PIN_OE
+    if_z            drvl    #MTX_LED_PIN_LATCH          ' end latch data
+    if_nz           drvl    #MTX_LED_PIN_LATCH          ' end latch data
+    if_nz           waitx   #3  ' 2 + 3 x clk           ' let LATCH settle
+    if_nz           drvl    #MTX_LED_PIN_OE
                     '
                     ' ---  inter-line gap  ---
                     '
@@ -645,16 +617,16 @@ outInst2of3         MUXQ    OUTA, reg_value             ' write contents of LS-b
                     ' ---  inter-frame gap  ---
                     '
                     ' EXPERIMENT: can we get better brightness range if we stall for a full frame at the end of each frame?
-                    waitx   ##TM_64US
+                    waitx   #tm_64usec
                     jmp     #getCommand
 
 ' --------------------------------------------------------------------------------------------------
 ' subroutines
 '
 emitAddr
-                    SETQ    maskAddr             ' load Q with w/ Address[A-D] mask
+                    SETQ    maskAddr                ' load Q with w/ Address[A-C|D|E] mask
 outInst3of3         MUXQ    OUTA, row_addr          ' but in upper 5-bits of ls byte of  31-0 depending upon pingroup
-                    waitx   #3
+                    waitx   #3                      ' 2 + 3 x clk  let ADDR settle
                     ret
 
 ' Dummy ISR routines in case we need them
@@ -678,30 +650,39 @@ isr3
 '
 usingPortA      long    FALSE
 overlappedLatch long    FALSE
+latchEnclosed   long    FALSE   ' T/F where T means LATCH_ENCLOSED, F means LATCH_OFFSET
+
+msec_001        long    0                                   ' ticks in 1ms
+usec_001        long    0                               ' ticks in 1us
+
+tm_64usec       long    0
+
 
 ' the follwing are I/O pin masks and data values we use for our primary I/O
-maskAddr         long    %00000000_01111000_00000000_00000000   ' pins at 16-31 A/B-pins
-maskRgb12        long    %00111111_00000000_00000000_00000000   ' rgb2rgb1 now grounded to lsbit - pins at 16-31 A/B-pins
-maskAllPins      long    %00111111_01111111_00000000_00000000   ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
+maskAddr        long    %00000000_01111000_00000000_00000000   ' pins at 16-31 A/B-pins
+maskRgb12       long    %00111111_00000000_00000000_00000000   ' rgb2rgb1 now grounded to lsbit - pins at 16-31 A/B-pins
+maskAllPins     long    %00111111_01111111_00000000_00000000   ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
 
                     ' PINS A 00-15  USE $0000_0008
                     ' PINS A 16-31  USE $0008_0000
                     ' PINS B 32-47  USE $0000_0008
                     ' PINS B 48-63  USE $0008_0000
-addrValue1   long    $0008_0000                                 ' 1 but in upper 5-bits of byte
+addrValue1      long    $0008_0000                                  ' 1 but in upper 5-bits of byte
 
                     ' PINS A 00-15  USE $0000_0078
                     ' PINS A 16-31  USE $0078_0000
                     ' PINS B 32-47  USE $0000_0078
                     ' PINS B 48-63  USE $0078_0000
-addrValueMax  long    $0078_0000                                 ' 15 but in upper 5-bits of byte
+addrValueMax    long    $0078_0000                                  ' 15 but in upper 5-bits of byte
+'
+rowCtrMax       long    16                                          ' 16 rows total
 '
 ' --------------------------------------------------------------------------------------------------
 'screen buffer 1024B of %00bgrbgr where byte is 00{rgb2}{rgb1}
                 ALIGNL
 screenBffr
                 ' test compiling 2kB LUT use for 256x64 display
-                long    0[screen.MAX_PWM_FRAME_SIZE_IN_LONGS]
+                long    0[MAX_COG_BUFFER_SIZE_IN_LONGS]
 endScreenBffr
 
 ' UNINITIALIZED data
@@ -722,7 +703,7 @@ fillOffset      res     1       ' offset into fillBffr
 
 reg_offset      res     1
 reg_value       res     1
-byt_ctr      res     1
+byt_ctr         res     1
 dbgBffr         res     1
 dbgCount        res     1
 
@@ -731,6 +712,7 @@ row_addr        res     1
 row_ctr         res     1
 col_addr        res     1
 reg_ctr         res     1
+
 
         FIT     496
 
