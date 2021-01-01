@@ -17,11 +17,6 @@ CON { timing }
   CLK_FREQ = 335_000_000                                        ' system freq as a constant
   _clkfreq = CLK_FREQ                                           ' set system clock
 
-CON { DEBUG PINs }
-
-DEBUG_PIN = 0
-'DEBUG_PIN = 16
-
 VAR
 
     long    cog
@@ -66,7 +61,7 @@ PRI demoScrollingText() | scrollerID, textSize
     'textSize := display.TEXT_FONT_8x8B
 
     display.clearScreen()
-    display.setTextFont(textSize)    ' font size 
+    display.setTextFont(textSize)    ' font size
     display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
     ' show some static text on 64x32 display
     if textSize == display.TEXT_FONT_5x7
@@ -97,7 +92,7 @@ PRI demoScrollingText() | scrollerID, textSize
     ' now loop while scrolling finishes
     wait100thSecs(scrollPeriod)
 
-    ' while scrolling not done... 
+    ' while scrolling not done...
     repeat while NOT display.isScrollingComplete()
         ' move the text
         'startTime := getct()
@@ -121,7 +116,7 @@ PRI showDuration(startTimeValue, pFuncTitle) | duration, converted
 PRI demoText()
     ' draw some text!
     display.clearScreen()
-    display.setTextFont(display.TEXT_FONT_5x7)    ' font size 
+    display.setTextFont(display.TEXT_FONT_5x7)    ' font size
     display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
 
     display.setColoredTextAtLnCol(0,0, string("iron sheep"), color.cMaroon)
@@ -182,4 +177,3 @@ CON { license }
   SOFTWARE.
  =================================================================================================
 }}
-

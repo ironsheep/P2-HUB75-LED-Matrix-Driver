@@ -18,9 +18,6 @@ CON { timing }
 
 CON { I/O PINs }
 
-    'DEBUG_PIN = 16
-
-
 ' New P2 Eval Board HUB75 Adapter:
 
     ' the user-selected location: one of 0, 16, 32, and 48

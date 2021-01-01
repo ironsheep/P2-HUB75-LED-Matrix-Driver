@@ -19,7 +19,7 @@ CON { timing }
 
 CON { DEBUG PINs }
 
-'DEBUG_PIN = 16
+'DEBUG_PIN = 0
 
 VAR
 

@@ -19,9 +19,7 @@ CON { timing }
 
 CON { DEBUG PINs }
 
-'DEBUG_PIN = 16
-
-DEMO_COUNT = 11
+'DEBUG_PIN = 0
 
 VAR
 
@@ -36,6 +34,11 @@ OBJ
     display     : "isp_hub75_display"
     bmpHandler  : "isp_hub75_display_bmp"
 
+CON { DEMO info }
+
+' 11 enables .bmp file display
+DEMO_COUNT = 11
+
 PUB main() : ok | demoIndex
     '' start underlying drivers and run demo
 
@@ -49,10 +52,30 @@ PUB main() : ok | demoIndex
         abort
 
     demoPausePeriod := 3   ' seconds
+{
+    repeat 1
+        demoScreenBlast()
+
+    display.clearScreen()
+    repeat
+'}
+{
+    display.fillPanel(7)    ' full white panel
+    repeat
+'}
+{
+    display.fillPanel(color.BASE_RED)    ' full white panel
+    repeat
+'}
+{
+    demoColorPalette12Panels()
+    repeat
+'}
 
     repeat 20
         repeat demoIndex from 0 to DEMO_COUNT - 1
             display.clearScreen()
+            waitSec(1)
             case demoIndex + 1
                 1: demoText()
                 2: demoParallax()
@@ -90,13 +113,13 @@ PRI demoParallax() | rtCol, ltCol, topRow, botRow
     ltCol := 0
     rtCol := screen.MAX_PHYSICAL_COLUMNS - 1
     topRow := 0
-    botRow := screen.MAX_PHYSICAL_ROWS - 1
+    botRow :=  screen.MAX_PHYSICAL_ROWS > 32 ? 32 - 1 : screen.MAX_PHYSICAL_ROWS - 1
 
-    display.setColoredTextAtLnCol(1, 0, string(" Parallax"), color.cBlue)
-    display.drawLineOfColor(botRow, ltCol, botRow, rtCol, color.cGreen)     ' bottom Line
-    display.drawLineOfColor(topRow, ltCol, botRow, ltCol, color.cRed)      ' left line
     display.drawLineOfColor(topRow, ltCol, topRow, rtCol, color.cYellow)    ' top line
+    display.drawLineOfColor(topRow, ltCol, botRow, ltCol, color.cRed)      ' left line
     display.drawLineOfColor(topRow, rtCol, botRow, rtCol, color.cMagenta)   ' right line
+    display.drawLineOfColor(botRow, ltCol, botRow, rtCol, color.cGreen)     ' bottom Line
+    display.setColoredTextAtLnCol(1, 0, string(" Parallax"), color.cBlue)
     display.setColoredTextAtLnCol(2, 0, string("Propeller2"), color.cBlue)
     display.commitScreenToPanel()
 
@@ -500,32 +523,39 @@ PRI demoColorPalette12Panels() | red, panelNumber
     generateBWPanel(11)
     display.commitScreenToPanel()
 
+CON { tiny panel constants }
+
+    kROW_HEIGHT_IN_PIX = 11
+    kCOL_WIDTH_IN_PIX = 16
+
 PRI generateGreenBluePanelAgainst(panelNumber, red) | panelRow, panelCol, row, col, green, blue, startCol
     panelRow := panelNumber / 4
     panelCol := panelNumber // 4
-    row := panelRow * 11
-    startCol := col := panelCol * 17
-    'debug("clr panelNbr=(", udec_(panelNumber), "),startRC=(", udec_(row), ",", udec_(col), ")")
-    repeat green from 0 to 255 step 25
-        repeat blue from 0 to 255 step 25
+    row := panelRow * kROW_HEIGHT_IN_PIX
+    startCol := col := panelCol * kCOL_WIDTH_IN_PIX
+    debug("clr panelNbr=(", udec_(panelNumber), "),startRC=(", udec_(row), ",", udec_(col), ")")
+    repeat green from 0 to 230 step 25
+        repeat blue from 0 to 230 step 25
             pixels.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
             col++
         row++
         col := startCol
 
-PRI generateBWPanel(panelNumber) | panelRow, panelCol, row, col, red, green, blue, startCol, colCtr
+PRI generateBWPanel(panelNumber) | panelRow, panelCol, row, col, red, green, blue, startCol, colCtr, startRow
     panelRow := panelNumber / 4
     panelCol := panelNumber // 4
-    row := panelRow * 11
-    startCol := col := panelCol * 17
+    startRow := (panelRow * kROW_HEIGHT_IN_PIX)
+    row := startRow - 3 ' skip black rows
+    startCol := col := panelCol * kCOL_WIDTH_IN_PIX
     'debug("bw panelNbr=(", udec_(panelNumber), "),startRC=(", udec_(row), ",", udec_(col), ")")
     colCtr := 0
     repeat green from 0 to 255 step 2
         red := blue := green
-        pixels.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        if not row < startRow
+            pixels.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
         col++
         colCtr++
-        if colCtr >= 11
+        if colCtr >= 10
             colCtr := 0
             row++
             col := startCol
@@ -539,21 +569,21 @@ PRI showFullColorSweep() | row, col, red, green, blue
     repeat red from 0 to 255        ' RED
         pixels.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
         col++
-        if (col > screen.MAX_PANEL_COLUMNS - 1)
+        if (col > screen.MAX_PHYSICAL_COLUMNS - 1)
             row++
             col := 0
     red := green := blue := 0
     repeat green from 0 to 255      ' GREEN
         pixels.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
         col++
-        if (col > screen.MAX_PANEL_COLUMNS - 1)
+        if (col > screen.MAX_PHYSICAL_COLUMNS - 1)
             row++
             col := 0
     red := green := blue := 0
     repeat blue from 0 to 255       ' BLUE
         pixels.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
         col++
-        if (col > screen.MAX_PANEL_COLUMNS - 1)
+        if (col > screen.MAX_PHYSICAL_COLUMNS - 1)
             row++
             col := 0
     red := green := blue := 0
@@ -561,7 +591,7 @@ PRI showFullColorSweep() | row, col, red, green, blue
         green := red
         pixels.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
         col++
-        if (col > screen.MAX_PANEL_COLUMNS - 1)
+        if (col > screen.MAX_PHYSICAL_COLUMNS - 1)
             row++
             col := 0
     red := green := blue := 0
@@ -569,7 +599,7 @@ PRI showFullColorSweep() | row, col, red, green, blue
         blue := green
         pixels.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
         col++
-        if (col > screen.MAX_PANEL_COLUMNS - 1)
+        if (col > screen.MAX_PHYSICAL_COLUMNS - 1)
             row++
             col := 0
     red := green := blue := 0
@@ -577,7 +607,7 @@ PRI showFullColorSweep() | row, col, red, green, blue
         red := blue
         pixels.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
         col++
-        if (col > screen.MAX_PANEL_COLUMNS - 1)
+        if (col > screen.MAX_PHYSICAL_COLUMNS - 1)
             row++
             col := 0
     red := green := blue := 0
@@ -585,7 +615,7 @@ PRI showFullColorSweep() | row, col, red, green, blue
         green := red := blue
         pixels.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
         col++
-        if (col > screen.MAX_PANEL_COLUMNS - 1)
+        if (col > screen.MAX_PHYSICAL_COLUMNS - 1)
             row++
             col := 0
     red := green := blue := 0

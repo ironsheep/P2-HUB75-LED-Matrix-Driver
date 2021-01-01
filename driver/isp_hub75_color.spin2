@@ -39,6 +39,17 @@ CON { test colorset }
 
     #0, LED_UNKNOWN, LED_RED, LED_GREEN, LED_BLUE
 
+    ' our 3-bit colors
+    BASE_BLACK   = $00
+    BASE_BLUE    = $01
+    BASE_GREEN   = $02
+    BASE_CYAN    = $03
+    BASE_RED     = $04
+    BASE_MAGENTA = $05
+    BASE_YELLOW  = $06
+    BASE_WHITE   = $07
+
+
 OBJ
 
     screen      : "isp_hub75_screenAccess"

@@ -15,7 +15,7 @@
 
 CON { I/O PINs }
 
-'DEBUG_PIN = 16
+' None
 
 OBJ
 
@@ -82,6 +82,15 @@ PUB fillPanel(threeBitColor)
 
 PUB convertScreen2PWM(p24bitScreen) | pPwmFrameSet
     '' Load a 24-bit image into PWM frame buffers
+
+    ' -------------------------------------------------------
+    ' NOTE: this is initial draft to get driver on the air
+    '  there is much room to speed this up in future release
+    '  likely: (1) read color bytes from both halves of screen at same
+    '  reducing PWM buffer writes by 2
+    '  and (2) maybe write all 16 pwm bytes in same pass thereby reducing
+    '  iteration over screen buffer to single pass of both halves at same time
+    ' -------------------------------------------------------
     ' XYZZYpnl debug("- PANEL: loading screen at @", uhex_long_(p24bitScreen))
 
     ' save address of 24bit screen for use by called routines
@@ -121,17 +130,17 @@ nextColumn
                     add     p24bitColor, p24bitScreen                         ' + base address of screen
                     rdlong  colorValue, p24bitColor
                     ' red := byte[p24bitScreen][p24bitColor][0]
-                    GETBYTE tmpVarA, colorValue,#0
+                    GETBYTE currPwmByte, colorValue,#0
                     call    #cvtTmpA2pwm
-                    mov     redByte, tmpVarA
+                    mov     redByte, currPwmByte
                     ' green := byte[p24bitScreen][p24bitColor][1]
-                    GETBYTE tmpVarA, colorValue,#1
+                    GETBYTE currPwmByte, colorValue,#1
                     call    #cvtTmpA2pwm
-                    mov     greenByte, tmpVarA
+                    mov     greenByte, currPwmByte
                     ' blue := byte[p24bitScreen][p24bitColor][2]
-                    GETBYTE tmpVarA, colorValue,#2
+                    GETBYTE currPwmByte, colorValue,#2
                     call    #cvtTmpA2pwm
-                    mov     blueByte, tmpVarA
+                    mov     blueByte, currPwmByte
 
                     ' FYI GAMMA correction, brightness are adjusted as the byte is place into our source screen buffer!!
 
@@ -139,59 +148,59 @@ nextColumn
                     ' expand 24-bit pixel into 8 pwm frames of 3-bit pixel
                     ' for ea. bit do...
                     mov     bitCount, #screen.MAX_PWM_FRAMES        ' MAX PWM FRAME bits to scan in LONG
-                    mov     bitNumber, #0                           ' start with bit0 of [0-MAX_PWM_FRAMES - 1]
+                    mov     currBitNumber, #0                           ' start with bit0 of [0-MAX_PWM_FRAMES - 1]
 nextBit
                     ' calculate offset to frame for this bit #
                     '   frameIdx := 0 #> nBitNumber <# screen.MAX_PWM_FRAMES - 1    ' MAX 8 pwm frames so limit our index
                     '   nFrameOffset := frameIdx * screen.MAX_PWM_FRAME_SIZE_IN_LONGS ' 256 longs in each frame
                     '   pPwmFrame := @long[getActivePwmBuffer()][nFrameOffset]
-                    mov     pPwmFrame, bitNumber
+                    mov     pPwmFrame, currBitNumber
                     mul     pPwmFrame, ##screen.MAX_PWM_FRAME_SIZE_IN_BYTES
                     ' calculate pointer to frame for this bit #
                     add     pPwmFrame, pPwmFrameSet
                     ' build RGB1 or RGB2 bits to be stored in panel word
-                    '   rBit := red & (1 << bitNumber) > 0 ? 1 : 0
-                    '   gBit := green & (1 << bitNumber) > 0 ? 1 : 0
-                    '   bBit := blue & (1 << bitNumber) > 0 ? 1 : 0
+                    '   rBit := red & (1 << currBitNumber) > 0 ? 1 : 0
+                    '   gBit := green & (1 << currBitNumber) > 0 ? 1 : 0
+                    '   bBit := blue & (1 << currBitNumber) > 0 ? 1 : 0
                     mov     panelBGR, #0                    ' clear color value
-                    testb   redByte, bitNumber     wc
+                    testb   redByte, currBitNumber     wc
         if_c        or      panelBGR, #$01
-                    testb   greenByte, bitNumber   wc
+                    testb   greenByte, currBitNumber   wc
         if_c        or      panelBGR, #$02
-                    testb   blueByte, bitNumber    wc
+                    testb   blueByte, currBitNumber    wc
         if_c        or      panelBGR, #$04
-                    '    tmpVarB := (nBffrR > 15) ? TRUE : FALSE
-                    mov     tmpVarA, panelRow
-                    sub     tmpVarA, #1         ' now [0-31]
-                    cmp     tmpVarA, midDisplayRow       wc      ' loading top or bottom half of screen?
-        if_c        mov     tmpVarB, #0                  ' NO, is RGB1 (top)
-        if_nc       mov     tmpVarB, #1                  ' YES, is RGB2 (bottom)
+                    '    bIsBottomHalf := (nBffrR > 15) ? TRUE : FALSE
+                    mov     rowIndexHalfPanel, panelRow             ' [1-N]
+                    sub     rowIndexHalfPanel, #1                   ' now [0 - N-1]
+                    cmp     rowIndexHalfPanel, midDisplayRow    wc  ' loading top or bottom half of screen?
+        if_c        mov     bIsBottomHalf, #0                       ' NO, is RGB1 (top)
+        if_nc       mov     bIsBottomHalf, #1                       ' YES, is RGB2 (bottom)
                     ' convert row number to row number of top-half of panel
-        if_nc       sub     tmpVarA, #16              ' 0-31 -> 0-15
+        if_nc       sub     rowIndexHalfPanel, midDisplayRow        ' make index relative to half panel
                     ' is top-RGB1 or bottom-RGB2 color?
-                    '    if tmpVarB
+                    '    if bIsBottomHalf
                     '       bitsBGR <<= 3    ' mov color bits into rgb2 position
                     '       maskBitsBGR <<= 3
-                    mov     colorMask, #%0000_0111
-                    cmp     tmpVarB, #1          wz
-        if_z        shl     panelBGR, #3                ' is RGB2 move into RGB2 position:  %0011_1000
-        if_z        shl     colorMask, #3               '   and move mask as well
-                    '   byteIdx := (nBffrR * screen.MAX_PHYSICAL_COLUMNS) + nBffrC
-                    mov     tmpVarB, tmpVarA
-                    mul     tmpVarB, #screen.MAX_PHYSICAL_COLUMNS
-                    add     tmpVarB, panelCol
-                    sub     tmpVarB, #1
-                    add     tmpVarB, pPwmFrame
+                    mov     colorMask, #%0000_0111  ' preload mask for RGB1
+                    cmp     bIsBottomHalf, #1   wz  ' are we dealing with RGB2?
+        if_z        shl     panelBGR, #3            ' is RGB2 move into RGB2 position:  %0011_1000
+        if_z        shl     colorMask, #3           '   and move mask as well
+                    '   pwmByteIndex := (nBffrR * screen.MAX_PHYSICAL_COLUMNS) + nBffrC
+                    mov     pwmByteIndex, rowIndexHalfPanel
+                    mul     pwmByteIndex, #screen.MAX_PHYSICAL_COLUMNS
+                    add     pwmByteIndex, panelCol
+                    sub     pwmByteIndex, #1
+                    add     pwmByteIndex, pPwmFrame
                     ' get byte value
-                    '    currByte := byte[pPwmFrame][byteIdx] & !maskBitsBGR
-                    rdbyte  tmpVarA, tmpVarB
+                    '    currPwmColorBits := byte[pPwmFrame][pwmByteIndex] & !maskBitsBGR
+                    rdbyte  currPwmColorBits, pwmByteIndex
                     not     colorMask
-                    and     tmpVarA, colorMask
-                    '    byte[pPwmFrame][byteIdx] := currByte | bitsBGR
-                    or      tmpVarA, panelBGR
-                    wrbyte  tmpVarA, tmpVarB
+                    and     currPwmColorBits, colorMask
+                    '    byte[pPwmFrame][byteIdx] := currPwmColorBits | bitsBGR
+                    or      currPwmColorBits, panelBGR
+                    wrbyte  currPwmColorBits, pwmByteIndex
                     ' this one done, if not all 8 bits done, go do next
-                    add     bitNumber, #1
+                    add     currBitNumber, #1
                     djnz    bitCount, #nextBit
 
                     ' count this column, go do next column if not yet done
@@ -200,17 +209,17 @@ nextBit
                     djnz    panelRow, #nextRow
                     jmp     #done
 
-' tmpVarA := cvtTmpA2pwm(tmpVarA)   ' NOTE wipes tmpVarB
+' currPwmByte := cvtTmpA2pwm(currPwmByte)   ' NOTE wipes tempByte
 cvtTmpA2pwm
-                    sub     tmpVarB, tmpVarB
-                    cmp     tmpVarA, #0         wz      ' special case: if zero return all 0 bits
+                    sub     tempByte, tempByte              ' zero our byte
+                    cmp     currPwmByte, #0         wz      ' special case: if zero return all 0 bits
         if_z        jmp     #noShift
-                    cmp     tmpVarA, #255       wz      ' special case: if $ff return all 1 bits
-        if_z        not     tmpVarB, tmpVarB
+                    cmp     currPwmByte, #255       wz      ' special case: if $ff return all 1 bits
+        if_z        not     tempByte, tempByte
         if_z        jmp     #noShift
-                    sub     tmpVarA, #1
-                    bmask   tmpVarB, tmpVarA          ' successively move CY into lower bits
-                    mov     tmpVarA, tmpVarB            ' return our new value
+                    sub     currPwmByte, #1
+                    bmask   tempByte, currPwmByte          ' successively move CY into lower bits
+                    mov     currPwmByte, tempByte            ' return our new value
 noShift
                     ret
 
@@ -227,10 +236,14 @@ p24bitColor         long    0
 colorValue          long    0
 colorMask           long    0
 bitCount            long    0
-bitNumber           long    0
+currBitNumber       long    0
 panelBGR            long    0
-tmpVarA             long    0
-tmpVarB             long    0
+bIsBottomHalf       long    0
+rowIndexHalfPanel   long    0
+pwmByteIndex        long    0
+currPwmColorBits    long    0
+currPwmByte         long    0
+tempByte            long    0
 
     end
 {
@@ -273,7 +286,7 @@ VAR { buffer addresses }
     long    pBitmapFileInMemory
     long    pScreenInMemory
 
-PRI setPanelColorBitsForRC(pPwmFrame, nPanelRow, nPanelCol, rBit, gBit, bBit) | nBffrR, nBffrC, isRGB2, byteIdx, maskBitsBGR, bitsBGR, currByte, showDebug
+PRI setPanelColorBitsForRC(pPwmFrame, nPanelRow, nPanelCol, rBit, gBit, bBit) | nBffrR, nBffrC, isRGB2, byteIdx, maskBitsBGR, bitsBGR, currPwmColorBits, showDebug
     '  write color bits to a PWM frame at frame[r][c]
     nBffrR := 0 #> nPanelRow <# screen.MAX_PHYSICAL_ROWS - 1
     nBffrC := 0 #> nPanelCol <# screen.MAX_PHYSICAL_COLUMNS - 1
@@ -289,11 +302,11 @@ PRI setPanelColorBitsForRC(pPwmFrame, nPanelRow, nPanelCol, rBit, gBit, bBit) | 
     ' FIXME: UNDONE WAS PANEL_COLUMNS ??
     byteIdx := (nBffrR * screen.MAX_PHYSICAL_COLUMNS) + nBffrC
 
-    currByte := byte[pPwmFrame][byteIdx] & !maskBitsBGR
+    currPwmColorBits := byte[pPwmFrame][byteIdx] & !maskBitsBGR
     if byteIdx > 1023
         debug("ERROR! byte index calc failure have=(" , udec_(byteIdx), ") of [0-1023]")
     else
-        byte[pPwmFrame][byteIdx] := currByte | bitsBGR
+        byte[pPwmFrame][byteIdx] := currPwmColorBits | bitsBGR
 
 
 PRI isDebugLocn(nRow, nCol) : status
