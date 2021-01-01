@@ -138,14 +138,14 @@ PUB setTextFont(newFont) | scrollerIndex, hUnusedPix, vUnusedPix
             charHeightInPix := 7
             charWidthInPix := 5
             hBitmapOffsetInPix := 0
-            maxTextLines := (screen.MAX_PHYSICAL_ROWS / (charHeightInPix + 1))
-            maxTextColumns := (screen.MAX_PHYSICAL_COLUMNS / (charWidthInPix + 1))
-            vUnusedPix := screen.MAX_PHYSICAL_ROWS - (maxTextLines * charHeightInPix)
-            hUnusedPix := screen.MAX_PHYSICAL_COLUMNS - (maxTextColumns * charWidthInPix)
+            maxTextLines := (screen.MAX_DISPLAY_ROWS / (charHeightInPix + 1))
+            maxTextColumns := (screen.MAX_DISPLAY_COLUMNS / (charWidthInPix + 1))
+            vUnusedPix := screen.MAX_DISPLAY_ROWS - (maxTextLines * charHeightInPix)
+            hUnusedPix := screen.MAX_DISPLAY_COLUMNS - (maxTextColumns * charWidthInPix)
             verticalGapInPix := vUnusedPix / maxTextLines
             horizontalGapInPix := hUnusedPix / maxTextColumns
-            vUnusedPix := screen.MAX_PHYSICAL_ROWS - (maxTextLines * (charHeightInPix + verticalGapInPix))
-            hUnusedPix := screen.MAX_PHYSICAL_COLUMNS - (maxTextColumns * (charWidthInPix + horizontalGapInPix))
+            vUnusedPix := screen.MAX_DISPLAY_ROWS - (maxTextLines * (charHeightInPix + verticalGapInPix))
+            hUnusedPix := screen.MAX_DISPLAY_COLUMNS - (maxTextColumns * (charWidthInPix + horizontalGapInPix))
             topOffsetInPix := (vUnusedPix + 1) >> 1
             leftOffsetInPix := (hUnusedPix + 1) >> 1
 
@@ -153,14 +153,14 @@ PUB setTextFont(newFont) | scrollerIndex, hUnusedPix, vUnusedPix
             charHeightInPix := 7
             charWidthInPix := 7
             hBitmapOffsetInPix := 1
-            maxTextLines := (screen.MAX_PHYSICAL_ROWS / (charHeightInPix + 0))  ' 7x7 fonts in 8x8 tile have blank row below so don't add one
-            maxTextColumns :=  (screen.MAX_PHYSICAL_COLUMNS / (charWidthInPix + 0))  ' 7x7 fonts in 8x8 tile have blank col after so don't add one
-            vUnusedPix := screen.MAX_PHYSICAL_ROWS - (maxTextLines * charHeightInPix)
-            hUnusedPix := screen.MAX_PHYSICAL_COLUMNS - (maxTextColumns * charWidthInPix)
+            maxTextLines := (screen.MAX_DISPLAY_ROWS / (charHeightInPix + 0))  ' 7x7 fonts in 8x8 tile have blank row below so don't add one
+            maxTextColumns :=  (screen.MAX_DISPLAY_COLUMNS / (charWidthInPix + 0))  ' 7x7 fonts in 8x8 tile have blank col after so don't add one
+            vUnusedPix := screen.MAX_DISPLAY_ROWS - (maxTextLines * charHeightInPix)
+            hUnusedPix := screen.MAX_DISPLAY_COLUMNS - (maxTextColumns * charWidthInPix)
             verticalGapInPix := vUnusedPix / maxTextLines
             horizontalGapInPix := hUnusedPix / maxTextColumns
-            vUnusedPix := screen.MAX_PHYSICAL_ROWS - (maxTextLines * (charHeightInPix + verticalGapInPix))
-            hUnusedPix := screen.MAX_PHYSICAL_COLUMNS - (maxTextColumns * (charWidthInPix + horizontalGapInPix))
+            vUnusedPix := screen.MAX_DISPLAY_ROWS - (maxTextLines * (charHeightInPix + verticalGapInPix))
+            hUnusedPix := screen.MAX_DISPLAY_COLUMNS - (maxTextColumns * (charWidthInPix + horizontalGapInPix))
             topOffsetInPix := (vUnusedPix + 1) >> 1
             leftOffsetInPix := (hUnusedPix + 1) >> 1
 
@@ -168,14 +168,14 @@ PUB setTextFont(newFont) | scrollerIndex, hUnusedPix, vUnusedPix
             charHeightInPix := 8
             charWidthInPix := 8
             hBitmapOffsetInPix := 0
-            maxTextLines := (screen.MAX_PHYSICAL_ROWS / (charHeightInPix + 0))  ' 7x7 fonts in 8x8 tile have blank row below so don't add one
-            maxTextColumns :=  (screen.MAX_PHYSICAL_COLUMNS / (charWidthInPix + 0))  ' 7x7 fonts in 8x8 tile have blank col after so don't add one
-            vUnusedPix := screen.MAX_PHYSICAL_ROWS - (maxTextLines * charHeightInPix)
-            hUnusedPix := screen.MAX_PHYSICAL_COLUMNS - (maxTextColumns * charWidthInPix)
+            maxTextLines := (screen.MAX_DISPLAY_ROWS / (charHeightInPix + 0))  ' 7x7 fonts in 8x8 tile have blank row below so don't add one
+            maxTextColumns :=  (screen.MAX_DISPLAY_COLUMNS / (charWidthInPix + 0))  ' 7x7 fonts in 8x8 tile have blank col after so don't add one
+            vUnusedPix := screen.MAX_DISPLAY_ROWS - (maxTextLines * charHeightInPix)
+            hUnusedPix := screen.MAX_DISPLAY_COLUMNS - (maxTextColumns * charWidthInPix)
             verticalGapInPix := vUnusedPix / maxTextLines
             horizontalGapInPix := hUnusedPix / maxTextColumns
-            vUnusedPix := screen.MAX_PHYSICAL_ROWS - (maxTextLines * (charHeightInPix + verticalGapInPix))
-            hUnusedPix := screen.MAX_PHYSICAL_COLUMNS - (maxTextColumns * (charWidthInPix + horizontalGapInPix))
+            vUnusedPix := screen.MAX_DISPLAY_ROWS - (maxTextLines * (charHeightInPix + verticalGapInPix))
+            hUnusedPix := screen.MAX_DISPLAY_COLUMNS - (maxTextColumns * (charWidthInPix + horizontalGapInPix))
             topOffsetInPix := (vUnusedPix + 1) >> 1
             leftOffsetInPix := (hUnusedPix + 1) >> 1
 
@@ -185,7 +185,7 @@ PUB setTextFont(newFont) | scrollerIndex, hUnusedPix, vUnusedPix
 
     selectedTextFont := newFont
 
-    debug("dsp:font ", udec(charHeightInPix), udec(charWidthInPix), udec(maxTextLines), udec(maxTextColumns), udec(verticalGapInPix), udec(horizontalGapInPix), udec(topOffsetInPix), udec(leftOffsetInPix))
+    'debug("dsp:font ", udec(charHeightInPix), udec(charWidthInPix), udec(maxTextLines), udec(maxTextColumns), udec(verticalGapInPix), udec(horizontalGapInPix), udec(topOffsetInPix), udec(leftOffsetInPix))
 
     ' configure our scrollers for font choice
     repeat scrollerIndex from 0 to MAX_SCROLLING_REGIONS - 1
@@ -310,7 +310,7 @@ PRI nextFreeScroller() : scrollerIndexToUse | scrollerIndex
     if scrollerIndexToUse == NOT_FOUND
         debug("Failed to locate free scroller!")
         abort
-    debug("dsp:nextFreeScroller() ", udec(scrollerIndexToUse))
+    'debug("dsp:nextFreeScroller() ", udec(scrollerIndexToUse))
 
 { --------------     Basic Graphics     -------------- }
 

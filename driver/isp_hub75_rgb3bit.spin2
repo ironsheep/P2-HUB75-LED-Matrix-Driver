@@ -84,8 +84,6 @@ CON { Data }
 
     #0, CMD_DONE, CMD_CLEAR, CMD_SHOW_BUFFER, CMD_FILL_COLOR, CMD_SHOW_PWM_BUFFER, CMD_STOP
 
-    MAX_COG_BUFFER_SIZE_IN_LONGS = 256
-
 OBJ
 
     screen      : "isp_hub75_screenAccess"
@@ -102,7 +100,7 @@ VAR
 
 
 ' --------------------------------------------------------------------------------------------------
-PUB start() : ok | bSetLowPins
+PUB start() : ok | bSetLowPins, tmpVar
     '' Setup the pasm2 driver vars, then start a new cog running the driver
 
     stop()
@@ -148,57 +146,62 @@ PUB start() : ok | bSetLowPins
             usingPortA  := FALSE
 
     if bSetLowPins
-        if screen.ADDR_ROWS == screen.ADDR_ABCDE
+        if screen.PANEL_ADDR_LINES == screen.ADDR_ABCDE
             maskAllPins := %00000000_00000000_00111111_11111111         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
             maskAddr    := %00000000_00000000_00000000_11111000     ' pins at 00-15 A/B-pins
             addrValueMax := $0000_00F8                              ' 31 but in upper 5-bits of byte
-            rowCtrMax   := 32
-        elseif screen.ADDR_ROWS == screen.ADDR_ABCD
+            rowCtrMax   := 32 / screen.MAX_PWM_SUBPAGES
+        elseif screen.PANEL_ADDR_LINES == screen.ADDR_ABCD
             maskAllPins := %00000000_00000000_00111111_01111111         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
             maskAddr    := %00000000_00000000_00000000_01111000     ' pins at 00-15 A/B-pins
             addrValueMax := $0000_0078                              ' 15 but in upper 5-bits of byte
-            rowCtrMax   := 16
+            rowCtrMax   := 16 / screen.MAX_PWM_SUBPAGES
         else  '  == screen.ADDR_ABC
             maskAllPins := %00000000_00000000_00111111_00111111         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
             maskAddr    := %00000000_00000000_00000000_00111000     ' pins at 00-15 A/B-pins
             addrValueMax := $0000_0038                              ' 7 but in upper 5-bits of byte
-            rowCtrMax   := 8
+            rowCtrMax   := 8 / screen.MAX_PWM_SUBPAGES
         maskRgb12   := %00000000_00000000_00111111_00000000         ' rgb2rgb1 now grounded to lsbit - pins at 00-15 A/B-pins
         addrValue1  := $0000_0008                                   ' 1 but in upper 5-bits of byte
     else
-        if screen.ADDR_ROWS == screen.ADDR_ABCDE
+        if screen.PANEL_ADDR_LINES == screen.ADDR_ABCDE
             maskAllPins := %00111111_11111111_00000000_00000000         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
             maskAddr    := %00000000_11111000_00000000_00000000     ' pins at 16-31 A/B-pins
             addrValueMax := $00F8_0000                              ' 31 but in upper 5-bits of byte
-            rowCtrMax   := 32
-        elseif screen.ADDR_ROWS == screen.ADDR_ABCD
+            rowCtrMax   := 32 / screen.MAX_PWM_SUBPAGES
+        elseif screen.PANEL_ADDR_LINES == screen.ADDR_ABCD
             maskAllPins := %00111111_01111111_00000000_00000000         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
             maskAddr    := %00000000_01111000_00000000_00000000     ' pins at 16-31 A/B-pins
             addrValueMax := $0078_0000                              ' 15 but in upper 5-bits of byte
-            rowCtrMax   := 16
+            rowCtrMax   := 16 / screen.MAX_PWM_SUBPAGES
         else  '  == screen.ADDR_ABC
             maskAllPins := %00111111_00111111_00000000_00000000         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
             maskAddr    := %00000000_00111000_00000000_00000000     ' pins at 16-31 A/B-pins
             addrValueMax := $0038_0000                              ' 7 but in upper 5-bits of byte
-            rowCtrMax   := 8
+            rowCtrMax   := 8 / screen.MAX_PWM_SUBPAGES
         maskRgb12   := %00111111_00000000_00000000_00000000         ' rgb2rgb1 now grounded to lsbit - pins at 16-31 A/B-pins
         addrValue1  := $0008_0000                                   ' 1 but in upper 5-bits of byte
 {
     ' test mask off rgb1 or rgb2 in ABCDE case (testing matrix)
     if bSetLowPins
-        if screen.ADDR_ROWS == screen.ADDR_ABCDE
-            'maskAllPins := %00000000_00000000_00111000_11111111         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
-            maskAllPins := %00000000_00000000_00000111_11111111         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
+        if screen.PANEL_ADDR_LINES == screen.ADDR_ABCDE
+            maskAllPins := %00000000_00000000_00111000_11111111         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
+            'maskAllPins := %00000000_00000000_00000111_11111111         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
     else
-        if screen.ADDR_ROWS == screen.ADDR_ABCDE
-            'maskAllPins := %00111000_11111111_00000000_00000000         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
-            maskAllPins := %00000111_11111111_00000000_00000000         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
-}
+        if screen.PANEL_ADDR_LINES == screen.ADDR_ABCDE
+            maskAllPins := %00111000_11111111_00000000_00000000         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
+            'maskAllPins := %00000111_11111111_00000000_00000000         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
+'}
     debug("- ", ubin_long(maskAddr))
     debug("- ", ubin_long(maskRgb12))
     debug("- ", ubin_long(maskAllPins))
     debug("- ", uhex_long(addrValue1))
     debug("- ", uhex_long(addrValueMax))
+
+    tmpVar := screen.MAX_COG_BUFFER_SIZE_IN_LONGS
+    debug("- COG Buffer in Longs ", udec_long_(tmpVar))
+    tmpVar := screen.MAX_PWM_SUBPAGES
+    debug("- # PWM SubPages ", udec_long_(tmpVar))
 
     ' pass values to our driver
     ptrCommand := @dvrCommand
@@ -233,7 +236,7 @@ PUB stop()
 
 ' --------------------------------------------------------------------------------------------------
 PUB fillPanel(color) | cValue
-    '' Request that driver fill the buffer with {color} value
+    '' Request that driver fill the buffer with {color} value (no PWM)
     cValue := 0 #> color <# 7
     dvrArgument := cValue    ' set color value of BLACK
     dvrCommand := CMD_FILL_COLOR
@@ -369,6 +372,11 @@ drive_matrix
                     rdlong  pCommmand, ptra[0]
                     rdlong  pArgument, ptra[1]
 
+                    ' init buffer display counters
+                    mov     pwmFrameCt, ##0
+                    mov     pwmSubPgCt, ##0
+                    mov     fillSubPgCt, ##0
+
                     ' configure our output & dir instructions to use A or B set of pins
                     '  (if usingPortA is FALSE...)
                     cmp     usingPortA, #0      wz
@@ -395,6 +403,10 @@ dirInst1of1         or      DIRA, maskAllPins   ' set all of our pins to OUTPUT!
 
 getCommand
                     'new PWM support
+                    cmp     pwmSubPgCt, #0  wz
+    if_nz           jmp     #nextPwmSubpage
+                    cmp     fillSubPgCt, #0  wz
+    if_nz           jmp     #nextFill
                     cmp     pwmFrameCt, #0  wz
     if_nz           jmp     #nextPwmFrame
                     rdlong  nxtCommand, pCommmand
@@ -405,53 +417,80 @@ getCommand
 chkShow
                     cmp     nxtCommand, #CMD_SHOW_BUFFER    wz
     if_nz           jmp     #chkShowPwm
-                    call    #loadBuffer
+                    call    #loadPWMsubpage
                     'debug(" - load done")
                     jmp     #markCmdComplete            ' redraw current buffer
 chkShowPwm
                     cmp     nxtCommand, #CMD_SHOW_PWM_BUFFER    wz
     if_nz           jmp     #chkFill
-                    call    #loadPwmBuffers
+                    call    #displayPwmFrames
                     'debug(" - PWM frame done")
-                    jmp     #getCommand                    ' check for next command (or same still there)
+                    jmp     #getCommand                         ' check for next command (or same still there)
 chkFill
                     cmp     nxtCommand, #CMD_FILL_COLOR wz
-    if_nz           jmp     #chksDone                   ' redraw current buffer
-                    call    #fillBuffer
+    if_nz           jmp     #chksDone                           ' redraw current buffer
+                    call    #fillCogBufferWithColor
+                    wrlong  #CMD_DONE, pCommmand                ' signal command completed
                     'debug(" - fill done")
-                    jmp     #markCmdComplete            ' redraw current buffer
+                    jmp     #displayCogBffrFullFrame            ' redraw current buffer
 '
-' loadPwmBuffers(nxtArgument=hubAddressOfPWMFrameSet)
+' displayPwmFrames(nxtArgument=hubAddressOfPWMFrameSet)
 '
-loadPwmBuffers
-                    mov     pwmBffrStart, nxtArgument   ' preserve our new start address
-                    mov     pwmFrameCt, #screen.MAX_PWM_FRAMES              ' set loop to PWM 8 frames then stop to see what to do next
-showPwmFrame
-                    call    #loadBuffer                 ' load the current frame into display buffer
-                    jmp     #wrCurrent                  ' display it
+displayPwmFrames
+                    mov     pwmBffrStart, nxtArgument           ' preserve our new start address
+                    mov     pwmFrameCt, #screen.MAX_PWM_FRAMES  ' set loop to PWM N frames then stop to see what to do next
 nextPwmFrame
-                    add     nxtArgument,##screen.MAX_PWM_FRAME_SIZE_IN_BYTES          ' point to next frame
-                    djnz    pwmFrameCt, #showPwmFrame   ' have onother of the 8 to show?
-                    mov     nxtArgument, pwmBffrStart   ' no point back to first of 8 buffers
-                    ret                                 ' loop again to see if we should do another PWM set
+                    call    #display1PwmFrame                   ' load the current frame into display buffer
+                    djnz    pwmFrameCt, #nextPwmFrame           ' have another of the PWM N frames to show?
+                    mov     nxtArgument, pwmBffrStart           ' no point back to first of N PWM frame buffers
+                    ret                                         ' loop again if no command, we'll do another PWM set
 '
-' loadBuffer(nxtArgument=hubAddressOfFrame)
+' display1PwmFrame(nxtArgument=hubAddressOfFrame)
 '
-loadBuffer
+display1PwmFrame
+                    ' set addr to start
+                    mov     row_addr, addrValueMax      ' reset address to 31|15|7 [A-E|D|C addr all ones]
+                    ' interate over PWM Frame subpages
+                    mov     pwmSubPgCt, #screen.MAX_PWM_SUBPAGES    ' set loop to PWM N frames then stop to see what to do next
+showPwmSubpage
+                    call    #loadPWMsubpage                         ' load the current frame into display buffer
+                    jmp     #wrCogBuffer                            ' display subpage
+nextPwmSubpage
+                    add     nxtArgument,##screen.MAX_COG_BUFFER_SIZE_IN_BYTES          ' point to next frame
+                    djnz    pwmSubPgCt, #showPwmSubpage             ' have another of subpage of the PWM frame to show?
+                    ret                                             ' loop again to see if we should do another PWM set
+'
+' display1PwmFrame(nxtArgument=hubAddressOfFrame)
+'
+displayCogBffrFullFrame
+                    ' set addr to start
+                    mov     row_addr, addrValueMax      ' reset address to 31|15|7 [A-E|D|C addr all ones]
+                    ' interate over non-PWM Frame subpages
+                    mov     fillSubPgCt, #screen.MAX_PWM_SUBPAGES   ' set loop to PWM N frames then stop to see what to do next
+showFill
+                    jmp     #wrCogBuffer                            ' display subpage
+nextFill
+                    djnz    fillSubPgCt, #showFill                  ' have another of subpage of the PWM frame to show?
+                    ret                                             ' loop again to see if we should do another PWM set
+'
+' loadPWMsubpage(nxtArgument=hubAddressOfFrame)
+'
+loadPWMsubpage
                     ' copy HUB buffer pointed to by nxtArgument to display buffer
                     mov     ptrb, nxtArgument           ' get addr of HUB RAM 256-longs buffer
-                    mov     fillOffset, #0              ' set initial offset to '0' beginning of COG RAM area (screenBffr)
-                    mov     fillCount, ##MAX_COG_BUFFER_SIZE_IN_LONGS             ' length in longs  e.g., 64x32 is 1k bytes of 6bit values
+                    mov     fillOffset, #0              ' set initial offset to '0' beginning of COG RAM area (cogBuffer)
+                    mov     fillCount, ##screen.MAX_COG_BUFFER_SIZE_IN_LONGS             ' length in longs  e.g., 64x32 is 1k bytes of 6bit values
 ldLoop1
-                    altd    fillOffset, #screenBffr     ' calculate addr of next register in COG
+                    altd    fillOffset, #cogBuffer      ' calculate addr of next register in COG
                     rdlong	0-0,ptrb++                  ' read long from HUB RAM
                     add     fillOffset, #1              ' point to next register
                     djnz    fillCount, #ldLoop1         ' count this, if more to do go...
                     ret                                 ' done, return to caller
 '
-' fillBuffer(nxtArgument=colorvalue3bit)
+' fillCogBufferWithColor(nxtArgument=colorvalue3bit)
 '
-fillBuffer      ' fill panel buffer based on desired color
+fillCogBufferWithColor      ' fill COG buffer with desired 3-bit color
+                    ' first, build our color...
                     and     nxtArgument, #$07
                     mov     fillLong, nxtArgument
                     shl     fillLong, #3
@@ -464,42 +503,41 @@ fillBuffer      ' fill panel buffer based on desired color
                     shl     fillLong, #8
                     or      fillLong, fillOffset        ' 4 bytes
                     'debug("- (DBG) ", uhex_long(fillLong))
-                    call    #setBuffer
+                    ' then fill the COG buffer with the new color
+                    call    #writeColorToBuffer
                     'call    #dumpTwinRows
                     ret
 '
-' setBuffer(fillLong=fillValueID)
+' writeColorToBuffer(fillLong=fillValueID)
 '
-setBuffer       ' fill single pwm buffer with desired long value
+writeColorToBuffer       ' fill COG buffer with 'fillLong' value
                     mov     fillOffset, #0
-                    mov     fillCount, ##MAX_COG_BUFFER_SIZE_IN_LONGS
-nextSet
-                    altd    fillOffset, #screenBffr
+                    mov     fillCount, ##screen.MAX_COG_BUFFER_SIZE_IN_LONGS
+writeNextLong
+                    altd    fillOffset, #cogBuffer
                     mov     0-0, fillLong               '  fill long with value
                     add     fillOffset, #1
-                    djnz    fillCount, #nextSet
+                    djnz    fillCount, #writeNextLong
                     ret
 
 dumpTwinRows
-                    'debug(" Red TL,R ", uhex_long_(screenBffr+0), ", ", uhex_long_(screenBffr+1))
-                    'debug(" Red BL,R ", uhex_long_(screenBffr+62), ", ", uhex_long_(screenBffr+63))
-                    'debug(" Grn TL,R ", uhex_long_(screenBffr+64), ", ", uhex_long_(screenBffr+65))
-                    'debug(" Grn BL,R ", uhex_long_(screenBffr+126), ", ", uhex_long_(screenBffr+127))
-                    'debug(" Blu TL,R ", uhex_long_(screenBffr+128), ", ", uhex_long_(screenBffr+129))
-                    'debug(" Blu BL,R ", uhex_long_(screenBffr+190), ", ", uhex_long_(screenBffr+191))
+                    'debug(" Red TL,R ", uhex_long_(cogBuffer+0), ", ", uhex_long_(cogBuffer+1))
+                    'debug(" Red BL,R ", uhex_long_(cogBuffer+62), ", ", uhex_long_(cogBuffer+63))
+                    'debug(" Grn TL,R ", uhex_long_(cogBuffer+64), ", ", uhex_long_(cogBuffer+65))
+                    'debug(" Grn BL,R ", uhex_long_(cogBuffer+126), ", ", uhex_long_(cogBuffer+127))
+                    'debug(" Blu TL,R ", uhex_long_(cogBuffer+128), ", ", uhex_long_(cogBuffer+129))
+                    'debug(" Blu BL,R ", uhex_long_(cogBuffer+190), ", ", uhex_long_(cogBuffer+191))
                     ret
 
 chksDone
                     cmp     nxtCommand, #CMD_DONE  wz
-    if_z            jmp     #wrCurrent  ' redraw current buffer
+    if_z            jmp     #wrCogBuffer  ' redraw current buffer
                     'debug("--> *ERROR* Unknown cmd(", udec_(nxtCommand), ")   arg=", uhex_long_(nxtArgument))
 markCmdComplete
                     'debug(" - unknown cmd done")
                     wrlong  #CMD_DONE, pCommmand        ' signal command completed
-wrCurrent
-                    ' repeat the following forever
-                    ' set addr to start
-                    mov     row_addr, addrValueMax      ' reset address to 31|15|7 [A-E|D|C addr all ones]
+wrCogBuffer
+                    ' repeat the following to end of COG buffer
                     mov     row_ctr, rowCtrMax          ' 32|16|8 -> 0 so we can use djnz
                     mov     reg_offset, #0              ' start of [0-1023] buffer
                     drvl    #MTX_LED_PIN_OE
@@ -509,20 +547,20 @@ wrCurrent
 
 ' --------------------------------------------------------------------------------------------------
 '  the following routine is for panels that DO overlap latching with serial data bits
-' for row address 0 to 15
 wrLineLatchOvlp
 '   for bit 0 to 63
-'     toggle clock (18MHz)
-                ' this tracks when we need to toggle latch at right-edge of row
+'     toggle clock (28MHz)
                     mov     reg_ctr, rowCtrMax                ' 32|16|8 -> 0 so we can use djnz
+                ' this tracks when we need to toggle latch at right-edge of row
                     mov     col_addr, #0
 clkNextReg
                 ' in buffer: RGB1 is byte-bits[0-2], RGB2 is byte-bits[3-5]
                     mov     byt_ctr, #4              ' 4 -> 0 so we can use djnz
-                    ALTS    reg_offset, #screenBffr     ' calc addr of source long and place in instru
+                    ALTS    reg_offset, #cogBuffer     ' calc addr of source long and place in instru
                     mov     reg_value, 0-0              ' get COG register with 4 bytes of rgb1rgb2 values
                     rol     reg_value, #8               ' YEAH, i've no idea why! but fixes our byte ordering problem! (AUGH! this change from rol -> ror with HUB75 adapter?!)
 clkNextByte
+                    ' write our 6 color bits
                     SETQ    maskRgb12                ' load Q bit w/ RGB[12] mask
 outInst1of3         MUXQ    OUTA, reg_value             ' write contents of LS-byte anded with mask to output pins
                     ror     reg_value, #8                ' shift next most significant into LS-byte position
@@ -564,7 +602,6 @@ outInst1of3         MUXQ    OUTA, reg_value             ' write contents of LS-b
 ' --------------------------------------------------------------------------------------------------
 '  the following routine is for panels that DO NOY overlap latching with serial data bits
 '
-' for row address 0 to 15
 wrLatchAtEnd
 wrLineLatchAtEnd
 '   for bit 0 to 63
@@ -574,9 +611,9 @@ wrLineLatchAtEnd
 clkNONextReg
                 ' in buffer: RGB1 is byte-bits[0-2], RGB2 is byte-bits[3-5]
                     mov     byt_ctr, #4                 ' 4 -> 0 so we can use djnz
-                    ALTS    reg_offset, #screenBffr     ' calc addr of source long and place in instru
+                    ALTS    reg_offset, #cogBuffer     ' calc addr of source long and place in instru
                     mov     reg_value, 0-0              ' get COG register with 4 bytes of rgb1rgb2 values
-                    rol     reg_value, #8               ' YEAH, i've no idea why! but fixes our byte ordering problem! (AUGH! this change from rol -> ror with HUB75 adapter?!)
+                    ror     reg_value, #8               ' YEAH, i've no idea why! but fixes our byte ordering problem! (AUGH! this change from rol -> ror with HUB75 adapter?!)
 clkNONextByte
                     ' write our 6 color bits
                     SETQ    maskRgb12                   ' load Q bit w/ RGB[12] mask
@@ -585,6 +622,7 @@ outInst2of3         MUXQ    OUTA, reg_value             ' write contents of LS-b
 
                     ' toggle clock
                     drvh  #MTX_LED_PIN_CLK              ' 15nSec pulse at 335 MHz
+                    waitx   #3  ' 2 + 3 x clk           ' let LATCH settle   ICN2038 needs this delay
                     drvl  #MTX_LED_PIN_CLK
 
                     ' setup for next column
@@ -680,10 +718,10 @@ rowCtrMax       long    16                                          ' 16 rows to
 ' --------------------------------------------------------------------------------------------------
 'screen buffer 1024B of %00bgrbgr where byte is 00{rgb2}{rgb1}
                 ALIGNL
-screenBffr
+cogBuffer
                 ' test compiling 2kB LUT use for 256x64 display
-                long    0[MAX_COG_BUFFER_SIZE_IN_LONGS]
-endScreenBffr
+                long    0[screen.MAX_COG_BUFFER_SIZE_IN_LONGS]
+endCogBuffer
 
 ' UNINITIALIZED data
 '
@@ -695,6 +733,8 @@ nxtCommand      res     1
 nxtArgument     res     1
 pwmBffrStart    res     1
 pwmFrameCt      res     1
+pwmSubPgCt      res     1
+fillSubPgCt     res     1
 
 fillBffr        res     1       ' ptr to single PWM frame sized buffer buffer  -- long: where bits of each byte are 'x x B2 G2 R2 G1 B1 R1'
 fillLong        res     1       ' value to write to each long

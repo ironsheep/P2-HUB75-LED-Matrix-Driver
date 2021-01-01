@@ -19,18 +19,14 @@
 
 CON { Hardware Description }
 
-
-#0, CHIP_UNKNOWN, CHIP_FM6126A, CHIP_LATCH_END_ENCL, CHIP_LATCH_END_OFFSET
-#2, ADDR_UNKNOWN, ADDR_ABC, ADDR_ABCD, ADDR_ABCDE
-
 ' =================================================================================================
 '  (1) Describe where your P2 EVAL HUB75 Adapter is plugged in
 ' =================================================================================================
 #0[16], PINS_P0_P15, PINS_P16_P31, PINS_P32_P47, PINS_P48_P63
 
-	' my P2 EVAL Baord
-    ADAPTER_BASE_PIN = PINS_P32_P47   ' 64x32 CHIP_FM6126A
-    'ADAPTER_BASE_PIN = PINS_P16_P31   ' 64x64 CHIP_LATCH_END_ENCL
+	' my P2 Eval Baord
+    'ADAPTER_BASE_PIN = PINS_P32_P47   ' 64x32 CHIP_FM6126A
+    ADAPTER_BASE_PIN = PINS_P16_P31   ' 64x64 CHIP_LATCH_END_ENCL
 
     ' my JonnyMac Board
     'ADAPTER_BASE_PIN = PINS_P0_P15   ' PINS_P0_P15
@@ -39,9 +35,13 @@ CON { Hardware Description }
 
 
 ' =================================================================================================
-'  (2) Describe the overall layout of your hardware panels:
+'  (2) Describe the overall layout of your hardware panel(s):
 ' =================================================================================================
-'
+
+#0, CHIP_UNKNOWN, CHIP_FM6126A, CHIP_LATCH_END_ENCL, CHIP_LATCH_END_OFFSET
+#2, ADDR_UNKNOWN, ADDR_ABC, ADDR_ABCD, ADDR_ABCDE
+
+' -------------------------------------------------------------------------------------------------
 ' AUTHORs  1st configuration
 ' -------------------------------------------------------------------------------------------------
 ' PANEL: ---  P3-6432-121-16s-D1.0  ---
@@ -52,29 +52,31 @@ CON { Hardware Description }
 '     EA half: 1024 pixels
 '     top half (lines 0-15) driven by R1,G1,B1 pins
 '     bottom half (lines 16-31) driven by R2,G2,B2 pins
+'  Author's panel uses FM6126A chips
+'    max clock rate of 30MHz - [16.5ns hi/16.5ns lo]
 ' ----------------------------------------------------------
-'{
-'  determine what form of signalling the driver should use
-    'PANEL_DRIVER_CHIP = CHIP_UNKNOWN    ' CHIP_FM6126A
+{
+    ADAPTER_BASE_PIN = PINS_P32_P47   ' 64x32 CHIP_FM6126A
+    ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = CHIP_FM6126A
 
-    ' electrical layout
+    ' (2) describe the panel electrical layout
     MAX_PANEL_COLUMNS = 64
     MAX_PANEL_ROWS = 32
+    PANEL_ADDR_LINES = ADDR_ABCD
 
+    ' (3) describe the organization of panel(s)
     ' panels organization: visual layout
     '   [1]
 
-    ' logical/visual display layout
-    MAX_DISPLAY_COLUMNS = 64
-    MAX_DISPLAY_ROWS = 32
-
+    ' (4) describe the organization in numbers of panels
     MAX_PANELS = 1
-
-    ADDR_ROWS = ADDR_ABCD
+    MAX_PANELS_PER_ROW = 1
+    MAX_PANELS_PER_COLUMN = 1
 '}
 
 
+' -------------------------------------------------------------------------------------------------
 ' AUTHORs  2nd configuration
 ' -------------------------------------------------------------------------------------------------
 ' PANEL: ---  P3-6432-121-16s-D1.0  ---
@@ -87,28 +89,25 @@ CON { Hardware Description }
 '     bottom half (lines 16-31) driven by R2,G2,B2 pins
 ' ----------------------------------------------------------
 {
-'  determine what form of signalling the driver should use
+    ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = CHIP_FM6126A
 
-    ' electrical layout
-    MAX_PANEL_COLUMNS = 256
+    ' (2) describe the panel electrical layout
+    MAX_PANEL_COLUMNS = 64
     MAX_PANEL_ROWS = 32
+    PANEL_ADDR_LINES = ADDR_ABCD
 
-    ' panels organization: visual layout
+    ' (3) describe the visual layout of the panel(s)
     '   [1][2]      2 rows of 2 panels each
     '   [3][4]
 
-    ' logical/visual display layout
-    MAX_DISPLAY_COLUMNS = 128
-    MAX_DISPLAY_ROWS = 64
-
+    ' (4) describe the organization in numbers of panels
     MAX_PANELS = 4
-
-    ADDR_ROWS = ADDR_ABCD
-
+    MAX_PANELS_PER_ROW = 2
+    MAX_PANELS_PER_COLUMN = 2
 '}
 '
-' =================================================================================================
+' -------------------------------------------------------------------------------------------------
 ' AUTHORs  3rd configuration
 ' -------------------------------------------------------------------------------------------------
 ' PANEL: ---  P3-6432-121-16s-D1.0  ---
@@ -121,26 +120,25 @@ CON { Hardware Description }
 '     bottom half (lines 16-31) driven by R2,G2,B2 pins
 ' ----------------------------------------------------------
 {
-'  determine what form of signalling the driver should use
+    ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = CHIP_FM6126A
 
-    ' electrical layout
-    MAX_PANEL_COLUMNS = 256
+    ' (2) describe the panel electrical layout
+    MAX_PANEL_COLUMNS = 64
     MAX_PANEL_ROWS = 32
+    PANEL_ADDR_LINES = ADDR_ABCD
 
+    ' (3) describe the organization of panel(s)
     ' panels organization: visual layout
     '   [1][2][3][4]    ' one row of 4 panels
-    '
-    MAX_DISPLAY_COLUMNS = 256
-    MAX_DISPLAY_ROWS = 32
 
+    ' (4) describe the organization in numbers of panels
     MAX_PANELS = 4
-
-    ADDR_ROWS = ADDR_ABCD
-
+    MAX_PANELS_PER_ROW = 4
+    MAX_PANELS_PER_COLUMN = 1
 }
 '
-' =================================================================================================
+' -------------------------------------------------------------------------------------------------
 ' AUTHORs  4th configuration
 ' -------------------------------------------------------------------------------------------------
 ' PANEL: ---  P3-6432-121-16s-D1.0  ---
@@ -151,29 +149,30 @@ CON { Hardware Description }
 '     EA half: 1024 pixels
 '     top half (lines 0-15) driven by R1,G1,B1 pins
 '     bottom half (lines 16-31) driven by R2,G2,B2 pins
+'  Author's panel uses FM6124 chips (came in Hackbox)
+'    max clock rate of 30MHz - [16.5ns hi/16.5ns lo]
 ' ----------------------------------------------------------
 {
-'  determine what form of signalling the driver should use
+    ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = CHIP_UNKNOWN
 
-    ' electrical layout
+    ' (2) describe the panel electrical layout
     MAX_PANEL_COLUMNS = 64
     MAX_PANEL_ROWS = 32
+    PANEL_ADDR_LINES = ADDR_ABCD
 
+    ' (3) describe the organization of panel(s)
     ' panels organization: visual layout
-    '   [1]     ' one panel
-    '
-    MAX_DISPLAY_COLUMNS = 64
-    MAX_DISPLAY_ROWS = 32
+    '   [1]
 
+    ' (4) describe the organization in numbers of panels
     MAX_PANELS = 1
-
-    ADDR_ROWS = ADDR_ABCD
-
+    MAX_PANELS_PER_ROW = 1
+    MAX_PANELS_PER_COLUMN = 1
 '}
 
 '
-' =================================================================================================
+' -------------------------------------------------------------------------------------------------
 ' AUTHORs  5th configuration
 ' -------------------------------------------------------------------------------------------------
 ' PANEL: ---  P2-2020210240-200  ---
@@ -184,28 +183,47 @@ CON { Hardware Description }
 '     EA half: 2048 pixels
 '     top half (lines 0-31) driven by R1,G1,B1 pins
 '     bottom half (lines 32-63) driven by R2,G2,B2 pins
+'  Author's panel uses ICN2038 chips
+'    max clock rate of 20MHz - [25ns hi/25ns lo]
 ' ----------------------------------------------------------
-{
-'  determine what form of signalling the driver should use
+'{
+    ADAPTER_BASE_PIN = PINS_P16_P31   ' 64x64 CHIP_LATCH_END_ENCL
+   ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = CHIP_LATCH_END_ENCL
 
-    ' electrical layout
+    ' (2) describe the panel electrical layout
     MAX_PANEL_COLUMNS = 64
     MAX_PANEL_ROWS = 64
+    PANEL_ADDR_LINES = ADDR_ABCDE
 
+    ' (3) describe the organization of panel(s)
     ' panels organization: visual layout
     '   [1]     ' one panel
     '
-    MAX_DISPLAY_COLUMNS = 64
-    MAX_DISPLAY_ROWS = 64
-
+    ' (4) describe the organization in numbers of panels
     MAX_PANELS = 1
-
-    ADDR_ROWS = ADDR_ABCDE
-
+    MAX_PANELS_PER_ROW = 1
+    MAX_PANELS_PER_COLUMN = 1
 '}
 
+
 '              (remember to enable (uncomment) only one configuration above here)
+
+' =================================================================================================
+'  (3) SPECIAL for using only part of your full display panel:
+' =================================================================================================
+
+    ' (5) describe the subset of your display you'd like to use
+    '  and then where would you like it placed within the full display
+    '
+    '  TBD - these are NOT YET SUPPORTED by the driver!
+    '
+    ' Example 1: putting a 64x32 display vertically in center of 64x64 display
+    'SUBSET_DISPLAY_TOP_INDENT = 16
+    'SUBSET_DISPLAY_LEFT_INDENT = 0
+    'SUBSET_DISPLAY_COLUMNS = 64
+    'SUBSET_DISPLAY_ROWS = 32
+
 ' -------------------------------------------------------------------------------------------------
 ' ------------------------ Add your configurations ABOVE here -------------------------------------
 '

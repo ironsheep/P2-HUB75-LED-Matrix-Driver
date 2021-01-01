@@ -349,7 +349,7 @@ PRI placeBitmapBackAtRCWithColor(row, column, bitInset, nbrCharBits, pCharBitmap
                 pixColor := cRowBits & (1 << cBitOffset) > 0 ? rgbColor : $000000
                 pixColumn := column + (nbrCharBits - 1) - colOffset
                 ' dont paint off edge of matrix
-                if pixColumn < screen.MAX_PHYSICAL_COLUMNS
+                if pixColumn < screen.MAX_DISPLAY_COLUMNS
                     pixels.drawPixelAtRC(pixRow, pixColumn, pixColor)
                 colOffset--
 
