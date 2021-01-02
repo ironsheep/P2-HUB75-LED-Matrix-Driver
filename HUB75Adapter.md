@@ -6,7 +6,7 @@
 
 The P2 Eval HUB75 adapter board provides a simple means by which one can connect and drive a HUB75 RGB LED Matrix panel or a small number of HUB75 Matrix panels daisy-chained together.
 
-### Ovieview
+### Overview
 
 This  HUB75 add-on board (#65032) is designed for use with Propeller 2 development board 2×6 accessory headers. Its dual 2×6 pass-through sockets stack on top of a pair of accessory headers on the P2 Eval Board (64000). It is also compatible with a P2 Edge Module Breadboard (#64020) or P2 Edge Mini Breakout Board (#64019) with a P2 Edge Module (#P2-EC) installed.
 
