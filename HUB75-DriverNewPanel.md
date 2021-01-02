@@ -90,7 +90,7 @@ Signal Waveforms and timings for driver r1.1
 
 ![Latch Style](images/64x32pnk_1line.bmp)
 
--
+--
 
 ### Driver Chip: FM6124 (UNKNOWN)
 
@@ -120,7 +120,7 @@ Signal Waveforms and timings for driver r1.1
 
 ![Latch Style](images/64x32org_1line.bmp)
 
--
+--
 
 ### Driver Chip: ICN2038 (UNKNOWN)
 
