@@ -76,7 +76,7 @@ Signal Waveforms and timings for driver r1.1
 
 |  | Time | Frequency |
 |----|----|----|
-| Data CLK | ? | ? |
+| Data CLK | 73.6 nSec (avg) | 13.58 mHz |
 | Single PWM Row  | 4.87 uSec | 205.44 kHz |
 | Single PWM Frame (32 rows) | 91.08 uSec | 10.98 kHz |
 | Single Frame (16 pwm frames) | 1.57 mSec | 636.9 fps |
@@ -106,7 +106,7 @@ Signal Waveforms and timings for driver r1.1
 
 |  | Time | Frequency |
 |----|----|----|
-| Data CLK | ? | ? |
+| Data CLK | 54 nSec (avg) | 18.62 mHz |
 | Single PWM Row  | 3.38 uSec | 295.86 kHz |
 | Single PWM Frame (32 rows) | 67.18 uSec | 14.88 kHz |
 | Single Frame (16 pwm frames) | 1.07 mSec | 930.3 fps |
@@ -124,7 +124,7 @@ Signal Waveforms and timings for driver r1.1
 
 ### Driver Chip: ICN2038 (UNKNOWN)
 
-This is nearly the same as the FM6124 but needs a slower data CLK (Max 20MHz) (wider pulse width)
+This is nearly the same as the FM6124 but needs a slower data CLK (Max 20MHz) (wider pulse width).
 
 - LATCH_STYLE: ENCLOSED
 - LATCH_POSITION: AFTER 
@@ -132,13 +132,13 @@ This is nearly the same as the FM6124 but needs a slower data CLK (Max 20MHz) (w
 - WIDER_CLOCK: True
 - DATA_ROTATE: Left
 
-Signal Waveforms and timings for driver r1.1
+Signal Waveforms and timings for driver r1.1 using 64x64 Panel.
 
 |  | Time | Frequency |
 |----|----|----|
-| Data CLK | 65 nSec | 15.38 mHz |
+| Data CLK | 65 nSec (avg) | 15.38 mHz |
 | Single PWM Row  | 4.34 uSec | 230.42 kHz |
-| Single PWM Frame (32 rows) | 165.31 uSec | 6.05 kHz |
+| Single PWM Frame (64 rows) | 165.31 uSec | 6.05 kHz |
 | Single Frame (16 pwm frames) | 2.64 mSec | 378.1 fps |
  
 
