@@ -386,6 +386,20 @@ drive_matrix
     if_z            setd    outInst2of3, #OUTB
     if_z            setd    outInst3of3, #OUTB
 
+'                    cmp     modeOverlapDAT, #0     wz
+'    if_z            setd    jmpInst1of1, #wrLatchAtEnd
+'    if_nz           setd    jmpInst1of1, #wrLineLatchOvlp
+
+                    cmp     modeDatRotLeft, #0     wz
+    if_nz           SETR    rotInstr1of2,#%0000001_00	'make into ROR instruction
+    if_nz           SETR    rotInstr2of2,#%0000001_00	'make into ROR instruction
+    if_z            SETR    rotInstr1of2,#%0000000_00	'make into ROL instruction
+    if_z            SETR    rotInstr2of2,#%0000000_00	'make into ROL instruction
+
+                    cmp     modeOverlapDAT, #0     wz
+    if_nz           SETR    jmpInstr1of1,#%0000000_00	'make into JMP instruction
+    if_nz           SETD    jmpInstr1of1,##0	        'make into NOP instruction
+
 ' configure all pins
 dirInst1of1         or      DIRA, maskAllPins   ' set all of our pins to OUTPUT!  for this COG
 
