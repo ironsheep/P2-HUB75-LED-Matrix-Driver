@@ -93,6 +93,9 @@ VAR
     long  dvrCommand
     long  dvrArgument
 
+    long  dvrConfig
+    long  driverFlags
+
     long  cog
 
 
@@ -107,40 +110,69 @@ PUB start() : ok | bSetLowPins, tmpVar
     usec_001 := CLKFREQ / 1_000_000                               ' ticks in 1us
     tm_64usec := usec_001 * 64
 
+{
+    tmpVar := screen.LAT_STYLE_OFFSET
+    debug("- LAT_STYLE_OFFSET ", ubin_word_(tmpVar))
+    tmpVar := screen.LAT_POSN_OVERLAP
+    debug("- LAT_POSN_OVERLAP ", ubin_word_(tmpVar))
+    tmpVar := screen.INIT_PANEL_REQUIRED
+    debug("- INIT_PANEL_REQUIRED ", ubin_word_(tmpVar))
+    tmpVar := screen.CLK_WIDE_PULSE
+    debug("- CLK_WIDE_PULSE ", ubin_word_(tmpVar))
+'}
+
+    dvrConfig := screen.PANEL_DRIVER_CHIP
+    debug("- Driver CONFIG (user) ", ubin_word(dvrConfig))
+    if dvrConfig == screen.CHIP_FM6126A
+        debug("- have FM6126A")
+        dvrConfig := screen.CHIP_MANUAL_SPEC | screen.LAT_POSN_OVERLAP | screen.LAT_STYLE_OFFSET | screen.INIT_PANEL_REQUIRED
+    elseif dvrConfig == screen.CHIP_FM6124 or dvrConfig == screen.CHIP_UNK_LAT_END_ENCL
+        if dvrConfig == screen.CHIP_FM6124
+            debug("- have FM6124")
+    elseif dvrConfig == screen.CHIP_ICN2038 or dvrConfig == screen.CHIP_UNK_LAT_END_ENCL_SLO_CLK
+        if dvrConfig == screen.CHIP_ICN2038
+            debug("- have ICN2038")
+        dvrConfig := screen.CHIP_MANUAL_SPEC | screen.CLK_WIDE_PULSE
+    elseif dvrConfig & $ff <> screen.CHIP_MANUAL_SPEC
+        ' report ERROR and exit
+        debug("- have unknown CHIP ", ubin_word(dvrConfig))
+        abort
+
+    driverFlags := dvrConfig & $ff00
+    ' if following flags are set...
+    modeOverlapDAT := (driverFlags & screen.LAT_POSN_OVERLAP) <> 0 ? True : False
+    modeLatchEnclosed := (driverFlags & screen.LAT_STYLE_OFFSET) <> 0 ? False : True
+    modeSlowCLK := (driverFlags & screen.CLK_WIDE_PULSE) <> 0 ? True : False
+    debug("- Driver CONFIG (intrp) ", ubin_word(dvrConfig))
+    debug("  -- ", ubin_word(driverFlags))
+    debug("  -- ", ubin_byte(modeOverlapDAT))
+    debug("  -- ", ubin_byte(modeLatchEnclosed))
+    debug("  -- ", ubin_byte(modeSlowCLK))
+
     ' when using a panel w/FM6126A chips we have to issue a reset!
     '   before attempting to use the panel
-    if screen.PANEL_DRIVER_CHIP == screen.CHIP_FM6126A
-        debug("- have FM6126A")
-        overlappedLatch := TRUE
+    if driverFlags & screen.INIT_PANEL_REQUIRED <> 0
         setupPins()
         resetPanel()
-    elseif screen.PANEL_DRIVER_CHIP == screen.CHIP_LATCH_END_ENCL
-        debug("- have LE-OE ENCL")
-        overlappedLatch := FALSE
-        latchEnclosed := TRUE
-    else
-        debug("- have OTHER")
-        overlappedLatch := FALSE
-        latchEnclosed := FALSE
 
     ' configure our driver
     case screen.ADAPTER_BASE_PIN
         screen.PIN_GROUP_P0_P15:
             debug("- I/O P00 - P15")
             bSetLowPins := TRUE
-            usingPortA  := TRUE
+            modeUsePortA  := TRUE
         screen.PIN_GROUP_P16_P31:
             debug("- I/O P16 - P31")
             bSetLowPins := FALSE
-            usingPortA  := TRUE
+            modeUsePortA  := TRUE
         screen.PIN_GROUP_P32_P47:
             debug("- I/O P32 - P47")
             bSetLowPins := TRUE
-            usingPortA  := FALSE
+            modeUsePortA  := FALSE
         screen.PIN_GROUP_P48_P63:
             debug("- I/O P48 - P63")
             bSetLowPins := FALSE
-            usingPortA  := FALSE
+            modeUsePortA  := FALSE
 
     if bSetLowPins
         if screen.PANEL_ADDR_LINES == screen.ADDR_ABCDE
@@ -160,6 +192,7 @@ PUB start() : ok | bSetLowPins, tmpVar
             rowCtrMax   := 8 / screen.MAX_PWM_SUBPAGES
         maskRgb12   := %00000000_00000000_00111111_00000000         ' rgb2rgb1 now grounded to lsbit - pins at 00-15 A/B-pins
         addrValue1  := $0000_0008                                   ' 1 but in upper 5-bits of byte
+        modeDatRotLeft := TRUE
     else
         if screen.PANEL_ADDR_LINES == screen.ADDR_ABCDE
             maskAllPins := %00111111_11111111_00000000_00000000         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
@@ -178,6 +211,7 @@ PUB start() : ok | bSetLowPins, tmpVar
             rowCtrMax   := 8 / screen.MAX_PWM_SUBPAGES
         maskRgb12   := %00111111_00000000_00000000_00000000         ' rgb2rgb1 now grounded to lsbit - pins at 16-31 A/B-pins
         addrValue1  := $0008_0000                                   ' 1 but in upper 5-bits of byte
+        modeDatRotLeft := False
 {
     ' test mask off rgb1 or rgb2 in ABCDE case (testing matrix)
     if bSetLowPins
@@ -375,8 +409,8 @@ drive_matrix
                     mov     fillSubPgCt, ##0
 
                     ' configure our output & dir instructions to use A or B set of pins
-                    '  (if usingPortA is FALSE...)
-                    cmp     usingPortA, #0      wz
+                    '  (if modeUsePortA is FALSE...)
+                    or      modeUsePortA, modeUsePortA  wz
     if_nz           setd    dirInst1of1, #DIRA
     if_nz           setd    outInst1of3, #OUTA
     if_nz           setd    outInst2of3, #OUTA
@@ -497,6 +531,28 @@ ldLoop1
                     add     fillOffset, #1              ' point to next register
                     djnz    fillCount, #ldLoop1         ' count this, if more to do go...
                     ret                                 ' done, return to caller
+{
+loadPWMsubpageF
+                    mov     pBffr,#cogBuffer
+                    rdfast  #0,ptra      'load .bmp palette into lut
+                    rep     @.endLdPwm,#$100
+                    rflong  y
+                    wrlong   y,pBffr
+                    add     pBffr,#1
+.endLdPwm
+                    ret
+'}
+' ======= test code for possible fast cog buffer load func:
+{
+                rdfast  #0,ptra      'load .bmp palette into lut
+                rep     @.end,#$100
+                rflong  y
+                wrlut   y,x
+                add     x,#1
+.end
+'}
+
+
 '
 ' fillCogBufferWithColor(nxtArgument=colorvalue3bit)
 '
@@ -552,12 +608,13 @@ wrCogBuffer
                     mov     row_ctr, rowCtrMax          ' 32|16|8 -> 0 so we can use djnz
                     mov     reg_offset, #0              ' start of [0-1023] buffer
                     drvl    #MTX_LED_PIN_OE
-                    '  if overlappedLatch is FALSE...
-                    cmp     overlappedLatch, #0     wz
-    if_z            jmp     #wrLatchAtEnd
+
+                    ' following instru is modified by startup to #wrLatchAtEnd or #wrLineLatchOvlp
+jmpInstr1of1        jmp     #wrLatchAtEnd
 
 ' --------------------------------------------------------------------------------------------------
 '  the following routine is for panels that DO overlap latching with serial data bits
+' so far this is ONLY panels with FM6126A
 wrLineLatchOvlp
 '   for bit 0 to 63
 '     toggle clock (28MHz)
@@ -569,7 +626,7 @@ clkNextReg
                     mov     byt_ctr, #4              ' 4 -> 0 so we can use djnz
                     ALTS    reg_offset, #cogBuffer     ' calc addr of source long and place in instru
                     mov     reg_value, 0-0              ' get COG register with 4 bytes of rgb1rgb2 values
-                    rol     reg_value, #8               ' YEAH, i've no idea why! but fixes our byte ordering problem! (AUGH! this change from rol -> ror with HUB75 adapter?!)
+rotInstr1of2        rol     reg_value, #8               ' YEAH, i've no idea why! but fixes our byte ordering problem! (AUGH! this change from rol -> ror for some panels??!)
 clkNextByte
                     ' write our 6 color bits
                     SETQ    maskRgb12                ' load Q bit w/ RGB[12] mask
@@ -624,7 +681,8 @@ clkNONextReg
                     mov     byt_ctr, #4                 ' 4 -> 0 so we can use djnz
                     ALTS    reg_offset, #cogBuffer     ' calc addr of source long and place in instru
                     mov     reg_value, 0-0              ' get COG register with 4 bytes of rgb1rgb2 values
-                    ror     reg_value, #8               ' YEAH, i've no idea why! but fixes our byte ordering problem! (AUGH! this change from rol -> ror with HUB75 adapter?!)
+                    ' the following instru is either a ROR or ROL as configured by setup code
+rotInstr2of2        ror     reg_value, #8               ' YEAH, i've no idea why! but fixes our byte ordering problem! (AUGH! this change from rol -> ror for some panels??!)
 clkNONextByte
                     ' write our 6 color bits
                     SETQ    maskRgb12                   ' load Q bit w/ RGB[12] mask
@@ -632,9 +690,11 @@ outInst2of3         MUXQ    OUTA, reg_value             ' write contents of LS-b
                     ror     reg_value, #8               ' shift next most significant into LS-byte position
 
                     ' toggle clock
-                    drvh  #MTX_LED_PIN_CLK              ' 15nSec pulse at 335 MHz
-                    waitx   #3  ' 2 + 3 x clk           ' let LATCH settle   ICN2038 needs this delay
-                    drvl  #MTX_LED_PIN_CLK
+                    drvh    #MTX_LED_PIN_CLK              ' 15nSec pulse at 335 MHz
+                    ' if sslowCLK is false...
+                    or      modeSlowCLK,modeSlowCLK     wz
+    if_nz           waitx   #6  ' 2 + 3 x clk           ' let LATCH settle   ICN2038 needs this delay
+                    drvl    #MTX_LED_PIN_CLK
 
                     ' setup for next column
                     djnz    byt_ctr, #clkNONextByte
@@ -651,7 +711,7 @@ outInst2of3         MUXQ    OUTA, reg_value             ' write contents of LS-b
                     waitx   #3  ' 2 + 3 x clk           ' let LATCH settle
 
                     ' LATCH DATA complete...
-                    cmp     latchEnclosed, #0      wz
+                    or     modeLatchEnclosed, modeLatchEnclosed      wz
     if_z            drvl    #MTX_LED_PIN_OE
     if_z            drvl    #MTX_LED_PIN_LATCH          ' end latch data
     if_nz           drvl    #MTX_LED_PIN_LATCH          ' end latch data
@@ -665,8 +725,6 @@ outInst2of3         MUXQ    OUTA, reg_value             ' write contents of LS-b
                     '
                     ' ---  inter-frame gap  ---
                     '
-                    ' EXPERIMENT: can we get better brightness range if we stall for a full frame at the end of each frame?
-                    waitx   #tm_64usec
                     jmp     #getCommand
 
 ' --------------------------------------------------------------------------------------------------
@@ -697,9 +755,12 @@ isr3
 ' --------------------------------------------------------------------------------------------------
 '   The following variables are poulated from the initialization SPIN code before this driver starts
 '
-usingPortA      long    FALSE
-overlappedLatch long    FALSE
-latchEnclosed   long    FALSE   ' T/F where T means LATCH_ENCLOSED, F means LATCH_OFFSET
+' Driver Config Values
+modeUsePortA        long    FALSE   ' T/F where T means we are using portA vs. portB
+modeOverlapDAT      long    FALSE   ' T/F where T means LATCH_OVERLAPPED, F means LATCH_AFTER
+modeLatchEnclosed   long    FALSE   ' T/F where T means LATCH_ENCLOSED, F means LATCH_OFFSET
+modeDatRotLeft      long    FALSE   ' T/F where T means ROR, F means ROL
+modeSlowCLK         long    FALSE   ' T/F where T means add waitx to slow clock, F means no use of waitx
 
 msec_001        long    0                                   ' ticks in 1ms
 usec_001        long    0                               ' ticks in 1us
@@ -763,7 +824,6 @@ row_addr        res     1
 row_ctr         res     1
 col_addr        res     1
 reg_ctr         res     1
-
 
         FIT     496
 
