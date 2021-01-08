@@ -37,10 +37,10 @@ CON { Hardware Description }
 '  (2) The Driver Chip on your panels
 ' =================================================================================================
 ' Driver Manual Config Flags:
-#$100, LAT_STYLE_OFFSET, #$200, LAT_POSN_OVERLAP, #$400, INIT_PANEL_REQUIRED, #$800, CLK_WIDE_PULSE
+#$100, LAT_STYLE_OFFSET, #$200, LAT_POSN_OVERLAP, #$400, INIT_PANEL_REQUIRED, #$800, CLK_WIDE_PULSE, #$1000, RB_INVERT
 
 ' Driver Pre-defined flag combinations (use these unless your hardware is not in this list)
-#0, CHIP_UNKNOWN, CHIP_MANUAL_SPEC, CHIP_FM6126A, CHIP_FM6124, CHIP_UNK_LAT_END_ENCL, CHIP_ICN2038, CHIP_UNK_LAT_END_ENCL_SLO_CLK
+#0, CHIP_UNKNOWN, CHIP_MANUAL_SPEC, CHIP_FM6126A, CHIP_FM6124, CHIP_UNK_LAT_END_ENCL, CHIP_ICN2037, CHIP_UNK_LAT_END_ENCL_SLO_CLK
 
 ' Normal use:
 '   PANEL_DRIVER_CHIP = CHIP_FM6126A
@@ -51,7 +51,7 @@ CON { Hardware Description }
 ' NOTE:
 '   PANEL_DRIVER_CHIP = CHIP_FM6126A    ' which is: CHIP_MANUAL_SPEC | LAT_STYLE_OFFSET | LAT_POSN_OVERLAP | INIT_PANEL_REQUIRED
 '   PANEL_DRIVER_CHIP = CHIP_FM6124     ' which is: CHIP_MANUAL_SPEC
-'   PANEL_DRIVER_CHIP = CHIP_ICN2038    ' which is: CHIP_MANUAL_SPEC | CLK_WIDE_PULSE
+'   PANEL_DRIVER_CHIP = CHIP_ICN2037    ' which is: CHIP_MANUAL_SPEC | CLK_WIDE_PULSE | RB_INVERT
 
 ' =================================================================================================
 '  (3) Describe the overall layout of your hardware panel(s):
@@ -174,7 +174,7 @@ CON { Hardware Description }
 '  Author's panel uses FM6124 chips (came in Hackbox)
 '    max clock rate of 30MHz - [16.5ns hi/16.5ns lo]
 ' ----------------------------------------------------------
-'{
+{
     ADAPTER_BASE_PIN = PINS_P16_P31   ' 64x32 CHIP_FM6126A
     ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = CHIP_FM6124
@@ -206,13 +206,13 @@ CON { Hardware Description }
 '     EA half: 2048 pixels
 '     top half (lines 0-31) driven by R1,G1,B1 pins
 '     bottom half (lines 32-63) driven by R2,G2,B2 pins
-'  Author's panel uses ICN2038 chips
+'  Author's panel uses ICN2037 chips
 '    max clock rate of 20MHz - [25ns hi/25ns lo]
 ' ----------------------------------------------------------
-{
+'{
     ADAPTER_BASE_PIN = PINS_P32_P47   ' 64x64 CHIP_LATCH_END_ENCL
    ' (1) determine what form of signalling the driver should use
-    PANEL_DRIVER_CHIP = CHIP_ICN2038
+    PANEL_DRIVER_CHIP = CHIP_ICN2037
 
     ' (2) describe the panel electrical layout
     MAX_PANEL_COLUMNS = 64

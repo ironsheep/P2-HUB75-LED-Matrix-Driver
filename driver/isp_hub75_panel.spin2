@@ -54,10 +54,10 @@ CON { RAM/FLASH }
 PUB start() : ok
     '' Start the backend pasm2 driver for the matrix
 
-    debug("- PANEL: Start Matrix COG")
+    debug("- PNL: Start Matrix COG")
     ok := cog := matrix.start()   ' send buffer to driver
     if ok == -1
-        debug("- PANEL: underlying drivers failed!")
+        debug("- PNL: underlying drivers failed!")
         abort
 
     showed := didShowCount
@@ -79,7 +79,7 @@ PUB fillPanel(threeBitColor)
     '' Fill screen but without PWM (for testing underlying driver)
     matrix.fillPanel(threeBitColor)
 
-PUB convertScreen2PWM(p24bitScreen) | pPwmFrameSet
+PUB convertScreen2PWM(p24bitScreen) | pPwmFrameSet, bRBInvert
     '' Load a 24-bit image into PWM frame buffers
 
     ' -------------------------------------------------------
@@ -90,12 +90,15 @@ PUB convertScreen2PWM(p24bitScreen) | pPwmFrameSet
     '  and (2) maybe write all 16 pwm bytes in same pass thereby reducing
     '  iteration over screen buffer to single pass of both halves at same time
     ' -------------------------------------------------------
-    ' XYZZYpnl debug("- PANEL: loading screen at @", uhex_long_(p24bitScreen))
+    ' XYZZYpnl debug("- PNL: loading screen at @", uhex_long_(p24bitScreen))
 
     ' save address of 24bit screen for use by called routines
     pScreenInMemory := p24bitScreen
   ' clear 8x 3-bit frames
     pPwmFrameSet := clearPwmFrameBuffer()  ' clear PWM frames  and get pointer to buffer
+
+    dvrConfig, driverConfigRaw := screen.getDriverFlags()
+    bRBInvert := (dvrConfig & screen.RB_INVERT) > 0 ? True : False
 
 {
     if not didShow
@@ -108,9 +111,15 @@ PUB convertScreen2PWM(p24bitScreen) | pPwmFrameSet
                     ' for each row...
                     ' FOLLOWING use redByte tempoerarily ... as our columnIndex (multiply value)
                     'encod   redByte, #screen.MAX_PHYSICAL_COLUMNS        ' pre-calculate our shift vs. multiply value
+
                     mov     panelRow, #screen.MAX_PHYSICAL_ROWS
                     mov     midDisplayRow, #screen.MAX_PHYSICAL_ROWS
                     shr     midDisplayRow, #1   ' divide by two
+                    or      bRBInvert, bRBInvert   wz
+    if_nz            mov     redBitValue, #$04
+    if_nz            mov     blueBitValue, #$01
+    if_z            mov     redBitValue, #$01
+    if_z            mov     blueBitValue, #$04
 nextRow
                     ' for each column
                     mov     panelCol, #screen.MAX_PHYSICAL_COLUMNS
@@ -163,11 +172,11 @@ nextBit
                     '   bBit := blue & (1 << currBitNumber) > 0 ? 1 : 0
                     mov     panelBGR, #0                    ' clear color value
                     testb   redByte, currBitNumber     wc
-        if_c        or      panelBGR, #$01
+        if_c        or      panelBGR, redBitValue
                     testb   greenByte, currBitNumber   wc
-        if_c        or      panelBGR, #$02
+        if_c        or      panelBGR, greenBitValue
                     testb   blueByte, currBitNumber    wc
-        if_c        or      panelBGR, #$04
+        if_c        or      panelBGR, blueBitValue
                     '    bIsBottomHalf := (nBffrR > 15) ? TRUE : FALSE
                     mov     rowIndexHalfPanel, panelRow             ' [1-N]
                     sub     rowIndexHalfPanel, #1                   ' now [0 - N-1]
@@ -224,6 +233,9 @@ noShift
 
 done
 
+redBitValue         long    $01
+greenBitValue       long    $02
+blueBitValue        long    $04
 midDisplayRow       long    0
 redByte             long    0
 greenByte           long    0
@@ -251,13 +263,13 @@ tempByte            long    0
         if showed == 0
             didShow := TRUE
 }
-    dumpBufferHeads(p24bitScreen, pPwmFrameSet)
+    'dumpBufferHeads(p24bitScreen, pPwmFrameSet)
     ' write N 3-bit frames to panel
     matrix.writePwmBuffer(pPwmFrameSet)
 
 DAT
-bufferMsg   byte    "SCREEN:",0
-frameMsg   byte    "FRAME[0]:",0
+bufferMsg   byte    "SCREEN",0
+frameMsg   byte    "FRAME[0]",0
 
 PRI dumpBufferHeads(pSCreenBuffer,pPwmBuffer)
     screen.dbgMemDump(@bufferMsg, pSCreenBuffer, 48)
@@ -293,6 +305,8 @@ VAR { buffer addresses }
 
     long    pBitmapFileInMemory
     long    pScreenInMemory
+    long    dvrConfig
+    long    driverConfigRaw
 
 PRI setPanelColorBitsForRC(pPwmFrame, nPanelRow, nPanelCol, rBit, gBit, bBit) | nBffrR, nBffrC, isRGB2, byteIdx, maskBitsBGR, bitsBGR, currPwmColorBits, showDebug
     '  write color bits to a PWM frame at frame[r][c]

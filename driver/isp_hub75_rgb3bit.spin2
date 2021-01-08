@@ -86,17 +86,18 @@ OBJ
     screen      : "isp_hub75_screenAccess"
 
 VAR
-    long  ptrCommand      ' ptra[2]
-    long  ptrArgument     ' ptra[3]  @buffer -OR- color value [0-7]
+    long    ptrCommand      ' ptra[2]
+    long    ptrArgument     ' ptra[3]  @buffer -OR- color value [0-7]
 
        ' write values here to pass to driver
-    long  dvrCommand
-    long  dvrArgument
+    long    dvrCommand
+    long    dvrArgument
 
-    long  dvrConfig
-    long  driverFlags
+    long    dvrConfig
+    long    driverFlags
+    long    driverConfigRaw
 
-    long  cog
+    long    cog
 
 
 ' --------------------------------------------------------------------------------------------------
@@ -121,22 +122,16 @@ PUB start() : ok | bSetLowPins, tmpVar
     debug("- CLK_WIDE_PULSE ", ubin_word_(tmpVar))
 '}
 
-    dvrConfig := screen.PANEL_DRIVER_CHIP
-    debug("- Driver CONFIG (user) ", ubin_word(dvrConfig))
-    if dvrConfig == screen.CHIP_FM6126A
+    dvrConfig, driverConfigRaw := screen.getDriverFlags()
+    debug("- Driver CONFIG (user) ", ubin_word(dvrConfig), ubin_word(driverConfigRaw))
+    if driverConfigRaw == screen.CHIP_FM6126A
         debug("- have FM6126A")
-        dvrConfig := screen.CHIP_MANUAL_SPEC | screen.LAT_POSN_OVERLAP | screen.LAT_STYLE_OFFSET | screen.INIT_PANEL_REQUIRED
-    elseif dvrConfig == screen.CHIP_FM6124 or dvrConfig == screen.CHIP_UNK_LAT_END_ENCL
-        if dvrConfig == screen.CHIP_FM6124
+    elseif driverConfigRaw == screen.CHIP_FM6124 or driverConfigRaw == screen.CHIP_UNK_LAT_END_ENCL
+        if driverConfigRaw == screen.CHIP_FM6124
             debug("- have FM6124")
-    elseif dvrConfig == screen.CHIP_ICN2038 or dvrConfig == screen.CHIP_UNK_LAT_END_ENCL_SLO_CLK
-        if dvrConfig == screen.CHIP_ICN2038
-            debug("- have ICN2038")
-        dvrConfig := screen.CHIP_MANUAL_SPEC | screen.CLK_WIDE_PULSE
-    elseif dvrConfig & $ff <> screen.CHIP_MANUAL_SPEC
-        ' report ERROR and exit
-        debug("- have unknown CHIP ", ubin_word(dvrConfig))
-        abort
+    elseif driverConfigRaw == screen.CHIP_ICN2037 or driverConfigRaw == screen.CHIP_UNK_LAT_END_ENCL_SLO_CLK
+        if driverConfigRaw == screen.CHIP_ICN2037
+            debug("- have ICN2037")
 
     driverFlags := dvrConfig & $ff00
     ' if following flags are set...
@@ -284,6 +279,7 @@ PUB writeBuffer(pBuffer)
     repeat while (dvrCommand <> CMD_DONE)
 
 PUB writePwmBuffer(pBuffer)
+    debug("- r3b:wrtPwmBuffer")
     '' Request that driver copy each buffer of PWM bufferSet to its buffer and display it
     dvrArgument := pBuffer
     dvrCommand := CMD_SHOW_PWM_BUFFER
@@ -420,10 +416,6 @@ drive_matrix
     if_z            setd    outInst2of3, #OUTB
     if_z            setd    outInst3of3, #OUTB
 
-'                    cmp     modeOverlapDAT, #0     wz
-'    if_z            setd    jmpInst1of1, #wrLatchAtEnd
-'    if_nz           setd    jmpInst1of1, #wrLineLatchOvlp
-
                     cmp     modeDatRotLeft, #0     wz
     if_nz           SETR    rotInstr1of2,#%0000001_00	'make into ROR instruction
     if_nz           SETR    rotInstr2of2,#%0000001_00	'make into ROR instruction
@@ -458,7 +450,10 @@ getCommand
                     rdlong  nxtArgument, pArgument
                     cmp     nxtCommand, #CMD_DONE  wz
     if_z            jmp     #chksDone                   ' redraw current buffer
-                    'debug("* cmd=", udec_(nxtCommand), ", arg=", uhex_long_(nxtArgument))
+                    cmp     nxtCommand,priorCommand wz
+    if_z            jmp     #chkShow
+                    debug("* cmd=", udec_(nxtCommand), ", arg=", uhex_long_(nxtArgument))
+                    mov     priorCommand, nxtCommand
 chkShow
                     cmp     nxtCommand, #CMD_SHOW_BUFFER    wz
     if_nz           jmp     #chkShowPwm
@@ -468,6 +463,7 @@ chkShow
 chkShowPwm
                     cmp     nxtCommand, #CMD_SHOW_PWM_BUFFER    wz
     if_nz           jmp     #chkFill
+                    mov     debugLineCt, #8
                     call    #displayPwmFrames
                     'debug(" - PWM frame done")
                     jmp     #getCommand                         ' check for next command (or same still there)
@@ -631,7 +627,11 @@ clkNextByte
                     ' write our 6 color bits
                     SETQ    maskRgb12                ' load Q bit w/ RGB[12] mask
 outInst1of3         MUXQ    OUTA, reg_value             ' write contents of LS-byte anded with mask to output pins
-                    ror     reg_value, #8                ' shift next most significant into LS-byte position
+                    or      debugLineCt,debugLineCt wz
+        if_z        jmp     #noDbgOvly
+                    debug(" term 3bit: ", uhex_long(reg_value), 13)
+                    sub     debugLineCt, #1
+noDbgOvly           ror     reg_value, #8                ' shift next most significant into LS-byte position
 
 ' time to begin latch?
         ' FIXME: UNDONE following needs to be 'display width - 3'
@@ -687,13 +687,17 @@ clkNONextByte
                     ' write our 6 color bits
                     SETQ    maskRgb12                   ' load Q bit w/ RGB[12] mask
 outInst2of3         MUXQ    OUTA, reg_value             ' write contents of LS-byte anded with mask to output pins
-                    ror     reg_value, #8               ' shift next most significant into LS-byte position
+                    or      debugLineCt,debugLineCt wz
+        if_z        jmp     #noDbgAtEnd
+                    debug("`term 3bit: ", uhex_long(reg_value))
+                    sub     debugLineCt, #1
+noDbgAtEnd          ror     reg_value, #8               ' shift next most significant into LS-byte position
 
                     ' toggle clock
                     drvh    #MTX_LED_PIN_CLK              ' 15nSec pulse at 335 MHz
                     ' if sslowCLK is false...
                     or      modeSlowCLK,modeSlowCLK     wz
-    if_nz           waitx   #6  ' 2 + 3 x clk           ' let LATCH settle   ICN2038 needs this delay
+    if_nz           waitx   #6  ' 2 + 3 x clk           ' let LATCH settle   ICN2037 needs this delay
                     drvl    #MTX_LED_PIN_CLK
 
                     ' setup for next column
@@ -787,6 +791,8 @@ addrValueMax    long    $0078_0000                                  ' 15 but in 
 '
 rowCtrMax       long    16                                          ' 16 rows total
 '
+debugLineCt     long    32
+'
 ' --------------------------------------------------------------------------------------------------
 'screen buffer 1024B of %00bgrbgr where byte is 00{rgb2}{rgb1}
                 ALIGNL
@@ -801,6 +807,7 @@ endCogBuffer
 pCommmand       res     1
 pArgument       res     1
 
+priorCommand    res     1
 nxtCommand      res     1
 nxtArgument     res     1
 pwmBffrStart    res     1
@@ -824,7 +831,7 @@ row_addr        res     1
 row_ctr         res     1
 col_addr        res     1
 reg_ctr         res     1
-
+'
         FIT     496
 
 

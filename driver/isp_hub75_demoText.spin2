@@ -17,6 +17,10 @@ CON { timing }
   CLK_FREQ = 335_000_000                                        ' system freq as a constant
   _clkfreq = CLK_FREQ                                           ' set system clock
 
+CON { DEBUG PINs }
+
+'DEBUG_PIN = 0
+
 VAR
 
     long    cog

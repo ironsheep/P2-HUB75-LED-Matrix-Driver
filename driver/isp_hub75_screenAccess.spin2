@@ -29,7 +29,7 @@ CON { reinterpret the users selections for driver internal use }
     CHIP_MANUAL_SPEC = user.CHIP_MANUAL_SPEC
     CHIP_FM6126A = user.CHIP_FM6126A
     CHIP_FM6124 = user.CHIP_FM6124
-    CHIP_ICN2038 = user.CHIP_ICN2038
+    CHIP_ICN2037 = user.CHIP_ICN2037
     CHIP_UNK_LAT_END_ENCL = user.CHIP_UNK_LAT_END_ENCL
     CHIP_UNK_LAT_END_ENCL_SLO_CLK = user.CHIP_UNK_LAT_END_ENCL_SLO_CLK
 
@@ -37,6 +37,8 @@ CON { reinterpret the users selections for driver internal use }
     LAT_POSN_OVERLAP = user.LAT_POSN_OVERLAP
     INIT_PANEL_REQUIRED = user.INIT_PANEL_REQUIRED
     CLK_WIDE_PULSE = user.CLK_WIDE_PULSE
+    CLK_WIDE_PULSE = user.CLK_WIDE_PULSE
+    RB_INVERT = user.RB_INVERT
 
     ' which chip driver should be used
     PANEL_DRIVER_CHIP = user.PANEL_DRIVER_CHIP
@@ -144,6 +146,20 @@ PUB setScreen(pScreen)
 PUB screenAddress() : pScreen
     '' Return the address of the external screen buffer
     pScreen := pExtScreen
+
+PUB getDriverFlags() : desiredFlags, origFlags
+    desiredFlags := origFlags := PANEL_DRIVER_CHIP
+    if desiredFlags == CHIP_FM6126A
+        desiredFlags := CHIP_MANUAL_SPEC | LAT_POSN_OVERLAP | LAT_STYLE_OFFSET | INIT_PANEL_REQUIRED
+    elseif desiredFlags == CHIP_FM6124 or desiredFlags == CHIP_UNK_LAT_END_ENCL
+        if desiredFlags == CHIP_FM6124
+    elseif desiredFlags == CHIP_ICN2037 or desiredFlags == CHIP_UNK_LAT_END_ENCL_SLO_CLK
+        if desiredFlags == CHIP_ICN2037
+        desiredFlags := CHIP_MANUAL_SPEC | CLK_WIDE_PULSE | RB_INVERT
+    elseif desiredFlags & $ff <> CHIP_MANUAL_SPEC
+        ' report ERROR and exit
+        debug("- have unknown CHIP ", ubin_word(desiredFlags))
+        abort
 
 PUB dbgMemDump(bfrId, buffer, len) | bytBffr, colIdx, rowIdx, maxCol, maxRow, dispLen
     '' Dump bytes in hex format to debug() terminal
