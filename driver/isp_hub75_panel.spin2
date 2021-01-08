@@ -60,7 +60,6 @@ PUB start() : ok
         debug("- PANEL: underlying drivers failed!")
         abort
 
-    'screen.dbgMemDump(testValueMsg, @testValue, 4)
     showed := didShowCount
 
     clearPwmFrameBuffer()  ' clear PWM frames  and get pointer to buffer
@@ -252,11 +251,20 @@ tempByte            long    0
         if showed == 0
             didShow := TRUE
 }
-    ' write 8x 3-bit frames to panel
+    dumpBufferHeads(p24bitScreen, pPwmFrameSet)
+    ' write N 3-bit frames to panel
     matrix.writePwmBuffer(pPwmFrameSet)
 
+DAT
+bufferMsg   byte    "SCREEN:",0
+frameMsg   byte    "FRAME[0]:",0
+
+PRI dumpBufferHeads(pSCreenBuffer,pPwmBuffer)
+    screen.dbgMemDump(@bufferMsg, pSCreenBuffer, 48)
+    screen.dbgMemDump(@frameMsg, pPwmBuffer, 48)
+
 PRI dumpFrameSet(pPwmFrameSet) | pFrameBuffer, frameIndex
-        repeat frameIndex from 0 to 7
+        repeat frameIndex from 0 to screen.MAX_PWM_FRAMES - 1
             pFrameBuffer := @long [pPwmFrameSet][frameIndex * screen.MAX_PWM_FRAME_SIZE_IN_LONGS]
             dumpFrame(pFrameBuffer)
 

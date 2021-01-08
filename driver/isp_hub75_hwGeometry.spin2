@@ -33,13 +33,35 @@ CON { Hardware Description }
     'ADAPTER_BASE_PIN = PINS_P32_P47   ' PINS_P0_P15
     'ADAPTER_BASE_PIN = PINS_P48_P63   ' PINS_P0_P15
 
+' =================================================================================================
+'  (2) The Driver Chip on your panels
+' =================================================================================================
+' Driver Manual Config Flags:
+#$100, LAT_STYLE_OFFSET, #$200, LAT_POSN_OVERLAP, #$400, INIT_PANEL_REQUIRED, #$800, CLK_WIDE_PULSE
+
+' Driver Pre-defined flag combinations (use these unless your hardware is not in this list)
+#0, CHIP_UNKNOWN, CHIP_MANUAL_SPEC, CHIP_FM6126A, CHIP_FM6124, CHIP_UNK_LAT_END_ENCL, CHIP_ICN2038, CHIP_UNK_LAT_END_ENCL_SLO_CLK
+
+' Normal use:
+'   PANEL_DRIVER_CHIP = CHIP_FM6126A
+'
+' Manual Use when your hardware is not listed:
+'   PANEL_DRIVER_CHIP = CHIP_MANUAL_SPEC | {flag1} | {flag2} | etc..
+
+' NOTE:
+'   PANEL_DRIVER_CHIP = CHIP_FM6126A    ' which is: CHIP_MANUAL_SPEC | LAT_STYLE_OFFSET | LAT_POSN_OVERLAP | INIT_PANEL_REQUIRED
+'   PANEL_DRIVER_CHIP = CHIP_FM6124     ' which is: CHIP_MANUAL_SPEC
+'   PANEL_DRIVER_CHIP = CHIP_ICN2038    ' which is: CHIP_MANUAL_SPEC | CLK_WIDE_PULSE
 
 ' =================================================================================================
-'  (2) Describe the overall layout of your hardware panel(s):
+'  (3) Describe the overall layout of your hardware panel(s):
 ' =================================================================================================
 
-#0, CHIP_UNKNOWN, CHIP_FM6126A, CHIP_LATCH_END_ENCL, CHIP_LATCH_END_OFFSET
+' SUPPORTED address widths:  A-B-C, or A-B-C-D, or A-B-C-D-E
 #2, ADDR_UNKNOWN, ADDR_ABC, ADDR_ABCD, ADDR_ABCDE
+
+' Normal use:
+'   PANEL_ADDR_LINES = {addrLinesNeeded}
 
 ' -------------------------------------------------------------------------------------------------
 ' AUTHORs  1st configuration
@@ -56,7 +78,7 @@ CON { Hardware Description }
 '    max clock rate of 30MHz - [16.5ns hi/16.5ns lo]
 ' ----------------------------------------------------------
 {
-    ADAPTER_BASE_PIN = PINS_P32_P47   ' 64x32 CHIP_FM6126A
+    ADAPTER_BASE_PIN = PINS_P16_P31   ' 64x32 CHIP_FM6126A
     ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = CHIP_FM6126A
 
@@ -141,7 +163,7 @@ CON { Hardware Description }
 ' -------------------------------------------------------------------------------------------------
 ' AUTHORs  4th configuration
 ' -------------------------------------------------------------------------------------------------
-' PANEL: ---  P3-6432-121-16s-D1.0  --- (ornge labels)
+' PANEL: ---  P3-6432-121-16s-D1.0  --- (orange labels)
 '   panel theory  3 bits per pixel
 '   64 columns x 32 rows = 2048 pixels
 '   16 lines [0-15]: 64 pixels / line
@@ -152,10 +174,10 @@ CON { Hardware Description }
 '  Author's panel uses FM6124 chips (came in Hackbox)
 '    max clock rate of 30MHz - [16.5ns hi/16.5ns lo]
 ' ----------------------------------------------------------
-{
-    ADAPTER_BASE_PIN = PINS_P32_P47   ' 64x32 CHIP_FM6126A
+'{
+    ADAPTER_BASE_PIN = PINS_P16_P31   ' 64x32 CHIP_FM6126A
     ' (1) determine what form of signalling the driver should use
-    PANEL_DRIVER_CHIP = CHIP_UNKNOWN
+    PANEL_DRIVER_CHIP = CHIP_FM6124
 
     ' (2) describe the panel electrical layout
     MAX_PANEL_COLUMNS = 64
@@ -187,10 +209,10 @@ CON { Hardware Description }
 '  Author's panel uses ICN2038 chips
 '    max clock rate of 20MHz - [25ns hi/25ns lo]
 ' ----------------------------------------------------------
-'{
-    ADAPTER_BASE_PIN = PINS_P16_P31   ' 64x64 CHIP_LATCH_END_ENCL
+{
+    ADAPTER_BASE_PIN = PINS_P32_P47   ' 64x64 CHIP_LATCH_END_ENCL
    ' (1) determine what form of signalling the driver should use
-    PANEL_DRIVER_CHIP = CHIP_LATCH_END_ENCL
+    PANEL_DRIVER_CHIP = CHIP_ICN2038
 
     ' (2) describe the panel electrical layout
     MAX_PANEL_COLUMNS = 64
