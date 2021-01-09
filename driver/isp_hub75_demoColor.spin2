@@ -14,13 +14,14 @@
 
 CON { timing }
 
-  CLK_FREQ = 335_000_000                                        ' system freq as a constant
   CLK_FREQ = 335_000_000                                        ' system freq as a constant 2.985 nSec
   _clkfreq = CLK_FREQ                                           ' set system clock
 
 CON { DEBUG PINs }
 
 'DEBUG_PIN = 0
+DEBUG_COGS = %11111111
+DEBUG_BAUD = 2_000_000
 
 VAR
 
@@ -38,12 +39,14 @@ OBJ
 CON { DEMO info }
 
 ' 11 enables .bmp file display
-DEMO_COUNT = 11
+DEMO_COUNT = 10
 
 PUB main() : ok | demoIndex
     '' start underlying drivers and run demo
 
     'repeat
+
+    debug("`term temp size 82 50 textsize 10")
 
     'debug("`term temp size 82 50 textsize 10")
 
@@ -53,6 +56,10 @@ PUB main() : ok | demoIndex
         abort
 
     demoPausePeriod := 3   ' seconds
+
+
+'  NOTE: activate any of the following blocks to run the block instead of the demo.
+'   (These are used for focused testing on some aspect of the driver/panel)
 {
     repeat 1
         demoScreenBlast()
@@ -61,15 +68,33 @@ PUB main() : ok | demoIndex
     repeat
 '}
 {
-    display.fillPanel(7)    ' full white panel
+    display.fillPanel(color.BASE_WHITE)    ' full white panel NO PWM
     repeat
 '}
 {
-    display.fillPanel(color.BASE_RED)    ' full white panel
+    display.fillScreen(color.cRed)    ' full single color panel w/PWM
+    display.commitScreenToPanel()
+    repeat
+'}
+{
+    display.fillPanel(color.BASE_RED)    ' full single color panel NO pwm
     repeat
 '}
 {
     demoColorPalette12Panels()
+    repeat
+'}
+{
+    demoText()
+    repeat
+'}
+{
+    ' lines test
+    display.drawBoxOfColor(0, 0, 64, 64, false, color.cOlive)
+    display.drawBoxOfColor(3, 3, 58, 58, true, color.cMaroon)
+    display.drawLineOfColor(32, 0, 0, 63, color.cOrange)
+    display.drawLineOfColor(31, 0, 63, 63, color.cLime)
+    display.commitScreenToPanel()
     repeat
 '}
 
@@ -105,7 +130,10 @@ PRI waitSec(countSeconds)
     repeat countSeconds
         waitms(1000)
 
-    ' do DEMO Things!
+
+' ==============================================================================
+'  Below here, lots of small demo routines
+' ------------------------------------------------------------------------------
 
 PRI demoParallax() | rtCol, ltCol, topRow, botRow
     display.setTextFont(display.TEXT_FONT_5x7)    ' font size
