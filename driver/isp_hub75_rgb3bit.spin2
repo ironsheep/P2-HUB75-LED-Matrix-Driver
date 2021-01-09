@@ -84,6 +84,7 @@ CON { Data }
 OBJ
 
     screen      : "isp_hub75_screenAccess"
+    color       : "isp_hub75_color"
 
 VAR
     long    ptrCommand      ' ptra[2]
@@ -96,6 +97,7 @@ VAR
     long    dvrConfig
     long    driverFlags
     long    driverConfigRaw
+    long    bInvertRB
 
     long    cog
 
@@ -132,6 +134,9 @@ PUB start() : ok | bSetLowPins, tmpVar
     elseif driverConfigRaw == screen.CHIP_ICN2037 or driverConfigRaw == screen.CHIP_UNK_LAT_END_ENCL_SLO_CLK
         if driverConfigRaw == screen.CHIP_ICN2037
             debug("- have ICN2037")
+
+    ' post value of panel needing invert so we can do correct color fixes
+    bInvertRB := (dvrConfig & screen.RB_INVERT) > 0 ? True : False
 
     driverFlags := dvrConfig & $ff00
     ' if following flags are set...
@@ -261,9 +266,16 @@ PUB stop()
     pinclear(MTX_CTL_PINS)
 
 ' --------------------------------------------------------------------------------------------------
-PUB fillPanel(color) | cValue
-    '' Request that driver fill the buffer with {color} value (no PWM)
-    cValue := 0 #> color <# 7
+PUB fillPanel(color3bit) | cValue, redBit, greenBit, blueBit
+    '' Request that driver fill the buffer with {3bitColor} value (no PWM)
+    cValue := 0 #> color3bit <# 7
+    if bInvertRB
+        ' if our driver says Red and Blue are inverted let's do so!
+        redBit := (cValue & color.BASE_RED) > 0 ? 1 : 0
+        greenBit := (cValue & color.BASE_GREEN) > 0 ? 1 : 0
+        blueBit := (cValue & color.BASE_BLUE) > 0 ? 1 : 0
+        cValue := (redBit << 2) | (greenBit << 1) | blueBit
+
     dvrArgument := cValue    ' set color value of BLACK
     dvrCommand := CMD_FILL_COLOR
     repeat while (dvrCommand <> CMD_DONE)
@@ -463,7 +475,6 @@ chkShow
 chkShowPwm
                     cmp     nxtCommand, #CMD_SHOW_PWM_BUFFER    wz
     if_nz           jmp     #chkFill
-                    mov     debugLineCt, #8
                     call    #displayPwmFrames
                     'debug(" - PWM frame done")
                     jmp     #getCommand                         ' check for next command (or same still there)
@@ -627,10 +638,6 @@ clkNextByte
                     ' write our 6 color bits
                     SETQ    maskRgb12                ' load Q bit w/ RGB[12] mask
 outInst1of3         MUXQ    OUTA, reg_value             ' write contents of LS-byte anded with mask to output pins
-                    or      debugLineCt,debugLineCt wz
-        if_z        jmp     #noDbgOvly
-                    debug(" term 3bit: ", uhex_long(reg_value), 13)
-                    sub     debugLineCt, #1
 noDbgOvly           ror     reg_value, #8                ' shift next most significant into LS-byte position
 
 ' time to begin latch?
@@ -687,10 +694,6 @@ clkNONextByte
                     ' write our 6 color bits
                     SETQ    maskRgb12                   ' load Q bit w/ RGB[12] mask
 outInst2of3         MUXQ    OUTA, reg_value             ' write contents of LS-byte anded with mask to output pins
-                    or      debugLineCt,debugLineCt wz
-        if_z        jmp     #noDbgAtEnd
-                    debug("`term 3bit: ", uhex_long(reg_value))
-                    sub     debugLineCt, #1
 noDbgAtEnd          ror     reg_value, #8               ' shift next most significant into LS-byte position
 
                     ' toggle clock
@@ -790,8 +793,6 @@ addrValue1      long    $0008_0000                                  ' 1 but in u
 addrValueMax    long    $0078_0000                                  ' 15 but in upper 5-bits of byte
 '
 rowCtrMax       long    16                                          ' 16 rows total
-'
-debugLineCt     long    32
 '
 ' --------------------------------------------------------------------------------------------------
 'screen buffer 1024B of %00bgrbgr where byte is 00{rgb2}{rgb1}

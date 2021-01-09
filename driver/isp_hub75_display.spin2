@@ -330,25 +330,25 @@ PUB drawBoxOfColor(topRow, leftColumn, width, height, filled, rgbColor) | rightC
     bottomRow := topRow + height - 1
     if filled == TRUE
         repeat rowIndex from 0 to height - 1
-            drawLineOfColor(topRow + rowIndex, leftColumn, topRow + rowIndex, rightColumn, currTextColor)    ' horiz row
+            drawLineOfColor(topRow + rowIndex, leftColumn, topRow + rowIndex, rightColumn, rgbColor)    ' horiz row
     else
-        drawLineOfColor(topRow, leftColumn, topRow, rightColumn, currTextColor)    ' horiz top
-        drawLineOfColor(topRow, rightColumn, bottomRow, rightColumn, currTextColor)    ' vert right
-        drawLineOfColor(bottomRow, leftColumn, bottomRow, rightColumn, currTextColor)    ' horiz bottom
-        drawLineOfColor(topRow, leftColumn, bottomRow, leftColumn, currTextColor)    ' vert left
+        drawLineOfColor(topRow, leftColumn, topRow, rightColumn, rgbColor)    ' horiz top
+        drawLineOfColor(topRow, rightColumn, bottomRow, rightColumn, rgbColor)    ' vert right
+        drawLineOfColor(bottomRow, leftColumn, bottomRow, rightColumn, rgbColor)    ' horiz bottom
+        drawLineOfColor(topRow, leftColumn, bottomRow, leftColumn, rgbColor)    ' vert left
 
 
 PUB drawLine(fmRow, fmColumn, toRow, toColumn)
     '' Draw line fromRC -> toRC using current text color (currently limited to horzontal/vertical lines)
     drawLineOfColor(fmRow, fmColumn, toRow, toColumn, currTextColor)
 
-PUB drawLineOfColor(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column, dx, dy, ctr, incr
+PUB drawLineOfColor(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column, dx, dy, ctr, incr, intD
     '' Draw line fromRC -> toRC using rgbColor (currently limited to horzontal/vertical lines)
-    'debug("seg:drwLn fmRC=(", udec_(fmRow), ",", udec_(fmColumn), "), toRC=(", udec_(toRow), ",", udec_(toColumn), "), RGB=(", uhex_long(rgbColor), ")")
     fmRow :=  0 #> fmRow <# screen.MAX_PHYSICAL_ROWS - 1
     fmColumn :=  0 #> fmColumn <# screen.MAX_PHYSICAL_COLUMNS - 1
     toRow :=  0 #> toRow <# screen.MAX_PHYSICAL_ROWS - 1
     toColumn :=  0 #> toColumn <# screen.MAX_PHYSICAL_COLUMNS - 1
+    debug("seg:drwLn fmRC=(", udec_(fmRow), ",", udec_(fmColumn), "), toRC=(", udec_(toRow), ",", udec_(toColumn), "), RGB=(", uhex_long(rgbColor), ")")
     if fmRow == toRow
         ' draw Horizontal Line
         repeat column from fmColumn to toColumn
@@ -358,22 +358,53 @@ PUB drawLineOfColor(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column, d
         repeat row from fmRow to toRow
             pixels.drawPixelAtRC(row, fmColumn, rgbColor)
     else
-        dx := (toColumn - fmColumn)
-        dy := (toRow - fmRow)
-        if (abs(dx) >= abs(dy))
-            incr := abs(dx)
+        if abs(toRow - fmRow) < abs(toColumn - fmColumn)
+            if fmColumn > toColumn
+                plotLineLow(toColumn, toRow, fmColumn, fmRow, rgbColor)
+            else
+                plotLineLow(fmColumn, fmRow, toColumn, toRow, rgbColor)
         else
-            incr := abs(dy)
-        dx := dx / incr
-        dy := dy / incr
-        column := fmColumn
-        row := fmRow
-        ctr := 1
-        repeat while (ctr <= incr)
-            pixels.drawPixelAtRC(row, column, rgbColor)
-            column += dx
-            row += dy
-            ctr += 1
+            if fmRow > toRow
+                plotLineHigh(toColumn, toRow, fmColumn, fmRow, rgbColor)
+            else
+                plotLineHigh(fmColumn, fmRow, toColumn, toRow, rgbColor)
+
+
+PRI plotLineLow(x0, y0, x1, y1, rgbColor) | row, column, dy, dx, D, yi
+    dx := x1 - x0
+    dy := y1 - y0
+    yi := 1
+    if dy < 0
+        yi := -1
+        dy := -dy
+    D := (2 * dy) - dx
+    row := y0
+
+    repeat column from x0 to x1
+        pixels.drawPixelAtRC(row, column, rgbColor)
+        if D > 0
+            row := row + yi
+            D := D + (2 * (dy - dx))
+        else
+            D := D + 2 * dy
+
+PRI plotLineHigh(x0, y0, x1, y1, rgbColor) | row, column, dy, dx, D, xi
+    dx := x1 - x0
+    dy := y1 - y0
+    xi := 1
+    if dx < 0
+        xi := -1
+        dx := -dx
+    D := (2 * dx) - dy
+    column := x0
+
+    repeat row from y0 to y1
+        pixels.drawPixelAtRC(row, column, rgbColor)
+        if D > 0
+            column := column + xi
+            D := D + (2 * (dx - dy))
+        else
+            D := D + 2*dx
 
 { --------------     Misc Helpers     -------------- }
 
