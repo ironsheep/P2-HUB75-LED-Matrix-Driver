@@ -15,6 +15,7 @@
 CON { timing }
 
   CLK_FREQ = 335_000_000                                        ' system freq as a constant
+  CLK_FREQ = 335_000_000                                        ' system freq as a constant 2.985 nSec
   _clkfreq = CLK_FREQ                                           ' set system clock
 
 CON { DEBUG PINs }
