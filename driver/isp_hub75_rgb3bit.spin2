@@ -112,6 +112,7 @@ PUB start() : ok | bSetLowPins, tmpVar
     msec_001 := CLKFREQ / 1_000                                   ' ticks in 1ms
     usec_001 := CLKFREQ / 1_000_000                               ' ticks in 1us
     tm_64usec := usec_001 * 64
+    debug("- times: ", sdec_long(usec_001), sdec_long(tm_64usec))
 
 {
     tmpVar := screen.LAT_STYLE_OFFSET
@@ -215,6 +216,7 @@ PUB start() : ok | bSetLowPins, tmpVar
 
     ' set width of one row
     colCtrMax := screen.MAX_PHYSICAL_COLUMNS
+    colCtrMaxLngs := colCtrMax / 4
     colCtrLatchCt := (modeOverlapDAT) ? colCtrMax - 3 : colCtrMax ' for the setup form of the driver we latch during last three columns
 {
     ' test mask off rgb1 or rgb2 in ABCDE case (testing matrix)
@@ -295,7 +297,7 @@ PUB writeBuffer(pBuffer)
     repeat while (dvrCommand <> CMD_DONE)
 
 PUB writePwmBuffer(pBuffer)
-    debug("- r3b:wrtPwmBuffer")
+    'debug("- r3b:wrtPwmBuffer")
     '' Request that driver copy each buffer of PWM bufferSet to its buffer and display it
     dvrArgument := pBuffer
     dvrCommand := CMD_SHOW_PWM_BUFFER
@@ -669,11 +671,12 @@ wrLineLatchAtEnd
 '   for bit 0 to 63
 '     toggle clock (18MHz)
                 ' this tracks when we need to toggle latch at right-edge of row
-                    mov     reg_ctr, rowCtrMax                ' 32|16|8 -> 0 so we can use djnz
+                    mov     reg_ctr, rowCtrMax          ' 32|16|8 -> 0 so we can use djnz
+                    mov     col_lng_ctr, colCtrMaxLngs          ' this is physical display width wide!
 clkNONextReg
                 ' in buffer: RGB1 is byte-bits[0-2], RGB2 is byte-bits[3-5]
                     mov     byt_ctr, #4                 ' 4 -> 0 so we can use djnz
-                    ALTS    reg_offset, #cogBuffer     ' calc addr of source long and place in instru
+                    ALTS    reg_offset, #cogBuffer      ' calc addr of source long and place in instru
                     mov     reg_value, 0-0              ' get COG register with 4 bytes of rgb1rgb2 values
                     ' the following instru is either a ROR or ROL as configured by setup code
 rotInstr2of2        ror     reg_value, #8               ' YEAH, i've no idea why! but fixes our byte ordering problem! (AUGH! this change from rol -> ror for some panels??!)
@@ -684,14 +687,14 @@ outInst2of3         MUXQ    OUTA, reg_value             ' write contents of LS-b
 noDbgAtEnd          ror     reg_value, #8               ' shift next most significant into LS-byte position
 
                     ' toggle clock
-                    drvh    #MTX_LED_PIN_CLK              ' 15nSec pulse at 335 MHz
+                    drvh    #MTX_LED_PIN_CLK            ' 15nSec pulse at 335 MHz
 waitInst1of1        waitx   #3  ' 2 + 3 x clk ' CLK pulse width min 20ns for ICN2037: 2 is ~20ns, 3 is ~25ns @330 MHz
                     drvl    #MTX_LED_PIN_CLK
 
                     ' setup for next column
                     djnz    byt_ctr, #clkNONextByte
-                    add     reg_offset, #1
-                    djnz    reg_ctr, #clkNONextReg
+                    add     reg_offset, #1              ' point to next COG long...
+                    djnz    col_lng_ctr, #clkNONextReg
 
                     ' let's latch
                     drvh    #MTX_LED_PIN_OE
@@ -701,22 +704,27 @@ waitInst1of1        waitx   #3  ' 2 + 3 x clk ' CLK pulse width min 20ns for ICN
 
                     drvh    #MTX_LED_PIN_LATCH
                     waitx   #3  ' 2 + 3 x clk           ' let LATCH settle
-
                     ' LATCH DATA complete...
-                    or     modeLatchEnclosed, modeLatchEnclosed      wz
+                    or      modeLatchEnclosed, modeLatchEnclosed      wz
     if_z            drvl    #MTX_LED_PIN_OE
     if_z            drvl    #MTX_LED_PIN_LATCH          ' end latch data
     if_nz           drvl    #MTX_LED_PIN_LATCH          ' end latch data
     if_nz           waitx   #3  ' 2 + 3 x clk           ' let LATCH settle
     if_nz           drvl    #MTX_LED_PIN_OE
+
                     '
                     ' ---  inter-line gap  ---
                     '
+                    'waitx   #6
                     djnz    row_ctr, #wrLineLatchAtEnd
                     drvh    #MTX_LED_PIN_OE
                     '
                     ' ---  inter-frame gap  ---
                     '
+'                    cmp     pwmFrameCt,#1   wz
+'    if_nz           jmp     #getCommand
+'                    cmp     pwmSubPgCt,#1   wz
+ '   if_z            waitx   #tm_64usec
                     jmp     #getCommand
 
 ' --------------------------------------------------------------------------------------------------
@@ -779,7 +787,8 @@ addrValueMax    long    $0078_0000                                  ' 15 but in 
 '
 rowCtrMax       long    16                                          ' 16 rows total
 colCtrMax       long    64                                          ' 64 columns total
-colCtrLatchCt   long    61                                          ' 64-3 columns total
+colCtrMaxLngs   long    16                                          ' 64 cols = 16 longs total
+colCtrLatchCt   long    61                                          ' colCtrMax-3 columns total
 
 ' --------------------------------------------------------------------------------------------------
 'screen buffer 1024B of %00bgrbgr where byte is 00{rgb2}{rgb1}
@@ -818,6 +827,7 @@ dbgCount        res     1
 row_addr        res     1
 row_ctr         res     1
 col_addr        res     1
+col_lng_ctr         res     1
 reg_ctr         res     1
 '
         FIT     496

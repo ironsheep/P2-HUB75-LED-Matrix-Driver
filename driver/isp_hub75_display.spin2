@@ -349,7 +349,7 @@ PUB drawLineOfColor(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column, d
     fmColumn :=  0 #> fmColumn <# screen.MAX_PHYSICAL_COLUMNS - 1
     toRow :=  0 #> toRow <# screen.MAX_PHYSICAL_ROWS - 1
     toColumn :=  0 #> toColumn <# screen.MAX_PHYSICAL_COLUMNS - 1
-    debug("seg:drwLn fmRC=(", udec_(fmRow), ",", udec_(fmColumn), "), toRC=(", udec_(toRow), ",", udec_(toColumn), "), RGB=(", uhex_long(rgbColor), ")")
+    'debug("seg:drwLn fmRC=(", udec_(fmRow), ",", udec_(fmColumn), "), toRC=(", udec_(toRow), ",", udec_(toColumn), "), RGB=(", uhex_long(rgbColor), ")")
     if fmRow == toRow
         ' draw Horizontal Line
         repeat column from fmColumn to toColumn
