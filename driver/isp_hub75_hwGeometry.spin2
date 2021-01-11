@@ -78,7 +78,7 @@ CON { Hardware Description }
 '    max clock rate of 30MHz - [16.5ns hi/16.5ns lo]
 ' ----------------------------------------------------------
 {
-    ADAPTER_BASE_PIN = PINS_P16_P31   ' 64x32 CHIP_FM6126A
+    ADAPTER_BASE_PIN = PINS_P32_P47   ' 64x32 CHIP_FM6126A
     ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = CHIP_FM6126A
 
@@ -111,6 +111,7 @@ CON { Hardware Description }
 '     bottom half (lines 16-31) driven by R2,G2,B2 pins
 ' ----------------------------------------------------------
 {
+    ADAPTER_BASE_PIN = PINS_P16_P31   ' 64x32 CHIP_FM6126A
     ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = CHIP_FM6126A
 
@@ -120,13 +121,12 @@ CON { Hardware Description }
     PANEL_ADDR_LINES = ADDR_ABCD
 
     ' (3) describe the visual layout of the panel(s)
-    '   [1][2]      2 rows of 2 panels each
-    '   [3][4]
+    '   [1][2]      1 row of 2 panels
 
     ' (4) describe the organization in numbers of panels
-    MAX_PANELS = 4
+    MAX_PANELS = 2
     MAX_PANELS_PER_ROW = 2
-    MAX_PANELS_PER_COLUMN = 2
+    MAX_PANELS_PER_COLUMN = 1
 '}
 '
 ' -------------------------------------------------------------------------------------------------
@@ -175,7 +175,7 @@ CON { Hardware Description }
 '    max clock rate of 30MHz - [16.5ns hi/16.5ns lo]
 ' ----------------------------------------------------------
 {
-    ADAPTER_BASE_PIN = PINS_P16_P31   ' 64x32 CHIP_FM6126A
+    ADAPTER_BASE_PIN = PINS_P32_P47   ' 64x32 CHIP_FM6126A
     ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = CHIP_FM6124
 
@@ -210,7 +210,7 @@ CON { Hardware Description }
 '    max clock rate of 20MHz - [25ns hi/25ns lo]
 ' ----------------------------------------------------------
 '{
-    ADAPTER_BASE_PIN = PINS_P32_P47   ' 64x64 CHIP_LATCH_END_ENCL
+    ADAPTER_BASE_PIN = PINS_P16_P31   ' 64x64 CHIP_LATCH_END_ENCL
    ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = CHIP_ICN2037
 
@@ -229,6 +229,39 @@ CON { Hardware Description }
     MAX_PANELS_PER_COLUMN = 1
 '}
 
+' -------------------------------------------------------------------------------------------------
+' AUTHORs  5th configuration
+' -------------------------------------------------------------------------------------------------
+' PANEL: ---  P2-2020210240-200  ---
+'   panel theory  3 bits per pixel
+'   64 columns x 64 rows = 4096 pixels
+'   32 lines [0-31]: 64 pixels / line
+'   2 halves: 2048 pixels / half (top and bottom)
+'     EA half: 2048 pixels
+'     top half (lines 0-31) driven by R1,G1,B1 pins
+'     bottom half (lines 32-63) driven by R2,G2,B2 pins
+'  Author's panel uses ICN2037 chips
+'    max clock rate of 20MHz - [25ns hi/25ns lo]
+' ----------------------------------------------------------
+{
+    ADAPTER_BASE_PIN = PINS_P16_P31   ' 64x64 CHIP_LATCH_END_ENCL
+   ' (1) determine what form of signalling the driver should use
+    PANEL_DRIVER_CHIP = CHIP_ICN2037
+
+    ' (2) describe the panel electrical layout
+    MAX_PANEL_COLUMNS = 64
+    MAX_PANEL_ROWS = 64
+    PANEL_ADDR_LINES = ADDR_ABCDE
+
+    ' (3) describe the organization of panel(s)
+    ' panels organization: visual layout
+    '   [1]     ' one panel
+    '
+    ' (4) describe the organization in numbers of panels
+    MAX_PANELS = 2
+    MAX_PANELS_PER_ROW = 2
+    MAX_PANELS_PER_COLUMN = 1
+'}
 
 '              (remember to enable (uncomment) only one configuration above here)
 

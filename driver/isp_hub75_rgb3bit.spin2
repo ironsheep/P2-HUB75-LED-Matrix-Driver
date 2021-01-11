@@ -211,7 +211,11 @@ PUB start() : ok | bSetLowPins, tmpVar
             rowCtrMax   := 8 / screen.MAX_PWM_SUBPAGES
         maskRgb12   := %00111111_00000000_00000000_00000000         ' rgb2rgb1 now grounded to lsbit - pins at 16-31 A/B-pins
         addrValue1  := $0008_0000                                   ' 1 but in upper 5-bits of byte
-        modeDatRotLeft := False
+        modeDatRotLeft := FALSE
+
+    ' set width of one row
+    colCtrMax := screen.MAX_PHYSICAL_COLUMNS
+    colCtrLatchCt := (modeOverlapDAT) ? colCtrMax - 3 : colCtrMax ' for the setup form of the driver we latch during last three columns
 {
     ' test mask off rgb1 or rgb2 in ABCDE case (testing matrix)
     if bSetLowPins
@@ -428,15 +432,19 @@ drive_matrix
     if_z            setd    outInst2of3, #OUTB
     if_z            setd    outInst3of3, #OUTB
 
-                    cmp     modeDatRotLeft, #0     wz
+                    or     modeDatRotLeft, modeDatRotLeft   wz
     if_nz           SETR    rotInstr1of2,#%0000001_00	'make into ROR instruction
     if_nz           SETR    rotInstr2of2,#%0000001_00	'make into ROR instruction
     if_z            SETR    rotInstr1of2,#%0000000_00	'make into ROL instruction
     if_z            SETR    rotInstr2of2,#%0000000_00	'make into ROL instruction
 
-                    cmp     modeOverlapDAT, #0     wz
-    if_nz           SETR    jmpInstr1of1,#%0000000_00	'make into JMP instruction
+                    or     modeOverlapDAT, modeOverlapDAT   wz
+    if_nz           SETR    jmpInstr1of1,#%0000000_00	'make into NOP instruction
     if_nz           SETD    jmpInstr1of1,##0	        'make into NOP instruction
+
+                    or     modeSlowCLK, modeSlowCLK   wz
+    if_z            SETR    waitInst1of1,#%0000000_00	'make into NOP instruction
+    if_z            SETD    waitInst1of1,##0	        'make into NOP instruction
 
 ' configure all pins
 dirInst1of1         or      DIRA, maskAllPins   ' set all of our pins to OUTPUT!  for this COG
@@ -490,6 +498,7 @@ chkFill
 '
 displayPwmFrames
                     mov     pwmBffrStart, nxtArgument           ' preserve our new start address
+                    rdfast  #0,pwmBffrStart                     ' initialize our FIFO (#0 means no wrap!)
                     mov     pwmFrameCt, #screen.MAX_PWM_FRAMES  ' set loop to PWM N frames then stop to see what to do next
 nextPwmFrame
                     call    #display1PwmFrame                   ' load the current frame into display buffer
@@ -527,38 +536,17 @@ nextFill
 '
 ' loadPWMsubpage(nxtArgument=hubAddressOfFrame)
 '
+' NOTE: use of rdfast/rflong vs. rdlong, ptrb addressing did NOT improve our timing...!!! (leavig FIFO use in place for now)
 loadPWMsubpage
-                    ' copy HUB buffer pointed to by nxtArgument to display buffer
-                    mov     ptrb, nxtArgument           ' get addr of HUB RAM 256-longs buffer
+                    ' copy HUB buffer pointed to by FIFO rdfast (set earlier)
                     mov     fillOffset, #0              ' set initial offset to '0' beginning of COG RAM area (cogBuffer)
                     mov     fillCount, ##screen.MAX_COG_BUFFER_SIZE_IN_LONGS             ' length in longs  e.g., 64x32 is 1k bytes of 6bit values
 ldLoop1
                     altd    fillOffset, #cogBuffer      ' calculate addr of next register in COG
-                    rdlong	0-0,ptrb++                  ' read long from HUB RAM
+                    rflong	0-0                         ' read long from HUB RAM via FIFO
                     add     fillOffset, #1              ' point to next register
                     djnz    fillCount, #ldLoop1         ' count this, if more to do go...
                     ret                                 ' done, return to caller
-{
-loadPWMsubpageF
-                    mov     pBffr,#cogBuffer
-                    rdfast  #0,ptra      'load .bmp palette into lut
-                    rep     @.endLdPwm,#$100
-                    rflong  y
-                    wrlong   y,pBffr
-                    add     pBffr,#1
-.endLdPwm
-                    ret
-'}
-' ======= test code for possible fast cog buffer load func:
-{
-                rdfast  #0,ptra      'load .bmp palette into lut
-                rep     @.end,#$100
-                rflong  y
-                wrlut   y,x
-                add     x,#1
-.end
-'}
-
 
 '
 ' fillCogBufferWithColor(nxtArgument=colorvalue3bit)
@@ -641,8 +629,7 @@ outInst1of3         MUXQ    OUTA, reg_value             ' write contents of LS-b
 noDbgOvly           ror     reg_value, #8                ' shift next most significant into LS-byte position
 
 ' time to begin latch?
-        ' FIXME: UNDONE following needs to be 'display width - 3'
-                    cmp     col_addr, #61     wz        ' at last three columns?
+                    cmp     col_addr, colCtrLatchCt     wz        ' at last three columns?
     if_z            drvh    #MTX_LED_PIN_OE
     if_z            drvh    #MTX_LED_PIN_LATCH
 
@@ -698,9 +685,7 @@ noDbgAtEnd          ror     reg_value, #8               ' shift next most signif
 
                     ' toggle clock
                     drvh    #MTX_LED_PIN_CLK              ' 15nSec pulse at 335 MHz
-                    ' if sslowCLK is false...
-                    or      modeSlowCLK,modeSlowCLK     wz
-    if_nz           waitx   #6  ' 2 + 3 x clk           ' let LATCH settle   ICN2037 needs this delay
+waitInst1of1        waitx   #3  ' 2 + 3 x clk ' CLK pulse width min 20ns for ICN2037: 2 is ~20ns, 3 is ~25ns @330 MHz
                     drvl    #MTX_LED_PIN_CLK
 
                     ' setup for next column
@@ -793,7 +778,9 @@ addrValue1      long    $0008_0000                                  ' 1 but in u
 addrValueMax    long    $0078_0000                                  ' 15 but in upper 5-bits of byte
 '
 rowCtrMax       long    16                                          ' 16 rows total
-'
+colCtrMax       long    64                                          ' 64 columns total
+colCtrLatchCt   long    61                                          ' 64-3 columns total
+
 ' --------------------------------------------------------------------------------------------------
 'screen buffer 1024B of %00bgrbgr where byte is 00{rgb2}{rgb1}
                 ALIGNL

@@ -34,6 +34,7 @@ SCROLL_FOREVER      = scroller.SCROLL_FOREVER
 SCROLL_ONCE         = scroller.SCROLL_ONCE
 SCROLL_ONCE_TO_CLEAR = scroller.SCROLL_ONCE_TO_CLEAR
 
+' FIXME: UNDONE make this user configurable
 MAX_SCROLLING_REGIONS = 3
 
 DAT { one or more screens of pixels of 24bit color }
