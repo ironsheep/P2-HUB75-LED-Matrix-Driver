@@ -15,7 +15,7 @@ The driver currently offers the following adjustments:
 | LATCH_STYLE | OFFSET, ENCLOSED | Adjust the waveform of Latch & OE! |
 | LATCH_POSITION | OVERLAPPED  with the Last Bits of the row AFTER the last bits of the row | When should the latch occur relative to the bits for each row? |
 | CONFIGURE_PANEL | True, [False] | The Driver chips on this panel require setup (FM6126A)
-| WIDER_CLOCK | True, [False] | Inject a wait during the high portion of the data clock (ICN2038 Has 20MHz limit)
+| WIDER_CLOCK | True, [False] | Inject a wait during the high portion of the data clock (ICN2037 Has 20MHz limit)
 | DATA_ROTATE | Left, [Right] | I've more to understand here but some panels require this be different?
 | ADAPTER\_BASE_PIN | 0-15, 16-31, 32-47, 48-63 [*no default*] | compile driver to use specific header pair to which the HUB75 Adapater card is attached
 
@@ -122,7 +122,7 @@ Signal Waveforms and timings for driver r1.1
 
 ---
 
-### Driver Chip: ICN2038 (UNKNOWN)
+### Driver Chip: ICN2037 (UNKNOWN)
 
 This is nearly the same as the FM6124 but needs a slower data CLK (Max 20MHz) (wider pulse width).
 
