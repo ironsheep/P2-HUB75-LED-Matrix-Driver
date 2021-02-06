@@ -163,13 +163,18 @@ PUB dutyCycleForIntensity(hex8bit) : pwmBits
     '' CALCULATE: proper duty cycle for intensity of 0-255
     '         --- VERSION 1 - Bits spread throughout ---
     if hex8bit == 255
-        pwmBits := $ff
+        pwmBits := screen.MAX_PWM_FRAMES
     else
         pwmBits := hex8bit / screen.MAX_PWM_FRAMES
-
-
+{
+    if not didShow[hex8bit]
+        debug("clr:dcyc ", uhex_byte(hex8bit), uhex_byte(pwmBits))
+        didShow[hex8bit] := TRUE
+'}
 
 DAT { tables, default values }
+
+didShow             byte    FALSE[256]
 
 defaultBrightness   word    256  '256      ' 205 = 80%  [0-255,256]   where 256 is NO brightness adjustment
 

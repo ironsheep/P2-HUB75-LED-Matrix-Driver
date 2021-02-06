@@ -20,27 +20,18 @@
 CON { Hardware Description }
 
 ' =================================================================================================
-'  (1) Describe where your P2 EVAL HUB75 Adapter is plugged in
+'  (1) here the P2 EVAL HUB75 Adapter is plugged in
 ' =================================================================================================
 #0[16], PINS_P0_P15, PINS_P16_P31, PINS_P32_P47, PINS_P48_P63
-
-	' my P2 Eval Baord
-    'ADAPTER_BASE_PIN = PINS_P32_P47   ' 64x32 CHIP_FM6126A
-    'ADAPTER_BASE_PIN = PINS_P16_P31   ' 64x64 CHIP_LATCH_END_ENCL
-
-    ' my JonnyMac Board
-    'ADAPTER_BASE_PIN = PINS_P0_P15   ' PINS_P0_P15
-    'ADAPTER_BASE_PIN = PINS_P32_P47   ' PINS_P0_P15
-    'ADAPTER_BASE_PIN = PINS_P48_P63   ' PINS_P0_P15
 
 ' =================================================================================================
 '  (2) The Driver Chip on your panels
 ' =================================================================================================
 ' Driver Manual Config Flags:
-#$100, LAT_STYLE_OFFSET, #$200, LAT_POSN_OVERLAP, #$400, INIT_PANEL_REQUIRED, #$800, CLK_WIDE_PULSE, #$1000, RB_INVERT
+#$100, LAT_STYLE_OFFSET, #$200, LAT_POSN_OVERLAP, #$400, INIT_PANEL_REQUIRED, #$800, CLK_WIDE_PULSE, #$1000, RB_SWAP, #$2000, SCAN_4
 
 ' Driver Pre-defined flag combinations (use these unless your hardware is not in this list)
-#0, CHIP_UNKNOWN, CHIP_MANUAL_SPEC, CHIP_FM6126A, CHIP_FM6124, CHIP_UNK_LAT_END_ENCL, CHIP_ICN2037, CHIP_UNK_LAT_END_ENCL_SLO_CLK
+#0, CHIP_UNKNOWN, CHIP_MANUAL_SPEC, CHIP_FM6126A, CHIP_FM6124, CHIP_UNK_LAT_END_ENCL, CHIP_ICN2037, CHIP_UNK_LAT_END_ENCL_SLO_CLK, CHIP_MBI5124_8S
 
 ' Normal use:
 '   PANEL_DRIVER_CHIP = CHIP_FM6126A
@@ -51,7 +42,7 @@ CON { Hardware Description }
 ' NOTE:
 '   PANEL_DRIVER_CHIP = CHIP_FM6126A    ' which is: CHIP_MANUAL_SPEC | LAT_STYLE_OFFSET | LAT_POSN_OVERLAP | INIT_PANEL_REQUIRED
 '   PANEL_DRIVER_CHIP = CHIP_FM6124     ' which is: CHIP_MANUAL_SPEC
-'   PANEL_DRIVER_CHIP = CHIP_ICN2037    ' which is: CHIP_MANUAL_SPEC | CLK_WIDE_PULSE | RB_INVERT
+'   PANEL_DRIVER_CHIP = CHIP_ICN2037    ' which is: CHIP_MANUAL_SPEC | CLK_WIDE_PULSE | RB_SWAP
 
 ' =================================================================================================
 '  (3) Describe the overall layout of your hardware panel(s):
@@ -78,7 +69,7 @@ CON { Hardware Description }
 '    max clock rate of 30MHz - [16.5ns hi/16.5ns lo]
 ' ----------------------------------------------------------
 {
-    ADAPTER_BASE_PIN = PINS_P32_P47   ' 64x32 CHIP_FM6126A
+    ADAPTER_BASE_PIN = PINS_P16_P31
     ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = CHIP_FM6126A
 
@@ -111,7 +102,7 @@ CON { Hardware Description }
 '     bottom half (lines 16-31) driven by R2,G2,B2 pins
 ' ----------------------------------------------------------
 {
-    ADAPTER_BASE_PIN = PINS_P16_P31   ' 64x32 CHIP_FM6126A
+    ADAPTER_BASE_PIN = PINS_P16_P31
     ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = CHIP_FM6126A
 
@@ -175,7 +166,7 @@ CON { Hardware Description }
 '    max clock rate of 30MHz - [16.5ns hi/16.5ns lo]
 ' ----------------------------------------------------------
 {
-    ADAPTER_BASE_PIN = PINS_P32_P47   ' 64x32 CHIP_FM6126A
+    ADAPTER_BASE_PIN = PINS_P16_P31
     ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = CHIP_FM6124
 
@@ -210,7 +201,7 @@ CON { Hardware Description }
 '    max clock rate of 20MHz - [25ns hi/25ns lo]
 ' ----------------------------------------------------------
 {
-    ADAPTER_BASE_PIN = PINS_P16_P31   ' 64x64 CHIP_LATCH_END_ENCL
+    ADAPTER_BASE_PIN = PINS_P16_P31
    ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = CHIP_ICN2037
 
@@ -243,8 +234,8 @@ CON { Hardware Description }
 '  Author's panel uses ICN2037 chips
 '    max clock rate of 20MHz - [25ns hi/25ns lo]
 ' ----------------------------------------------------------
-'{
-    ADAPTER_BASE_PIN = PINS_P16_P31   ' 64x64 CHIP_LATCH_END_ENCL
+{
+    ADAPTER_BASE_PIN = PINS_P16_P31
    ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = CHIP_ICN2037
 
@@ -278,13 +269,13 @@ CON { Hardware Description }
 '  Author's panel uses MBI5124 chips
 '    max clock rate of 20MHz - [25ns hi/25ns lo]
 ' ----------------------------------------------------------
-{
-    ADAPTER_BASE_PIN = PINS_P32_P47   ' 64x64 CHIP_LATCH_END_ENCL
+'{
+    ADAPTER_BASE_PIN = PINS_P32_P47
    ' (1) determine what form of signalling the driver should use
-    PANEL_DRIVER_CHIP = CHIP_FM6124
+    PANEL_DRIVER_CHIP = CHIP_MBI5124_8S
 
     ' (2) describe the panel electrical layout
-    MAX_PANEL_COLUMNS = 64
+    MAX_PANEL_COLUMNS = 64 'works!!!! for PWM
     MAX_PANEL_ROWS = 32
     PANEL_ADDR_LINES = ADDR_ABC
 
@@ -313,9 +304,9 @@ CON { Hardware Description }
 '    max clock rate of 20MHz - [25ns hi/25ns lo]
 ' ----------------------------------------------------------
 {
-    ADAPTER_BASE_PIN = PINS_P32_P47   ' 64x64 CHIP_LATCH_END_ENCL
+    ADAPTER_BASE_PIN = PINS_P32_P47
    ' (1) determine what form of signalling the driver should use
-    PANEL_DRIVER_CHIP = CHIP_UNKNOWN
+    PANEL_DRIVER_CHIP = CHIP_MBI5124_8S ' CHIP_UNKNOWN
 
     ' (2) describe the panel electrical layout
     MAX_PANEL_COLUMNS = 64
@@ -328,8 +319,8 @@ CON { Hardware Description }
     '
     ' (4) describe the organization in numbers of panels
     MAX_PANELS = 2
-    MAX_PANELS_PER_ROW = 2
-    MAX_PANELS_PER_COLUMN = 1
+    MAX_PANELS_PER_ROW = 1
+    MAX_PANELS_PER_COLUMN = 2
 '}
 
 '              (remember to enable (uncomment) only one configuration above here)

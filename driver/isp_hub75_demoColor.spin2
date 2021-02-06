@@ -48,8 +48,6 @@ PUB main() : ok | demoIndex
 
     'debug("`term temp size 82 50 textsize 10")
 
-    'debug("`term temp size 82 50 textsize 10")
-
     ok := cog := display.start()   ' send buffer to driver
     if ok == -1
         debug("- DEMO: underlying drivers failed!")
@@ -61,7 +59,7 @@ PUB main() : ok | demoIndex
 '   (These are used for focused testing on some aspect of the driver/panel)
 {
     repeat 1
-        demoScreenBlast()
+        demoParallax()
 
     display.clearScreen()
     repeat
@@ -89,6 +87,14 @@ PUB main() : ok | demoIndex
 '}
 {
     showFullColorSweep()
+    repeat
+'}
+'{
+    show18scanColorCheck5()
+    repeat
+'}
+{
+    show18scanColorCheck()
     repeat
 '}
 {
@@ -146,7 +152,8 @@ PRI demoParallax() | rtCol, ltCol, topRow, botRow
     rtCol := screen.MAX_PANEL_COLUMNS - 1
     topRow := 0
     botRow :=  screen.MAX_PANEL_ROWS > 32 ? 32 - 1 : screen.MAX_PANEL_ROWS - 1
-
+    if screen.MAX_PANEL_ROWS < 32
+        botRow :=  screen.MAX_PANEL_ROWS - 1
     display.drawLineOfColor(topRow, ltCol, topRow, rtCol, color.cYellow)    ' top line
     display.drawLineOfColor(topRow, ltCol, botRow, ltCol, color.cRed)      ' left line
     display.drawLineOfColor(topRow, rtCol, botRow, rtCol, color.cMagenta)   ' right line
@@ -187,6 +194,110 @@ PRI demoText()
         display.setColoredTextAtLnCol(2,0, string("32frm pwm!"), color.cRainbow)
     display.setColoredTextAtLnCol(3,0, string("led matrix"), color.cWhite)
     display.commitScreenToPanel()
+
+PRI show18scanColorCheck()
+    ' test pattern used while debugging 1/8 scan capability
+    display.drawBoxOfColor(0, 1, 62, 4, TRUE, color.cRed)
+    display.drawBoxOfColor(4, 1, 62, 4, FALSE, color.cYellow)
+    display.drawBoxOfColor(8, 1, 62, 4, TRUE, color.cWhite)
+    display.drawBoxOfColor(12, 1, 62, 4, FALSE, color.cMagenta)
+    display.drawBoxOfColor(16, 1, 62, 4, TRUE, color.cBlue)
+    display.drawBoxOfColor(20, 1, 62, 4, FALSE, color.cRainbow)
+    display.drawBoxOfColor(24, 1, 62, 4, TRUE, color.cLime)
+    display.drawBoxOfColor(28, 1, 62, 4, FALSE, color.cOrange)
+    display.drawLineOfColor(0, 63, 31, 63, color.cGreen)
+    display.drawLineOfColor(0, 0, 31, 0, color.cBlueViolet)
+    display.drawLineOfColor(0, 32, 31, 32, color.cWhite)
+    display.drawLineOfColor(0, 31, 31, 31, color.cYellow)
+    display.commitScreenToPanel()
+
+PRI show18scanColorCheck2()
+    ' test pattern used while debugging 1/8 scan capability
+    ' TOP
+    display.drawBoxOfColor(0, 1, 31, 4, TRUE, color.cRed)
+    display.drawBoxOfColor(4, 1, 31, 4, TRUE, color.cWhite)
+    display.drawBoxOfColor(8, 1, 31, 4, TRUE, color.cYellow)
+    display.drawBoxOfColor(12, 1, 31, 4, TRUE, color.cLime)
+
+    display.drawBoxOfColor(0, 32, 31, 4, TRUE, color.cBlue)
+    display.drawBoxOfColor(4, 32, 31, 4, TRUE, color.cMagenta)
+    display.drawBoxOfColor(8, 32, 31, 4, TRUE, color.cGreen)
+    display.drawBoxOfColor(12, 32, 31, 4, TRUE, color.cOrange)
+
+    ' little boxes overlapping
+    display.drawBoxOfColor(2, 9, 14, 4, TRUE, color.cBlue)
+    display.drawBoxOfColor(10, 9, 14, 4, TRUE, color.cRed)
+    display.drawBoxOfColor(2, 41, 14, 4, TRUE, color.cWhite)
+    display.drawBoxOfColor(10, 41, 14, 4, TRUE, color.cLime)
+
+    ' BOTTOM
+    display.drawBoxOfColor(16, 1, 31, 4, TRUE, color.cBlue)
+    display.drawBoxOfColor(20, 1, 31, 4, TRUE, color.cMagenta)
+    display.drawBoxOfColor(24, 1, 31, 4, TRUE, color.cGreen)
+    display.drawBoxOfColor(28, 1, 31, 4, TRUE, color.cOrange)
+
+    display.drawBoxOfColor(16, 32, 31, 4, TRUE, color.cRed)
+    display.drawBoxOfColor(20, 32, 31, 4, TRUE, color.cWhite)
+    display.drawBoxOfColor(24, 32, 31, 4, TRUE, color.cYellow)
+    display.drawBoxOfColor(28, 32, 31, 4, TRUE, color.cLime)
+
+    ' little boxes overlapping
+    display.drawBoxOfColor(26, 9, 14, 4, TRUE, color.cMagenta)
+    display.drawBoxOfColor(18, 9, 14, 4, TRUE, color.cYellow)
+    display.drawBoxOfColor(26, 41, 14, 4, TRUE, color.cBlue)
+    display.drawBoxOfColor(18, 41, 14, 4, TRUE, color.cGreen)
+
+
+    display.drawLineOfColor(0, 63, 31, 63, color.cRainbow)
+    display.drawLineOfColor(0, 0, 31, 0, color.cBlueViolet)
+    display.commitScreenToPanel()
+
+PRI show18scanColorCheck3()
+    display.drawBoxOfColor(0, 0, 64, 32, TRUE, color.cRainbow)
+    display.commitScreenToPanel()
+
+PRI show18scanColorCheck4()
+    display.drawBoxOfColor(0, 0, 32, 16, TRUE, color.cRed)
+    display.drawBoxOfColor(0, 32, 32, 16, TRUE, color.cBlue)
+    display.drawBoxOfColor(16, 0, 32, 16, TRUE, color.cWhite)
+    display.drawBoxOfColor(16, 32, 32, 16, TRUE, color.cMagenta)
+
+    display.drawLineOfColor(0, 63, 31, 63, color.cLime)
+    display.drawLineOfColor(0, 0, 31, 0, color.cYellow)
+    display.commitScreenToPanel()
+
+PRI show18scanColorCheck5()
+    display.drawBoxOfColor(0, 1, 62, 3, TRUE, color.cRed)
+    display.drawBoxOfColor(3, 1, 62, 3, TRUE, color.cPurple)
+    display.drawBoxOfColor(6, 1, 62, 3, TRUE, color.cWhite)
+    display.drawBoxOfColor(9, 1, 62, 3, TRUE, color.cMagenta)
+    display.drawBoxOfColor(12, 1, 62, 3, TRUE, color.cYellow)
+    display.drawBoxOfColor(15, 1, 62, 3, TRUE, color.cGreen)
+    display.drawBoxOfColor(18, 1, 62, 3, TRUE, color.cOrange)
+    display.drawBoxOfColor(21, 1, 62, 3, TRUE, color.cLime)
+    display.drawBoxOfColor(24, 1, 62, 3, TRUE, color.cBlue)
+    display.drawBoxOfColor(27, 1, 62, 3, TRUE, color.cMaroon)
+    display.drawBoxOfColor(30, 1, 62, 2, TRUE, color.cOlive)
+
+    display.drawLineOfColor(0, 63, 31, 63, color.cLime)
+    display.drawLineOfColor(0, 0, 31, 0, color.cYellow)
+
+    numberTheRows()
+
+    display.commitScreenToPanel()
+
+PRI numberTheRows() | rowId, idCol, idOnes, idTens, tensColor, onesColor
+    tensColor := color.cCyan
+    onesColor := color.cCyan
+    repeat rowId from 1 to screen.MAX_PANEL_ROWS
+        idOnes := rowId // 10
+        idTens := rowId / 10
+        if idTens > 0
+            repeat idCol from 0 to idTens - 1
+                pixels.drawPixelAtRC(rowId - 1, idCol + 5, tensColor)
+        if idOnes > 0
+            repeat idCol from 0 to idOnes - 1
+                pixels.drawPixelAtRC(rowId - 1, idCol + 10, onesColor)
 
 PRI demoTestGammaTuneBrightness() | red, green, blue, row, col, rowOffset, colorGroup, bUseRed, bUseGreen, bUseBlue, colorValue
 

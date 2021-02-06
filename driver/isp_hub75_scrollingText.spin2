@@ -92,7 +92,7 @@ PUB initialize()
     instanceID := instanceNumber++
     remainingPixToScroll := 0
     isSetup := TRUE ' yes, now we are!
-    debug("stx:initialize() ", udec(instanceID))
+    'debug("stx:initialize() ", udec(instanceID))
 
 PUB setFontInfo(nbrTextColumns, charWidth, charHeight, leadingGap, horizontalGap, hBitmapOffset, textFont)
     '' Call any time font changes - so we can keep up

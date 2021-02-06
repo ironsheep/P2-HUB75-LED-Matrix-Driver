@@ -30,6 +30,7 @@ CON { reinterpret the users selections for driver internal use }
     CHIP_FM6126A = user.CHIP_FM6126A
     CHIP_FM6124 = user.CHIP_FM6124
     CHIP_ICN2037 = user.CHIP_ICN2037
+    CHIP_MBI5124_8S = user.CHIP_MBI5124_8S
     CHIP_UNK_LAT_END_ENCL = user.CHIP_UNK_LAT_END_ENCL
     CHIP_UNK_LAT_END_ENCL_SLO_CLK = user.CHIP_UNK_LAT_END_ENCL_SLO_CLK
 
@@ -38,7 +39,8 @@ CON { reinterpret the users selections for driver internal use }
     INIT_PANEL_REQUIRED = user.INIT_PANEL_REQUIRED
     CLK_WIDE_PULSE = user.CLK_WIDE_PULSE
     CLK_WIDE_PULSE = user.CLK_WIDE_PULSE
-    RB_INVERT = user.RB_INVERT
+    RB_SWAP = user.RB_SWAP
+    SCAN_4 = user.SCAN_4
 
     ' which chip driver should be used
     PANEL_DRIVER_CHIP = user.PANEL_DRIVER_CHIP
@@ -61,18 +63,13 @@ CON { reinterpret the users selections for driver internal use }
     MAX_PANELS_PER_ROW =  user.MAX_PANELS_PER_ROW
     MAX_PANELS_PER_COLUMN =  user.MAX_PANELS_PER_COLUMN
 
-        ' how big is our overall display
+    ' how big is our overall display
     MAX_DISPLAY_COLUMNS = MAX_PANELS_PER_ROW * MAX_PANEL_COLUMNS
     MAX_DISPLAY_ROWS = MAX_PANELS_PER_COLUMN * MAX_PANEL_ROWS
 
     ' we have to generate clocks and latching based on physical size of hardware
-    '  in the future if we enable the subset display mech this calcs may change to
-    '  the larger of the values DISPLAY* or PANEL* is our proxy for PHYSICAL size
-    '  this allows us to have a display smaller than 1 panel should we wish!
     MAX_PHYSICAL_COLUMNS = MAX_DISPLAY_COLUMNS
     MAX_PHYSICAL_ROWS = MAX_DISPLAY_ROWS
-
-
 
     ' what is our PWM frame size
     MAX_PWM_FRAME_SIZE_IN_BYTES = ((MAX_PHYSICAL_COLUMNS * MAX_PHYSICAL_ROWS) / 2)
@@ -85,7 +82,7 @@ CON { reinterpret the users selections for driver internal use }
     ' how many PWM frames/subpages does our DRIVER use?
     ' --------------------------------------------------------------------------
     '  NOTE: a PWM frame can be larger than our COG buffer size (1 kBytes.)
-    '  When it is, the driver thinks of the PWM frame-set as being composed of
+    '  When it is, the driver thinks of each PWM frame as being composed of
     '  a sequential list of 1kB subpages
     ' --------------------------------------------------------------------------
     '
@@ -120,6 +117,10 @@ CON { reinterpret the users selections for driver internal use }
     '    but we in this driver version,, we have 16 PWM buffers so our buffer
     '    space is 6kB + 1kB * 16 (16kB) = 22k Bytes total of static buffer for a
     '    single 64x32 pixel panel.
+    '
+    ' NOTE: the next panel type we are adding is a 1/8 scan panel meaning 4 lines
+    '  of pixels are written for each line. This was 2 lines (RGB1, RGB2) but in
+    '  this case we now write two pixels data for each column.
     ' --------------------------------------------------------------------------
     '
     DISPLAY_SIZE_IN_BYTES = (((MAX_DISPLAY_COLUMNS * MAX_DISPLAY_ROWS * DISPLAY_BYTES_PER_COLOR) + 3) / 4) * 4
@@ -151,11 +152,13 @@ PUB getDriverFlags() : desiredFlags, origFlags
     desiredFlags := origFlags := PANEL_DRIVER_CHIP
     if desiredFlags == CHIP_FM6126A
         desiredFlags := CHIP_MANUAL_SPEC | LAT_POSN_OVERLAP | LAT_STYLE_OFFSET | INIT_PANEL_REQUIRED
+    elseif desiredFlags == CHIP_MBI5124_8S
+        desiredFlags := CHIP_MANUAL_SPEC | CHIP_UNK_LAT_END_ENCL | SCAN_4 | INIT_PANEL_REQUIRED
     elseif desiredFlags == CHIP_FM6124 or desiredFlags == CHIP_UNK_LAT_END_ENCL
         if desiredFlags == CHIP_FM6124
     elseif desiredFlags == CHIP_ICN2037 or desiredFlags == CHIP_UNK_LAT_END_ENCL_SLO_CLK
         if desiredFlags == CHIP_ICN2037
-        desiredFlags := CHIP_MANUAL_SPEC | CLK_WIDE_PULSE | RB_INVERT
+            desiredFlags := CHIP_MANUAL_SPEC | CLK_WIDE_PULSE | RB_SWAP
     elseif desiredFlags & $ff <> CHIP_MANUAL_SPEC
         ' report ERROR and exit
         debug("- have unknown CHIP ", ubin_word(desiredFlags))

@@ -14,9 +14,10 @@ The driver currently offers the following adjustments:
 |-----------------|-------------|-----|
 | LATCH_STYLE | OFFSET, ENCLOSED | Adjust the waveform of Latch & OE! |
 | LATCH_POSITION | OVERLAPPED  with the Last Bits of the row AFTER the last bits of the row | When should the latch occur relative to the bits for each row? |
-| CONFIGURE_PANEL | True, [False] | The Driver chips on this panel require setup (FM6126A)
+| INIT_PANEL | True, [False] | The Driver chips on this panel require/support a configuration stream prior to normal operation (e.g., FM6126A, FM6126Q, FM6127, and MBI5124)
 | WIDER_CLOCK | True, [False] | Inject a wait during the high portion of the data clock (ICN2037 Has 20MHz limit)
-| DATA_ROTATE | Left, [Right] | I've more to understand here but some panels require this be different?
+| RED\_BLUE_SWAP | True, [False] | It seems that our 64x64 panel requires the red and blue lines to be swapped
+| SCAN\_4 | True, [False] | By default [False] the driver sends half the panel pixels over the each of the two sets of RGB lines (RGB1,RGB2), A 1/8th scan panel however [True] sends two diff regions of 1/4 of the panel which is a different pixel ordering. 
 | ADAPTER\_BASE_PIN | 0-15, 16-31, 32-47, 48-63 [*no default*] | compile driver to use specific header pair to which the HUB75 Adapater card is attached
 
 ### PURPOSE: LATCH_STYLE
@@ -70,7 +71,8 @@ This is the most complicated of the driver chips to date. These chips don't turn
 - LATCH_POSITION: OVERLAPPED 
 - CONFIGURE_PANEL: True
 - WIDER_CLOCK: False
-- DATA_ROTATE: Left
+- RED_BLUE_SWAP: False
+- SCAN_4: False
 
 Signal Waveforms and timings for driver r1.1
 
@@ -100,7 +102,8 @@ This is the most simple chip form. This chip also supports faster data CLK (Max 
 - LATCH_POSITION: AFTER 
 - CONFIGURE_PANEL: False
 - WIDER_CLOCK: False
-- DATA_ROTATE: Left
+- RED_BLUE_SWAP: False
+- SCAN_4: False
 
 Signal Waveforms and timings for driver r1.1
 
@@ -124,13 +127,14 @@ Signal Waveforms and timings for driver r1.1
 
 ### Driver Chip: ICN2037 (UNKNOWN)
 
-This is nearly the same as the FM6124 but needs a slower data CLK (Max 20MHz) (wider pulse width).
+This is nearly the same as the FM6124 but needs a slower data CLK (Max 20MHz) (wider pulse width) and our 64x64 panels appear to need Red/Blue swapped!?.
 
 - LATCH_STYLE: ENCLOSED
 - LATCH_POSITION: AFTER 
 - CONFIGURE_PANEL: False
 - WIDER_CLOCK: True
-- DATA_ROTATE: Left
+- RED_BLUE_SWAP: True
+- SCAN_4: False
 
 Signal Waveforms and timings for driver r1.1 using 64x64 Panel.
 
@@ -149,6 +153,37 @@ Signal Waveforms and timings for driver r1.1 using 64x64 Panel.
 #### Single PWM Row timing (@v1.1):
 
 ![Latch Style](images/64x64_1line.bmp)
+
+---
+
+### Driver Chip: MBI5124_8S (MBI5124 but panel is 1/8 scan)
+
+This is nearly the same as the FM6124 but but needs .
+
+- LATCH_STYLE: ENCLOSED
+- LATCH_POSITION: AFTER 
+- CONFIGURE_PANEL: True
+- WIDER_CLOCK: False
+- RED_BLUE_SWAP: False
+- SCAN_4: True
+
+Signal Waveforms and timings for driver r1.1 using 64x32 Panel.
+
+|  | Time | Frequency |
+|----|----|----|
+| Data CLK | ?? nSec (avg) | ?? mHz |
+| Single PWM Row  | ?? uSec | ?? kHz |
+| Single PWM Frame (32 rows) | ?? uSec | ?? kHz |
+| Single Frame (16 pwm frames) | ?? mSec | ?? fps |
+ 
+
+#### Single PWM Frame (32 rows) timing (@v1.1):
+
+TBA
+
+#### Single PWM Row timing (@v1.1):
+
+TBA
 
 ----
 
