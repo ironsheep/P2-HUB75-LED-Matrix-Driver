@@ -130,12 +130,8 @@ PUB commitScreenToPanel()
     '' Write sceen to panel driver PWM frames (while alternating PWM frame sets)
     'debug("dsp: commit!")
 
-    'panel.convertScreen2PWM(@screen0, bSwapRB)
-    'return
-
     if bScan_1_4
-        panel.convertScreen2PWM_14_spin(@screen0, bSwapRB)
-        'panel.convertScreen2PWM_14(@screen0, bSwapRB)
+        panel.convertScreen2PWM_14(@screen0, bSwapRB)
     else
         panel.convertScreen2PWM(@screen0, bSwapRB)
 
