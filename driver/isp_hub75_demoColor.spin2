@@ -89,7 +89,7 @@ PUB main() : ok | demoIndex
     showFullColorSweep()
     repeat
 '}
-'{
+{
     show18scanColorCheck5()
     repeat
 '}
