@@ -44,6 +44,7 @@ PUB main() : ok | bitCount, newMask
         abort
 
     demoText()
+    'repeat
 
     waitSec(4)
 
@@ -141,7 +142,6 @@ PRI demoText()
         display.setColoredTextAtLnCol(2,0, string("32frm pwm!"), color.cRainbow)
     display.setColoredTextAtLnCol(3,0, string("led matrix"), color.cWhite)
     display.commitScreenToPanel()
-
 
 PRI waitSec(countSeconds)
     repeat countSeconds

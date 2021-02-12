@@ -98,12 +98,13 @@ VAR
     long    driverFlags
     long    driverConfigRaw
     long    bSwapRB
+    long    bInitPanel
     long    bScan_1_4
     long    cog
 
 
 ' --------------------------------------------------------------------------------------------------
-PUB start() : ok | bSetLowPins, tmpVar
+PUB start() : ok | bSetLowPins, tmpVar, panelCt
     '' Setup the pasm2 driver vars, then start a new cog running the driver
 
     stop()
@@ -114,24 +115,28 @@ PUB start() : ok | bSetLowPins, tmpVar
     tm_64usec := usec_001 * 64
     debug("- times: ", sdec_long(usec_001), sdec_long(tm_64usec))
 
+    panelCt := screen.MAX_PANELS
     dvrConfig, driverConfigRaw := screen.getDriverFlags()
-    debug("- Driver CONFIG (user) ", ubin_word(dvrConfig), ubin_word(driverConfigRaw))
+    debug("- Driver CONFIG ", ubin_word(driverConfigRaw))
+    debug("- Driver CONFIG       ", ubin_word(dvrConfig))
     if driverConfigRaw == screen.CHIP_FM6126A
-        debug("- have FM6126A")
+        debug("---->     FM6126A")
     elseif driverConfigRaw == screen.CHIP_MBI5124_8S
-        debug("- have MBI5124-8S")
+        debug("---->     MBI5124-8S")
     elseif driverConfigRaw == screen.CHIP_FM6124 or driverConfigRaw == screen.CHIP_UNK_LAT_END_ENCL
         if driverConfigRaw == screen.CHIP_FM6124
-            debug("- have FM6124")
+            debug("---->     FM6124")
     elseif driverConfigRaw == screen.CHIP_ICN2037 or driverConfigRaw == screen.CHIP_UNK_LAT_END_ENCL_SLO_CLK
         if driverConfigRaw == screen.CHIP_ICN2037
-            debug("- have ICN2037")
+            debug("---->     ICN2037")
+    debug("---->     ", udec_(panelCt), " panel(s)")
 
 
     driverFlags := dvrConfig & $ff00
     ' if following flags are set...
     modeOverlapDAT := (driverFlags & screen.LAT_POSN_OVERLAP) <> 0 ? True : False
     modeLatchEnclosed := (driverFlags & screen.LAT_STYLE_OFFSET) <> 0 ? False : True
+    bInitPanel := (driverFlags & screen.INIT_PANEL_REQUIRED) <> 0 ? True : False
     modeSlowCLK := (driverFlags & screen.CLK_WIDE_PULSE) <> 0 ? True : False
     ' post value of panel needing swap so we can do correct color fixes
     bSwapRB := (driverFlags & screen.RB_SWAP) > 0 ? True : False
@@ -142,13 +147,14 @@ PUB start() : ok | bSetLowPins, tmpVar
     debug("  -- ", ubin_word(driverFlags))
     debug("  -- ", ubin_byte(modeOverlapDAT))
     debug("  -- ", ubin_byte(modeLatchEnclosed))
+    debug("  -- ", ubin_byte(bInitPanel))
     debug("  -- ", ubin_byte(modeSlowCLK))
     debug("  -- ", ubin_byte(bSwapRB))
     debug("  -- ", ubin_byte(bScan_1_4))
 
     ' when using a panel w/FM6126A chips we have to issue a reset!
     '   before attempting to use the panel
-    if driverFlags & screen.INIT_PANEL_REQUIRED <> 0
+    if bInitPanel
         setupPins()
         if driverConfigRaw == screen.CHIP_MBI5124_8S
             resetPanel5124()
@@ -311,6 +317,7 @@ PUB writePwmBuffer(pBuffer)
 
 PRI setupPins()
     ' configure Matrix Panel HUB75 pins
+    debug("* Driver Set up Pins")
     ' Enable all comm & address pins as outputs, set default states:
     PINLOW(MTX_LED_PIN_CLK)
     PINLOW(MTX_LED_PIN_LATCH)
@@ -322,6 +329,7 @@ PRI setupPins()
 ' --------------------------------------------------------------------------------------------------
 
 PRI resetPanelOld() | columnIdx, bitIdx, panelIdx
+    debug("* Driver FM6126A Init")
     ' write the required init sequence to our panel drivers
 
     ' REF: https://www.gitmemory.com/issue/mrfaptastic/ESP32-RGB64x32MatrixPanel-I2S-DMA/23/665659409
@@ -490,6 +498,7 @@ PRI resetPanel5124()
     debug("* Driver missing MBI5124 init")
 
 PRI resetPanel()
+    debug("* Driver FM6126A Init")
 
     org
     ' init control pins

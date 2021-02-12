@@ -150,7 +150,7 @@ PRI reconfigureForDigit(digit) | byte fromSegments, byte toSegments, bitIndex
             ' hide some segments, show others
             fromSegments := byte[@segmentsByDigit][currValue]   ' currValue [0-9]
             toSegments := byte[@segmentsByDigit][digit]   ' digit [0-9]
-            debug(" -- table:",ubin(fromSegments),ubin(toSegments))
+            'debug(" -- table:",ubin(fromSegments),ubin(toSegments))
             repeat bitIndex from 6 to 0
                 if fromSegments & (1 << bitIndex) > 0
                     ' from segment is showing

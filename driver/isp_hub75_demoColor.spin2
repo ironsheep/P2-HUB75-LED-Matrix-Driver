@@ -69,12 +69,21 @@ PUB main() : ok | demoIndex
     repeat
 '}
 {
-    display.fillScreen(color.cRed)    ' full single color panel w/PWM
+    display.fillScreen(color.cWhite)    ' full single color panel w/PWM
     display.commitScreenToPanel()
     repeat
 '}
 {
-    display.fillPanel(color.BASE_RED)    ' full single color panel NO pwm
+    repeat
+        display.fillPanel(color.BASE_RED)    ' full single color panel NO pwm
+        waitSec(2)
+        display.fillPanel(color.BASE_GREEN)    ' full single color panel NO pwm
+        waitSec(2)
+        display.fillPanel(color.BASE_BLUE)    ' full single color panel NO pwm
+        waitSec(2)
+        display.fillPanel(color.BASE_WHITE)    ' full single color panel NO pwm
+        waitSec(4)
+
     repeat
 '}
 {

@@ -43,7 +43,7 @@ OBJ
     digit[MAX_DIGITS]   : "isp_hub75_7seg"
     screen              : "isp_hub75_screenAccess"
 
-PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, builtPtr, color3bit, color24bit, pPixColor, colorOffset, byteOffset
+PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, builtPtr, color3bit, color24bit, pPixColor, colorOffset, byteOffset, hours24
     '' Start underlying drivers and run demo
 
     'debug("`term temp size 82 50 textsize 10")
@@ -90,6 +90,9 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     wait100thSecs(digitPeriod)
 
     repeat hours from 0 to 12
+        hours24 := hours + 12
+        if hours24 > 23
+            hours24 -= 24
 
         repeat minutes from 0 to 59
 
@@ -98,8 +101,8 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
             digit[2].setValue(minutes / 10)
             digit[3].setValue(minutes // 10)
             if screen.MAX_PHYSICAL_COLUMNS > 64
-                digit[4].setValue(hours + 12 / 10)
-                digit[5].setValue(hours + 12 // 10)
+                digit[4].setValue(hours24 / 10)
+                digit[5].setValue(hours24 // 10)
             if screen.MAX_PHYSICAL_COLUMNS > 96
                 digit[6].setValue(minutes / 10)
                 digit[7].setValue(minutes // 10)
