@@ -166,7 +166,7 @@ PUB getDriverFlags() : desiredFlags, origFlags
 
 PUB dbgMemDump(bfrId, buffer, len) | bytBffr, colIdx, rowIdx, maxCol, maxRow, dispLen
     '' Dump bytes in hex format to debug() terminal
-    debug("`temp 13 '", zstr_(bfrId), ": bffr=", uhex_long_(buffer), "(", udec_(len), ")' 13")
+    debug("`temp '", zstr_(bfrId), ": bffr=", uhex_long_(buffer), "(", udec_(len), ")' 13")
     maxCol := len >= 16 ? 15 : len
     maxRow := (len / 16)
     if maxRow * 16 < len

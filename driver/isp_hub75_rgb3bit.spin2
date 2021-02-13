@@ -511,7 +511,7 @@ PRI resetPanel()
                     drvl    #MTX_LED_PIN_LATCH
                     drvl    #MTX_LED_PIN_CLK
     ' execute init sequence - write reg #11
-                    mov     columnIdx, #0
+                    xor     columnIdx, columnIdx
                     rep     @.end11,#screen.MAX_PHYSICAL_COLUMNS
                     mov     bitIdx, columnIdx
                     and     bitIdx, #$0F    wz
@@ -538,7 +538,7 @@ PRI resetPanel()
                     waitx   #50 ' delay between register loads
 
     ' execute init sequence - write reg #12
-                    mov     columnIdx, #0
+                    xor     columnIdx, columnIdx
                     rep     @.end12,#screen.MAX_PHYSICAL_COLUMNS
                     mov     bitIdx, columnIdx
                     and     bitIdx, #$0F
@@ -587,7 +587,7 @@ PRI resetPanelOld1()
                     drvl    #MTX_LED_PIN_CLK
 
     ' execute init sequence - write reg #12
-                    mov     columnIdx, #0
+                    xor     columnIdx, columnIdx
                     rep     @.end12,#screen.MAX_PHYSICAL_COLUMNS
                     mov     bitIdx, columnIdx
                     and     bitIdx, #$0F
@@ -612,7 +612,7 @@ PRI resetPanelOld1()
                     drvl    #MTX_LED_PIN_LATCH
 
     ' execute init sequence - write reg #11
-                    mov     columnIdx, #0
+                    xor     columnIdx, columnIdx
                     rep     @.end11,#screen.MAX_PHYSICAL_COLUMNS
                     mov     bitIdx, columnIdx
                     and     bitIdx, #$0F    wz
@@ -682,17 +682,17 @@ drive_matrix
     if_z            setd    outInst2of3, #OUTB
     if_z            setd    outInst3of3, #OUTB
 
-                    or     modeDatRotLeft, modeDatRotLeft   wz
+                    or      modeDatRotLeft, modeDatRotLeft   wz
     if_nz           SETR    rotInstr1of2,#%0000001_00	'make into ROR instruction
     if_nz           SETR    rotInstr2of2,#%0000001_00	'make into ROR instruction
     if_z            SETR    rotInstr1of2,#%0000000_00	'make into ROL instruction
     if_z            SETR    rotInstr2of2,#%0000000_00	'make into ROL instruction
 
-                    or     modeOverlapDAT, modeOverlapDAT   wz
+                    or      modeOverlapDAT, modeOverlapDAT   wz
     if_nz           SETR    jmpInstr1of1,#%0000000_00	'make into NOP instruction
     if_nz           SETD    jmpInstr1of1,##0	        'make into NOP instruction
 
-                    or     modeSlowCLK, modeSlowCLK   wz
+                    or      modeSlowCLK, modeSlowCLK   wz
     if_z            SETR    waitInst1of1,#%0000000_00	'make into NOP instruction
     if_z            SETD    waitInst1of1,##0	        'make into NOP instruction
 
@@ -700,10 +700,10 @@ drive_matrix
 dirInst1of1         or      DIRA, maskAllPins   ' set all of our pins to OUTPUT!  for this COG
 
 ' default to NOT using PWM
-                    mov     pwmFrameCt, #0  ' initial setup: NOT doing PWM
+                    xor     pwmFrameCt, pwmFrameCt      ' initial setup: NOT doing PWM
 
 ' init row address
-                    mov     row_addr, addrValueMax    ' reset address to 31|15|7 - [A-E|D|C] addr: all ones
+                    mov     row_addr, addrValueMax      ' reset address to 31|15|7 - [A-E|D|C] addr: all ones
 ' write address
                     call    #emitAddr
                     'call    #dumpTwinRows
@@ -789,7 +789,7 @@ nextFill
 ' NOTE: use of rdfast/rflong vs. rdlong, ptrb addressing did NOT improve our timing...!!! (leavig FIFO use in place for now)
 loadPWMsubpage
                     ' copy HUB buffer pointed to by FIFO rdfast (set earlier)
-                    mov     fillOffset, #0              ' set initial offset to '0' beginning of COG RAM area (cogBuffer)
+                    xor     fillOffset, fillOffset      ' set initial offset to '0' beginning of COG RAM area (cogBuffer)
                     mov     fillCount, ##screen.MAX_COG_BUFFER_SIZE_IN_LONGS             ' length in longs  e.g., 64x32 is 1k bytes of 6bit values
 ldLoop1
                     altd    fillOffset, #cogBuffer      ' calculate addr of next register in COG
@@ -823,7 +823,7 @@ fillCogBufferWithColor      ' fill COG buffer with desired 3-bit color
 ' writeColorToBuffer(fillLong=fillValueID)
 '
 writeColorToBuffer       ' fill COG buffer with 'fillLong' value
-                    mov     fillOffset, #0
+                    xor     fillOffset, fillOffset
                     mov     fillCount, ##screen.MAX_COG_BUFFER_SIZE_IN_LONGS
 writeNextLong
                     altd    fillOffset, #cogBuffer
@@ -851,7 +851,7 @@ markCmdComplete
 wrCogBuffer
                     ' repeat the following to end of COG buffer
                     mov     row_ctr, rowCtrMax          ' 32|16|8 -> 0 so we can use djnz
-                    mov     reg_offset, #0              ' start of [0-1023] buffer
+                    xor     reg_offset, reg_offset      ' start of [0-1023] buffer
                     drvl    #MTX_LED_PIN_OE
 
                     ' following instru is modified by startup to #wrLatchAtEnd or #wrLineLatchOvlp
@@ -865,7 +865,7 @@ wrLineLatchOvlp
 '     toggle clock (28MHz)
                     mov     reg_ctr, rowCtrMax                ' 32|16|8 -> 0 so we can use djnz
                 ' this tracks when we need to toggle latch at right-edge of row
-                    mov     col_addr, #0
+                    xor     col_addr, col_addr
 clkNextReg
                 ' in buffer: RGB1 is byte-bits[0-2], RGB2 is byte-bits[3-5]
                     mov     byt_ctr, #4              ' 4 -> 0 so we can use djnz
