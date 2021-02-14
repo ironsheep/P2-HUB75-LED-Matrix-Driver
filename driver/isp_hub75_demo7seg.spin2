@@ -175,14 +175,17 @@ PRI allDigitAnimationsComplete() : status
             status := FALSE
             quit
 
-PRI loopUntilSegmentsFinish()
+PRI loopUntilSegmentsFinish() | didAnimate
     repeat
+        didAnimate := FALSE
         if not allDigitAnimationsComplete()
             repeat digitIndex from 0 to MAX_DIGITS - 1
                 if not digit[digitIndex].isAnimationComplete()
+                    didAnimate := TRUE
                     digit[digitIndex].animateStep()
-            display.commitScreenToPanel()
-            wait100thSecs(segmentPeriod)
+            if didAnimate
+                display.commitScreenToPanel()
+                wait100thSecs(segmentPeriod)
 
         if allDigitAnimationsComplete()
             quit

@@ -185,24 +185,6 @@ targ8SCalcsDone
                     mov     nPwmRGB12ByteIdx, nTargLineIdx
                     mul     nPwmRGB12ByteIdx, #screen.MAX_PHYSICAL_COLUMNS
 next8SColumn
-{
-                    ' ----------------------------
-                    '   DEBUG DEBUG DEBUG
-                    ' if nColumnCtr < 3 or nColumnCtr > 62
-                    cmp     nColumnCtr, #9    wz
-    if_nz           jmp     #no8SDebug                          ' show debug
-                    cmp     nPhysLineIdx, #16    wc
-    if_c            jmp     #no8SDebug                          ' show debug
-'                    cmp     nColumnCtr, #3    wc
-'    if_c            jmp     #show8SDebug                          ' show debug
-'                    cmp     nColumnCtr, #62   wc
-'    if_c            jmp     #no8SDebug                            ' don't show debug
-show8SDebug
-                    debug("- PNL:cs2pwm(): physR ", udec_long_(nPhysLineIdx), ", targR ", udec_long_(nTargLineIdx), ", isBot ", sdec_long_(bIsBottomHalf), ", col ", udec_long_(nColumnCtr), ", scnIdx ", udec_long_(nRGBColorOfst), ", pwmIdx ", udec_long_(nPwmRGB12ByteIdx))
-no8SDebug
-                    '   DEBUG DEBUG DEBUG
-                    ' ----------------------------
-'}
                 ' locate and load color for scanline
                     rdlong  colorValue24bit, pRGBPixAddr
                     ' red := byte[pRGBPixAddr][0]
@@ -248,11 +230,11 @@ top8SHalf
                     '     bitsBGR |= (gPwm & currBitMask) > 0 ? 2 : 0
                     '     bitsBGR |= (bPwm & currBitMask) > 0 ? 4 : 0
                     testb   redPwmBits, currPwmBitNumber     wc
-        if_c        or      bitsBGR, redBitRGB1Value
+    if_c            or      bitsBGR, redBitRGB1Value
                     testb   greenPwmBits, currPwmBitNumber   wc
-        if_c        or      bitsBGR, greenBitRGB1Value
+    if_c            or      bitsBGR, greenBitRGB1Value
                     testb   bluePwmBits, currPwmBitNumber    wc
-        if_c        or      bitsBGR, blueBitRGB1Value
+    if_c            or      bitsBGR, blueBitRGB1Value
                     jmp     #write8SPwmByte
 bottom8SHalf
                 '    bitsBGR := byte[pPwmFrame][nPwmRGB12ByteIdx]
@@ -263,30 +245,11 @@ bottom8SHalf
                     '    bitsBGR |= (gPwm & currBitMask) > 0 ? $10 : 0
                     '    bitsBGR |= (bPwm & currBitMask) > 0 ? $20 : 0
                     testb   redPwmBits, currPwmBitNumber     wc
-        if_c        or      bitsBGR, redBitRGB2Value
+    if_c            or      bitsBGR, redBitRGB2Value
                     testb   greenPwmBits, currPwmBitNumber   wc
-        if_c        or      bitsBGR, greenBitRGB2Value
+    if_c            or      bitsBGR, greenBitRGB2Value
                     testb   bluePwmBits, currPwmBitNumber    wc
-        if_c        or      bitsBGR, blueBitRGB2Value
-{
-                    ' ----------------------------
-                    '   DEBUG DEBUG DEBUG
-                    or     bitsBGR, bitsBGR     wz
-    if_c_or_z       jmp     #write8SPwmByte
-                    debug("- ",uhex_long(bitsBGR))
-                    '   DEBUG DEBUG DEBUG
-                    ' ----------------------------
-'}
-{
-                    ' ----------------------------
-                    '   DEBUG DEBUG DEBUG
-                    mov     testBGR, bitsBGR
-                    and     testBGR, maskRGB1nRGB2bits   wz
-    if_nz           jmp     #write8SPwmByte
-                    debug("- bits=",uhex_long_(bitsBGR), " #", udec_long_(currPwmBitNumber))
-                    '   DEBUG DEBUG DEBUG
-                    ' ----------------------------
-'}
+    if_c            or      bitsBGR, blueBitRGB2Value
 write8SPwmByte
                 ' write RGB1, RGB2 value to byte
                 'byte[pPwmFrame][nPwmRGB12ByteIdx] := bitsBGR
@@ -307,7 +270,7 @@ write8SPwmByte
 ' currPwmBits := cvtCurr2pwm(currPwmBits)   ' NOTE wipes tempByte
 cvt8SCurr2pwm
                     or      currPwmBits, currPwmBits    wz  ' special case: if zero return all 0 bits
-        if_z        ret
+    if_z            ret
                     sub     currPwmBits, #1                 ' subtract 1 from our count
                     bmask   currPwmBits, currPwmBits        ' convert bit count into string of bits
                     ret
@@ -332,23 +295,15 @@ blueBitRGB2Value    long    $20
 maskOnlyRGB1bits    long    $07
 maskOnlyRGB2bits    long    $38
 maskRGB1nRGB2bits   long    $3F
-midDisplayRow       long    0
 redPwmBits          long    0
 greenPwmBits        long    0
 bluePwmBits         long    0
-pPwmFrameByt        long    0
 colorValue24bit     long    0
-colorValueTop       long    0
-colorValueBot       long    0
-colorMask           long    0
 pwmBitCtr           long    0
 currPwmBitNumber    long    0
 bitsBGR             long    0
-rowIndexHalfPanel   long    0
 pPwmFrameByte       long    0
-currPwmColorBits    long    0
 currPwmBits         long    0
-tempByte            long    0
 testBGR             long    0
 allOnes             long    $ffffffff
 one4thLineCt        long    (screen.MAX_PHYSICAL_ROWS / 4)
@@ -359,9 +314,9 @@ three4thsLineCt     long    (screen.MAX_PHYSICAL_ROWS / 4) * 3
 
     markEnd(string("pasm 8S"))
     matrix.writePwmBuffer(pPwmFrameSet)
-
+'}
     'waitSec(2)  ' trying to find cause of missing RGB2 for single frame!
-'{
+{
     if nDumpPassNbr == 7 + 128
         dumpFrameSet(pPwmFrameSet)
     nDumpPassNbr++
