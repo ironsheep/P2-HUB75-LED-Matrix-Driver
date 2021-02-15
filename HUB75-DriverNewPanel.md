@@ -180,13 +180,13 @@ Signal Waveforms and timings for driver r1.1 using 64x32 Panel.
 
  
 
-#### Single PWM Frame (32 rows) timing (@v1.1):
+#### Single PWM Frame (8 rows, 128 px/row) timing (@v1.1):
 
-TBA
+![Latch Style](images/WorkingPWMFrameRate18.jpg)
 
 #### Single PWM Row timing (@v1.1):
 
-TBA
+![Latch Style](images/WorkingPWMLineRate18.jpg)
 
 ----
 
