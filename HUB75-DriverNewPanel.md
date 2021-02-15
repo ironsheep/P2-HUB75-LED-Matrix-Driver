@@ -158,7 +158,9 @@ Signal Waveforms and timings for driver r1.1 using 64x64 Panel.
 
 ### Driver Chip: MBI5124_8S (MBI5124 but panel is 1/8 scan)
 
-This is nearly the same as the FM6124 but but needs:
+This is nearly the same as the FM6124 but but halves the number of address lines which is normally panel rows / 2, but in this case is panel rows / 4. It also clocks out 2x the number of pixels per row.  
+
+*NOTE: The MBI5124 does support configuration but it appears that it is already configured at power-up so this driver does not attempt to configure the panel currently. The setting CONFIGURE_PANEL is marked as true so if we add configuration later the driver will use it.*
 
 - LATCH_STYLE: ENCLOSED
 - LATCH_POSITION: AFTER 
@@ -177,8 +179,7 @@ Signal Waveforms and timings for driver r1.1 using 64x32 Panel.
 | Single Frame (16 pwm frames) | 1.07 mSec | 931.7 fps |
 | SCREEN -> PWM Conversion | 5.505 mSec | 181.65 fps |
 
-
- 
+*NOTE: while the driver can generate 931 FPS, we are limited by the time it takes to convert a full screen image to pwm frames. This is why the final row in this table shows a frame rate of 181 FPS vs. the 931 FPS.*
 
 #### Single PWM Frame (8 rows, 128 px/row) timing (@v1.1):
 
