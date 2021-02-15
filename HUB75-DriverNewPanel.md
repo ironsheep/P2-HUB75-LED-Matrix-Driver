@@ -144,7 +144,7 @@ Signal Waveforms and timings for driver r1.1 using 64x64 Panel.
 | Single PWM Row  | 4.34 uSec | 230.42 kHz |
 | Single PWM Frame (64 rows) | 165.31 uSec | 6.05 kHz |
 | Single Frame (16 pwm frames) | 2.64 mSec | 378.1 fps |
- 
+| SCREEN -> PWM Conversion | 5.505 mSec | 181.65 fps |
 
 #### Single PWM Frame (64 rows) timing (@v1.1):
 
@@ -158,7 +158,7 @@ Signal Waveforms and timings for driver r1.1 using 64x64 Panel.
 
 ### Driver Chip: MBI5124_8S (MBI5124 but panel is 1/8 scan)
 
-This is nearly the same as the FM6124 but but needs .
+This is nearly the same as the FM6124 but but needs:
 
 - LATCH_STYLE: ENCLOSED
 - LATCH_POSITION: AFTER 
@@ -171,10 +171,13 @@ Signal Waveforms and timings for driver r1.1 using 64x32 Panel.
 
 |  | Time | Frequency |
 |----|----|----|
-| Data CLK | ?? nSec (avg) | ?? mHz |
-| Single PWM Row  | ?? uSec | ?? kHz |
-| Single PWM Frame (32 rows) | ?? uSec | ?? kHz |
-| Single Frame (16 pwm frames) | ?? mSec | ?? fps |
+| Data CLK | 56.88 nSec (avg) | 17.58 mHz |
+| Single PWM Row  | 7.41 uSec | 134.95 kHz |
+| Single PWM Frame (8 rows) | 67.07 uSec | 14.91 kHz |
+| Single Frame (16 pwm frames) | 1.07 mSec | 931.7 fps |
+| SCREEN -> PWM Conversion | 5.505 mSec | 181.65 fps |
+
+
  
 
 #### Single PWM Frame (32 rows) timing (@v1.1):
