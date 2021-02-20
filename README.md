@@ -39,26 +39,69 @@ What's working today with the current driver:
 
 ## Driver Setup and Configuration
 
-Once you haave the driver downloaded and the source files added to your project you will first need to configure the driver by modifying the following values in the file **isp\_hub75_hwGeometry.spin2**:
+Once you haave the driver downloaded and the source files added to your project you will first need to configure the driver by creating a block of constants which describe the configuration of your panel(s) in the file: **isp\_hub75_hwGeometry.spin2**.
+
+Here's an example block for a **single panel**:
+
+```python
+    ADAPTER_BASE_PIN = PINS_P32_P47
+   ' (1) determine what form of signalling the driver should use
+    PANEL_DRIVER_CHIP = CHIP_MBI5124_8S
+
+    ' (2) describe the panel electrical layout
+    MAX_PANEL_COLUMNS = 64 'works!!!! for PWM
+    MAX_PANEL_ROWS = 32
+    PANEL_ADDR_LINES = ADDR_ABC
+
+    ' (3) describe the organization of panel(s)
+    ' panels organization: visual layout
+    '   [1]     ' one panel
+    '
+    ' (4) describe the organization in numbers of panels
+    MAX_PANELS = 1
+    MAX_PANELS_PER_ROW = 1
+    MAX_PANELS_PER_COLUMN = 1
+```
+
+
+Here's an example block for **twin 64x64 panels**:
+
+```python
+    ADAPTER_BASE_PIN = PINS_P32_P47
+   ' (1) determine what form of signalling the driver should use
+    PANEL_DRIVER_CHIP = CHIP_ICN2037
+
+    ' (2) describe the panel electrical layout
+    MAX_PANEL_COLUMNS = 64
+    MAX_PANEL_ROWS = 64
+    PANEL_ADDR_LINES = ADDR_ABCDE
+
+    ' (3) describe the organization of panel(s)
+    ' panels organization: visual layout
+    '   [1][2]      1 row of 2 panels
+    '
+    ' (4) describe the organization in numbers of panels
+    MAX_PANELS = 2
+    MAX_PANELS_PER_ROW = 2
+    MAX_PANELS_PER_COLUMN = 1
+```
+
+
+Definition of the constants in the file **isp\_hub75_hwGeometry.spin2**:
 
 | Name            | Default | Description |
 |-----------------|-------------|-------------|
 | `ADAPTER_BASE_PIN` | PINS\_P16_P31 |  Identify which pin-group your HUB75 board is connected |
-| `PANEL_DRIVER_CHIP` | CHIP_UNKNOWN | in most cases UNKNOWN will work. Some specialized panels need a specific driver chip (e.g., those using the FM6126A) |
+| `PANEL_DRIVER_CHIP` | CHIP_UNKNOWN | in most cases UNKNOWN will work. Some specialized panels need a specific driver chip (e.g., those using the FM6126A, ICN2037, or the MBI5124\_8S) |
 | `MAX_PANEL_COLUMNS` | {none} | The number of LEDs in each row of your panel ( # pixels-wide) |
 | `MAX_PANEL_ROWS` | {none} | The number of LEDs in each column of your panel ( # pixels-high) |
-
-*The easiest way to do this would be to find an example configuration in that file, copy it and modify it to describe your hardware set up. Makgin sure, of course that the others are commented out.*
-
-Once we support multiple panels then the following will also have to be configured:
-
-| Name            | Default | Description |
-|-----------------|-------------|-------------|
-| `MAX_PANELS` | 1 | **NOTE:** Currently only 1 in supported in the initial release |
+| `MAX_PANELS` | 1 | **NOTE:** Currently only the CHIP_ICN2037 is working for multipanel displays |
 | `MAX_DISPLAY_COLUMNS` | {none} | The number of LEDs in each row of your multi-panel display |
 | `MAX_DISPLAY_ROWS` | {none} | The number of LEDs in each column of your multi-panel display |
+*The easiest way to do this would be to find an example configuration in that file, copy it and modify it to describe your hardware set up. Making sure, of course that the others are commented out.*
 
-**NOTE:** once we get to multi-panel display there may also be configuration values for decribing the organization of the panels in more detail than the above setting describe.  We'll see...
+
+**NOTE:** as we get into more multi-panel display organizations there may also be configuration values for decribing the actual organization of the panels in more detail than the above setting describe.  We'll see...
 
 Once these values are set correctly, according to your own hardware set up, then you should be able to compile your code and run.
 
@@ -120,10 +163,10 @@ But let's be more specific:
 
 | Goal               | Sub-goal  | Description |
 | ------------------ | --------- | ----------------------------------------------------------------------- |
-| Video Frame Rates  | -  | Better than 30fps of gamma corrected 24bit color frames for at least 2x2 64x32 LED panels |
+| Video Frame Rates  | -  | Better than 30fps of color corrected 24bit color frames for at least 2x2 64x32 LED panels |
 | Understand system demand | -  | Study overall system performance so we know how this will behave with various peripherals and panel configurations |
 | - | Use P2 internal ram resources|  Study driver use of COG Registers, LUT RAM, and HUB RAM |
-| - | w/P2 Eval HyperRAM  |  Will we need, can we benefit from using HyperRAM / External RAM? |
+| - | w/P2 Eval HyperRAM  |  Will we need, can we benefit from, using HyperRAM / External RAM? |
 | - | w/uSD Storage  | What is our performace displaying images / video directly from the P2 uSD card? |
 | - | w/Receiving image data from RPi  | Is the RPi SPI interface sufficient to keep our panels streaming video? |
 | Reusable Driver | - | Ensure driver can be configured for (1) single panel size, (2) organization of multi-panel chains, and (3) the various panel chip-sets which require different clocking styles (within practical limits: *all panels must use the same chip-set*) |

@@ -10,9 +10,24 @@ Check [Keep a Changelog](http://keepachangelog.com/) for reminders on how to str
 
 Work to appear in upcoming releases:
 
-- Multi-Panel support easily user configurable
+- Fix multi-panel support for chips that are not yet working in multi-panel form
 - More advanced PWM algorithm yielding better brightness control
 - I've even some fun animated clocks coming (sorry, I'm been doing software clocks of many, many, forms for a long time.)
+- New morphing digits Matrix displays can be found at [P2 LED-Matrix Morphing Digits](https://github.com/ironsheep/P2-LED-Matrix-Morphing-Digits) Repository.
+
+## [0.2.0] 2021-02-19
+
+### Our first (limited) Multi-panel support
+
+- Driver rebuilt to work with maximum display width of 1024 pixels.
+- Driver now works with new 64x64 panel using ICN_2037 Chips
+- Driver now works with display of 128x64 using twin 64x64 panels in series.
+- Driver now supports 1/8 scan panels (**P4-1921-8S-V2.0**) using the MBI5124 driver chips
+
+### Known Issues
+
+- Multi-panel support for the FM6126A and MBI5124 driver chips is not yet working!
+
 
 ## [0.1.0] 2020-12-01
 
