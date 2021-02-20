@@ -192,29 +192,6 @@ targ8SCalcsDone
                     mov     nPwmRGB12ByteIdx, nTargLineIdx
                     mul     nPwmRGB12ByteIdx, #screen.MAX_PHYSICAL_COLUMNS
 next8SColumn
-{
-                    ' ----------------------------
-                    '   DEBUG DEBUG DEBUG
-                    ' if nColumnCtr < 3 or nColumnCtr > 62
-                    cmp     nColumnCtr, #9    wz
-    if_nz           jmp     #no8SDebug                          ' show debug
-                    cmp     nTargLineIdx, #15    wc
-    if_c            jmp     #no8SDebug                          ' show debug
-                    cmp     nTargLineIdx, #17    wc
-    if_nc           jmp     #no8SDebug                          ' show debug
-'                    cmp     nColumnCtr, #3    wc
-'    if_c            jmp     #show8SDebug                          ' show debug
-'                    cmp     nColumnCtr, #62   wc
-'    if_c            jmp     #no8SDebug                            ' don't show debug
-show8SDebug
-                    debug("- PNL:cs2pwm(): phyR ", udec_long_(nPhysLineIdx), ", trgR ", udec_long_(nTargLineIdx), ", isBot ", sdec_long_(bIsBottomHalf), ", col ", udec_long_(nColumnCtr), ", scnIdx ", udec_long_(nRGBColorOfst), ", pwmIdx ", udec_long_(nPwmRGB12ByteIdx))
-no8SDebug
-                    '   DEBUG DEBUG DEBUG
-                    ' ----------------------------
-'}
-
-' NOTE!!!   math incorrect on reading source....  (pwm0 buffer and zero involved?!!!)
-
                 ' locate and load color for scanline
                     rdlong  colorValue24bit, pRGBPixAddr
                     ' red := byte[pRGBPixAddr][0]
@@ -239,18 +216,6 @@ no8SDebug
                     mov     pwmBitCtr, #screen.MAX_PWM_FRAMES           ' MAX PWM FRAME bits to scan in LONG
 
 next8SPwmFrame
-{
-                    ' ----------------------------
-                    '   DEBUG DEBUG DEBUG
-                    cmp     nPhysLineIdx, #0   wz
-    if_nz           jmp     #noPwmDbg
-                    cmp     nColumnCtr, #63   wz
-    if_nz           jmp     #noPwmDbg
-                    debug("- PWM bit-", udec_long_(currPwmBitIdx), ", ctr-", udec_long_(pwmBitCtr))
-noPwmDbg
-                    '   DEBUG DEBUG DEBUG
-                    ' ----------------------------
-'}
                     ' calculate pointer to frame for this bit #
                     '   nFrameOffset := frameIdx * screen.MAX_PWM_FRAME_SIZE_IN_LONGS ' 256 longs in each frame
                     '   pPwmFrame := @long[getActivePwmBuffer()][nFrameOffset]
@@ -261,49 +226,11 @@ noPwmDbg
                     mov     pPwmFrameByte, nPwmRGB12ByteIdx                ' get base addr
                     and     pPwmFrameByte, maskModHalfScreen               ' mod ((pys rows * phys cols) / 2)
                     add     pPwmFrameByte, pPwmFrame         ' add offset
-                    'debug("- PTRs pwm", udec_long_(currPwmBitIdx), ", @", uhex_long_(pPwmFrameByte))
-{
-                    ' ----------------------------
-                    '   DEBUG DEBUG DEBUG
-                    cmp     currPwmBitIdx, #15   wz
-    if_nz           jmp     #noPwmFDbg
-                    debug("- PWM bit-", udec_long_(currPwmBitIdx), ", byt[", udec_long_(nPwmRGB12ByteIdx), "], rc=", udec_long_(nTargLineIdx), udec_long_(nColumnCtr))
-noPwmFDbg
-                    '   DEBUG DEBUG DEBUG
-                    ' ----------------------------
-'}
-
                     ' build top RGB1 or bottom RGB2 bits to be stored in pwm byte
                     ' if not bIsBottomHalf
                     or      bIsBottomHalf, bIsBottomHalf     wz     ' T/F where: T=nz, F=z
     if_nz           jmp     #bottom8SHalf
 top8SHalf
-{
-                    ' ----------------------------
-                    '   DEBUG DEBUG DEBUG
-
-                    cmp     currPwmBitIdx, #2   wc
-    if_nc           jmp     #noTopHDbg
-                    cmp     nColumnCtr, #2   wc
-    if_c            jmp     #noTopHDbg
-                    cmp     nColumnCtr, #4   wc
-    if_nc           jmp     #noTopHDbg
-                    cmp     nTargLineIdx, #15   wc
-    if_c            jmp     #noTopHDbg
-                    cmp     nTargLineIdx, #17   wc
-    if_nc           jmp     #noTopHDbg
-                    debug("-th phyR ", udec_long_(nPhysLineIdx), ", trgR ", udec_long_(nTargLineIdx), ", isBot ", sdec_long_(bIsBottomHalf), ", col ", udec_long_(nColumnCtr), ", pwm ", udec_long_(currPwmBitIdx))
-
-
-                    cmp     nColumnCtr, #1   wz
-    if_nz           jmp     #noTopHDbg
-                    cmp     currPwmBitIdx, #14   wc
-    if_c           jmp     #noTopHDbg
-                    debug("- TOP phyR ", udec_long_(nPhysLineIdx), ", trgR ", udec_long_(nTargLineIdx), ", col ", udec_long_(nColumnCtr), ", pwm ", udec_long_(currPwmBitIdx))
-noTopHDbg
-                    '   DEBUG DEBUG DEBUG
-                    ' ----------------------------
-'}
                     ' bitsBGR := 0
                     xor     bitsBGR, bitsBGR            ' clear all bits
                     mov     testBGR, bitsBGR
@@ -319,30 +246,6 @@ noTopHDbg
     if_c            or      bitsBGR, blueBitRGB1Value
                     jmp     #write8SPwmByte
 bottom8SHalf
-{
-                    ' ----------------------------
-                    '   DEBUG DEBUG DEBUG
-'                    cmp     currPwmBitIdx, #2   wc
-'    if_nc           jmp     #noBotHDbg
-                    cmp     nColumnCtr, #2   wc
-    if_c            jmp     #noBotHDbg
-                    cmp     nColumnCtr, #4   wc
-    if_nc           jmp     #noBotHDbg
-                    cmp     nTargLineIdx, #18   wc
-    if_nc           jmp     #noBotHDbg
-'                    cmp     nTargLineIdx, #19
-'    if_nc           jmp     #noBotHDbg
-                    debug("-bh phyR ", udec_long_(nPhysLineIdx), ", trgR ", udec_long_(nTargLineIdx), ", isBot ", sdec_long_(bIsBottomHalf), ", col ", udec_long_(nColumnCtr), ", pwm ", udec_long_(currPwmBitIdx))
-
-                    cmp     nColumnCtr, #1   wz
-    if_nz           jmp     #noBotHDbg
-                    cmp     currPwmBitIdx, #14   wc
-    if_c           jmp     #noBotHDbg
-                    debug("- BOTTOM phyR ", udec_long_(nPhysLineIdx), ", trgR ", udec_long_(nTargLineIdx), ", col ", udec_long_(nColumnCtr), ", pwm ", udec_long_(currPwmBitIdx))
-noBotHDbg
-                    '   DEBUG DEBUG DEBUG
-                    ' ----------------------------
-'}
                 '    bitsBGR := byte[pPwmFrame][nPwmRGB12ByteIdx]
                     rdbyte  bitsBGR, pPwmFrameByte       ' load current value
                     mov     testBGR, bitsBGR
@@ -358,59 +261,11 @@ noBotHDbg
     if_c            or      bitsBGR, greenBitRGB2Value
                     testb   bluePwmBits, currPwmBitIdx    wc
     if_c            or      bitsBGR, blueBitRGB2Value
-{
-                    ' ----------------------------
-                    '   DEBUG DEBUG DEBUG
-'                    cmp     currPwmBitIdx, #2   wc
-'    if_nc           jmp     #noBotHDbg
-                    or     bitsBGR, bitsBGR   wz
-    if_z            jmp     #noBotDifDbg
-                    cmp     bitsBGR, testBGR   wz
-    if_nz           jmp     #noBotDifDbg
-                    debug("- N/C byt ", ubin_byte_(bitsBGR), ", phLn ", udec_long_(nPhysLineIdx), ", trgR ", udec_long_(nTargLineIdx), ", isBot ", sdec_long_(bIsBottomHalf), ", col ", udec_long_(nColumnCtr), ", pwm ", udec_long_(currPwmBitIdx))
-noBotDifDbg
-                    '   DEBUG DEBUG DEBUG
-                    ' ----------------------------
-'}
 write8SPwmByte
                 ' write RGB1, RGB2 value to byte
                 'byte[pPwmFrame][nPwmRGB12ByteIdx] := bitsBGR
                     'or      bitsBGR, #$3F
                     wrbyte  bitsBGR, pPwmFrameByte       ' load current value
-'{
-                    ' ----------------------------
-                    '   DEBUG DEBUG DEBUG
-                    or      bitsBGR, bitsBGR    wz  ' skip writes of ZEROs
-    if_z            jmp     #noWrtDbg
-                    cmp     bitsBGR, testBGR    wz  ' skip EXPECTED upper half writes
-    if_nz            jmp     #noWrtDbg
-'                    cmp     bitsBGR, testBGR    wz
-'    if_nz           jmp     #noWrtDbg
-                    debug("- WR byt ", ubin_byte_(testBGR), " -> ", ubin_byte_(bitsBGR), ", BIT", udec_long_(currPwmBitIdx), ", RGB (", ubin_word_(redPwmBits),  ubin_word_(greenPwmBits),  ubin_word_(bluePwmBits), "), phLn ", udec_long_(nPhysLineIdx), ", trgR ", udec_long_(nTargLineIdx), ", isBot ", sdec_long_(bIsBottomHalf), ", col ", udec_long_(nColumnCtr), ", pwm ", udec_long_(currPwmBitIdx))
-noWrtDbg
-                    '   DEBUG DEBUG DEBUG
-                    ' ----------------------------
-'}
-{
-                    ' ----------------------------
-                    '   DEBUG DEBUG DEBUG
-                    or      bitsBGR, bitsBGR     wz
-    if_z            jmp     #noBytDbg
-'                    mov     testBGR, redPwmBits
-'                    or      testBGR, greenPwmBits
-'                    or      testBGR, bluePwmBits   wz
-'    if_z            jmp     #noBytDbg
-                    cmp     bitsBGR, testBGR    wz
-    if_nz           jmp     #noBytDbg
-'                    cmp     bitsBGR, #$07       wz
-'    if_z            jmp     #noBytDbg
-'                    cmp     bitsBGR, #$3F       wz
-'    if_z            jmp     #noBytDbg
-                    debug("- WR byt ", ubin_byte_(bitsBGR), ", BIT", udec_long_(currPwmBitIdx), ", RGB (", ubin_word_(redPwmBits),  ubin_word_(greenPwmBits),  ubin_word_(bluePwmBits), "), phLn ", udec_long_(nPhysLineIdx), ", trgR ", udec_long_(nTargLineIdx), ", isBot ", sdec_long_(bIsBottomHalf), ", col ", udec_long_(nColumnCtr), ", pwm ", udec_long_(currPwmBitIdx))
-noBytDbg
-                    '   DEBUG DEBUG DEBUG
-                    ' ----------------------------
-'}
                     ' this one done, if not all 8 bits done, go do next
                     add     currPwmBitIdx, #1
                     djnz    pwmBitCtr, #next8SPwmFrame
@@ -472,13 +327,6 @@ maskModHalfScreen   long    ((screen.MAX_PHYSICAL_ROWS * screen.MAX_PHYSICAL_COL
 
     markEnd(string("pasm 8S"))
     matrix.writePwmBuffer(pPwmFrameSet)
-'}
-    'waitSec(2)  ' trying to find cause of missing RGB2 for single frame!
-{
-    if nDumpPassNbr == 7 + 128
-        dumpFrameSet(pPwmFrameSet)
-    nDumpPassNbr++
-'}
 
 ' -----------------------------------------------------------------------------
 

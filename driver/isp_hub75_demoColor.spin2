@@ -41,6 +41,7 @@ CON { DEMO info }
 ' 11 enables .bmp file display
 DEMO_COUNT = 10
 
+
 PUB main() : ok | demoIndex
     '' start underlying drivers and run demo
 
@@ -69,6 +70,11 @@ PUB main() : ok | demoIndex
     repeat
 '}
 {
+    'repeat
+
+    display.clearScreen()
+    'display.drawBoxOfColor(0, 0, 64, 16, TRUE, color.cFullBlue)
+    'display.drawBoxOfColor(16, 0, 64, 16, TRUE, color.cFullRed)
     display.fillScreen(color.cWhite)    ' full single color panel w/PWM
     display.commitScreenToPanel()
     repeat
