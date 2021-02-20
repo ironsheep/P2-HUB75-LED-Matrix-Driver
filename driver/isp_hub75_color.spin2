@@ -33,6 +33,10 @@ CON { test colorset }
     cOrange = $FFA500
     cBlueViolet = $8A2BE2
 
+    cFullRed = $FF0000
+    cFullGreen = $00FF00
+    cFullBlue = $0000FF
+
     ' SPECIAL non-colors - invoke alforithm to gerate actual color used'
     cRedWhtBlu = $deadf0
     cRainbow = $deadf1

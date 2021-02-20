@@ -235,7 +235,7 @@ CON { Hardware Description }
 '    max clock rate of 20MHz - [25ns hi/25ns lo]
 ' ----------------------------------------------------------
 {
-    ADAPTER_BASE_PIN = PINS_P16_P31
+    ADAPTER_BASE_PIN = PINS_P32_P47
    ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = CHIP_ICN2037
 
@@ -246,7 +246,7 @@ CON { Hardware Description }
 
     ' (3) describe the organization of panel(s)
     ' panels organization: visual layout
-    '   [1]     ' one panel
+    '   [1][2]      1 row of 2 panels
     '
     ' (4) describe the organization in numbers of panels
     MAX_PANELS = 2
@@ -315,12 +315,12 @@ CON { Hardware Description }
 
     ' (3) describe the organization of panel(s)
     ' panels organization: visual layout
-    '   [1]     ' one panel
+    '   [1][2]      1 row of 2 panels
     '
     ' (4) describe the organization in numbers of panels
     MAX_PANELS = 2
-    MAX_PANELS_PER_ROW = 1
-    MAX_PANELS_PER_COLUMN = 2
+    MAX_PANELS_PER_ROW = 2
+    MAX_PANELS_PER_COLUMN = 1
 '}
 
 '              (remember to enable (uncomment) only one configuration above here)
