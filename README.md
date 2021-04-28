@@ -8,7 +8,7 @@
 
 **<= This is a work in progress =>**
 
-**This P2 HUB75 driver is built to work with the P2 Eval HUB75 Adapter which will soon be available from [Parallax.com Store](https://www.parallax.com/product-category/propeller-2/)**
+**This P2 HUB75 driver is built to work with the P2 Eval HUB75 Adapter which is available from [Parallax.com Store](https://www.parallax.com/product-category/propeller-2/)**
 
 The P2 HUB75 Driver is available from a couple of sources:
 

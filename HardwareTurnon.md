@@ -78,11 +78,30 @@ It turned on completely. It also scared me at first (*you'll notice that it's on
 
 But, I can't complain. After the driver issues were "sorted" this 1st run of boards turned out to be 100% functional. It's a good feeling!
 
+## P2 Cube Driver Checkout
+
+One of the projects the P2 community is working on is a 6-sided cube of 64x64 panels.  I'm certifying the driver for use on this P2 Cube project. 
+
+The P2 Forum Thread is found here: [P2 P2 Cube](https://forums.parallax.com/discussion/172696/p2-p2-cube/p1) 
+
+And the repository for design and physical objects is found here [Repository: P2 P2 Cube](https://github.com/jshook/p2_p2_cube)
+
+This is the back of my 6 x 64x64 panel driven with a 5V 60A power supply so we can test full display Brightness. 
+
+![Cube Flattened - Back](images/flatCubeBackTestJig.jpg)
+
+This is a snapshot of the 6 x 64x64 panel showing the driver configured for a single panel display - the pic is a shot of an animation taking place. The 1/6th panel to the right contains the correct display the remaing 5 panels to the left are receiving the same data... just one for offset for each further panel to the left.
+
+![Cube Flattened - Front](images/flatCubeFrontTestJig.jpg)
+
 ## Up Next, Cascaded Panels
 
 The next panel configuration i'm planning on playting with is daisy-chaining 4 of these panels so I can play with larger images. Here you see three more panels waiting for the fourth to be moved from the bench to join them.
 
 ![2x2 Panels Daisy-Chained](https://user-images.githubusercontent.com/540005/96038541-818c5000-0e24-11eb-8789-b1d77364fd7d.jpg)
+
+
+
 
 ## Credits
 
