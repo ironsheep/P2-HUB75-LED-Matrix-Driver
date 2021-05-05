@@ -64,7 +64,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
 
 
     display.setColoredTextAtLnCol(0,0, string("iron sheep"), color.cMaroon)
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
 
     ' High Speed CLOCK demo
     hours := minutes := 0
@@ -81,7 +81,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
         digit[6].placeDigit(8, 35+64, 0, color.cOrange)
         digit[7].placeDigit(8, 50+64, 0, color.cOrange)
 
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
     wait100thSecs(segmentPeriod)
 
     loopUntilSegmentsFinish()
@@ -107,7 +107,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
                 digit[6].setValue(minutes / 10)
                 digit[7].setValue(minutes // 10)
 
-            display.commitScreenToPanel()
+            display.commitScreenToPanelSet()
             wait100thSecs(segmentPeriod)
 
             showSecondsDots( minutes // 2 )
@@ -124,7 +124,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     digit[2].placeDigit(8, 34, 1, color.cOrange)
     digit[3].placeDigit(8, 50, 4, color.cOrange)
 
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
     wait100thSecs(segmentPeriod)
 
     loopUntilSegmentsFinish()
@@ -137,7 +137,7 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     repeat digitVal from 1 to 9
         repeat digitIndex from 0 to 3
             digit[digitIndex].incrementValue(digit.WITH_WRAP)
-        display.commitScreenToPanel()
+        display.commitScreenToPanelSet()
         wait100thSecs(segmentPeriod)
 
         loopUntilSegmentsFinish()
@@ -184,7 +184,7 @@ PRI loopUntilSegmentsFinish() | didAnimate
                     didAnimate := TRUE
                     digit[digitIndex].animateStep()
             if didAnimate
-                display.commitScreenToPanel()
+                display.commitScreenToPanelSet()
                 wait100thSecs(segmentPeriod)
 
         if allDigitAnimationsComplete()

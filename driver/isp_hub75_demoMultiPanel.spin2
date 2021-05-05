@@ -1,0 +1,123 @@
+'' =================================================================================================
+''
+''   File....... isp_hub75_demoMultiPanel.spin2
+''   Purpose.... Top-level Demonstration - showing off our HUB75 matrix access to individual panels
+''   Authors.... Stephen M Moraco
+''               -- Copyright (c) 2021 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... Apr 2021
+''   Updated.... 27 Apr 2021
+''
+'' =================================================================================================
+
+
+CON { timing }
+
+  CLK_FREQ = 335_000_000                                        ' system freq as a constant 2.985 nSec
+  _clkfreq = CLK_FREQ                                           ' set system clock
+
+CON { DEBUG PINs }
+
+'DEBUG_PIN = 0
+DEBUG_COGS = %11111111
+DEBUG_BAUD = 2_000_000
+
+VAR
+
+    long    cog
+    long    demoPausePeriod
+    long    scrollPeriod
+    long    textSize
+
+OBJ
+
+    color       : "isp_hub75_color"
+    pixels      : "isp_hub75_screenUtils"
+    screen      : "isp_hub75_screenAccess"
+    display     : "isp_hub75_display"
+
+CON { DEMO info }
+
+' 11 enables .bmp file display
+DEMO_COUNT = 10
+
+DAT
+
+panelIdMessage  byte    "Pn",0
+
+PUB main() : ok | panelIndex, panelHueWidth, panelColor, boxColor, boxIndex
+    '' start underlying drivers and run demo
+
+    'repeat
+
+    'debug("`term temp size 82 50 textsize 10")
+
+    ok := cog := display.start()   ' send buffer to driver
+    if ok == -1
+        debug("- DEMO: underlying drivers failed!")
+        abort
+
+    demoPausePeriod := 1 '3   ' seconds
+
+    panelHueWidth := 256 / screen.MAX_PANELS
+
+    ' set up text subsystem
+    'textSize := display.TEXT_FONT_5x7
+    textSize := display.TEXT_FONT_8x8A
+    'textSize := display.TEXT_FONT_8x8B
+
+    display.clearScreen()
+    display.setTextFont(textSize)    ' font size
+    display.setTextColor(color.cRed)
+    display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
+
+    panelIndex := 0
+
+    repeat panelIndex from 0 to screen.MAX_PANELS - 1
+        ' color the panel
+        panelColor := color.rgbColorFromDegrees(panelHueWidth * (panelIndex + 1))
+        display.fillPanel(panelIndex, panelColor)
+        ' number the panel
+        display.setCursorOnPanel(1,1, panelIndex)
+        byte [@panelIdMessage][1] := panelIndex + $30
+        display.setTextAtCursor(@panelIdMessage)
+        ' draw a colored box in panel
+        boxIndex := panelIndex + 2
+        if boxIndex > screen.MAX_PANELS - 1
+            boxIndex -= screen.MAX_PANELS
+        boxColor := color.rgbColorFromDegrees(panelHueWidth * (boxIndex + 1))
+        display.drawPanelBoxOfColor(panelIndex, 17, 10, 40, 34, TRUE, boxColor)
+    display.commitScreenToPanelSet()
+
+    repeat  ' just hold here forever...
+
+CON { license }
+
+{{
+
+
+ -------------------------------------------------------------------------------------------------
+  MIT License
+
+  Copyright (c) 2021 Iron Sheep Productions, LLC
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+ =================================================================================================
+}}

@@ -66,7 +66,7 @@ PUB main() : ok | demoIndex
     repeat
 '}
 {
-    display.fillPanel(color.BASE_WHITE)    ' full white panel NO PWM
+    display.fillScreenNoPWM(color.BASE_WHITE)    ' full white panel NO PWM
     repeat
 '}
 {
@@ -76,18 +76,18 @@ PUB main() : ok | demoIndex
     'display.drawBoxOfColor(0, 0, 64, 16, TRUE, color.cFullBlue)
     'display.drawBoxOfColor(16, 0, 64, 16, TRUE, color.cFullRed)
     display.fillScreen(color.cWhite)    ' full single color panel w/PWM
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
     repeat
 '}
 {
     repeat
-        display.fillPanel(color.BASE_RED)    ' full single color panel NO pwm
+        display.fillScreenNoPWM(color.BASE_RED)    ' full single color panel NO pwm
         waitSec(2)
-        display.fillPanel(color.BASE_GREEN)    ' full single color panel NO pwm
+        display.fillScreenNoPWM(color.BASE_GREEN)    ' full single color panel NO pwm
         waitSec(2)
-        display.fillPanel(color.BASE_BLUE)    ' full single color panel NO pwm
+        display.fillScreenNoPWM(color.BASE_BLUE)    ' full single color panel NO pwm
         waitSec(2)
-        display.fillPanel(color.BASE_WHITE)    ' full single color panel NO pwm
+        display.fillScreenNoPWM(color.BASE_WHITE)    ' full single color panel NO pwm
         waitSec(4)
 
     repeat
@@ -118,7 +118,7 @@ PUB main() : ok | demoIndex
     display.drawBoxOfColor(3, 3, 58, 58, true, color.cMaroon)
     display.drawLineOfColor(32, 0, 0, 63, color.cOrange)
     display.drawLineOfColor(31, 0, 63, 63, color.cLime)
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
     repeat
 '}
 
@@ -174,7 +174,7 @@ PRI demoParallax() | rtCol, ltCol, topRow, botRow
     display.drawLineOfColor(botRow, ltCol, botRow, rtCol, color.cGreen)     ' bottom Line
     display.setColoredTextAtLnCol(1, 0, string(" Parallax"), color.cBlue)
     display.setColoredTextAtLnCol(2, 0, string("Propeller2"), color.cBlue)
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
 
 PRI demoAlignmentText()
     display.setTextFont(display.TEXT_FONT_5x7)    ' font size
@@ -183,7 +183,7 @@ PRI demoAlignmentText()
     display.setColoredTextAtLnCol(1, 0, string("Propeller"), color.cBlue)
     display.setColoredTextAtLnCol(2, 0, string("Propeller2"), color.cBlue)
     display.setColoredTextAtLnCol(3, 0, string("Line 4"), color.cBlue)
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
 
 PRI demoText()
     ' draw some text!
@@ -207,7 +207,7 @@ PRI demoText()
     elseif screen.MAX_PWM_FRAMES == 32
         display.setColoredTextAtLnCol(2,0, string("32frm pwm!"), color.cRainbow)
     display.setColoredTextAtLnCol(3,0, string("led matrix"), color.cWhite)
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
 
 PRI show18scanColorCheck()
     ' test pattern used while debugging 1/8 scan capability
@@ -223,7 +223,7 @@ PRI show18scanColorCheck()
     display.drawLineOfColor(0, 0, 31, 0, color.cBlueViolet)
     display.drawLineOfColor(0, 32, 31, 32, color.cWhite)
     display.drawLineOfColor(0, 31, 31, 31, color.cYellow)
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
 
 PRI show18scanColorCheck2()
     ' test pattern used while debugging 1/8 scan capability
@@ -264,11 +264,11 @@ PRI show18scanColorCheck2()
 
     display.drawLineOfColor(0, 63, 31, 63, color.cRainbow)
     display.drawLineOfColor(0, 0, 31, 0, color.cBlueViolet)
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
 
 PRI show18scanColorCheck3()
     display.drawBoxOfColor(0, 0, 64, 32, TRUE, color.cRainbow)
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
 
 PRI show18scanColorCheck4()
     display.drawBoxOfColor(0, 0, 32, 16, TRUE, color.cRed)
@@ -278,7 +278,7 @@ PRI show18scanColorCheck4()
 
     display.drawLineOfColor(0, 63, 31, 63, color.cLime)
     display.drawLineOfColor(0, 0, 31, 0, color.cYellow)
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
 
 PRI show18scanColorCheck5()
     display.drawBoxOfColor(0, 1, 62, 3, TRUE, color.cRed)
@@ -298,7 +298,7 @@ PRI show18scanColorCheck5()
 
     numberTheRows()
 
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
 
 PRI numberTheRows() | rowId, idCol, idOnes, idTens, tensColor, onesColor
     tensColor := color.cCyan
@@ -342,7 +342,7 @@ PRI demoTestGammaTuneBrightness() | red, green, blue, row, col, rowOffset, color
             drawGammaTuneSwatch(7, row + rowOffset, col, red, green, blue)
             rowOffset++
 
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
 
 PRI drawGammaTuneSwatch(width, row, col, red, green, blue) | ltCol, midCol, rtCol, colOffset, ltClr, midClr, rtClr
     ltCol := col
@@ -485,7 +485,7 @@ PRI demoTest12x9ColorBrightness() | red, green, blue, row, col, rowCtr, colCtr, 
                 row++
             col := colCtr * 5
             drawSwatch(4, 3, row, col, color.cValueForRGB(red, green, blue))
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
 
 PRI drawSwatch(width, height, row, col, rgbColor) | rowOffset, colOffset
     repeat rowOffset from 0 to height - 1
@@ -503,7 +503,7 @@ PRI demoTest360ColorBrightness() | red, green, blue, row, col, rowCtr, degrees, 
             if col > 63
                 col := 0
                 row++
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
 
 
 PRI demoTest16ColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex, useRed, useBlue, useGreen, colorValue, colorHue
@@ -515,7 +515,7 @@ PRI demoTest16ColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex
             repeat col from 0 to 63
                 pixels.drawPixelAtRC(row, col, colorValue)
             row++
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
 
 
 PRI demoTest32ColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex, useRed, useBlue, useGreen, colorValue
@@ -556,7 +556,7 @@ PRI demoTest32ColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex
                     colorValue++
             row++
 
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
 
 PRI demoTest256ColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex, useRed, useBlue, useGreen, colorValue
 
@@ -595,7 +595,7 @@ PRI demoTest256ColorBrightness() | red, green, blue, row, col, rowCtr, colorInde
                 colorValue++
             row++
 
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
 
     'repeat  ' hold here!
 PRI demoColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex, useRed, useBlue, useGreen
@@ -632,7 +632,7 @@ PRI demoColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex, useR
                 pixels.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
             row++
 
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
 
     'repeat  ' hold here!
 
@@ -646,7 +646,7 @@ PRI demoHueLines() | row, col, colorOffset
             col++
             if col > 62         ' 62 is fun!  60 is desired
                 col := 2
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
 
 PRI demoHueLinesToo() | row, col, colorOffset
     ' COLOR PANEL using hue  - all in one line
@@ -657,7 +657,7 @@ PRI demoHueLinesToo() | row, col, colorOffset
             col++
             if col > 63         ' 62 is fun!  60 is desired
                 col := 0
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
 
 
 PRI demoHueGroups() | row, col, green, panelNumber, colorOffset
@@ -669,7 +669,7 @@ PRI demoHueGroups() | row, col, green, panelNumber, colorOffset
                     green := panelNumber + col
                     pixels.drawPixelAtRC(row, col, color.rgbColorFromDegrees(green))
             row++
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
 
 PRI demoColorPalette12Panels() | red, panelNumber
     ' 10x10x10 COLOR PANELs + BW panel
@@ -678,7 +678,7 @@ PRI demoColorPalette12Panels() | red, panelNumber
         generateGreenBluePanelAgainst(panelNumber, red)
         panelNumber++
     generateBWPanel(11)
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
 
 CON { tiny panel constants }
 
@@ -776,13 +776,13 @@ PRI showFullColorSweep() | row, col, red, green, blue
             row++
             col := 0
     red := green := blue := 0
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
 
 
 PRI demoScreenBlast() | color3bit
     repeat 5
         repeat color3bit from 0 to 7
-            display.fillPanel(color3bit)
+            display.fillScreenNoPWM(color3bit)
             waitms(150)
 
 
@@ -800,21 +800,21 @@ PRI colorBlast() | row, col, red, green, blue, blockX, blockY, subrow, subcol
                     blue := ((blockY * 4) + blockX) * (255 / 8)
                     pixels.drawPixelAtRCwithRGB(row, col, red, green, blue)
 
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
 
 
 PRI demoScreenBlastRed() | color3bit
     color3bit := 1
-    display.fillPanel(color3bit)
+    display.fillScreenNoPWM(color3bit)
 
 PRI demoScreenBlastWhite() | color3bit
     color3bit := 7
-    display.fillPanel(color3bit)
+    display.fillScreenNoPWM(color3bit)
 
 PRI demoBmpFileLoad()
 
     bmpHandler.fillScreenFromBMP(@bmpFile1)
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
 
 DAT
 

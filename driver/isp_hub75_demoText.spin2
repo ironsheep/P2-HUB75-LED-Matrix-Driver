@@ -90,7 +90,7 @@ PRI demoScrollingText() | scrollerID, textSize
     display.scrollText(scrollerID, display.SCROLL_FOREVER)
 
     ' update our screen
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
 
     'repeat
 
@@ -105,7 +105,7 @@ PRI demoScrollingText() | scrollerID, textSize
         'showDuration(startTime, string("top:ANI"))
         ' commit to screen
         'startTime := getct()
-        display.commitScreenToPanel()
+        display.commitScreenToPanelSet()
         'showDuration(startTime, string("top:ANI-wr"))
 
         ' delay while we stare wide-eyed at the new...
@@ -141,7 +141,7 @@ PRI demoText()
     elseif screen.MAX_PWM_FRAMES == 32
         display.setColoredTextAtLnCol(2,0, string("32frm pwm!"), color.cRainbow)
     display.setColoredTextAtLnCol(3,0, string("led matrix"), color.cWhite)
-    display.commitScreenToPanel()
+    display.commitScreenToPanelSet()
 
 PRI waitSec(countSeconds)
     repeat countSeconds
