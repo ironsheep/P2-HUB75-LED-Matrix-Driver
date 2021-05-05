@@ -60,8 +60,8 @@ PUB placeSegment(row, column, orientation, initialState, rgbColor)
     '' Locate a desired segment on our screen. Draw initial segement if state is NOT off
     ' record settings choices we are given extrapolating some
     desiredEndState := currentState := nextState := STATE_OFF
-    segStartX :=  0 #> column <# screen.MAX_PHYSICAL_COLUMNS - 1
-    segStartY :=  0 #> row <# screen.MAX_PHYSICAL_ROWS - 1
+    segStartX :=  0 #> column <# screen.MAX_DISPLAY_COLUMNS - 1
+    segStartY :=  0 #> row <# screen.MAX_DISPLAY_ROWS - 1
     segOrientation := orientation
     segRgbColor := rgbColor
     case orientation
@@ -304,10 +304,10 @@ PRI updateMiddleSegment(newState) | pixInset, rowIndex
 
 PRI drawLine(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column
     'debug("seg:drwLn fmRC=(", udec_(fmRow), ",", udec_(fmColumn), "), toRC=(", udec_(toRow), ",", udec_(toColumn), "), RGB=(", uhex_long(rgbColor), ")")
-    fmRow :=  0 #> fmRow <# screen.MAX_PHYSICAL_ROWS - 1
-    fmColumn :=  0 #> fmColumn <# screen.MAX_PHYSICAL_COLUMNS - 1
-    toRow :=  0 #> toRow <# screen.MAX_PHYSICAL_ROWS - 1
-    toColumn :=  0 #> toColumn <# screen.MAX_PHYSICAL_COLUMNS - 1
+    fmRow :=  0 #> fmRow <# screen.MAX_DISPLAY_ROWS - 1
+    fmColumn :=  0 #> fmColumn <# screen.MAX_DISPLAY_COLUMNS - 1
+    toRow :=  0 #> toRow <# screen.MAX_DISPLAY_ROWS - 1
+    toColumn :=  0 #> toColumn <# screen.MAX_DISPLAY_COLUMNS - 1
     if fmRow == toRow
         ' draw Horizontal Line
         repeat column from fmColumn to toColumn

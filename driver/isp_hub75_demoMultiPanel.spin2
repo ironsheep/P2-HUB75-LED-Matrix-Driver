@@ -15,6 +15,7 @@
 CON { timing }
 
   CLK_FREQ = 335_000_000                                        ' system freq as a constant 2.985 nSec
+  'CLK_FREQ = 250_000_000                                        ' system freq as a constant 2.985 nSec
   _clkfreq = CLK_FREQ                                           ' set system clock
 
 CON { DEBUG PINs }
@@ -46,7 +47,7 @@ DAT
 
 panelIdMessage  byte    "Pn",0
 
-PUB main() : ok | panelIndex, panelHueWidth, panelColor, boxColor, boxIndex
+PUB main() : ok | panelIndex, panelHueWidth, panelColor, boxColor, hueIndex
     '' start underlying drivers and run demo
 
     'repeat
@@ -69,24 +70,27 @@ PUB main() : ok | panelIndex, panelHueWidth, panelColor, boxColor, boxIndex
 
     display.clearScreen()
     display.setTextFont(textSize)    ' font size
-    display.setTextColor(color.cRed)
+    display.setTextColor(color.cBlueViolet)
     display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
 
     panelIndex := 0
 
     repeat panelIndex from 0 to screen.MAX_PANELS - 1
         ' color the panel
-        panelColor := color.rgbColorFromDegrees(panelHueWidth * (panelIndex + 1))
+        hueIndex := panelIndex + 1
+        if hueIndex > screen.MAX_PANELS - 1
+            hueIndex -= screen.MAX_PANELS
+        panelColor := color.rgbColorFromDegrees(panelHueWidth * hueIndex)
         display.fillPanel(panelIndex, panelColor)
         ' number the panel
         display.setCursorOnPanel(1,1, panelIndex)
         byte [@panelIdMessage][1] := panelIndex + $30
         display.setTextAtCursor(@panelIdMessage)
-        ' draw a colored box in panel
-        boxIndex := panelIndex + 2
-        if boxIndex > screen.MAX_PANELS - 1
-            boxIndex -= screen.MAX_PANELS
-        boxColor := color.rgbColorFromDegrees(panelHueWidth * (boxIndex + 1))
+        ' draw a colored box in panel (don't use panel color)
+        hueIndex := panelIndex + 2
+        if hueIndex > screen.MAX_PANELS - 1
+            hueIndex -= screen.MAX_PANELS
+        boxColor := color.rgbColorFromDegrees(panelHueWidth * hueIndex)
         display.drawPanelBoxOfColor(panelIndex, 17, 10, 40, 34, TRUE, boxColor)
     display.commitScreenToPanelSet()
 

@@ -122,8 +122,8 @@ PUB clearScreen()
 
 PUB fillScreen(rgbColor) | row, column
     '' Fill the display with 24-bit color value
-    repeat row from 0 to screen.MAX_PHYSICAL_ROWS - 1
-        repeat column from 0 to screen.MAX_PHYSICAL_COLUMNS - 1
+    repeat row from 0 to screen.MAX_DISPLAY_ROWS - 1
+        repeat column from 0 to screen.MAX_DISPLAY_COLUMNS - 1
             pixels.drawPixelAtRC(row, column, rgbColor)
 
 DAT
@@ -132,7 +132,7 @@ bDidShowOnce long   FALSE
 PUB fillPanel(panelIndex, rgbColor) | row, column, columnOffsetToPanel
     '' Fill the specified panel (of panelSet) with 24-bit color value
     columnOffsetToPanel := panelIndex * screen.MAX_PANEL_COLUMNS
-    repeat row from 0 to screen.MAX_PHYSICAL_ROWS - 1
+    repeat row from 0 to screen.MAX_PANEL_ROWS - 1
         repeat column from 0 to screen.MAX_PANEL_COLUMNS - 1
             if row == 0 and (column < 4 or column > screen.MAX_PANEL_COLUMNS - 4)
                 if not bDidShowOnce
@@ -172,11 +172,11 @@ PUB setCursorOnPanel(line, column, panelIndex) | boundedPanelIndex, panelOffsetI
     ' FIXME: bug in calc of panelFixupOffetInPix for 8x8(ab) fonts!?
     boundedPanelIndex := 0 #> panelIndex <# screen.MAX_PANELS - 1
     boundedColumn := 0 #> column <# maxPanelTextColumns - 1
-    cursorLine := 0 #> line <# maxTextLines - 1
+    cursorLine := 0 #> line <# maxPanelTextLines - 1
     panelOffsetInChars := (boundedPanelIndex * maxPanelTextColumns) + boundedColumn
     cursorColumn := panelOffsetInChars
-    tmpCharOffsetInPix := leftOffsetInPix + (cursorColumn * (charWidthInPix + 1))
-    desiredCharOffsetInPix := leftOffsetInPix + (screen.MAX_PANEL_COLUMNS * boundedPanelIndex) + (boundedColumn * (charWidthInPix + 1))
+    tmpCharOffsetInPix := leftOffsetInPix + (cursorColumn * (charWidthInPix + horizontalGapInPix))
+    desiredCharOffsetInPix := leftOffsetInPix + (screen.MAX_PANEL_COLUMNS * boundedPanelIndex) + (boundedColumn * (charWidthInPix + horizontalGapInPix))
     panelFixupOffetInPix := (tmpCharOffsetInPix < desiredCharOffsetInPix) ? desiredCharOffsetInPix - tmpCharOffsetInPix: 0
 
 PUB homeCursorOnPanel(panelIndex)
@@ -192,54 +192,40 @@ PUB setTextFont(newFont) | scrollerIndex, hUnusedPix, vUnusedPix
             charHeightInPix := 7
             charWidthInPix := 5
             hBitmapOffsetInPix := 0
-            maxPanelTextLines := (screen.MAX_PANEL_ROWS / (charHeightInPix + 1))
-            maxPanelTextColumns := (screen.MAX_PANEL_COLUMNS / (charWidthInPix + 1))
-            maxTextLines := (screen.MAX_PHYSICAL_ROWS / (charHeightInPix + 1))
-            maxTextColumns := (screen.MAX_PHYSICAL_COLUMNS / (charWidthInPix + 1))
-            vUnusedPix := screen.MAX_PHYSICAL_ROWS - (maxTextLines * charHeightInPix)
-            hUnusedPix := screen.MAX_PHYSICAL_COLUMNS - (maxTextColumns * charWidthInPix)
-            verticalGapInPix := vUnusedPix / maxTextLines
-            horizontalGapInPix := hUnusedPix / maxTextColumns
-            vUnusedPix := screen.MAX_PHYSICAL_ROWS - (maxTextLines * (charHeightInPix + verticalGapInPix))
-            hUnusedPix := screen.MAX_PHYSICAL_COLUMNS - (maxTextColumns * (charWidthInPix + horizontalGapInPix))
-            topOffsetInPix := (vUnusedPix + 1) >> 1
-            leftOffsetInPix := (hUnusedPix + 1) >> 1
+            maxTextLines := (screen.MAX_DISPLAY_ROWS / (charHeightInPix + 1))
+            maxTextColumns := (screen.MAX_DISPLAY_COLUMNS / (charWidthInPix + 1))
 
         TEXT_FONT_8x8A:
             charHeightInPix := 7
             charWidthInPix := 7
             hBitmapOffsetInPix := 1
-            maxTextLines := (screen.MAX_PHYSICAL_ROWS / (charHeightInPix + 0))  ' 7x7 fonts in 8x8 tile have blank row below so don't add one
-            maxTextColumns :=  (screen.MAX_PHYSICAL_COLUMNS / (charWidthInPix + 0))  ' 7x7 fonts in 8x8 tile have blank col after so don't add one
-            vUnusedPix := screen.MAX_PHYSICAL_ROWS - (maxTextLines * charHeightInPix)
-            hUnusedPix := screen.MAX_PHYSICAL_COLUMNS - (maxTextColumns * charWidthInPix)
-            verticalGapInPix := vUnusedPix / maxTextLines
-            horizontalGapInPix := hUnusedPix / maxTextColumns
-            vUnusedPix := screen.MAX_PHYSICAL_ROWS - (maxTextLines * (charHeightInPix + verticalGapInPix))
-            hUnusedPix := screen.MAX_PHYSICAL_COLUMNS - (maxTextColumns * (charWidthInPix + horizontalGapInPix))
-            topOffsetInPix := (vUnusedPix + 1) >> 1
-            leftOffsetInPix := (hUnusedPix + 1) >> 1
+            maxTextLines := (screen.MAX_DISPLAY_ROWS / (charHeightInPix + 0))  ' 7x7 fonts in 8x8 tile have blank row below so don't add one
+            maxTextColumns :=  (screen.MAX_DISPLAY_COLUMNS / (charWidthInPix + 0))  ' 7x7 fonts in 8x8 tile have blank col after so don't add one
 
         TEXT_FONT_8x8B:
             charHeightInPix := 8
             charWidthInPix := 8
             hBitmapOffsetInPix := 0
-            maxTextLines := (screen.MAX_PHYSICAL_ROWS / (charHeightInPix + 0))  ' 7x7 fonts in 8x8 tile have blank row below so don't add one
-            maxTextColumns :=  (screen.MAX_PHYSICAL_COLUMNS / (charWidthInPix + 0))  ' 7x7 fonts in 8x8 tile have blank col after so don't add one
-            vUnusedPix := screen.MAX_PHYSICAL_ROWS - (maxTextLines * charHeightInPix)
-            hUnusedPix := screen.MAX_PHYSICAL_COLUMNS - (maxTextColumns * charWidthInPix)
-            verticalGapInPix := vUnusedPix / maxTextLines
-            horizontalGapInPix := hUnusedPix / maxTextColumns
-            vUnusedPix := screen.MAX_PHYSICAL_ROWS - (maxTextLines * (charHeightInPix + verticalGapInPix))
-            hUnusedPix := screen.MAX_PHYSICAL_COLUMNS - (maxTextColumns * (charWidthInPix + horizontalGapInPix))
-            topOffsetInPix := (vUnusedPix + 1) >> 1
-            leftOffsetInPix := (hUnusedPix + 1) >> 1
+            maxTextLines := (screen.MAX_DISPLAY_ROWS / (charHeightInPix + 0))  ' 7x7 fonts in 8x8 tile have blank row below so don't add one
+            maxTextColumns :=  (screen.MAX_DISPLAY_COLUMNS / (charWidthInPix + 0))  ' 7x7 fonts in 8x8 tile have blank col after so don't add one
 
         OTHER:
             debug("*ERROR* unknown text size*")
             abort
 
     selectedTextFont := newFont
+
+    vUnusedPix := screen.MAX_DISPLAY_ROWS - (maxTextLines * charHeightInPix)
+    hUnusedPix := screen.MAX_DISPLAY_COLUMNS - (maxTextColumns * charWidthInPix)
+    verticalGapInPix := vUnusedPix / maxTextLines
+    horizontalGapInPix := hUnusedPix / maxTextColumns
+    vUnusedPix := screen.MAX_DISPLAY_ROWS - (maxTextLines * (charHeightInPix + verticalGapInPix))
+    hUnusedPix := screen.MAX_DISPLAY_COLUMNS - (maxTextColumns * (charWidthInPix + horizontalGapInPix))
+    topOffsetInPix := (vUnusedPix + 1) >> 1
+    leftOffsetInPix := (hUnusedPix + 1) >> 1
+
+    maxPanelTextLines := ((screen.MAX_PANEL_ROWS - topOffsetInPix) / (charHeightInPix + verticalGapInPix))
+    maxPanelTextColumns := ((screen.MAX_PANEL_COLUMNS - leftOffsetInPix) / (charWidthInPix + horizontalGapInPix))
 
     debug("dsp:TEXT: ", udec(maxTextColumns), udec(maxTextLines))
 
@@ -432,10 +418,10 @@ PUB drawLine(fmRow, fmColumn, toRow, toColumn)
 
 PUB drawLineOfColor(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column, dx, dy, ctr, incr, intD
     '' Draw line fromRC -> toRC using rgbColor (currently limited to horzontal/vertical lines)
-    fmRow :=  0 #> fmRow <# screen.MAX_PHYSICAL_ROWS - 1
-    fmColumn :=  0 #> fmColumn <# screen.MAX_PHYSICAL_COLUMNS - 1
-    toRow :=  0 #> toRow <# screen.MAX_PHYSICAL_ROWS - 1
-    toColumn :=  0 #> toColumn <# screen.MAX_PHYSICAL_COLUMNS - 1
+    fmRow :=  0 #> fmRow <# screen.MAX_DISPLAY_ROWS - 1
+    fmColumn :=  0 #> fmColumn <# screen.MAX_DISPLAY_COLUMNS - 1
+    toRow :=  0 #> toRow <# screen.MAX_DISPLAY_ROWS - 1
+    toColumn :=  0 #> toColumn <# screen.MAX_DISPLAY_COLUMNS - 1
     'debug("seg:drwLn fmRC=(", udec_(fmRow), ",", udec_(fmColumn), "), toRC=(", udec_(toRow), ",", udec_(toColumn), "), RGB=(", uhex_long(rgbColor), ")")
     if fmRow == toRow
         ' draw Horizontal Line

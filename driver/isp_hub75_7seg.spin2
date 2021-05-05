@@ -58,8 +58,8 @@ PUB placeDigit(row, column, digit, rgbColor)
     'debug("7s:placeDigit rc=(", udec_(row), ",", udec_(column),"), dgt=(", udec_(digit), "), RGB=(", uhex_long_(rgbColor),")")
     isSetup := FALSE
     ' FIXME: UNDONE shouldn't this limit to whole digit width from right edge???
-    leftX :=  0 #> column <# screen.MAX_PHYSICAL_COLUMNS - 1
-    topY :=  0 #> row <# screen.MAX_PHYSICAL_ROWS - 1
+    leftX :=  0 #> column <# screen.MAX_DISPLAY_COLUMNS - 1
+    topY :=  0 #> row <# screen.MAX_DISPLAY_ROWS - 1
     currRgbColor := rgbColor
     currValue := DIGIT_NO_VALUE
     ensureIsSetup()

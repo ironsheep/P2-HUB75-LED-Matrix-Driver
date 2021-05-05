@@ -341,7 +341,7 @@ CON { Hardware Description }
 
     ' (3) describe the organization of panel(s)
     ' panels organization: visual layout
-    '   [1]     ' one panel
+    '   [6]     ' one row of 6 panels
     '
     ' (4) describe the organization in numbers of panels
     MAX_PANELS_PER_ROW = 4
