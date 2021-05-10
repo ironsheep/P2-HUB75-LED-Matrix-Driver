@@ -344,7 +344,7 @@ CON { Hardware Description }
     '   [6]     ' one row of 6 panels
     '
     ' (4) describe the organization in numbers of panels
-    MAX_PANELS_PER_ROW = 4
+    MAX_PANELS_PER_ROW = 6
     MAX_PANELS_PER_COLUMN = 1
 '}
 

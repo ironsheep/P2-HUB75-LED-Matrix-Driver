@@ -56,7 +56,7 @@ PUB main() : ok | panelIndex, panelHueWidth, panelColor, boxColor, hueIndex
 
     ok := cog := display.start()   ' send buffer to driver
     if ok == -1
-        debug("- DEMO: underlying drivers failed!")
+        debug("- DEMO: underlying driver failed!")
         abort
 
     demoPausePeriod := 1 '3   ' seconds

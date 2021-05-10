@@ -84,12 +84,13 @@ PUB start() : ok | scrollerIndex, dvrConfig, driverConfigRaw
         debug("dsp:Geometry BAD in isp_hub75_hwGeometry.spin2!")
         abort
 
-
     debug("dsp:start()")
     ok := cog := panelSet.start()   ' send buffer to driver
     if ok == -1
         debug("dsp:underlying drivers failed!")
         abort
+
+    debug("dsp: BFFR screen[", udec_long_(screen.DISPLAY_SIZE_IN_LONGS), "] 0x", uhex_long_(@@screen0))
 
     dvrConfig, driverConfigRaw := screen.getDriverFlags()
     bScan_1_4 := (dvrConfig & screen.SCAN_4) > 0 ? True : False
@@ -134,9 +135,9 @@ PUB fillPanel(panelIndex, rgbColor) | row, column, columnOffsetToPanel
     columnOffsetToPanel := panelIndex * screen.MAX_PANEL_COLUMNS
     repeat row from 0 to screen.MAX_PANEL_ROWS - 1
         repeat column from 0 to screen.MAX_PANEL_COLUMNS - 1
-            if row == 0 and (column < 4 or column > screen.MAX_PANEL_COLUMNS - 4)
-                if not bDidShowOnce
-                    debug("- fillPanel row=0 col=", udec_(column), ", ", udec(columnOffsetToPanel))
+            'if row == 0 and (column < 4 or column > screen.MAX_PANEL_COLUMNS - 4)
+                'if not bDidShowOnce
+                '    debug("- fillPanel row=0 col=", udec_(column), ", ", udec(columnOffsetToPanel))
             pixels.drawPixelAtRC(row, column + columnOffsetToPanel, rgbColor)
     'bDidShowOnce := TRUE
 
