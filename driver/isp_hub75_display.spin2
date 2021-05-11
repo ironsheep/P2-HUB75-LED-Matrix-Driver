@@ -33,6 +33,7 @@ SCROLL_UNKNOWN      = scroller.SCROLL_UNKNOWN
 SCROLL_FOREVER      = scroller.SCROLL_FOREVER
 SCROLL_ONCE         = scroller.SCROLL_ONCE
 SCROLL_ONCE_TO_CLEAR = scroller.SCROLL_ONCE_TO_CLEAR
+SCROLL_N_TIMES = scroller.SCROLL_N_TIMES
 
 ' FIXME: UNDONE make this user configurable
 MAX_SCROLLING_REGIONS = 3
@@ -121,6 +122,10 @@ PUB clearScreen()
     longfill(@screen0, 0, screen.DISPLAY_SIZE_IN_LONGS)
     commitScreenToPanelSet()
 
+PUB clearScreenBuffer()
+    '' Clear the panel to BLACK
+    longfill(@screen0, 0, screen.DISPLAY_SIZE_IN_LONGS)
+
 PUB fillScreen(rgbColor) | row, column
     '' Fill the display with 24-bit color value
     repeat row from 0 to screen.MAX_DISPLAY_ROWS - 1
@@ -170,7 +175,6 @@ PUB homeCursor()
 
 PUB setCursorOnPanel(line, column, panelIndex) | boundedPanelIndex, panelOffsetInChars, boundedColumn, tmpCharOffsetInPix, desiredCharOffsetInPix, fixUpInPix
     '' Position the text cursor to row, column of the selected panel
-    ' FIXME: bug in calc of panelFixupOffetInPix for 8x8(ab) fonts!?
     boundedPanelIndex := 0 #> panelIndex <# screen.MAX_PANELS - 1
     boundedColumn := 0 #> column <# maxPanelTextColumns - 1
     cursorLine := 0 #> line <# maxPanelTextLines - 1
@@ -179,6 +183,16 @@ PUB setCursorOnPanel(line, column, panelIndex) | boundedPanelIndex, panelOffsetI
     tmpCharOffsetInPix := leftOffsetInPix + (cursorColumn * (charWidthInPix + horizontalGapInPix))
     desiredCharOffsetInPix := leftOffsetInPix + (screen.MAX_PANEL_COLUMNS * boundedPanelIndex) + (boundedColumn * (charWidthInPix + horizontalGapInPix))
     panelFixupOffetInPix := (tmpCharOffsetInPix < desiredCharOffsetInPix) ? desiredCharOffsetInPix - tmpCharOffsetInPix: 0
+
+PRI offsetToTextOnPanel(line, column, panelIndex) : panelLine, panelColumn | gridRow, gridColumn, boundedPanelIndex, boundedColumn, tmpCharOffsetInPix, panelOffsetInChars, desiredCharOffsetInPix
+    boundedPanelIndex := 0 #> panelIndex <# screen.MAX_PANELS - 1
+    boundedColumn := 0 #> column <# maxPanelTextColumns - 1
+    panelLine := 0 #> line <# maxPanelTextLines - 1
+    panelOffsetInChars := (boundedPanelIndex * maxPanelTextColumns) + boundedColumn
+    panelColumn := panelOffsetInChars
+    tmpCharOffsetInPix := leftOffsetInPix + (cursorColumn * (charWidthInPix + horizontalGapInPix))
+    desiredCharOffsetInPix := leftOffsetInPix + (screen.MAX_PANEL_COLUMNS * boundedPanelIndex) + (boundedColumn * (charWidthInPix + horizontalGapInPix))
+    'panelFixupOffetInPix := (tmpCharOffsetInPix < desiredCharOffsetInPix) ? desiredCharOffsetInPix - tmpCharOffsetInPix: 0
 
 PUB homeCursorOnPanel(panelIndex)
     '' Return the cursor to top left corner of the selected panel
@@ -274,39 +288,46 @@ PUB setCharAtLnCol(line, column, cChar)
     '' Write character to display at R,C using current text color
     setColoredCharAtLnCol(line, column, cChar, currTextColor)
 
-PUB setColoredCharAtLnCol(line, column, cChar, rgbColor) | pCharBitMap, tlScreenOffset, tlCharOffset, cLineIndex, cColumnIndex, sRowPixIndex, sColumnPixIndex, cBitIdx, cByteIdx, cRowBits, pixColumn
+PUB setColoredCharAtLnCol(line, column, cChar, rgbColor) | pCharBitMap, tlScreenOffset, tlCharOffset, cLineIdx, cColumnIdx, sRowPixIdx, sColumnPixIdx, cBitIdx, cByteIdx, cRowBits, pixColumn
     '' Write cChar to display R,C using rgbColor
     'debug("dsp:setCharAtCursor @LnCol(", udec_(line), ",", udec_(column), "), char=", uhex_(cChar), ", RGB=", uhex_long_(rgbColor), udec(topOffsetInPix), udec(leftOffsetInPix))
-    cLineIndex := 0 #> line <# maxTextLines - 1
-    cColumnIndex :=  0 #> column <# maxTextColumns - 1
+    cLineIdx := 0 #> line <# maxTextLines - 1
+    cColumnIdx :=  0 #> column <# maxTextColumns - 1
     ' get pointer to character bitmap
     pCharBitMap := fonts.getCharAddrForFont(selectedTextFont, cChar)
     'debug("- pChar=", uhex_long(pCharBitMap))
     ' NOTE: cursor is 0-relative so add in our top/left offset to get row/col and mult by char size in pix
-    sRowPixIndex := topOffsetInPix + (cLineIndex * (charHeightInPix + verticalGapInPix))
+    sRowPixIdx := topOffsetInPix + (cLineIdx * (charHeightInPix + verticalGapInPix))
     ' NOTE: panelFixupOffetInPix is only non-zero when we are placing text on specific panel!
-    sColumnPixIndex := leftOffsetInPix + panelFixupOffetInPix + (cColumnIndex * (charWidthInPix + horizontalGapInPix))
+    sColumnPixIdx := leftOffsetInPix + panelFixupOffetInPix + (cColumnIdx * (charWidthInPix + horizontalGapInPix))
 
 
     repeat cByteIdx from 0 to charHeightInPix - 1
         cRowBits := byte[pCharBitMap][cByteIdx]
         'debug("- char row(", udec_(cByteIdx), ") ", ubin(cRowBits))
         repeat cBitIdx from charWidthInPix - 1 to 0
-            pixColumn := sColumnPixIndex + cBitIdx
+            pixColumn := sColumnPixIdx + cBitIdx
             if (cRowBits & (1 << ((charWidthInPix - 1) - cBitIdx))) > 0
-                pixels.drawPixelAtRC(sRowPixIndex + cByteIdx, pixColumn, rgbColor)
+                pixels.drawPixelAtRC(sRowPixIdx + cByteIdx, pixColumn, rgbColor)
             'else
-            '    pixels.drawPixelAtRC(sRowPixIndex + cByteIdx, pixColumn, $ff0000)
+            '    pixels.drawPixelAtRC(sRowPixIdx + cByteIdx, pixColumn, $ff0000)
 
 { --------------     Scrolling Text     -------------- }
 ' EXAMPLES
-'    scrollText(row, column, widthInChars, "hello world", display.DIR_LEFT, rgbColor)
+'    configureScrollLoopMode(scrollerID, display.SCROLL_ONCE)
+'    configureScrollLoopCount(scrollerID, display.SCROLL_N_TIMES, 2)
 
-PUB scrollText(indexAllocated, loopCount)
-    'debug("dsp:scrollText() ", udec(indexAllocated))
+PUB configureScrollLoopMode(indexAllocated, loopMode)
+    'debug("dsp:configureScrollLoopMode() ", udec(indexAllocated))
     '' Specify scrolling text duration (forever, once, twice)
     if indexAllocated >= 0 && indexAllocated < MAX_SCROLLING_REGIONS
-        scroller[indexAllocated].scrollText(loopCount)
+        scroller[indexAllocated].configureScrollLoopMode(loopMode)
+
+PUB configureScrollLoopCount(indexAllocated, loopMode, loopCount)
+    'debug("dsp:configureScrollLoopCount() ", udec(indexAllocated))
+    '' Specify scrolling text duration (forever, once, twice)
+    if indexAllocated >= 0 && indexAllocated < MAX_SCROLLING_REGIONS
+        scroller[indexAllocated].configureScrollLoopCount(loopMode, loopCount)
 
 
 PUB scrollTextOnLine(line, pZString, direction) : indexAllocated
@@ -314,20 +335,40 @@ PUB scrollTextOnLine(line, pZString, direction) : indexAllocated
     indexAllocated := scrollColoredTextOnLn(line, pZString, direction, currTextColor)
 
 
-PUB scrollColoredTextOnLn(line, pZString, direction, rgbColor) : indexAllocated  | cLineIndex, cColumnIndex, widthInChars, sRowPixIndex, sColumnPixIndex
+PUB scrollColoredTextOnLn(line, pZString, direction, rgbColor) : indexAllocated  | cLineIdx, cColumnIdx, widthInChars, sRowPixIdx, sColumnPixIdx
     '' Place scolling text on line N [0 - N-1], of pZString scrolling in direction using rgbColor
     'debug("dsp:scrollColoredTextOnLn()")
     ' ensure we are asked to use a good location
-    cLineIndex := 0 #> line <# maxTextLines - 1
-    cColumnIndex :=  0
+    cLineIdx := 0 #> line <# maxTextLines - 1
+    cColumnIdx :=  0
     ' convert line info to row,col
     ' NOTE: cursor is 0-relative so add in our top/left offset to get row/col and mult by char size in pix
     widthInChars := maxTextColumns
-    sRowPixIndex := topOffsetInPix + (cLineIndex * (charHeightInPix + verticalGapInPix))
-    sColumnPixIndex := leftOffsetInPix + (cColumnIndex * (charWidthInPix + horizontalGapInPix))
+    sRowPixIdx := topOffsetInPix + (cLineIdx * (charHeightInPix + verticalGapInPix))
+    sColumnPixIdx := leftOffsetInPix + (cColumnIdx * (charWidthInPix + horizontalGapInPix))
 
-    indexAllocated := scrollTextAtRCOfColor(sRowPixIndex, sColumnPixIndex, widthInChars, pZString, direction, rgbColor)
+    indexAllocated := scrollTextAtRCOfColor(sRowPixIdx, sColumnPixIdx, widthInChars, pZString, direction, rgbColor)
 
+PUB scrollTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direction) : indexAllocated
+    '' Place scolling text on line N, of pZString scrolling in direction using current text color
+    indexAllocated := scrollColoredTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direction, currTextColor)
+
+PUB scrollColoredTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direction, rgbColor) : indexAllocated | cLineIdx, cColumnIdx, widthInChars, sRowPixIdx, sColumnPixIdx, panelLine, panelColumn, boundedPanelIdx, cPanelCt, offsetPixelRows, offsetPixelColumns
+    '' Place scolling text on line N [0 - N-1], of pZString scrolling in direction using rgbColor
+    'debug("dsp:scrollColoredTextOnLnOfNPanels()")
+    boundedPanelIdx := 0 #> panelIndex <# screen.MAX_PANELS - 1
+    cPanelCt := 1 #> panelCount <# screen.MAX_PANELS
+    cLineIdx := 0 #> line <# maxTextLines - 1
+    cColumnIdx :=  0
+    widthInChars := ((cPanelCt * screen.MAX_PANEL_COLUMNS) - (2 * leftOffsetInPix)) / (charWidthInPix + horizontalGapInPix)
+    'panelLine, panelColumn := offsetToTextOnPanel(cLineIdx, cColumnIdx, panelIndex)
+    offsetPixelRows, offsetPixelColumns := screen.offsetToPanel(panelIndex)
+    ' ensure we are asked to use a good location
+    ' convert line info to row,col
+    ' NOTE: cursor is 0-relative so add in our top/left offset to get row/col and mult by char size in pix
+    sRowPixIdx := topOffsetInPix + (cLineIdx * (charHeightInPix + verticalGapInPix))
+    sColumnPixIdx := offsetPixelColumns + leftOffsetInPix
+    indexAllocated := scrollTextAtRCOfColor(sRowPixIdx, sColumnPixIdx, widthInChars, pZString, direction, rgbColor)
 
 PUB scrollTextAtRC(row, column, widthInChars, pZString, direction) : indexAllocated
     '' Place scolling text at absolute R,C, of pZString scrolling in direction using current text color

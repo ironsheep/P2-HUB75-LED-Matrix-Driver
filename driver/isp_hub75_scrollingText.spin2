@@ -18,7 +18,7 @@ CON { public control values }
 #0, DIR_UNKNOWN, DIR_TO_LEFT, DIR_TO_RIGHT
 
 ' enum: scrolling duration
-#0, SCROLL_UNKNOWN, SCROLL_FOREVER, SCROLL_ONCE, SCROLL_ONCE_TO_CLEAR
+#0, SCROLL_UNKNOWN, SCROLL_FOREVER, SCROLL_ONCE, SCROLL_ONCE_TO_CLEAR, SCROLL_N_TIMES
 
 MAX_SCROLL_CHARS_TO_BUFFER = 10 * 3     ' 3 lines wide, max 10 chars per line
 MAX_SCROLL_COLORS_TO_BUFFER = MAX_SCROLL_CHARS_TO_BUFFER    ' one color per character
@@ -77,6 +77,7 @@ VAR { globals - instance variables }
 
     byte    scrollMode          ' configure before use!
     byte    scrollDirection     ' configure before use!
+    byte    scrollNbrTimes      ' configure before use!
     byte    isSetup
     byte    instanceID
 
@@ -89,6 +90,7 @@ PUB initialize()
     bScrolling := FALSE
     ctCharsToScroll := 0
     scrollMode := SCROLL_UNKNOWN
+    scrollNbrTimes := 0
     instanceID := instanceNumber++
     remainingPixToScroll := 0
     isSetup := TRUE ' yes, now we are!
@@ -106,20 +108,29 @@ PUB setFontInfo(nbrTextColumns, charWidth, charHeight, leadingGap, horizontalGap
     selectedTextFont := textFont
 
 ' EXAMPLES
-'    scrollText(row, column, widthInChars, "hello world", display.DIR_LEFT, rgbColor)
+'    configureScrollLoopCount(row, column, widthInChars, "hello world", display.DIR_LEFT, rgbColor)
 PUB isIdle() : statusValue
     '' Return T/F where T means this scroller instance is IDLE
     statusValue := isSetup && isScrollingComplete()
     'debug("stx:isIdle(", udec_(instanceID), ") RET=", sdec_(statusValue))
 
-PUB scrollText(loopMode) | bValidRequest
+PUB configureScrollLoopMode(loopMode)
+    '' Specify scrolling text duration (forever, once, twice, etc.)
+    configureScrollLoopCount(loopMode, 0)
+
+PUB configureScrollLoopCount(loopMode, count) | bValidRequest, validCount
     '' Specify scrolling text duration (forever, once, twice, etc.)
     bValidRequest := TRUE
+    validCount := 0 #> count <# 10
     case loopMode
         SCROLL_FOREVER:
         SCROLL_ONCE:
         SCROLL_ONCE_TO_CLEAR:
             bValidRequest := TRUE
+            scrollNbrTimes := 0
+        SCROLL_N_TIMES:
+            bValidRequest := TRUE
+            scrollNbrTimes := count
         other:
             bValidRequest := FALSE
 
@@ -130,6 +141,8 @@ PUB scrollText(loopMode) | bValidRequest
         if loopMode == SCROLL_ONCE_TO_CLEAR
             remainingPixToScroll := (ctCharsToScroll * (charWidthInPix + horizontalGapInPix))
             ' bug 3 chars short font8A
+        elseif loopMode == SCROLL_N_TIMES
+            remainingPixToScroll := (((ctCharsToScroll * (charWidthInPix + horizontalGapInPix)) * scrollNbrTimes) - horizontalGapInPix) - windowWidthInPix
         else
             remainingPixToScroll := ((ctCharsToScroll * (charWidthInPix + horizontalGapInPix)) - horizontalGapInPix) - windowWidthInPix
             ' bug 1 char short font 8A

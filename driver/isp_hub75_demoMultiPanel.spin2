@@ -41,13 +41,15 @@ OBJ
 CON { DEMO info }
 
 ' 11 enables .bmp file display
-DEMO_COUNT = 10
+DEMO_COUNT = 4
+
+#0, PNL_TOP, PNL_FRONT, PNL_RIGHT, PNL_BACK, PNL_LEFT, PNL_BOTTOM
 
 DAT
 
 panelIdMessage  byte    "Pn",0
 
-PUB main() : ok | panelIndex, panelHueWidth, panelColor, boxColor, hueIndex
+PUB main() : ok | demoIndex
     '' start underlying drivers and run demo
 
     'repeat
@@ -59,7 +61,139 @@ PUB main() : ok | panelIndex, panelHueWidth, panelColor, boxColor, hueIndex
         debug("- DEMO: underlying driver failed!")
         abort
 
-    demoPausePeriod := 1 '3   ' seconds
+    demoPausePeriod := 3   ' seconds
+    scrollPeriod := 1
+
+    repeat 20
+        repeat demoIndex from 0 to DEMO_COUNT - 1
+            'waitSec(1)
+            case demoIndex + 1
+                1: demoPanelColors()
+                2: demoTopBottomScroll()
+                3: demoRandomPanelColors()
+                4: demoPanelFillColors()
+'                5: demoColorPalette12Panels()
+'                6: showFullColorSweep()
+'                7: demoTest12x9ColorBrightness()
+'                8: colorBlast()
+'                9: demoText()
+'               10: demoScreenBlast()
+'               11: demoBmpFileLoad()
+
+            waitSec(demoPausePeriod)
+
+    stop()
+
+PRI stop()
+    ' Stop the driver
+    if cog
+        display.stop()
+        cog := 0
+
+PRI waitSec(countSeconds)
+    repeat countSeconds
+        waitms(1000)
+
+PRI wait1000thSecs(count)
+    '' wait for N 110ths of a second
+    repeat count
+        waitms(1)  ' 1/100 seconds
+
+PRI demoPanelFillColors()
+    display.clearScreenBuffer()
+    repeat 4
+        display.fillScreenNoPWM(color.BASE_RED)    ' full single color panel NO pwm
+        waitSec(2)
+        display.fillScreenNoPWM(color.BASE_GREEN)    ' full single color panel NO pwm
+        waitSec(2)
+        display.fillScreenNoPWM(color.BASE_BLUE)    ' full single color panel NO pwm
+        waitSec(2)
+        display.fillScreenNoPWM(color.BASE_WHITE)    ' full single color panel NO pwm
+        waitSec(4)
+
+
+PRI demoRandomPanelColors() | panelIndex, panelHue, panelColor
+
+    display.clearScreenBuffer()
+    repeat 20
+        repeat panelIndex from 0 to screen.MAX_PANELS - 1
+            panelHue := (getrnd() +// 254) + 1
+            panelColor := color.rgbColorFromDegrees(panelHue)
+            display.fillPanel(panelIndex, panelColor)
+        ' update our screen
+        display.commitScreenToPanelSet()
+        'wait1000thSecs(10)
+
+DAT { panel messages }
+
+lblTop      byte    "Top", 0
+lblBot      byte    "Bot", 0
+lblFrnt     byte    "Front", 0
+lblRight    byte    "Right", 0
+lblBack     byte    "Back", 0
+lblLeft     byte    "Left", 0
+
+PRI demoTopBottomScroll() | scrollerID, startTime
+
+    textSize := display.TEXT_FONT_8x8A
+    'textSize := display.TEXT_FONT_8x8B
+    display.setTextFont(textSize)    ' font size
+    display.setTextColor(color.cBlueViolet)
+
+    ' start with blank screen on which to draw
+    display.clearScreenBuffer()
+
+    display.fillPanel(PNL_TOP, color.cGreen)
+    display.setCursorOnPanel(4, 3, PNL_TOP)
+    display.setTextAtCursor(@lblTop)
+
+    display.fillPanel(PNL_BOTTOM, color.cRed)
+    display.setCursorOnPanel(4, 3, PNL_BOTTOM)
+    display.setTextAtCursor(@lblBot)
+
+    display.fillPanel(PNL_FRONT, color.cYellow)
+    display.setCursorOnPanel(7, 1, PNL_FRONT)
+    display.setTextAtCursor(@lblFrnt)
+
+    display.fillPanel(PNL_RIGHT, color.cCyan)
+    display.setCursorOnPanel(7, 1, PNL_RIGHT)
+    display.setTextAtCursor(@lblRight)
+
+    display.fillPanel(PNL_BACK, color.cOrange)
+    display.setCursorOnPanel(7, 2, PNL_BACK)
+    display.setTextAtCursor(@lblBack)
+
+    display.fillPanel(PNL_LEFT, color.cLime)
+    display.setCursorOnPanel(7, 2, PNL_LEFT)
+    display.setTextAtCursor(@lblLeft)
+
+    ' get scroller initialized with text to scroll and direction
+    scrollerID := display.scrollColoredTextOnLnOfNPanels(4, PNL_FRONT, 4, string("Multi-panel long test scroll   "), display.DIR_TO_LEFT, color.cBlue)
+    ' configure scroll repeat count
+    display.configureScrollLoopCount(scrollerID, display.SCROLL_N_TIMES, 2)
+
+    ' update our screen
+    display.commitScreenToPanelSet()
+
+    ' delay to first movement
+    'wait1000thSecs(scrollPeriod)
+
+    ' loop while scrolling finishes
+    repeat while NOT display.isScrollingComplete()
+        ' move the text
+        startTime := getct()
+        display.animateScroll()
+        showDuration(startTime, string("top:ANI"))
+        ' commit to screen
+        startTime := getct()
+        display.commitScreenToPanelSet()
+        showDuration(startTime, string("top:ANI-wr"))
+
+        ' delay to next movement
+        'wait1000thSecs(scrollPeriod)
+
+
+PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, boxColor, hueIndex
 
     panelHueWidth := 256 / screen.MAX_PANELS
 
@@ -67,11 +201,12 @@ PUB main() : ok | panelIndex, panelHueWidth, panelColor, boxColor, hueIndex
     'textSize := display.TEXT_FONT_5x7
     textSize := display.TEXT_FONT_8x8A
     'textSize := display.TEXT_FONT_8x8B
-
-    display.clearScreen()
     display.setTextFont(textSize)    ' font size
     display.setTextColor(color.cBlueViolet)
     display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
+
+    ' start with blank screen on which to draw
+    display.clearScreenBuffer()
 
     panelIndex := 0
 
@@ -87,14 +222,18 @@ PUB main() : ok | panelIndex, panelHueWidth, panelColor, boxColor, hueIndex
         byte [@panelIdMessage][1] := panelIndex + $30
         display.setTextAtCursor(@panelIdMessage)
         ' draw a colored box in panel (don't use panel color)
-        hueIndex := panelIndex + 2
+        hueIndex := panelIndex + 3
         if hueIndex > screen.MAX_PANELS - 1
             hueIndex -= screen.MAX_PANELS
         boxColor := color.rgbColorFromDegrees(panelHueWidth * hueIndex)
         display.drawPanelBoxOfColor(panelIndex, 17, 10, 40, 34, TRUE, boxColor)
     display.commitScreenToPanelSet()
 
-    repeat  ' just hold here forever...
+PRI showDuration(startTimeValue, pFuncTitle) | duration, converted
+    duration := getct() - startTimeValue
+    converted := muldiv64(duration, 1_000_000, clkfreq)
+    debug("- elapsed ", zstr_(pFuncTitle), ": ", udec_(converted), " uSec")
+
 
 CON { license }
 

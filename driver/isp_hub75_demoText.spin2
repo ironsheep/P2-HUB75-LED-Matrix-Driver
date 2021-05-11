@@ -79,15 +79,15 @@ PRI demoScrollingText() | scrollerID, textSize
     'scrollerID := display.scrollColoredTextOnLn(2, string("First long text012"), display.DIR_TO_RIGHT, color.cBlue)
     scrollerID := display.scrollColoredTextOnLn(2, string("First long text-123          "), display.DIR_TO_LEFT, color.cBlue)
     ' configure it for one time scroll then stop when last bit arrives on screen
-    'display.scrollText(scrollerID, display.SCROLL_ONCE)
-    display.scrollText(scrollerID, display.SCROLL_ONCE_TO_CLEAR)
-    'display.scrollText(scrollerID, display.SCROLL_FOREVER)
+    'display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE)
+    display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE_TO_CLEAR)
+    'display.configureScrollLoopMode(scrollerID, display.SCROLL_FOREVER)
 
     scrollerID := display.scrollColoredTextOnLn(3, string("2nd shorter - "), display.DIR_TO_LEFT, color.cLime)
     ' configure it for one time scroll then stop when last bit arrives on screen
-    'display.scrollText(scrollerID, display.SCROLL_ONCE)
-    'display.scrollText(scrollerID, display.SCROLL_ONCE_TO_CLEAR)
-    display.scrollText(scrollerID, display.SCROLL_FOREVER)
+    'display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE)
+    'display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE_TO_CLEAR)
+    display.configureScrollLoopMode(scrollerID, display.SCROLL_FOREVER)
 
     ' update our screen
     display.commitScreenToPanelSet()
