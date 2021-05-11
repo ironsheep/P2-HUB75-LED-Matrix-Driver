@@ -39,7 +39,7 @@ OBJ
 CON { DEMO info }
 
 ' 11 enables .bmp file display
-DEMO_COUNT = 10
+DEMO_COUNT = 11
 
 
 PUB main() : ok | demoIndex
@@ -54,7 +54,7 @@ PUB main() : ok | demoIndex
         debug("- DEMO: underlying drivers failed!")
         abort
 
-    demoPausePeriod := 1 '3   ' seconds
+    demoPausePeriod := 3   ' seconds (time for current meas. to settle)
 
 '  NOTE: activate any of the following blocks to run the block instead of the demo.
 '   (These are used for focused testing on some aspect of the driver/panel)
@@ -783,7 +783,7 @@ PRI demoScreenBlast() | color3bit
     repeat 5
         repeat color3bit from 0 to 7
             display.fillScreenNoPWM(color3bit)
-            waitms(150)
+            waitms(2000)
 
 
 PRI colorBlast() | row, col, red, green, blue, blockX, blockY, subrow, subcol

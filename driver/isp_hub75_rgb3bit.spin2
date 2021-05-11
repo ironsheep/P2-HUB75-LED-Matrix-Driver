@@ -756,7 +756,8 @@ chkFill
 '
 displayPwmFrames
                     mov     pwmBffrStart, nxtArgument           ' preserve our new start address
-                    rdfast  #0,pwmBffrStart                     ' initialize our FIFO (#0 means no wrap!)
+                    mov     ptra, pwmBffrStart
+'                    rdfast  #0,pwmBffrStart                     ' initialize our FIFO (#0 means no wrap!)
                     mov     pwmFrameCt, #screen.MAX_PWM_FRAMES  ' set loop to PWM N frames then stop to see what to do next
 nextPwmFrame
                     call    #display1PwmFrame                   ' load 1st subpage of current frame into display buffer
@@ -779,7 +780,7 @@ showPwmSubpage
 
                     ' following called from dispatcher, above
 nextPwmSubpage
-                    add     nxtArgument,##screen.MAX_SUBPAGE_SIZE_IN_LONGS          ' point to next frame
+                    add     nxtArgument,##screen.MAX_SUBPAGE_SIZE_IN_LONGS          ' point to next subpage o PWM frame
                     djnz    pwmSubPgCt, #showPwmSubpage             ' have another of subpage of the PWM frame to show?
                     ret                                             ' loop again to see if we should do another PWM set
 '
@@ -801,10 +802,10 @@ nextFill
 ' loadPWMsubpage(nxtArgument=hubAddressOfFrameSubPage)
 '
 ' NOTE: use of rdfast/rflong vs. rdlong, ptrb addressing did NOT improve our timing...!!! (leavig FIFO use in place for now)
-loadPWMsubpage
+loadPWMsubpage2
                     ' copy HUB buffer pointed to by FIFO rdfast (set earlier)
                     '  into MAX_SUBPAGE_SIZE_IN_LONGS cogBuffer
-                    xor     fillOffset, fillOffset      ' set initial offset to '0' beginning of COG RAM area (cogBuffer)
+                    mov     fillOffset, #0              ' set initial offset to '0' beginning of COG RAM area (cogBuffer)
                     mov     fillCount, ##screen.MAX_SUBPAGE_SIZE_IN_LONGS             ' length in longs  e.g., 64x32 is 1k bytes of 6bit values
 ldLoop1
                     altd    fillOffset, #cogBuffer      ' calculate addr of next register in COG
@@ -812,6 +813,12 @@ ldLoop1
                     add     fillOffset, #1              ' point to next register
                     djnz    fillCount, #ldLoop1         ' count this, if more to do go...
                     ret                                 ' done, return to caller
+
+loadPWMsubpage
+                    ' copy HUB buffer (set earlier)
+                    '  into MAX_SUBPAGE_SIZE_IN_LONGS cogBuffer
+                    setq	#screen.MAX_SUBPAGE_SIZE_IN_LONGS - 1
+	    _ret_       rdlong	cogBuffer, ptra++ ' when done, return to caller
 '
 ' fillCogBufferWithColor(nxtArgument=colorvalue3bit)
 '

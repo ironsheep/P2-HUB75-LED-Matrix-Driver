@@ -264,7 +264,7 @@ CON { Hardware Description }
 '    max clock rate of 20MHz - [25ns hi/25ns lo]
 ' ----------------------------------------------------------
 {
-    ADAPTER_BASE_PIN = PINS_P32_P47
+    ADAPTER_BASE_PIN = PINS_P16_P31
    ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = CHIP_MBI5124_8S
 

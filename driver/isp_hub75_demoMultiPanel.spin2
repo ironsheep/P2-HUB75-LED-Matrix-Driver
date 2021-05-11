@@ -41,7 +41,7 @@ OBJ
 CON { DEMO info }
 
 ' 11 enables .bmp file display
-DEMO_COUNT = 4
+DEMO_COUNT = 3
 
 #0, PNL_TOP, PNL_FRONT, PNL_RIGHT, PNL_BACK, PNL_LEFT, PNL_BOTTOM
 
@@ -181,13 +181,13 @@ PRI demoTopBottomScroll() | scrollerID, startTime
     ' loop while scrolling finishes
     repeat while NOT display.isScrollingComplete()
         ' move the text
-        startTime := getct()
+        'startTime := getct()
         display.animateScroll()
-        showDuration(startTime, string("top:ANI"))
+        'showDuration(startTime, string("top:ANI"))
         ' commit to screen
-        startTime := getct()
+        'startTime := getct()
         display.commitScreenToPanelSet()
-        showDuration(startTime, string("top:ANI-wr"))
+        'showDuration(startTime, string("top:ANI-wr"))
 
         ' delay to next movement
         'wait1000thSecs(scrollPeriod)
