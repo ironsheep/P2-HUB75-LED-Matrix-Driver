@@ -942,7 +942,7 @@ wrLineLatchAtEnd
                 ' in buffer: RGB1 is byte-bits[0-2], RGB2 is byte-bits[3-5]
 '                    ' the following instru is either a ROR or ROL as configured by setup code
 clkNONextByte
-                    rep     @eobytes, ##screen.MAX_PWM_ROW_SIZE_IN_BYTES
+                    rep     @eobytes, colCtrMax         ' this is physical row in px (or 2x if 1/8 scan panel)
                     ' write our 6 color bits
                     altgb   byteOffset, pCogBffrIncr
                     getbyte colorByte, 0-0, #0-0
