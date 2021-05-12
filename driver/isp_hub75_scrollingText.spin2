@@ -146,7 +146,7 @@ PUB configureScrollLoopCount(loopMode, count) | bValidRequest, validCount
         else
             remainingPixToScroll := ((ctCharsToScroll * (charWidthInPix + horizontalGapInPix)) - horizontalGapInPix) - windowWidthInPix
             ' bug 1 char short font 8A
-    debug("stx:scrlTxt() ", udec(instanceID), ", ", udec(remainingPixToScroll), udec(ctCharsToScroll), udec(maxVisibleChars), udec(charWidthInPix), udec(horizontalGapInPix))
+    'debug("stx:scrlTxt() ", udec(instanceID), ", ", udec(remainingPixToScroll), udec(ctCharsToScroll), udec(maxVisibleChars), udec(charWidthInPix), udec(horizontalGapInPix))
 
 
 PUB scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbColor) | nextToAppearIndex, colIndex, charColumn
@@ -164,7 +164,7 @@ PUB scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbCol
         ' if our string is shorter than our window then right is string-end, else right is window-end
         nextToAppearIndex := min(maxVisibleChars, ctCharsToScroll)
 
-        debug("- scrollTxAtRCOfClr() ", udec(instanceID), ", RC=(", udec_(row), udec_(column), "), ", zstr(pZString), ", CT=", udec_(ctCharsToScroll), ", VIS=", udec_(maxVisibleChars), ", NTAI=", udec_(nextToAppearIndex))
+        'debug("- scrollTxAtRCOfClr() ", udec(instanceID), ", RC=(", udec_(row), udec_(column), "), ", zstr(pZString), ", CT=", udec_(ctCharsToScroll), ", VIS=", udec_(maxVisibleChars), ", NTAI=", udec_(nextToAppearIndex))
         if ctCharsToScroll > 0
             bytemove(@scrollChars, pZString, ctCharsToScroll)
             topRow := row
@@ -213,7 +213,7 @@ PUB animateScroll()
         '   while tail is loosing right most pixel (offset dictates)
         ' all chars are in the char buffer "scrollChars"
         'if instanceID == 0
-        debug("stx:as(", udec_(instanceID), ") ", udec(charPixOffset), udec(firstVisCharIndex), udec(remainingPixToScroll))
+        'debug("stx:as(", udec_(instanceID), ") ", udec(charPixOffset), udec(firstVisCharIndex), udec(remainingPixToScroll))
 
         ' place char bits
         if scrollDirection == DIR_TO_LEFT
@@ -259,7 +259,7 @@ PRI placeCharsAtRCWithColor(row, column, charOffset, windowWidth, startCharIndex
     remainWindowPix := windowWidth
     endColumn := column
     insetInPix := charOffset
-    debug("stx:plcC() ", udec(maxCharIndex), udec(headWidthInPix), udec(remainWindowPix), udec(endColumn), udec(insetInPix))
+    'debug("stx:plcC() ", udec(maxCharIndex), udec(headWidthInPix), udec(remainWindowPix), udec(endColumn), udec(insetInPix))
 
     ' for width of visible window
     repeat charIndex from 0 to maxCharIndex

@@ -104,7 +104,7 @@ VAR
 
 
 ' --------------------------------------------------------------------------------------------------
-PUB start() : ok | bSetLowPins, tmpVar, panelCt, tmpConstant, widthInPanels, heightInPanels
+PUB start() : ok | tmpVar, panelCt, tmpConstant, widthInPanels, heightInPanels
     '' Setup the pasm2 driver vars, then start a new cog running the driver
 
     stop()
@@ -221,6 +221,8 @@ PUB start() : ok | bSetLowPins, tmpVar, panelCt, tmpConstant, widthInPanels, hei
         maskRgb12   := %00111111_00000000_00000000_00000000         ' rgb2rgb1 now grounded to lsbit - pins at 16-31 A/B-pins
         addrValue1  := $0008_0000                                   ' 1 but in upper 5-bits of byte
         modeDatRotLeft := FALSE
+    debug("  -- ", ubin_long(bSetLowPins))
+    debug("  -- ", ubin_long(modeUsePortA))
 
     ' set width of one row
     colCtrMax := screen.MAX_PHYSICAL_COLUMNS
@@ -689,20 +691,21 @@ drive_matrix
     if_z            setd    outInst1of3, #OUTB
     if_z            setd    outInst2of3, #OUTB
     if_z            setd    outInst3of3, #OUTB
+                    or      bSetLowPins, bSetLowPins  wz
+    if_nz           SETR    outInst2of3, #%1000110_01       ' setbyte #1
+    if_z            SETR    outInst2of3, #%1000110_11       ' setbyte #3
 
                     or      modeDatRotLeft, modeDatRotLeft   wz
     if_nz           SETR    rotInstr1of2,#%0000001_00	'make into ROR instruction
-    if_nz           SETR    rotInstr2of2,#%0000001_00	'make into ROR instruction
     if_z            SETR    rotInstr1of2,#%0000000_00	'make into ROL instruction
-    if_z            SETR    rotInstr2of2,#%0000000_00	'make into ROL instruction
 
                     or      modeOverlapDAT, modeOverlapDAT   wz
     if_nz           SETR    jmpInstr1of1,#%0000000_00	'make into NOP instruction
     if_nz           SETD    jmpInstr1of1,##0	        'make into NOP instruction
 
-                    or      modeSlowCLK, modeSlowCLK   wz
-    if_z            SETR    waitInst1of1,#%0000000_00	'make into NOP instruction
-    if_z            SETD    waitInst1of1,##0	        'make into NOP instruction
+'                    or      modeSlowCLK, modeSlowCLK   wz
+'    if_z            SETR    waitInst1of1,#%0000000_00	'make into NOP instruction
+'    if_z            SETD    waitInst1of1,##0	        'make into NOP instruction
 
 ' configure all pins
 dirInst1of1         or      DIRA, maskAllPins   ' set all of our pins to OUTPUT!  for this COG
@@ -801,19 +804,6 @@ nextFill
 '
 ' loadPWMsubpage(nxtArgument=hubAddressOfFrameSubPage)
 '
-' NOTE: use of rdfast/rflong vs. rdlong, ptrb addressing did NOT improve our timing...!!! (leavig FIFO use in place for now)
-loadPWMsubpage2
-                    ' copy HUB buffer pointed to by FIFO rdfast (set earlier)
-                    '  into MAX_SUBPAGE_SIZE_IN_LONGS cogBuffer
-                    mov     fillOffset, #0              ' set initial offset to '0' beginning of COG RAM area (cogBuffer)
-                    mov     fillCount, ##screen.MAX_SUBPAGE_SIZE_IN_LONGS             ' length in longs  e.g., 64x32 is 1k bytes of 6bit values
-ldLoop1
-                    altd    fillOffset, #cogBuffer      ' calculate addr of next register in COG
-                    rflong	0-0                         ' read long from HUB RAM via FIFO
-                    add     fillOffset, #1              ' point to next register
-                    djnz    fillCount, #ldLoop1         ' count this, if more to do go...
-                    ret                                 ' done, return to caller
-
 loadPWMsubpage
                     ' copy HUB buffer (set earlier)
                     '  into MAX_SUBPAGE_SIZE_IN_LONGS cogBuffer
@@ -844,7 +834,7 @@ fillCogBufferWithColor      ' fill COG buffer with desired 3-bit color
 ' writeColorToBuffer(fillLong=fillValueID)
 '
 writeColorToBuffer       ' fill COG buffer with 'fillLong' value
-                    xor     fillOffset, fillOffset
+                    mov     fillOffset, #0
                     mov     fillCount, ##screen.MAX_COG_BUFFER_SIZE_IN_LONGS
 writeNextLong
                     altd    fillOffset, #cogBuffer
@@ -942,36 +932,29 @@ noDbgOvly           ror     reg_value, #8                ' shift next most signi
 '  the following routine is for panels that DO NOT overlap latching with serial data bits
 '   (so far this is all panels BUT those using FM6126A)
 wrLatchAtEnd
+                    mov     byteOffset, #0
 wrLineLatchAtEnd
 '   for bit 0 to 63
 '     toggle clock (15-18MHz)
                 ' this tracks when we need to toggle latch at right-edge of row
-                    mov     col_lng_ctr, colCtrMaxLngs          ' this is physical display width wide!
-clkNONextReg
+'                    mov     col_lng_ctr, colCtrMaxLngs          ' this is physical display width wide!
+
                 ' in buffer: RGB1 is byte-bits[0-2], RGB2 is byte-bits[3-5]
-                    mov     byt_ctr, #4                 ' 4 -> 0 so we can use djnz
-                    ALTS    reg_offset, #cogBuffer      ' calc addr of source long and place in instru
-                    mov     reg_value, 0-0              ' get COG register with 4 bytes of rgb1rgb2 values
-                    ' the following instru is either a ROR or ROL as configured by setup code
-rotInstr2of2        ror     reg_value, #8               ' YEAH, i've no idea why! but fixes our byte ordering problem! (AUGH! this change from rol -> ror for some panels??!)
+'                    ' the following instru is either a ROR or ROL as configured by setup code
 clkNONextByte
+                    rep     @eobytes, ##screen.MAX_PWM_ROW_SIZE_IN_BYTES
                     ' write our 6 color bits
-                    SETQ    maskRgb12                   ' load Q bit w/ RGB[12] mask
-outInst2of3         MUXQ    OUTA, reg_value             ' write contents of LS-byte anded with mask to output pins
-noDbgAtEnd          ror     reg_value, #8               ' shift next most significant into LS-byte position
+                    altgb   byteOffset, pCogBffrIncr
+                    getbyte colorByte, 0-0, #0-0
+                    drvl    #MTX_LED_PIN_CLK            ' falling edge in prep for rising...
+outInst2of3         setbyte OUTA, colorByte, #3         ' modded to byte 1 or byte 3
+                    nop
+                    drvh    #MTX_LED_PIN_CLK            ' rising edge - 15nSec pulse at 335 MHz
+eobytes
+                    waitx   #2
+                    drvl    #MTX_LED_PIN_CLK            ' falling edge - reset clock after end of loop
 
-                    ' toggle clock
-                    drvh    #MTX_LED_PIN_CLK            ' 15nSec pulse at 335 MHz
-waitInst1of1        waitx   #3  ' 2 + 3 x clk ' CLK pulse width min 20ns for ICN2037: 2 is ~20ns, 3 is ~25ns @330 MHz
-                    drvl    #MTX_LED_PIN_CLK
-
-                    ' setup for next column
-                    djnz    byt_ctr, #clkNONextByte
-                    add     reg_offset, #1              ' point to next COG long...
-                    djnz    col_lng_ctr, #clkNONextReg
-
-                    ' let's latch
-                    drvh    #MTX_LED_PIN_OE
+                    drvh    #MTX_LED_PIN_OE             ' disable output (in prep for latch)
                     ' write address
                     add     row_addr, addrValue1       ' incr address by 1
                     call    #emitAddr
@@ -985,21 +968,15 @@ waitInst1of1        waitx   #3  ' 2 + 3 x clk ' CLK pulse width min 20ns for ICN
     if_nz           drvl    #MTX_LED_PIN_LATCH          ' end latch data
     if_nz           waitx   #3  ' 2 + 3 x clk           ' let LATCH settle
     if_nz           drvl    #MTX_LED_PIN_OE
-
                     '
                     ' ---  inter-line gap  ---
                     '
-                    'waitx   #6
-                    cmp      reg_offset, #screen.MAX_SUBPAGE_SIZE_IN_LONGS  wc
+                    cmp      byteOffset, ##screen.MAX_SUBPAGE_SIZE_IN_BYTES wc
     if_c            jmp     #wrLineLatchAtEnd
                     drvh    #MTX_LED_PIN_OE
                     '
-                    ' ---  inter-frame gap  ---
+                    ' ---  inter-subframe gap  ---
                     '
-'                    cmp     pwmFrameCt,#1   wz
-'    if_nz           jmp     #getCommand
-'                    cmp     pwmSubPgCt,#1   wz
- '   if_z            waitx   #tm_64usec
                     jmp     #getCommand
 
 ' --------------------------------------------------------------------------------------------------
@@ -1031,6 +1008,7 @@ isr3
 '   The following variables are poulated from the initialization SPIN code before this driver starts
 '
 ' Driver Config Values
+bSetLowPins         long    FALSE   ' T/F where T means we are using high word of 32bits vs. low word
 modeUsePortA        long    FALSE   ' T/F where T means we are using portA vs. portB
 modeOverlapDAT      long    FALSE   ' T/F where T means LATCH_OVERLAPPED, F means LATCH_AFTER
 modeLatchEnclosed   long    FALSE   ' T/F where T means LATCH_ENCLOSED, F means LATCH_OFFSET
@@ -1064,6 +1042,8 @@ rowCtrMax           long    16                                          ' 16 of 
 colCtrMax           long    64                                          ' 64 columns total
 colCtrMaxLngs       long    16                                          ' 64 cols = 16 longs total
 colCtrLatchCt       long    61                                          ' colCtrMax-3 columns total
+pCogBffrIncr        long    cogBuffer + $200                            ' pointer to CogBuffer with auto-increment flag set
+
 ' --------------------------------------------------------------------------------------------------
 'screen buffer 1024B of %00bgrbgr where byte is 00{rgb2}{rgb1}
                 ALIGNL
@@ -1077,7 +1057,8 @@ endCogBuffer
 ' basic driver variables
 pCommmand       res     1
 pArgument       res     1
-
+byteOffset      res     1
+colorByte       res     1
 priorCommand    res     1
 nxtCommand      res     1
 nxtArgument     res     1

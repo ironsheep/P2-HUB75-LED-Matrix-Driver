@@ -1,0 +1,121 @@
+'' =================================================================================================
+''
+''   File....... isp_hub75_anlyCheck.spin2
+''   Purpose.... Top-level pin exercisor for HUB75 board so we can verify Logic Analyzer connections
+''   Authors.... Stephen M Moraco
+''               -- Copyright (c) 2021 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... May 2021
+''   Updated.... 11 May 2021
+''
+'' =================================================================================================
+
+
+CON { timing }
+
+    CLK_FREQ = 320_000_000                                        ' system freq as a constant
+    _clkfreq = CLK_FREQ                                           ' set system clock
+
+CON { DEBUG PINs }
+
+'DEBUG_PIN = 0
+
+CON { I/O PINs }
+
+' New P2 Eval Board HUB75 Adapter:
+    #0[16], PINS_P0_P15, PINS_P16_P31, PINS_P32_P47, PINS_P48_P63
+
+    ' the user-selected location: one of 0, 16, 32, and 48
+    MTX_LED_BASE_PIN = PINS_P16_P31
+
+    MTX_LED_SPARE_2 = MTX_LED_BASE_PIN + 15
+    MTX_LED_SPARE_1 = MTX_LED_BASE_PIN + 14
+
+    MTX_LED_PIN_B2 = MTX_LED_BASE_PIN + 13
+    MTX_LED_PIN_G2 = MTX_LED_BASE_PIN + 12
+    MTX_LED_PIN_R2 = MTX_LED_BASE_PIN + 11
+    MTX_LED_PIN_B1 = MTX_LED_BASE_PIN + 10
+    MTX_LED_PIN_G1 = MTX_LED_BASE_PIN + 9
+    MTX_LED_PIN_R1 = MTX_LED_BASE_PIN + 8
+
+    MTX_LED_PIN_E = MTX_LED_BASE_PIN + 7
+    MTX_LED_PIN_D = MTX_LED_BASE_PIN + 6
+    MTX_LED_PIN_C = MTX_LED_BASE_PIN + 5
+    MTX_LED_PIN_B = MTX_LED_BASE_PIN + 4
+    MTX_LED_PIN_A = MTX_LED_BASE_PIN + 3
+
+    MTX_LED_PIN_LATCH = MTX_LED_BASE_PIN + 2
+    MTX_LED_PIN_OE = MTX_LED_BASE_PIN + 1
+    MTX_LED_PIN_CLK = MTX_LED_BASE_PIN + 0
+
+    MTX_ROW_ADDR_PINS = MTX_LED_PIN_A ADDPINS 4     ' TESTING use 4 for ABCDE, 3 for ABCD
+
+    MTX_COLOR_PINS    = MTX_LED_PIN_R1 ADDPINS 5
+
+    MTX_COLOR_RGB1_PINS = MTX_LED_PIN_R1 ADDPINS 2
+    MTX_COLOR_RGB2_PINS = MTX_LED_PIN_R2 ADDPINS 2
+
+    MTX_CTL_PINS      = MTX_LED_PIN_CLK ADDPINS 2
+
+    MTX_16PINS  = MTX_LED_BASE_PIN ADDPINS 15
+
+PUB start() : ok | addr, rgb1, rgb2, ctl, ctr
+    '' Start underlying drivers and run demo
+
+    'debug("`term temp size 82 50 textsize 10")
+    pinclear(MTX_16PINS)
+    pinlow(MTX_16PINS)
+{
+    ' check all pins for passthru on hub75 card
+    repeat
+        repeat ctr from 0 to 65535
+            pinwrite(MTX_16PINS, ctr)
+}
+
+    ' check all hub75 signal pins by group
+    repeat
+        ' burst our control signals
+        repeat ctl from 0 to 7
+            pinwrite(MTX_CTL_PINS, ctl)
+
+        ' step thru addresses
+        repeat addr from 0 to 31
+            pinwrite(MTX_ROW_ADDR_PINS, addr)
+
+        ' step thru colors
+        repeat rgb1 from 0 to 7
+            rgb2 := 7 - rgb1
+            pinwrite(MTX_COLOR_RGB1_PINS, rgb1)
+            pinwrite(MTX_COLOR_RGB2_PINS, rgb2)
+
+        waitms(3)  ' 3/1000 seconds
+
+
+
+CON { license }
+{{
+ -------------------------------------------------------------------------------------------------
+  MIT License
+
+  Copyright (c) 2021 Iron Sheep Productions, LLC
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+ =================================================================================================
+}}

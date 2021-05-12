@@ -52,8 +52,8 @@ PUB start() : ok
     frameSetLenInLongs := PWM_FRAMESET_SIZE_IN_LONGS
     debug("- PNL: PHYScols=", udec_long_(screen.MAX_PHYSICAL_COLUMNS), " PHYSrows=", udec_long_(screen.MAX_PHYSICAL_ROWS))
     debug("- PNL: maxPwmFrames=", udec_long_(screen.MAX_PWM_FRAMES), " PwmFrameSizeInLongs=", udec_long_(screen.MAX_PWM_FRAME_SIZE_IN_LONGS))
-    debug("- PNL: BFFR pwm[1][", udec_long_(frameSetLenInLongs), "] 0x", uhex_long_(@@pwmFrames1))
-    debug("- PNL: BFFR pwm[2][", udec_long_(PWM_FRAMESET_SIZE_IN_LONGS), "] 0x", uhex_long_(@@pwmFrames2))
+    debug("- PNL: BFFR pwm[1][", udec_long_(frameSetLenInLongs), "] 0x", uhex_long_(@pwmFrames1))
+    debug("- PNL: BFFR pwm[2][", udec_long_(PWM_FRAMESET_SIZE_IN_LONGS), "] 0x", uhex_long_(@pwmFrames2))
 
     usePwmFrameset1 := TRUE
     nDumpPassNbr := 0

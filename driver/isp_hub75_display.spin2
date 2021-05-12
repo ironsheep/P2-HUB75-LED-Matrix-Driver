@@ -91,7 +91,7 @@ PUB start() : ok | scrollerIndex, dvrConfig, driverConfigRaw
         debug("dsp:underlying drivers failed!")
         abort
 
-    debug("dsp: BFFR screen[", udec_long_(screen.DISPLAY_SIZE_IN_LONGS), "] 0x", uhex_long_(@@screen0))
+    debug("dsp: BFFR screen[", udec_long_(screen.DISPLAY_SIZE_IN_LONGS), "] 0x", uhex_long_(@screen0))
 
     dvrConfig, driverConfigRaw := screen.getDriverFlags()
     bScan_1_4 := (dvrConfig & screen.SCAN_4) > 0 ? True : False
@@ -242,7 +242,7 @@ PUB setTextFont(newFont) | scrollerIndex, hUnusedPix, vUnusedPix
     maxPanelTextLines := ((screen.MAX_PANEL_ROWS - topOffsetInPix) / (charHeightInPix + verticalGapInPix))
     maxPanelTextColumns := ((screen.MAX_PANEL_COLUMNS - leftOffsetInPix) / (charWidthInPix + horizontalGapInPix))
 
-    debug("dsp:TEXT: ", udec(maxTextColumns), udec(maxTextLines))
+    'debug("dsp:TEXT: ", udec(maxTextColumns), udec(maxTextLines))
 
     'debug("dsp:font ", udec(charHeightInPix), udec(charWidthInPix), udec(maxTextLines), udec(maxTextColumns), udec(verticalGapInPix), udec(horizontalGapInPix), udec(topOffsetInPix), udec(leftOffsetInPix))
 
