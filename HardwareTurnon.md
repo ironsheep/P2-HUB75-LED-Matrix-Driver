@@ -122,4 +122,4 @@ Follow these links for more information:
 
 [releases-shield]: https://img.shields.io/github/release/ironsheep/p2-LED-Matrix-Driver.svg?style=for-the-badge
 
-[releases]: https://github.com/ironsheep/p2-LED-Matrix-Driver/releases
+[releases]: https://github.com/ironsheep/P2-HUB75-LED-Matrix-Driver/releases

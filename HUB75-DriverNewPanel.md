@@ -194,7 +194,9 @@ Signal Waveforms and timings for driver r1.1 using 64x32 Panel.
 ### Driver Chip: ICN2037 (UNKNOWN) for P2 P2 Cube
 
 This is nearly the same as the FM6124 but needs a slower data CLK (Max 20MHz) (wider pulse width) and our 64x64 panels need Red/Blue swapped.
-**NOTE** However, I'm successfully clocking the panels at 28.6 MHz (which is faster than the panel 20 MHz max.)
+**NOTE** However, I'm successfully clocking the panels at 28.6 MHz (which is faster than the panel 20 MHz max.) while clocking the P2 at 335 MHz.
+
+
 
 - LATCH_STYLE: ENCLOSED
 - LATCH_POSITION: AFTER 

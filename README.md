@@ -18,7 +18,7 @@ The P2 HUB75 Driver is available from a couple of sources:
 ```
 Latest Updates:
 11 May 2021
-- Significant performance upgrade for P2 P2 Cube support
+- Significant performance upgrade for P2 P2 Cube support (thank you Chip!)
 - Released as v0.9.0 (will bump to v1.x when we get multipanel support working for all supported chips)
 10 May 2021
 - Added first working 6-panel support enabling P2 P2 Cube use.
@@ -239,4 +239,4 @@ Follow these links for more information:
 
 [releases-shield]: https://img.shields.io/github/release/ironsheep/p2-LED-Matrix-Driver.svg?style=for-the-badge
 
-[releases]: https://github.com/ironsheep/p2-LED-Matrix-Driver/releases
+[releases]: https://github.com/ironsheep/P2-HUB75-LED-Matrix-Driver/releases
