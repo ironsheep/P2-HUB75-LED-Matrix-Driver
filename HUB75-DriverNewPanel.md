@@ -84,11 +84,11 @@ Signal Waveforms and timings for driver r1.1
 | Single Frame (16 pwm frames) | 1.57 mSec | 636.9 fps |
  
 
-#### Single PWM Frame (32 rows) timing (@v1.1):
+#### Single PWM Frame (32 rows) timing (@v0.1):
 
 ![Latch Style](images/64x32pnk_1frame.bmp)
 
-#### Single PWM Row timing (@v1.1):
+#### Single PWM Row timing (@v0.1):
 
 ![Latch Style](images/64x32pnk_1line.bmp)
 
@@ -115,11 +115,11 @@ Signal Waveforms and timings for driver r1.1
 | Single Frame (16 pwm frames) | 1.07 mSec | 930.3 fps |
  
 
-#### Single PWM Frame (32 rows) timing (@v1.1):
+#### Single PWM Frame (32 rows) timing (@v0.1):
 
 ![Latch Style](images/64x32org_1frame.bmp)
 
-#### Single PWM Row timing (@v1.1):
+#### Single PWM Row timing (@v0.1):
 
 ![Latch Style](images/64x32org_1line.bmp)
 
@@ -146,11 +146,11 @@ Signal Waveforms and timings for driver r1.1 using 64x64 Panel.
 | Single Frame (16 pwm frames) | 2.64 mSec | 378.1 fps |
 | SCREEN -> PWM Conversion | 5.505 mSec | 181.65 fps |
 
-#### Single PWM Frame (64 rows) timing (@v1.1):
+#### Single PWM Frame (64 rows) timing (@v0.1):
 
 ![Latch Style](images/64x64_1frame.bmp)
 
-#### Single PWM Row timing (@v1.1):
+#### Single PWM Row timing (@v0.1):
 
 ![Latch Style](images/64x64_1line.bmp)
 
@@ -181,13 +181,52 @@ Signal Waveforms and timings for driver r1.1 using 64x32 Panel.
 
 *NOTE: while the driver can generate 931 FPS, we are limited by the time it takes to convert a full screen image to pwm frames. This is why the final row in this table shows a frame rate of 181 FPS vs. the 931 FPS.*
 
-#### Single PWM Frame (8 rows, 128 px/row) timing (@v1.1):
+#### Single PWM Frame (8 rows, 128 px/row) timing (@v0.1):
 
 ![Latch Style](images/WorkingPWMFrameRate18.jpg)
 
-#### Single PWM Row timing (@v1.1):
+#### Single PWM Row timing (@v0.1):
 
 ![Latch Style](images/WorkingPWMLineRate18.jpg)
+
+----
+
+### Driver Chip: ICN2037 (UNKNOWN) for P2 P2 Cube
+
+This is nearly the same as the FM6124 but needs a slower data CLK (Max 20MHz) (wider pulse width) and our 64x64 panels need Red/Blue swapped.
+**NOTE** However, I'm successfully clocking the panels at 28.6 MHz (which is faster than the panel 20 MHz max.)
+
+- LATCH_STYLE: ENCLOSED
+- LATCH_POSITION: AFTER 
+- CONFIGURE_PANEL: False
+- WIDER_CLOCK: True
+- RED_BLUE_SWAP: True
+- SCAN_4: False
+
+Signal Waveforms and timings for driver v0.9 using 64x64 Panel.
+
+|  | Time | Frequency |   |
+|----|----|----|----|
+| Data CLK | 35 nSec (avg) | 28.6 mHz | |
+| Single PWM Row  | 14.3 uSec | 69.9 kHz | |
+| Single PWM Frame (32 rows, 384 px) | 457.8 uSec | 2.18 kHz | |
+| Single Frame (16 pwm frames)| ~7.3? mSec | ~137? fps | (rough estimate, not yet verified!!!) |
+| SCREEN -> PWM Conversion | 33.3 uSec |  | (less than a single PWM Frame)|
+
+#### Single PWM Frame (6 panels, 64 rows) timing (@v0.9):
+
+![Latch Style](images/P2Cube-pwm-frame-rate.bmp)
+
+A single PWM Frame consists of writing 32 - 384 pixel lines (which paint to the top 32 and bottom 32 rows at the same time.)
+In this image this single line starts at Marker M1 (yellow) and ends at Marker M2 (red.)
+
+#### Single PWM Row (6 panels) timing (@v0.9):
+
+When this driver is configured for the P2 P2 Cube (1 chain of 6 64x64 pixel panels) the driver copies two lines of PWM data from Hub RAM to COG RAM, clocks out the two rows then fetches the next 2 rows. Within the driver code these two-row groups are called subFrames. For the 6x64x64 panel-set there are 16 of these subFrames for each PWM Frame. There are 16 PWM Frames creating what we know as a single video frame.  The folloing image shows the clocking out of a single subframe (2 lines) which are in Cog RAM.
+
+![Latch Style](images/P2Cube-line-rate-div2.bmp)
+
+If you study the /OE line (output enable bar), in the image above, you can see that every other pulse is wider. This additional width (~715 nS) happens once per subFrame. It is the time it takes to copy our next two rows into COG RAM before they can be displayed.  So to get our best approximation of an individual line rate we half the duration of the two line and double the frequency of the two lines: 28.6 / 2 uSec -> 14.3 uSec and 34.9528 * 2 kHz -> 69.9 kHz. This is how we calucated the values shown in the chart above.
 
 ----
 

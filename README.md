@@ -15,6 +15,15 @@ The P2 HUB75 Driver is available from a couple of sources:
 - [The P2 Object Exchange](https://github.com/parallaxinc/propeller/tree/master/libraries/community/p2) as "ISP HUB75 Matrix"
 - From this repository from the [Releases page](https://github.com/ironsheep/p2-LED-Matrix-Driver/releases)
 
+```
+Latest Updates:
+11 May 2021
+- Significant performance upgrade for P2 P2 Cube support
+- Released as v0.9.0 (will bump to v1.x when we get multipanel support working for all supported chips)
+10 May 2021
+- Added first working 6-panel support enabling P2 P2 Cube use.
+```
+
 ## Additional Documents
 
 - This README has been repurposed to reflect the current state of the driver as currently released
@@ -26,16 +35,24 @@ The P2 HUB75 Driver is available from a couple of sources:
 
 What's working today with the current driver:
 
-- Single panel support working well, up to 2048 leds (64x32)
+- Single panel support working well for supported chips, up to 4096 leds (64x64)
+- Supported Panel Driver Chips: FM6126A, FM6124, ICN2037, and MBI5124 (1/8 scan)
+- Multi-panel support working well for ICN2037 chip only (*we're trying to figure out the panel initialization sequences for chips like the FM6126A. Until we do, multi-panel won't work for these panels*)
 - PWM'ing images to achieve reasonable color
 - Displaying text in both 5x7 and 8x8 fonts
 - Initial version of scrolling text - will get more performant in future updates (right to left scroll only)
-- Basic color pixel placement at row, column
-- Basic drawing primitives
-- Loading and displaying images from .bmp files (that are identically sized to your panel)
+- Basic color pixel placement at row, column (whole panel-set and single-panel-of-set forms)
+- Basic drawing primitives (whole panel-set and single-panel-of-set forms)
+- Loading and displaying images from .bmp files (that are identically sized to your single panel)  *This demonstration is built for 64x32 panels only, any other will rquire code rework. This is here to demonstrate how it can be done.*
 
 **NOTE:** *With every update we post we also update the [ChangeLog](ChangeLog.md). It will have the most up-to-date driver code/feature status.*
 
+## Pending Development
+
+Upcoming work on the driver:
+
+- Finishing work on initialization of panel chips that require it. It's working for single panels but not multiple panels in the chain.
+- Finishing implementation of 2-dimentional panel-set support. Today the driver can handle a single row of multiple panels, but handling N-rows of N-columns of panels needs to be implemented
 
 ## Driver Setup and Configuration
 
@@ -58,7 +75,6 @@ Here's an example block for a **single panel**:
     '   [1]     ' one panel
     '
     ' (4) describe the organization in numbers of panels
-    MAX_PANELS = 1
     MAX_PANELS_PER_ROW = 1
     MAX_PANELS_PER_COLUMN = 1
 ```
@@ -81,8 +97,28 @@ Here's an example block for **twin 64x64 panels**:
     '   [1][2]      1 row of 2 panels
     '
     ' (4) describe the organization in numbers of panels
-    MAX_PANELS = 2
     MAX_PANELS_PER_ROW = 2
+    MAX_PANELS_PER_COLUMN = 1
+```
+
+Here's an example block for **P2 P2 Cube: 6 - 64x64 panels**:
+
+```python
+    ADAPTER_BASE_PIN = PINS_P32_P47
+   ' (1) determine what form of signalling the driver should use
+    PANEL_DRIVER_CHIP = CHIP_ICN2037
+
+    ' (2) describe the panel electrical layout
+    MAX_PANEL_COLUMNS = 64
+    MAX_PANEL_ROWS = 64
+    PANEL_ADDR_LINES = ADDR_ABCDE
+
+    ' (3) describe the organization of panel(s)
+    ' panels organization: visual layout
+    '   [6]      1 row of 6 panels
+    '
+    ' (4) describe the organization in numbers of panels
+    MAX_PANELS_PER_ROW = 6
     MAX_PANELS_PER_COLUMN = 1
 ```
 
@@ -91,11 +127,10 @@ Definition of the constants in the file **isp\_hub75_hwGeometry.spin2**:
 
 | Name            | Default | Description |
 |-----------------|-------------|-------------|
-| `ADAPTER_BASE_PIN` | PINS\_P16_P31 |  Identify which pin-group your HUB75 board is connected |
+| `ADAPTER_BASE_PIN` | {none}  |  Identify which pin-group your HUB75 board is connected |
 | `PANEL_DRIVER_CHIP` | CHIP_UNKNOWN | in most cases UNKNOWN will work. Some specialized panels need a specific driver chip (e.g., those using the FM6126A, ICN2037, or the MBI5124\_8S) |
 | `MAX_PANEL_COLUMNS` | {none} | The number of LEDs in each row of your panel ( # pixels-wide) |
 | `MAX_PANEL_ROWS` | {none} | The number of LEDs in each column of your panel ( # pixels-high) |
-| `MAX_PANELS` | 1 | **NOTE:** Currently only the CHIP_ICN2037 is working for multipanel displays |
 | `MAX_DISPLAY_COLUMNS` | {none} | The number of LEDs in each row of your multi-panel display |
 | `MAX_DISPLAY_ROWS` | {none} | The number of LEDs in each column of your multi-panel display |
 *The easiest way to do this would be to find an example configuration in that file, copy it and modify it to describe your hardware set up. Making sure, of course that the others are commented out.*
@@ -118,10 +153,11 @@ There are a couple of demos which you can review then copy and paste from.  Thes
 | isp\_hub75_demoColor.spin2 | presents the color features of the panel driver, displays a .bmp file |
 | isp\_hub75_demoText.spin2 | presents the text and scrolling features of the panel driver |
 | isp\_hub75_demo7seg.spin2 | presents a technique for doing multi-step animations using the panel driver |
+| isp\_hub75_demoMultiPanel.spin2 | presents techniques for drawing to the various surfaces of our P2 P2 Cube |
 
-**NOTE:** these demo's are built for a 64x32 panel. You may have to modify them to run on your panel.
+**NOTE:** most of the demo's are built for a 64x32 panels. You may have to modify them to run on your panel geometry.
 
-Once you have a sense for what these demo's do and how, writing your own display code should be very easy and initially maybe even a copy-n-paste effort from the demo source to your own display code.
+Once you have a sense for what these demo's do and how they do it, writing your own display code should be fairly easy and initially maybe even a copy-n-paste effort from the demo source to your own display code.
 
 Please enjoy and let me know if there are features you want to see in this driver!
 
