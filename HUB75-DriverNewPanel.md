@@ -205,12 +205,12 @@ This is nearly the same as the FM6124 but needs a slower data CLK (Max 20MHz) (w
 
 Signal Waveforms and timings for driver v0.9 using 64x64 Panel.
 
-|  | Time | Frequency |   |
+| Measured Item | Time | Frequency | Notes  |
 |----|----|----|----|
 | Data CLK | 35 nSec (avg) | 28.6 mHz | |
 | Single PWM Row  | 14.3 uSec | 69.9 kHz | |
 | Single PWM Frame (32 rows, 384 px) | 457.8 uSec | 2.18 kHz | |
-| Single Frame (16 pwm frames)| ~7.3? mSec | ~137? fps | (rough estimate, not yet verified!!!) |
+| Single Frame (16 pwm frames)| ??? mSec | ??? fps | Need to measure this... |
 | SCREEN -> PWM Conversion | 33.3 uSec |  | (less than a single PWM Frame)|
 
 #### Single PWM Frame (6 panels, 64 rows) timing (@v0.9):
