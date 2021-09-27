@@ -4,6 +4,9 @@
 # macOS files
 .DS_Store
 
+# my scripts
+checkDropbox
+
 # Object files
 *.o
 *.ko
