@@ -115,6 +115,10 @@ PUB start() : ok | tmpVar, panelCt, tmpConstant, widthInPanels, heightInPanels
     tm_64usec := usec_001 * 64
     debug("- times: ", sdec_long(usec_001), sdec_long(tm_64usec))
 
+    ' initialize our max count for initial frame of frameSet
+    maxCtPerFrame := (screen.pwmFrameCount() + 1) >> 1
+    debug("- Driver CONFIG 1st bit ", udec_long(maxCtPerFrame))
+
     dvrConfig, driverConfigRaw := screen.getDriverFlags()
     debug("- Driver CONFIG ", ubin_word(driverConfigRaw))
     debug("- Driver CONFIG       ", ubin_word(dvrConfig))
@@ -759,12 +763,21 @@ chkFill
 '
 displayPwmFrames
                     mov     pwmBffrStart, nxtArgument           ' preserve our new start address
-                    mov     ptra, pwmBffrStart
-'                    rdfast  #0,pwmBffrStart                     ' initialize our FIFO (#0 means no wrap!)
-                    mov     pwmFrameCt, #screen.MAX_PWM_FRAMES  ' set loop to PWM N frames then stop to see what to do next
+                    mov     ptra, pwmBffrStart                  ' ptra scans frameset until done (pwmBffrStart is used to reset to from of frame)
+'                    rdfast  #0,pwmBffrStart                    ' initialize our FIFO (#0 means no wrap!)
+                    mov     pwmFrameSetCt, maxCtPerFrame        ' set initial count: 4 for 3 bit, 8 for 4 bit, 16 for 5bit, etc.
+                    mov     pwmFrameCt, #screen.MAX_PWM_BUFFERS  ' set loop to PWM N frames then stop to see what to do next
+nextSamePwmFrame
+                    mov     pwmSameFrameCt, pwmFrameSetCt
 nextPwmFrame
-                    call    #display1PwmFrame                   ' load 1st subpage of current frame into display buffer
-                    djnz    pwmFrameCt, #nextPwmFrame           ' have another of the PWM N frames to show?
+                    call    #display1PwmFrame                   ' load subpages of current pwmFrame into display buffer
+                    sub     pwmSameFrameCt, #1 wz               ' go show another of same subpage if not done
+    if_nz           mov     ptra, pwmFrameStart                 ' reset to start of same pwmFrame
+    if_nz           jmp     #nextPwmFrame                       ' go display same pwmFrame again
+                    ' start next pwmFrame
+                    mov     pwmFrameStart, ptra                 ' capture next pwmFrame start addr (for redisplay)
+                    shr     pwmFrameSetCt, #1                   ' div our count by 2:  16->8->4->2->1
+                    djnz    pwmFrameCt, #nextSamePwmFrame           ' have another of the PWM N frames to show?
                     mov     nxtArgument, pwmBffrStart           ' no point back to first of N PWM frame buffers
                     ret                                         ' loop again if no command, we'll do another PWM set
 '
@@ -809,7 +822,7 @@ loadPWMsubpage
                     '  into MAX_SUBPAGE_SIZE_IN_LONGS cogBuffer
                     setq	#screen.MAX_SUBPAGE_SIZE_IN_LONGS - 1
 	    _ret_       rdlong	cogBuffer, ptra++ ' when done, return to caller
-'
+'00
 ' fillCogBufferWithColor(nxtArgument=colorvalue3bit)
 '
 fillCogBufferWithColor      ' fill COG buffer with desired 3-bit color
@@ -1063,7 +1076,11 @@ priorCommand    res     1
 nxtCommand      res     1
 nxtArgument     res     1
 pwmBffrStart    res     1
+pwmFrameStart   res     1
 pwmFrameCt      res     1
+maxCtPerFrame   res     1       ' initial count for compiled bit-depth
+pwmFrameSetCt   res     1       ' initial count for each pwmFrame: 8->4->2->1->0
+pwmSameFrameCt  res     1       ' current count this pwmFrame
 pwmSubPgCt      res     1
 fillSubPgCt     res     1
 
@@ -1082,9 +1099,9 @@ dbgCount        res     1
 row_addr        res     1
 row_ctr         res     1
 col_addr        res     1
-col_lng_ctr         res     1
+col_lng_ctr     res     1
 '
-        FIT     496
+                FIT     496
 
 
 CON { license }

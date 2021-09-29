@@ -4,6 +4,9 @@
 # macOS files
 .DS_Store
 
+# vscode files
+.history
+
 # my scripts
 checkDropbox
 

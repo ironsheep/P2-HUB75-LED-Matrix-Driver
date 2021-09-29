@@ -66,6 +66,11 @@ PUB null()
 
     '' This is not a top level object
 
+PUB init()
+    '' have color utils configure itself based on compiled color-depth
+    ' this allows our color conversion routines to be faster as there is less runtime code
+    shiftLtValue := 8 - screen.COLOR_DEPTH
+    nbrPwmFrames := screen.pwmFrameCount()
 
 PUB setBrightness(newBrightness)
     '' Set the global brightness value
@@ -165,11 +170,24 @@ PUB cValueForRGB(red, green, blue) : combinedValue
 
 PUB dutyCycleForIntensity(hex8bit) : pwmBits
     '' CALCULATE: proper duty cycle for intensity of 0-255
-    '         --- VERSION 1 - Bits spread throughout ---
-    if hex8bit == 255
-        pwmBits := screen.MAX_PWM_FRAMES
-    else
-        pwmBits := hex8bit / screen.MAX_PWM_FRAMES
+    '  map 0-255 to compiled color depth 0-7,15,31,63,127,255
+    '
+    '  REF: https://www.arduino.cc/reference/en/language/functions/math/map
+    '
+    '  Re-maps a number from one range to another. That is, a value of fromLow would get mapped to toLow,
+    '   a value of fromHigh to toHigh, values in-between to values in-between, etc.
+    '
+    '    y = map(x, 1, 50, 50, 1);
+    '
+    '  PRI map(inValue,  inMin,  inMax,  outMin,  outMax) : outValue
+    '  outValue := (inValue - inMin) * (outMax - outMin) / (inMax - inMin) + outMin
+    '
+    '  map(hex8bit, 0, 255, 0, 7)
+    '  outValue := (hex8bit - 0) * (7 - 0) / (255 - 0) + 0
+    '  outValue := (hex8bit) * (7) / (255)
+
+    pwmBits := (hex8bit * nbrPwmFrames) / 255   ' map our value
+    pwmBits <<= shiftLtValue                    ' shift value into our upper COLOR_DEPTH bits
 {
     if not didShow[hex8bit]
         debug("clr:dcyc ", uhex_byte(hex8bit), uhex_byte(pwmBits))
@@ -177,6 +195,9 @@ PUB dutyCycleForIntensity(hex8bit) : pwmBits
 '}
 
 DAT { tables, default values }
+
+shiftLtValue        long    0       ' set by init()
+nbrPwmFrames        long    0       ' set by init()
 
 didShow             byte    FALSE[256]
 
