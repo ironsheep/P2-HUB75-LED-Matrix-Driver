@@ -37,6 +37,8 @@ VAR { driver instance variables }
     long    nDumpPassNbr
     long    frameSetLenInLongs
     byte    usePwmFrameset1
+    byte    bDumpOnce
+    byte    nPassCt
 
 ' ----------------------------------------------------------
 
@@ -50,6 +52,8 @@ PUB start() : ok
         abort
 
     color.init()    ' let our color conversion routines configure themselves
+    bDumpOnce := FALSE
+    nPassCt := 0
 
     frameSetLenInLongs := PWM_FRAMESET_SIZE_IN_LONGS
     debug("- PNL: PHYScols=", udec_long_(screen.MAX_PHYSICAL_COLUMNS), " PHYSrows=", udec_long_(screen.MAX_PHYSICAL_ROWS))
@@ -502,6 +506,12 @@ allOnes             long    $ffffffff
     end
 
     markEnd(string("pasm 16S"))
+    {
+    nPassCt++
+    if not bDumpOnce && nPassCt == 5
+        bDumpOnce := TRUE
+        dumpBufferHeads(pScreenInMemory, pPwmFrameSet)
+    '}
     matrix.writePwmBuffer(pPwmFrameSet)
 
 ' -----------------------------------------------------------------------------
@@ -601,7 +611,7 @@ PRI markEnd(message) | elapsed
     'elapsed := elapsed +/ (clkfreq/1000) ' convert to milliseconds
     elapsed := elapsed +/ (clkfreq/1000000) ' convert to useconds
     'elapsed := elapsed +/ (clkfreq/1000) ' convert to useconds
-    'debug("- runtime ", zstr_(message), ": ", udec_long(elapsed), " uS")
+    debug("- runtime ", zstr_(message), ": ", udec_long(elapsed), " uS")
 
 PRI isDebugLocn(nRow, nCol) : status
     status := FALSE

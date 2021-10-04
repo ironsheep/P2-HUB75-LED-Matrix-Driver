@@ -185,7 +185,11 @@ PRI demoAlignmentText()
     display.setColoredTextAtLnCol(3, 0, string("Line 4"), color.cBlue)
     display.commitScreenToPanelSet()
 
-PRI demoText() | pFrameCountStr, frameCount
+DAT { string data }
+
+pwmMsg  byte    "XXXfrm pwm",0
+
+PRI demoText() | frameCount
     ' draw some text!
     display.setTextFont(display.TEXT_FONT_5x7)    ' font size
     display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
@@ -195,22 +199,18 @@ PRI demoText() | pFrameCountStr, frameCount
     frameCount := screen.pwmFrameCount()
     case screen.COLOR_DEPTH
         screen.DEPTH_3BIT:
-            pFrameCountStr := string("(Xfrm pwm)")
-            byte [pFrameCountStr][1] := "0" + frameCount
-        screen.DEPTH_7BIT:
-        screen.DEPTH_8BIT:
-            pFrameCountStr := string("(XXXfrm pwm)")
-            byte [pFrameCountStr][1] := "0" + frameCount / 100
-            byte [pFrameCountStr][2] := "0" + (frameCount // 100) / 10
-            byte [pFrameCountStr][3] := "0" + (frameCount // 100) // 10
-        screen.DEPTH_4BIT:
-        screen.DEPTH_5BIT:
-        screen.DEPTH_6BIT:
+            pwmMsg.BYTE[0] := $20    ' space
+            pwmMsg.BYTE[1] := $20    ' space
+            pwmMsg.BYTE[2] := $30 + frameCount
+        screen.DEPTH_7BIT,screen.DEPTH_8BIT:
+            pwmMsg.BYTE[0] := $30 + (frameCount / 100)
+            pwmMsg.BYTE[1] := $30 + ((frameCount // 100) / 10)
+            pwmMsg.BYTE[2] := $30 + ((frameCount // 100) // 10)
         other:
-            pFrameCountStr := string("(XXfrm pwm)")
-            byte [pFrameCountStr][1] := "0" + frameCount / 10
-            byte [pFrameCountStr][2] := "0" + frameCount // 10
-    display.setColoredTextAtLnCol(2,0, pFrameCountStr, color.cMagenta)
+            pwmMsg.BYTE[0] := $20    ' space
+            pwmMsg.BYTE[1] := $30 + (frameCount / 10)
+            pwmMsg.BYTE[2] := $30 + (frameCount // 10)
+    display.setColoredTextAtLnCol(2,0, @pwmMsg, color.cMagenta)
     display.setColoredTextAtLnCol(3,0, string("led matrix"), color.cWhite)
     display.commitScreenToPanelSet()
 

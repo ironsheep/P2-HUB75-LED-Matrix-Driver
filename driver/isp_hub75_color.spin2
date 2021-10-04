@@ -71,6 +71,7 @@ PUB init()
     ' this allows our color conversion routines to be faster as there is less runtime code
     shiftLtValue := 8 - screen.COLOR_DEPTH
     nbrPwmFrames := screen.pwmFrameCount()
+    debug("- color CFG: ", udec_long(shiftLtValue), udec_long(nbrPwmFrames))
 
 PUB setBrightness(newBrightness)
     '' Set the global brightness value

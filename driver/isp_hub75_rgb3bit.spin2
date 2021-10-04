@@ -115,6 +115,9 @@ PUB start() : ok | tmpVar, panelCt, tmpConstant, widthInPanels, heightInPanels
     tm_64usec := usec_001 * 64
     debug("- times: ", sdec_long(usec_001), sdec_long(tm_64usec))
 
+    tmpConstant := screen.COLOR_DEPTH
+    debug("- Driver CONFIG ColorDepth = ", udec_long_(tmpConstant))
+
     ' initialize our max count for initial frame of frameSet
     maxCtPerFrame := (screen.pwmFrameCount() + 1) >> 1
     debug("- Driver CONFIG 1st bit ", udec_long(maxCtPerFrame))
@@ -763,7 +766,8 @@ chkFill
 '
 displayPwmFrames
                     mov     pwmBffrStart, nxtArgument           ' preserve our new start address
-                    mov     ptra, pwmBffrStart                  ' ptra scans frameset until done (pwmBffrStart is used to reset to from of frame)
+                    mov     ptra, pwmBffrStart                  ' ptra scans frameset until done (pwmBffrStart is used to reset to front of frame)
+                    mov     pwmFrameStart, ptra                 ' capture 1st pwmFrame start addr (for redisplay)
 '                    rdfast  #0,pwmBffrStart                    ' initialize our FIFO (#0 means no wrap!)
                     mov     pwmFrameSetCt, maxCtPerFrame        ' set initial count: 4 for 3 bit, 8 for 4 bit, 16 for 5bit, etc.
                     mov     pwmFrameCt, #screen.MAX_PWM_BUFFERS  ' set loop to PWM N frames then stop to see what to do next
