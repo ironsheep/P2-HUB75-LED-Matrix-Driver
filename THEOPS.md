@@ -73,10 +73,11 @@ Once you haave the driver source files added to your project you will first need
 | `ADAPTER_BASE_PIN` | PINS\_P16_P31 |  Identify which pin-group your HUB75 board is connected |
 | `PANEL_DRIVER_CHIP` | CHIP_UNKNOWN | in most cases UNKNOWN will work. Some specialized panels need a specific driver chip (e.g., those using the FM6126A) |
 | `MAX_PANEL_COLUMNS` | {none} | The number of LEDs in each row of your panel ( # pixels-wide) |
-| `MAX_PANEL_ROWS` | {none} | The number of LEDs in each column of your panel ( # pixels-high) 
-| `MAX_PANELS` | 1 | **NOTE:** Currently only 1 in supported in the initial release |
-| `MAX_DISPLAY_COLUMNS` | {none} | The number of LEDs in each row of your multi-panel display |
-| `MAX_DISPLAY_ROWS` | {none} | The number of LEDs in each column of your multi-panel display 
+| `MAX_PANEL_ROWS` | {none} | The number of LEDs in each column of your panel ( # pixels-high) |
+| `PANEL_ADDR_LINES` | {none} | The number of Address lines driving your panels (ADDR\_ABC, ADDR\_ABCD, or ADDR\_ABCDE) |
+| `MAX_DISPLAY_COLUMNS` | {none} | The number of LEDs in each ROW of your multi-panel display |
+| `MAX_DISPLAY_ROWS` | {none} | The number of LEDs in each COLUMN of your multi-panel display |
+| `COLOR_DEPTH` | {none} | The color depth you wish to display on your panels (compile-time selectable from 3-bit to 8-bit) |
 
 ## Notes on driver internals
 

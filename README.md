@@ -150,9 +150,9 @@ Definition of the constants in the file **isp\_hub75_hwGeometry.spin2**:
 | `PANEL_ADDR_LINES` | {none} | The number of Address lines driving your panels (ADDR\_ABC, ADDR\_ABCD, or ADDR\_ABCDE) |
 | `MAX_PANELS_PER_ROW` | {none} | The number of panels in each ROW of your display |
 | `MAX_PANELS_PER_COLUMN` | {none} | The number of panels in each COLUMN of your display |
-| `COLOR_DEPTH` | {none} | The color depth you wish to display on your panels (compile-time selectable from 3-bit to 8-bit)
-*The easiest way to do this would be to find an example configuration in that file, copy it and modify it to describe your hardware set up. Making sure, of course that the others are commented out.*
+| `COLOR_DEPTH` | {none} | The color depth you wish to display on your panels (compile-time selectable from 3-bit to 8-bit) |
 
+*The easiest way to create your own configuration would be to find an example configuration in this file, copy it and modify it to describe your hardware set up. Making sure, of course that the others are commented out.*
 
 **NOTE:** as you get into multi-panel display organizations please pay careful attention to `MAX_PANELS_PER_ROW` and `MAX_PANELS_PER_COLUMN`.
 
