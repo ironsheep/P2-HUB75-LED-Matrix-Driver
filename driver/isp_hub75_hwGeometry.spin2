@@ -13,7 +13,7 @@
 ''
 ''  NOTE: ADJUST THIS FILE TO DESCRIBE YOUR TYPE OF PANEL and if you have connected mmore than one.
 ''
-''  (This FILE only containing hardware constants, NO CODE, is used by the HUB75 driver software)
+''  (This FILE containing only hardware constants, NO CODE, is used by the HUB75 driver software)
 ''
 '' -------------------------------------------------------------------------------------------------
 
@@ -77,7 +77,7 @@ CON { Hardware Description }
 '  Author's panel uses FM6126A chips
 '    max clock rate of 30MHz - [16.5ns hi/16.5ns lo]
 ' ----------------------------------------------------------
-{
+'{
     ADAPTER_BASE_PIN = PINS_P16_P31
     ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = CHIP_FM6126A
@@ -370,12 +370,10 @@ CON { Hardware Description }
 '  Author's panel uses ICN2037 chips
 '    max clock rate of 20MHz - [25ns hi/25ns lo]
 ' ----------------------------------------------------------
-'{
+{
     ADAPTER_BASE_PIN = PINS_P16_P31
    ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = CHIP_ICN2037
-
-    COLOR_DEPTH = DEPTH_4BIT
 
     ' (2) describe the panel electrical layout
     MAX_PANEL_COLUMNS = 64

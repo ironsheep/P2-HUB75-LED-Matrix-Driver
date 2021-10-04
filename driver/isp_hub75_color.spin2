@@ -67,7 +67,7 @@ PUB null()
     '' This is not a top level object
 
 PUB init()
-    '' have color utils configure itself based on compiled color-depth
+    '' Configure color object based on compiled color-depth
     ' this allows our color conversion routines to be faster as there is less runtime code
     shiftLtValue := 8 - screen.COLOR_DEPTH
     nbrPwmFrames := screen.pwmFrameCount()
@@ -169,7 +169,7 @@ PUB cValueForRGB(red, green, blue) : combinedValue
     combinedValue := ((red & $ff) << 16) | ((green & $ff) << 8) | (blue & $ff)
 
 PUB dutyCycleForIntensity(hex8bit) : pwmBits
-    '' CALCULATE: proper duty cycle for intensity of 0-255
+    '' CALCULATE: proper duty cycle for intensity of 0-255 and map 24-bit color depth to {compiled}-bit color depth
     '  map 0-255 to compiled color depth 0-7,15,31,63,127,255
     '
     '  REF: https://www.arduino.cc/reference/en/language/functions/math/map

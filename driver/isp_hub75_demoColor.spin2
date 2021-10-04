@@ -43,7 +43,7 @@ DEMO_COUNT = 11
 
 
 PUB main() : ok | demoIndex
-    '' start underlying drivers and run demo
+    '' Start underlying drivers and run demo
 
     'repeat
 
@@ -206,11 +206,11 @@ PRI demoText() | pFrameCountStr, frameCount
         screen.DEPTH_4BIT:
         screen.DEPTH_5BIT:
         screen.DEPTH_6BIT:
-        other:00
+        other:
             pFrameCountStr := string("(XXfrm pwm)")
             byte [pFrameCountStr][1] := "0" + frameCount / 10
             byte [pFrameCountStr][2] := "0" + frameCount // 10
-    display.setColoredTextAtLnCol(2,0, pFrameCountStr, color.cWhite)
+    display.setColoredTextAtLnCol(2,0, pFrameCountStr, color.cMagenta)
     display.setColoredTextAtLnCol(3,0, string("led matrix"), color.cWhite)
     display.commitScreenToPanelSet()
 

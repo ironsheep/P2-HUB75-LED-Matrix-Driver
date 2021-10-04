@@ -1033,6 +1033,7 @@ usec_001            long    0                               ' ticks in 1us
 
 tm_64usec           long    0
 
+maxCtPerFrame       long    0       ' initial count for compiled bit-depth
 
 ' the follwing are I/O pin masks and data values we use for our primary I/O
 maskAddr            long    %00000000_01111000_00000000_00000000   ' pins at 16-31 A/B-pins
@@ -1078,7 +1079,6 @@ nxtArgument     res     1
 pwmBffrStart    res     1
 pwmFrameStart   res     1
 pwmFrameCt      res     1
-maxCtPerFrame   res     1       ' initial count for compiled bit-depth
 pwmFrameSetCt   res     1       ' initial count for each pwmFrame: 8->4->2->1->0
 pwmSameFrameCt  res     1       ' current count this pwmFrame
 pwmSubPgCt      res     1

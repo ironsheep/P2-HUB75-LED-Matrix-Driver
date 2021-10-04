@@ -60,8 +60,6 @@ PUB start() : ok
     usePwmFrameset1 := TRUE
     nDumpPassNbr := 0
 
-    maxBitValue := (screen.pwmFrameCount() + 1) >> 1
-
     clearPwmFrameBuffer()  ' clear PWM frames  and get pointer to buffer
     clearPwmFrameBuffer()  ' this clears 2nd frame-set, too
 
@@ -84,9 +82,9 @@ VAR { spin timing support }
     long    intrvlStart
     long    intrvlStop
 
-PUB convertScreen2PWM_14(p24bitScreen, bSwapRB) | pPwmFrameSet, nFrameOffset, nFrameIdx, nFrameCtr, pPwmFrame, topBitMask
+PUB convertScreen2PWM_14(p24bitScreen, bSwapRB) | pPwmFrameSet, nFrameOffset, nFrameIdx, nFrameCtr, pPwmFrame
     '' Load a 24-bit-color image into PWM frame buffers at 8s (4 scan-lines at a time) [PASM]
-    ' scan memory, write PWM bytes twice, sigh
+    ' scan memory, write PWM bytes twice, sigh...
     'debug("- PNL:cs2pwm(): scn ", uhex_long(p24bitScreen), uhex_long(bSwapRB))
 
     ' -------------------------------------------------------------------------
@@ -142,11 +140,8 @@ PUB convertScreen2PWM_14(p24bitScreen, bSwapRB) | pPwmFrameSet, nFrameOffset, nF
     ' init ptrs
     pPwmFrameSet := getActivePwmBuffer()
 
-    topBitMask := (screen.pwmFrameCount() + 1) >> 1
-
     org
             ' init variables
-                    mov     maxBitValue, topBitMask
                     ' setup for red/blue flip if needed
                     or      bSwapRB, bSwapRB   wz   ' T/F where: T=nz, F=z
                     ' T/nz = is Swapped
@@ -232,6 +227,7 @@ next8SColumn
                     ' for ea. bit do...
                     ' repeat currPwmBffrIdx from 0 to screen.MAX_PWM_BUFFERS - 1
                     xor     currPwmBffrIdx, currPwmBffrIdx          ' start with buffer[0] of [0-MAX_PWM_BUFFERS - 1]
+                    ' NOTE: PWM def'n bits are org'd at MSBit and are COLOR_DEPTH in width (3-8 bits depth)
                     mov     currMaskBitIdx, #7                      ' start bitmask is always msBit of byte
                     mov     pwmBitCtr, #screen.MAX_PWM_BUFFERS      ' MAX PWM FRAME bits to scan in LONG
 
@@ -333,9 +329,8 @@ greenPwmBits        long    0
 bluePwmBits         long    0
 colorValue24bit     long    0
 pwmBitCtr           long    0
-currPwmBffrIdx       long    0
+currPwmBffrIdx      long    0
 currMaskBitIdx      long    0
-maxBitValue         long    0
 bitsBGR             long    0
 pPwmFrameByte       long    0
 currPwmBits         long    0
@@ -416,6 +411,7 @@ nextPixel
                     ' for ea. bit do...
                     xor     currPwmBffrIdx, currPwmBffrIdx          ' start with buffer[0] of [0-MAX_PWM_BUFFERS - 1]
                     mov     bitCount, #screen.MAX_PWM_BUFFERS       ' MAX PWM FRAME bits to scan in LONG
+                    ' NOTE: PWM def'n bits are org'd at MSBit and are COLOR_DEPTH in width (3-8 bits depth)
                     mov     currMaskBitIdx, #7                      ' start bitmask is always msBit of byte
 nextBit
                     ' calculate offset to frame for this bit #

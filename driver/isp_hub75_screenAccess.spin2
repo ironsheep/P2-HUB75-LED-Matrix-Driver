@@ -174,7 +174,7 @@ PUB screenAddress() : pScreen
     pScreen := pExtScreen
 
 PUB pwmFrameCount() : nbrPwmFrames
-    '' return the number of pwm frames display for selected bit depth
+    '' Return the number of pwm frames to display for selected bit depth
     case COLOR_DEPTH
         DEPTH_3BIT:
             nbrPwmFrames := 7
@@ -192,7 +192,7 @@ PUB pwmFrameCount() : nbrPwmFrames
             nbrPwmFrames := 15  ' default to DEPTH_4BIT if set badly
 
 PUB offsetToPanel(panelIndex) : offsetPixelRows, offsetPixelColumns | gridRow, gridColumn
-    '' return x,y offset to specified panel from top-left corner of display
+    '' Return x,y offset to specified panel from top-left corner of display
     offsetPixelRows := offsetPixelColumns := 0
     if MAX_PANELS > 0
         panelIndex :=  0 #> panelIndex <# MAX_PANELS - 1
@@ -212,17 +212,19 @@ PUB offsetToPanel(panelIndex) : offsetPixelRows, offsetPixelColumns | gridRow, g
     return offsetPixelRows, offsetPixelColumns
 
 PUB getDriverFlags() : desiredFlags, origFlags
-    desiredFlags := origFlags := PANEL_DRIVER_CHIP
-    if desiredFlags == CHIP_FM6126A
+    '' Return flags describing the compiled driver configuration
+    desiredFlags := origFlags := PANEL_DRIVER_CHIP  ' value configured by user
+    if origFlags == CHIP_FM6126A
         desiredFlags := CHIP_MANUAL_SPEC | LAT_POSN_OVERLAP | LAT_STYLE_OFFSET | INIT_PANEL_REQUIRED
-    elseif desiredFlags == CHIP_MBI5124_8S
+    elseif origFlags == CHIP_MBI5124_8S
         desiredFlags := CHIP_MANUAL_SPEC | CHIP_UNK_LAT_END_ENCL | SCAN_4 | INIT_PANEL_REQUIRED
-    elseif desiredFlags == CHIP_FM6124 or desiredFlags == CHIP_UNK_LAT_END_ENCL
-        if desiredFlags == CHIP_FM6124
-    elseif desiredFlags == CHIP_ICN2037 or desiredFlags == CHIP_UNK_LAT_END_ENCL_SLO_CLK
-        if desiredFlags == CHIP_ICN2037
+    elseif origFlags == CHIP_FM6124 or origFlags == CHIP_UNK_LAT_END_ENCL
+        if origFlags == CHIP_FM6124
+            desiredFlags := CHIP_MANUAL_SPEC
+    elseif origFlags == CHIP_ICN2037 or origFlags == CHIP_UNK_LAT_END_ENCL_SLO_CLK
+        if origFlags == CHIP_ICN2037
             desiredFlags := CHIP_MANUAL_SPEC | CLK_WIDE_PULSE | RB_SWAP
-    elseif desiredFlags & $ff <> CHIP_MANUAL_SPEC
+    elseif origFlags & $ff <> CHIP_MANUAL_SPEC
         ' report ERROR and exit
         debug("- have unknown CHIP ", ubin_word(desiredFlags))
         abort
