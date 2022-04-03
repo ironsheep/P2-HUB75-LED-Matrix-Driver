@@ -97,7 +97,7 @@ CON { Hardware Description }
 
     ' (5) describe the color depth you want to support [3-8] bits per LED
     '    NOTE full 24bit color is DEPTH_8BIT
-    COLOR_DEPTH = DEPTH_4BIT
+    COLOR_DEPTH = DEPTH_6BIT
 '}
 
 

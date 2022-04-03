@@ -188,14 +188,15 @@ PRI demoAlignmentText()
 DAT { string data }
 
 pwmMsg  byte    "XXXfrm pwm",0
+bitMsg  byte    "-RGB "
+bitCt   byte    "nbit-",0
 
 PRI demoText() | frameCount
     ' draw some text!
     display.setTextFont(display.TEXT_FONT_5x7)    ' font size
     display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
-
     display.setColoredTextAtLnCol(0,0, string("iron sheep"), color.cMaroon)
-    display.setColoredTextAtLnCol(1,0, string("-RGB 3bit-"), color.cOrange)
+
     frameCount := screen.pwmFrameCount()
     case screen.COLOR_DEPTH
         screen.DEPTH_3BIT:
@@ -210,6 +211,9 @@ PRI demoText() | frameCount
             pwmMsg.BYTE[0] := $20    ' space
             pwmMsg.BYTE[1] := $30 + (frameCount / 10)
             pwmMsg.BYTE[2] := $30 + (frameCount // 10)
+    bitCt.BYTE[0] := screen.COLOR_DEPTH + $30
+
+    display.setColoredTextAtLnCol(1,0, @bitMsg, color.cOrange)
     display.setColoredTextAtLnCol(2,0, @pwmMsg, color.cMagenta)
     display.setColoredTextAtLnCol(3,0, string("led matrix"), color.cWhite)
     display.commitScreenToPanelSet()

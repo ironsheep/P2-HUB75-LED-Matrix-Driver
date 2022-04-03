@@ -85,9 +85,9 @@ PUB correctedColor(color) : adjustedColor
     '' Correct a color using generic gamma
     adjustedColor := color
     'return
-    adjustedColor := byte[@gamma][adjustedColor]
-    adjustedColor := ((adjustedColor * defaultBrightness) >> 8) & $ff
-    adjustedColor := dutyCycleForIntensity(adjustedColor)
+    'adjustedColor := byte[@gamma][adjustedColor]
+    'adjustedColor := ((adjustedColor * defaultBrightness) >> 8) & $ff
+    adjustedColor := colorAtDesiredBitWidth(adjustedColor)
 
 PUB gammaPeek(color) : adjustedColor | gammmaIndex, lowColor, highColor
     '' Return index of nearest matching value in gamma table
@@ -125,10 +125,10 @@ PUB correctedSingleColor(led, colorValue) : adjustedColor | pGammaTable
         other:
             abort
 
+    adjustedColor := ((adjustedColor * defaultBrightness) >> 8) & $ff
     if bGammaEnable
         adjustedColor := byte[pGammaTable][adjustedColor]
-    adjustedColor := ((adjustedColor * defaultBrightness) >> 8) & $ff
-    adjustedColor := dutyCycleForIntensity(adjustedColor)
+    adjustedColor := colorAtDesiredBitWidth(adjustedColor)
 
 PUB rgbColorFromDegrees(degrees) : rcbColor | offset60, fract60, red, green, blue
     '' CONVERT: 0-355 degrees to color
@@ -169,8 +169,10 @@ PUB cValueForRGB(red, green, blue) : combinedValue
     '' CONVERT: r,g,b to combined value
     combinedValue := ((red & $ff) << 16) | ((green & $ff) << 8) | (blue & $ff)
 
-PUB dutyCycleForIntensity(hex8bit) : pwmBits
-    '' CALCULATE: proper duty cycle for intensity of 0-255 and map 24-bit color depth to {compiled}-bit color depth
+PUB colorAtDesiredBitWidth(hex8bit) : pwmBits
+    '' CALCULATE: proper duty cycle for intensity of 0-255
+    '
+    '  (map 8-bit color depth to {compiled}-bit color depth)
     '  map 0-255 to compiled color depth 0-7,15,31,63,127,255
     '
     '  REF: https://www.arduino.cc/reference/en/language/functions/math/map
@@ -182,10 +184,13 @@ PUB dutyCycleForIntensity(hex8bit) : pwmBits
     '
     '  PRI map(inValue,  inMin,  inMax,  outMin,  outMax) : outValue
     '  outValue := (inValue - inMin) * (outMax - outMin) / (inMax - inMin) + outMin
+    '  outValue := (inValue - 0) * (outMax - 0) / (inMax - 0) + 0
+    '  outValue := inValue * outMax / inMax
     '
-    '  map(hex8bit, 0, 255, 0, 7)
+    '               shiftLtValue           5,         4,         3,        2,         1,         0
+    '  map(hex8bit, 0, 255, 0, 7)    7=3-bit,  15=4-bit,  31=5-bit, 63=6-bit, 127=7-bit, 255=8-bit
     '  outValue := (hex8bit - 0) * (7 - 0) / (255 - 0) + 0
-    '  outValue := (hex8bit) * (7) / (255)
+    '  outValue := hex8bit * 7 / 255
 
     pwmBits := (hex8bit * nbrPwmFrames) / 255   ' map our value
     pwmBits <<= shiftLtValue                    ' shift value into our upper COLOR_DEPTH bits
