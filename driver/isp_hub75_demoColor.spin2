@@ -214,7 +214,7 @@ PRI demoText() | frameCount
     bitCt.BYTE[0] := screen.COLOR_DEPTH + $30
 
     display.setColoredTextAtLnCol(1,0, @bitMsg, color.cOrange)
-    display.setColoredTextAtLnCol(2,0, @pwmMsg, color.cMagenta)
+    display.setColoredTextAtLnCol(2,0, @pwmMsg, color.cRainbow)
     display.setColoredTextAtLnCol(3,0, string("led matrix"), color.cWhite)
     display.commitScreenToPanelSet()
 
