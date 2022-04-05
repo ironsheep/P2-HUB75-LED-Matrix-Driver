@@ -11,9 +11,18 @@ Check [Keep a Changelog](http://keepachangelog.com/) for reminders on how to str
 Work to appear in upcoming releases:
 
 - Fix multi-panel support for chips that are not yet working in multi-panel form
-- More advanced PWM algorithm yielding better brightness control
 - I've even some fun animated clocks coming (sorry, I'm been doing software clocks of many, many, forms for a long time.)
 - New morphing digits Matrix displays can be found at [P2 LED-Matrix Morphing Digits](https://github.com/ironsheep/P2-LED-Matrix-Morphing-Digits) Repository.
+
+
+## [1.0.0] 05 Apr 2022
+
+### Better color presentation, 1/4 RAM usage
+
+- Converted to new PWM generation mechanism allowing compile-time selection of desired display color depth of 3-bit to 8-bit/color (9 to 24bit RGB)
+- Now uses 25% of RAM required by previous version for same color bit depth. 
+- Frees up 300kB RAM on our P2 P2 Cube Application
+- Latest timing and memory usage info posted.
 
 ## [0.2.0] 2021-02-19
 

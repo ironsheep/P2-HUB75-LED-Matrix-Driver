@@ -6,8 +6,6 @@
 
 [![GitHub Release][releases-shield]][releases]
 
-**<= This is a work in progress =>**
-
 **This P2 HUB75 driver is built to work with the P2 Eval HUB75 Adapter which is available from [Parallax.com Store](https://www.parallax.com/product-category/propeller-2/)**
 
 The P2 HUB75 Driver is available from a couple of sources:
@@ -31,7 +29,7 @@ Latest Updates:
 
 ## Additional Documents
 
-- This README has been repurposed to reflect the current state of the driver as currently released
+- This README reflects the current state of the driver as currently released
 - Moved initial readme content to the [HardwareTurnon](HardwareTurnon.md) document
 - Added the [Driver Details](THEOPS.md) document to provide more detail about the driver and driver-configuration
 - Added a [Change Log](ChangeLog.md) to capture notes about each release of the dirver

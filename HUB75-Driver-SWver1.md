@@ -2,6 +2,8 @@
 
 ![Project Maintenance][maintenance-shield]
 
+NOTE: this is original information.  A newer version is here: 
+
 ## Intent
 
 The P2 HUB75 backend-end driver has configuration values we place in the file: **isp_hub75_hwGeometry.spin2**.  This page presents more detail of what's happening behind the scenes for some of these configurable values.
@@ -71,7 +73,7 @@ This is the most complicated of the driver chips to date. These chips don't turn
 - LATCH_POSITION: OVERLAPPED 
 - CONFIGURE_PANEL: True
 - WIDER_CLOCK: False
-- RED_BLUE_SWAP: False
+- RED\_BLUE_SWAP: False
 - SCAN_4: False
 
 Signal Waveforms and timings for driver r1.1
@@ -102,7 +104,7 @@ This is the most simple chip form. This chip also supports faster data CLK (Max 
 - LATCH_POSITION: AFTER 
 - CONFIGURE_PANEL: False
 - WIDER_CLOCK: False
-- RED_BLUE_SWAP: False
+- RED\_BLUE_SWAP: False
 - SCAN_4: False
 
 Signal Waveforms and timings for driver r1.1
@@ -133,7 +135,7 @@ This is nearly the same as the FM6124 but needs a slower data CLK (Max 20MHz) (w
 - LATCH_POSITION: AFTER 
 - CONFIGURE_PANEL: False
 - WIDER_CLOCK: True
-- RED_BLUE_SWAP: True
+- RED\_BLUE_SWAP: True
 - SCAN_4: False
 
 Signal Waveforms and timings for driver r1.1 using 64x64 Panel.
@@ -202,7 +204,7 @@ This is nearly the same as the FM6124 but needs a slower data CLK (Max 20MHz) (w
 - LATCH_POSITION: AFTER 
 - CONFIGURE_PANEL: False
 - WIDER_CLOCK: True
-- RED_BLUE_SWAP: True
+- RED\_BLUE_SWAP: True
 - SCAN_4: False
 
 Signal Waveforms and timings for driver v0.9 using 64x64 Panel.
