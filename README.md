@@ -17,8 +17,11 @@ The P2 HUB75 Driver is available from a couple of sources:
 
 ```
 Latest Updates:
-03 Oct 2021
+05 Apr 2022
 - Converted to new PWM generation mechanism allowing compile-time selection of desired display color depth of 3-bit to 8-bit.
+- Now uses 25% of RAM required by previous version for same color bit depth. 
+- Frees up 300kB RAM on P2 P2 Cube Application
+- Latest timing and memory usage info posted.
 11 May 2021
 - Significant performance upgrade for P2 P2 Cube support (thank you Chip!)
 - Released as v0.9.0 (will bump to v1.x when we get multipanel support working for all supported chips)
@@ -38,7 +41,7 @@ Latest Updates:
 What's working today with the current driver:
 
 - Compile-time selectable color depth from 3 to 8-bits per color.
-- P2 P2 Cube support (can display on all 6 surfaces of cube)
+- P2 P2 Cube support (display on all 6 surfaces of cube)
 - Single panel support working well for supported chips, up to 4096 leds (64x64)
 - Supported Panel Driver Chips: FM6126A, FM6124, ICN2037, and MBI5124 (1/8 scan)
 - Multi-panel support working well for ICN2037 chip only (*we're trying to figure out the panel initialization sequences for chips like the FM6126A. Until we do, multi-panel won't work for these panels*)
@@ -135,6 +138,7 @@ Here's an example block for **P2 P2 Cube: 6 - 64x64 panels**:
 
     ' (5) describe the color depth you want to support [3-8] bits per LED
     '    NOTE full 24bit color is DEPTH_8BIT
+    ' For cube use 3- or 4-bit depth to avoid flicker!
     COLOR_DEPTH = DEPTH_4BIT
 ```
 
