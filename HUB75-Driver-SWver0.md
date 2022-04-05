@@ -2,11 +2,11 @@
 
 ![Project Maintenance][maintenance-shield]
 
-NOTE: this is original information.  A newer version is here: [Sofware Ver1.x Timings](HUB75-Driver-SWver1.md)
+NOTE: this is OLDER information.  A newer version is here: [Sofware Ver1.x Timings](HUB75-Driver-SWver1.md)
 
 ## Intent
 
-The P2 HUB75 backend-end driver has configuration values we place in the file: **isp_hub75_hwGeometry.spin2**.  This page presents more detail of what's happening behind the scenes for some of these configurable values.
+The P2 HUB75 backend-end driver has configuration values we place in the file: **isp\_hub75_hwGeometry.spin2**.  This page presents more detail of what's happening behind the scenes for some of these configurable values.
 
 ## Driver Adjustable Settings for given Panel
 
@@ -61,7 +61,7 @@ The driver supoorts two forms of latch position:
 
 In the OVERLAPPED case: we see LATCH going high before the start of the three last serial bits of the row and ending after the last serial data bit.  However, in the AFTER case we see the LATCH signal going high after the final serial bit of the row is sent.
 
-## Driver configuration by chip type
+## Driver configuration by chip type - S/W Ver 0.x Timings
 
 In this section we are recording the configuration we've shown that works for each of the following driver chips we've seen used in the panels.  As you identify more, please file an issue telling us the settings you found that work with your panels' driver chip. And we'll add the new details to this document for us all to see.
 
@@ -76,7 +76,7 @@ This is the most complicated of the driver chips to date. These chips don't turn
 - RED\_BLUE_SWAP: False
 - SCAN_4: False
 
-Signal Waveforms and timings for driver r1.1
+Signal Waveforms and timings for driver v0.x
 
 |  | Time | Frequency |
 |----|----|----|
@@ -107,7 +107,7 @@ This is the most simple chip form. This chip also supports faster data CLK (Max 
 - RED\_BLUE_SWAP: False
 - SCAN_4: False
 
-Signal Waveforms and timings for driver r1.1
+Signal Waveforms and timings for driver v0.x
 
 |  | Time | Frequency |
 |----|----|----|
@@ -138,7 +138,7 @@ This is nearly the same as the FM6124 but needs a slower data CLK (Max 20MHz) (w
 - RED\_BLUE_SWAP: True
 - SCAN_4: False
 
-Signal Waveforms and timings for driver r1.1 using 64x64 Panel.
+Signal Waveforms and timings for driver v0.x using 64x64 Panel.
 
 |  | Time | Frequency |
 |----|----|----|
@@ -171,7 +171,7 @@ This is nearly the same as the FM6124 but but halves the number of address lines
 - RED_BLUE_SWAP: False
 - SCAN_4: True
 
-Signal Waveforms and timings for driver r1.1 using 64x32 Panel.
+Signal Waveforms and timings for driver v0.x using 64x32 Panel.
 
 |  | Time | Frequency |
 |----|----|----|
@@ -234,9 +234,9 @@ If you study the /OE line (output enable bar), in the image above, you can see t
 
 ----
 
-If you like my work and/or this has helped you in some way then feel free to help me out for a couple of :coffee:'s or :pizza: slices!
-
-[![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep)
+> If you find this kind of written explanation useful, helpful I would be honored by your helping me out for a couple of :coffee:'s or :pizza: slices -or- you can support my efforts by contributing at my Patreon site!
+>
+> [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep) &nbsp;&nbsp; -OR- &nbsp;&nbsp; [![Patreon](./images/patreon.png)](https://www.patreon.com/IronSheep?fan_landing=true)[Patreon.com/IronSheep](https://www.patreon.com/IronSheep?fan_landing=true)
 
 ----
 

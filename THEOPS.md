@@ -93,6 +93,14 @@ The storage format is shown in the diagram at the various points of translation.
 
 Another view we'll later be adding to this page is how we allocate and use memory for these buffers as our display sizes change (these sizes are what you configured before you compiled the driver.)  This is only now being decided as we begin to add the multi-panel support.
 
+To create our rich colors we change which LEDs are powered veriy rapidly (PWM). In the latest driver versions we've added a compile-time `COLOR_DEPTH` setting which let's you specify how rich the colors are to be for your display.
+
+This allowed us to use a PWM Frame-set which consists of one plane for each bit in the color depth. This change-over allows us to use 1/4 of the RAM needed for 4 bit color depth than we used in the prior version.  The following digram shows the constituent frames being displayed with the MSBit being displayed for the longest period and the LSBit just being displayed once! The display counts (how many times each frame is shown is simply the power of 2 value. (e.g., in 3-bit the MSBit is shown 2^2 or 4 times, while the next bit is shown 2^1 or 2 times and the LSBit is shown 1 time.
+
+![Displaying Bit Depths](images/BitDepths.png)
+
+**Figure 3**: Creating a full color frame.
+
 ## Notes on HUB75 pins used by driver
 
 Our P2 Eval HUB75 Adapter board is built to drive up to 5 address pins (A-E) so we can drive many HUB75 panel variants.
@@ -100,6 +108,9 @@ Our P2 Eval HUB75 Adapter board is built to drive up to 5 address pins (A-E) so 
 Here's a simple diagram showing related pin groups:
 
 ![Hub75 pinout](images/hub75e_pinout.png)
+
+
+
 
 ---
 
@@ -113,9 +124,9 @@ Lead developer
 Iron Sheep Productions, LLC.
 ```
 
-If you find this kind of written explanation useful, helpful I would be honored by your helping me out for a couple of :coffee:'s or :pizza: slices!
-
-[![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep)
+> If you find this kind of written explanation useful, helpful I would be honored by your helping me out for a couple of :coffee:'s or :pizza: slices -or- you can support my efforts by contributing at my Patreon site!
+>
+> [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep) &nbsp;&nbsp; -OR- &nbsp;&nbsp; [![Patreon](./images/patreon.png)](https://www.patreon.com/IronSheep?fan_landing=true)[Patreon.com/IronSheep](https://www.patreon.com/IronSheep?fan_landing=true)
 
 ---
 

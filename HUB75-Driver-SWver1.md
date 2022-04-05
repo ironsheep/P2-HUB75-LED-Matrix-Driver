@@ -2,7 +2,7 @@
 
 ![Project Maintenance][maintenance-shield]
 
-NOTE: this is original information.  A newer version is here: 
+NOTE: this is NEW information as of v1.x!  An older version is here: [Sofware Ver0.x Timings](HUB75-Driver-SWver0.md)
 
 ## Intent
 
@@ -61,7 +61,7 @@ The driver supoorts two forms of latch position:
 
 In the OVERLAPPED case: we see LATCH going high before the start of the three last serial bits of the row and ending after the last serial data bit.  However, in the AFTER case we see the LATCH signal going high after the final serial bit of the row is sent.
 
-## Driver configuration by chip type
+## Driver configuration by chip type - S/W Ver 1.x Timings
 
 In this section we are recording the configuration we've shown that works for each of the following driver chips we've seen used in the panels.  As you identify more, please file an issue telling us the settings you found that work with your panels' driver chip. And we'll add the new details to this document for us all to see.
 
@@ -76,29 +76,17 @@ This is the most complicated of the driver chips to date. These chips don't turn
 - RED\_BLUE_SWAP: False
 - SCAN_4: False
 
-Signal Waveforms and timings for driver r1.1
+Signal Timings - 64x32 panel - for driver v1.x:
 
-|  | Time | Frequency |
-|----|----|----|
-| Data CLK | 73.6 nSec (avg) | 13.58 mHz |
-| Single PWM Row  | 4.87 uSec | 205.44 kHz |
-| Single PWM Frame (32 rows) | 91.08 uSec | 10.98 kHz |
-| Single Frame (16 pwm frames) | 1.57 mSec | 636.9 fps |
- 
+![v1.x timings](images/chip-fm6126a-timings.png)
 
-#### Single PWM Frame (32 rows) timing (@v0.1):
-
-![Latch Style](images/64x32pnk_1frame.bmp)
-
-#### Single PWM Row timing (@v0.1):
-
-![Latch Style](images/64x32pnk_1line.bmp)
+**NOTE** *the orange indicates a frame-rate less than 60Hz so you may see some flicker.*
 
 ---
 
 ### Driver Chip: FM6124 (UNKNOWN)
 
-This is the most simple chip form. This chip also supports faster data CLK (Max 30MHz)
+This is the most simple chip form. This chip also supports faster data CLK (Max 30MHz) although the driver doesn't, yet.
 
 - LATCH_STYLE: ENCLOSED
 - LATCH_POSITION: AFTER 
@@ -107,23 +95,11 @@ This is the most simple chip form. This chip also supports faster data CLK (Max 
 - RED\_BLUE_SWAP: False
 - SCAN_4: False
 
-Signal Waveforms and timings for driver r1.1
+Signal Timings - 64x32 panel - for driver v1.x:
 
-|  | Time | Frequency |
-|----|----|----|
-| Data CLK | 54 nSec (avg) | 18.62 mHz |
-| Single PWM Row  | 3.38 uSec | 295.86 kHz |
-| Single PWM Frame (32 rows) | 67.18 uSec | 14.88 kHz |
-| Single Frame (16 pwm frames) | 1.07 mSec | 930.3 fps |
- 
+![v1.x timings](images/chip-fm6124-timings.png)
 
-#### Single PWM Frame (32 rows) timing (@v0.1):
-
-![Latch Style](images/64x32org_1frame.bmp)
-
-#### Single PWM Row timing (@v0.1):
-
-![Latch Style](images/64x32org_1line.bmp)
+**NOTE** *the green indicates a frame-rate greater than 60Hz for all color depths*
 
 ---
 
@@ -138,23 +114,12 @@ This is nearly the same as the FM6124 but needs a slower data CLK (Max 20MHz) (w
 - RED\_BLUE_SWAP: True
 - SCAN_4: False
 
-Signal Waveforms and timings for driver r1.1 using 64x64 Panel.
+Signal Timings - 64x64 panel - for driver v1.x:
 
-|  | Time | Frequency |
-|----|----|----|
-| Data CLK | 65 nSec (avg) | 15.38 mHz |
-| Single PWM Row  | 4.34 uSec | 230.42 kHz |
-| Single PWM Frame (64 rows) | 165.31 uSec | 6.05 kHz |
-| Single Frame (16 pwm frames) | 2.64 mSec | 378.1 fps |
-| SCREEN -> PWM Conversion | 5.505 mSec | 181.65 fps |
 
-#### Single PWM Frame (64 rows) timing (@v0.1):
+![v1.x timings](images/chip-icn2037-timings.png)
 
-![Latch Style](images/64x64_1frame.bmp)
-
-#### Single PWM Row timing (@v0.1):
-
-![Latch Style](images/64x64_1line.bmp)
+**NOTE** *the orange indicates a frame-rate less than 60Hz so you may see some flicker.*
 
 ---
 
@@ -168,28 +133,14 @@ This is nearly the same as the FM6124 but but halves the number of address lines
 - LATCH_POSITION: AFTER 
 - CONFIGURE_PANEL: True
 - WIDER_CLOCK: False
-- RED_BLUE_SWAP: False
+- RED\_BLUE_SWAP: False
 - SCAN_4: True
 
-Signal Waveforms and timings for driver r1.1 using 64x32 Panel.
+Signal Timings - 64x32 panel - for driver v1.x:
 
-|  | Time | Frequency |
-|----|----|----|
-| Data CLK | 56.88 nSec (avg) | 17.58 mHz |
-| Single PWM Row  | 7.41 uSec | 134.95 kHz |
-| Single PWM Frame (8 rows) | 67.07 uSec | 14.91 kHz |
-| Single Frame (16 pwm frames) | 1.07 mSec | 931.7 fps |
-| SCREEN -> PWM Conversion | 5.505 mSec | 181.65 fps |
+![v1.x timings](images/chip-mbi5124-timings.png)
 
-*NOTE: while the driver can generate 931 FPS, we are limited by the time it takes to convert a full screen image to pwm frames. This is why the final row in this table shows a frame rate of 181 FPS vs. the 931 FPS.*
-
-#### Single PWM Frame (8 rows, 128 px/row) timing (@v0.1):
-
-![Latch Style](images/WorkingPWMFrameRate18.jpg)
-
-#### Single PWM Row timing (@v0.1):
-
-![Latch Style](images/WorkingPWMLineRate18.jpg)
+**NOTE** *the green indicates a frame-rate greater than 60Hz for all color depths*
 
 ----
 
@@ -207,36 +158,21 @@ This is nearly the same as the FM6124 but needs a slower data CLK (Max 20MHz) (w
 - RED\_BLUE_SWAP: True
 - SCAN_4: False
 
-Signal Waveforms and timings for driver v0.9 using 64x64 Panel.
+Signal Timings - 64x32 panel x 6! - for driver v1.x.
 
-| Measured Item | Time | Frequency | Notes  |
-|----|----|----|----|
-| Data CLK | 35 nSec (avg) | 28.6 mHz | |
-| Single PWM Row  | 14.3 uSec | 69.9 kHz | |
-| Single PWM Frame (32 rows, 384 px) | 457.8 uSec | 2.18 kHz | |
-| Single Frame (16 pwm frames)| ??? mSec | ??? fps | Need to measure this... |
-| SCREEN -> PWM Conversion | 33.3 uSec |  | (less than a single PWM Frame)|
+![v1.x timings](images/chip-icn2037-cube-timings.png)
 
-#### Single PWM Frame (6 panels, 64 rows) timing (@v0.9):
-
-![Latch Style](images/P2Cube-pwm-frame-rate.bmp)
+**NOTE** *the ORANGE indicates a frame-rate less than 60Hz so you may see some flicker while the RED indicates the flicker is really drammatic!*
 
 A single PWM Frame consists of writing 32 - 384 pixel lines (which paint to the top 32 and bottom 32 rows at the same time.)
-In this image this single line starts at Marker M1 (yellow) and ends at Marker M2 (red.)
 
-#### Single PWM Row (6 panels) timing (@v0.9):
-
-When this driver is configured for the P2 P2 Cube (1 chain of 6 64x64 pixel panels) the driver copies two lines of PWM data from Hub RAM to COG RAM, clocks out the two rows then fetches the next 2 rows. Within the driver code these two-row groups are called subFrames. For the 6x64x64 panel-set there are 16 of these subFrames for each PWM Frame. There are 16 PWM Frames creating what we know as a single video frame.  The folloing image shows the clocking out of a single subframe (2 lines) which are in Cog RAM.
-
-![Latch Style](images/P2Cube-line-rate-div2.bmp)
-
-If you study the /OE line (output enable bar), in the image above, you can see that every other pulse is wider. This additional width (~715 nS) happens once per subFrame. It is the time it takes to copy our next two rows into COG RAM before they can be displayed.  So to get our best approximation of an individual line rate we half the duration of the two line and double the frequency of the two lines: 28.6 / 2 uSec -> 14.3 uSec and 34.9528 * 2 kHz -> 69.9 kHz. This is how we calucated the values shown in the chart above.
+When this driver is configured for the P2 P2 Cube (1 chain of 6 64x64 pixel panels) the driver copies two lines of PWM data from Hub RAM to COG RAM, clocks out the two rows then fetches the next 2 rows. Within the driver code these two-row groups are called subFrames. For the 6x64x64 panel-set there are 16 of these subFrames for each PWM Frame. There are N PWM Frames creating what we know as a single video frame. Where the N is is 2^{color-depth} number of frames  and {color-depth} set by your COLOR_DEPTH compile time value.
 
 ----
 
-If you like my work and/or this has helped you in some way then feel free to help me out for a couple of :coffee:'s or :pizza: slices!
-
-[![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep)
+> If you find this kind of written explanation useful, helpful I would be honored by your helping me out for a couple of :coffee:'s or :pizza: slices -or- you can support my efforts by contributing at my Patreon site!
+>
+> [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep) &nbsp;&nbsp; -OR- &nbsp;&nbsp; [![Patreon](./images/patreon.png)](https://www.patreon.com/IronSheep?fan_landing=true)[Patreon.com/IronSheep](https://www.patreon.com/IronSheep?fan_landing=true)
 
 ----
 
