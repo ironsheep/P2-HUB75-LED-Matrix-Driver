@@ -137,6 +137,8 @@ PUB start() : ok | tmpVar, panelCt, tmpConstant, widthInPanels, heightInPanels
         debug("---->     FM6126A")
     elseif driverConfigRaw == screen.CHIP_MBI5124_8S
         debug("---->     MBI5124-8S")
+    elseif driverConfigRaw == screen.CHIP_GS6238S
+        debug("---->     GS6238S")
     elseif driverConfigRaw == screen.CHIP_FM6124 or driverConfigRaw == screen.CHIP_UNK_LAT_END_ENCL
         if driverConfigRaw == screen.CHIP_FM6124
             debug("---->     FM6124")

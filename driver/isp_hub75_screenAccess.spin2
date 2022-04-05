@@ -33,6 +33,7 @@ CON { reinterpret the users selections for driver internal use }
     CHIP_MBI5124_8S = user.CHIP_MBI5124_8S
     CHIP_UNK_LAT_END_ENCL = user.CHIP_UNK_LAT_END_ENCL
     CHIP_UNK_LAT_END_ENCL_SLO_CLK = user.CHIP_UNK_LAT_END_ENCL_SLO_CLK
+    CHIP_GS6238S = user.CHIP_GS6238S
 
     LAT_STYLE_OFFSET = user.LAT_STYLE_OFFSET
     LAT_POSN_OVERLAP = user.LAT_POSN_OVERLAP
@@ -216,6 +217,8 @@ PUB getDriverFlags() : desiredFlags, origFlags
     desiredFlags := origFlags := PANEL_DRIVER_CHIP  ' value configured by user
     if origFlags == CHIP_FM6126A
         desiredFlags := CHIP_MANUAL_SPEC | LAT_POSN_OVERLAP | LAT_STYLE_OFFSET | INIT_PANEL_REQUIRED
+    elseif origFlags == CHIP_GS6238S
+        desiredFlags := CHIP_MANUAL_SPEC | LAT_POSN_OVERLAP | LAT_STYLE_OFFSET '| INIT_PANEL_REQUIRED | RB_SWAP
     elseif origFlags == CHIP_MBI5124_8S
         desiredFlags := CHIP_MANUAL_SPEC | CHIP_UNK_LAT_END_ENCL | SCAN_4 | INIT_PANEL_REQUIRED
     elseif origFlags == CHIP_FM6124 or origFlags == CHIP_UNK_LAT_END_ENCL
