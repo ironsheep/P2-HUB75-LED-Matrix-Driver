@@ -28,6 +28,11 @@ Work to appear in upcoming releases:
 
 **NOTE** *SW0 means our older v0.x drivers, while SW1 means our new v1.x driver!*
 
+### Known Issues v1.0.0
+
+- Multi-panel support for the FM6126A and MBI5124 driver chips is not yet working!
+- The driver is now fast enough now that there are slight display issues with panels using the MBI5124 chips. We're looking into this.
+
 ## [0.9.0] 2021-05-12
 
 ### The first release of P2 P2 Cube support
