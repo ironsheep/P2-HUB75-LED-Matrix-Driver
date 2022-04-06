@@ -43,7 +43,7 @@ DEMO_COUNT = 11
 
 
 PUB main() : ok | demoIndex
-    '' start underlying drivers and run demo
+    '' Start underlying drivers and run demo
 
     'repeat
 
@@ -185,27 +185,36 @@ PRI demoAlignmentText()
     display.setColoredTextAtLnCol(3, 0, string("Line 4"), color.cBlue)
     display.commitScreenToPanelSet()
 
-PRI demoText()
+DAT { string data }
+
+pwmMsg  byte    "XXXfrm pwm",0
+bitMsg  byte    "-RGB "
+bitCt   byte    "nbit-",0
+
+PRI demoText() | frameCount
     ' draw some text!
     display.setTextFont(display.TEXT_FONT_5x7)    ' font size
     display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
-
     display.setColoredTextAtLnCol(0,0, string("iron sheep"), color.cMaroon)
-    display.setColoredTextAtLnCol(1,0, string("-RGB 3bit-"), color.cOrange)
-    if screen.MAX_PWM_FRAMES == 8
-        display.setColoredTextAtLnCol(2,0, string("(8frm pwm)"), color.cRainbow)
-    elseif screen.MAX_PWM_FRAMES == 12
-        display.setColoredTextAtLnCol(2,0, string("12frm pwm!"), color.cRainbow)
-    elseif screen.MAX_PWM_FRAMES == 16
-        display.setColoredTextAtLnCol(2,0, string("16frm pwm!"), color.cRainbow)
-    elseif screen.MAX_PWM_FRAMES == 20
-        display.setColoredTextAtLnCol(2,0, string("20frm pwm!"), color.cRainbow)
-    elseif screen.MAX_PWM_FRAMES == 23
-        display.setColoredTextAtLnCol(2,0, string("23frm pwm!"), color.cRainbow)
-    elseif screen.MAX_PWM_FRAMES == 24
-        display.setColoredTextAtLnCol(2,0, string("24frm pwm!"), color.cRainbow)
-    elseif screen.MAX_PWM_FRAMES == 32
-        display.setColoredTextAtLnCol(2,0, string("32frm pwm!"), color.cRainbow)
+
+    frameCount := screen.pwmFrameCount()
+    case screen.COLOR_DEPTH
+        screen.DEPTH_3BIT:
+            pwmMsg.BYTE[0] := $20    ' space
+            pwmMsg.BYTE[1] := $20    ' space
+            pwmMsg.BYTE[2] := $30 + frameCount
+        screen.DEPTH_7BIT,screen.DEPTH_8BIT:
+            pwmMsg.BYTE[0] := $30 + (frameCount / 100)
+            pwmMsg.BYTE[1] := $30 + ((frameCount // 100) / 10)
+            pwmMsg.BYTE[2] := $30 + ((frameCount // 100) // 10)
+        other:
+            pwmMsg.BYTE[0] := $20    ' space
+            pwmMsg.BYTE[1] := $30 + (frameCount / 10)
+            pwmMsg.BYTE[2] := $30 + (frameCount // 10)
+    bitCt.BYTE[0] := screen.COLOR_DEPTH + $30
+
+    display.setColoredTextAtLnCol(1,0, @bitMsg, color.cOrange)
+    display.setColoredTextAtLnCol(2,0, @pwmMsg, color.cRainbow)
     display.setColoredTextAtLnCol(3,0, string("led matrix"), color.cWhite)
     display.commitScreenToPanelSet()
 

@@ -11,9 +11,33 @@ Check [Keep a Changelog](http://keepachangelog.com/) for reminders on how to str
 Work to appear in upcoming releases:
 
 - Fix multi-panel support for chips that are not yet working in multi-panel form
-- More advanced PWM algorithm yielding better brightness control
 - I've even some fun animated clocks coming (sorry, I'm been doing software clocks of many, many, forms for a long time.)
 - New morphing digits Matrix displays can be found at [P2 LED-Matrix Morphing Digits](https://github.com/ironsheep/P2-LED-Matrix-Morphing-Digits) Repository.
+
+
+## [1.0.0] 05 Apr 2022
+
+### Better color presentation, 1/4 RAM usage
+
+- Converted to new PWM generation mechanism allowing compile-time selection of desired display color depth of 3-bit to 8-bit/color (9 to 24bit RGB)
+- Now uses 25% of RAM required by previous version for same 4-bit color depth. 
+- Frees up ~300kB RAM for our P2 P2 Cube Application
+- Latest timing and memory usage info posted.
+
+![v1.x driver RAM usage](images/NewDriverRAMUse.png)
+
+**NOTE** *SW0 means our older v0.x drivers, while SW1 means our new v1.x driver!*
+
+## [0.9.0] 2021-05-12
+
+### The first release of P2 P2 Cube support
+
+- The driver now works with multiple 64x64 panels using ICN_2037 Chips organized as 1 row. (The P2 P2 Cube is one row with top and bottom panels being the panels at either end of the row.)
+
+### Known Issues v0.9.0
+
+- Multi-panel support for the FM6126A and MBI5124 driver chips is not yet working!
+- The driver is now fast enough now that there are slight display issues with panels using the MBI5124 chips. We're looking into this.
 
 ## [0.2.0] 2021-02-19
 
@@ -24,7 +48,7 @@ Work to appear in upcoming releases:
 - Driver now works with display of 128x64 using twin 64x64 panels in series.
 - Driver now supports 1/8 scan panels (**P4-1921-8S-V2.0**) using the MBI5124 driver chips
 
-### Known Issues
+### Known Issues v0.2.0
 
 - Multi-panel support for the FM6126A and MBI5124 driver chips is not yet working!
 

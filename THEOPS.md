@@ -73,10 +73,11 @@ Once you haave the driver source files added to your project you will first need
 | `ADAPTER_BASE_PIN` | PINS\_P16_P31 |  Identify which pin-group your HUB75 board is connected |
 | `PANEL_DRIVER_CHIP` | CHIP_UNKNOWN | in most cases UNKNOWN will work. Some specialized panels need a specific driver chip (e.g., those using the FM6126A) |
 | `MAX_PANEL_COLUMNS` | {none} | The number of LEDs in each row of your panel ( # pixels-wide) |
-| `MAX_PANEL_ROWS` | {none} | The number of LEDs in each column of your panel ( # pixels-high) 
-| `MAX_PANELS` | 1 | **NOTE:** Currently only 1 in supported in the initial release |
-| `MAX_DISPLAY_COLUMNS` | {none} | The number of LEDs in each row of your multi-panel display |
-| `MAX_DISPLAY_ROWS` | {none} | The number of LEDs in each column of your multi-panel display 
+| `MAX_PANEL_ROWS` | {none} | The number of LEDs in each column of your panel ( # pixels-high) |
+| `PANEL_ADDR_LINES` | {none} | The number of Address lines driving your panels (ADDR\_ABC, ADDR\_ABCD, or ADDR\_ABCDE) |
+| `MAX_DISPLAY_COLUMNS` | {none} | The number of LEDs in each ROW of your multi-panel display |
+| `MAX_DISPLAY_ROWS` | {none} | The number of LEDs in each COLUMN of your multi-panel display |
+| `COLOR_DEPTH` | {none} | The color depth you wish to display on your panels (compile-time selectable from 3-bit to 8-bit) |
 
 ## Notes on driver internals
 
@@ -92,6 +93,14 @@ The storage format is shown in the diagram at the various points of translation.
 
 Another view we'll later be adding to this page is how we allocate and use memory for these buffers as our display sizes change (these sizes are what you configured before you compiled the driver.)  This is only now being decided as we begin to add the multi-panel support.
 
+To create our rich colors we change which LEDs are powered veriy rapidly (PWM). In the latest driver versions we've added a compile-time `COLOR_DEPTH` setting which let's you specify how rich the colors are to be for your display.
+
+This allowed us to use a PWM Frame-set which consists of one plane for each bit in the color depth. This change-over allows us to use 1/4 of the RAM needed for 4 bit color depth than we used in the prior version.  The following digram shows the constituent frames being displayed with the MSBit being displayed for the longest period and the LSBit just being displayed once! The display counts (how many times each frame is shown is simply the power of 2 value. (e.g., in 3-bit the MSBit is shown 2^2 or 4 times, while the next bit is shown 2^1 or 2 times and the LSBit is shown 1 time.
+
+![Displaying Bit Depths](images/BitDepths.png)
+
+**Figure 3**: Creating a full color frame.
+
 ## Notes on HUB75 pins used by driver
 
 Our P2 Eval HUB75 Adapter board is built to drive up to 5 address pins (A-E) so we can drive many HUB75 panel variants.
@@ -99,6 +108,9 @@ Our P2 Eval HUB75 Adapter board is built to drive up to 5 address pins (A-E) so 
 Here's a simple diagram showing related pin groups:
 
 ![Hub75 pinout](images/hub75e_pinout.png)
+
+
+
 
 ---
 
@@ -112,9 +124,9 @@ Lead developer
 Iron Sheep Productions, LLC.
 ```
 
-If you find this kind of written explanation useful, helpful I would be honored by your helping me out for a couple of :coffee:'s or :pizza: slices!
-
-[![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep)
+> If you find this kind of written explanation useful, helpful I would be honored by your helping me out for a couple of :coffee:'s or :pizza: slices -or- you can support my efforts by contributing at my Patreon site!
+>
+> [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep) &nbsp;&nbsp; -OR- &nbsp;&nbsp; [![Patreon](./images/patreon.png)](https://www.patreon.com/IronSheep?fan_landing=true)[Patreon.com/IronSheep](https://www.patreon.com/IronSheep?fan_landing=true)
 
 ---
 

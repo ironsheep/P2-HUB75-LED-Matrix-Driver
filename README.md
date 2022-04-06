@@ -6,8 +6,6 @@
 
 [![GitHub Release][releases-shield]][releases]
 
-**<= This is a work in progress =>**
-
 **This P2 HUB75 driver is built to work with the P2 Eval HUB75 Adapter which is available from [Parallax.com Store](https://www.parallax.com/product-category/propeller-2/)**
 
 The P2 HUB75 Driver is available from a couple of sources:
@@ -17,6 +15,11 @@ The P2 HUB75 Driver is available from a couple of sources:
 
 ```
 Latest Updates:
+05 Apr 2022
+- Converted to new PWM generation mechanism allowing compile-time selection of desired display color depth of 3-bit to 8-bit.
+- Now uses 25% of RAM required by previous version for same color bit depth. 
+- Frees up 300kB RAM on P2 P2 Cube Application
+- Latest timing and memory usage info posted.
 11 May 2021
 - Significant performance upgrade for P2 P2 Cube support (thank you Chip!)
 - Released as v0.9.0 (will bump to v1.x when we get multipanel support working for all supported chips)
@@ -26,7 +29,7 @@ Latest Updates:
 
 ## Additional Documents
 
-- This README has been repurposed to reflect the current state of the driver as currently released
+- This README reflects the current state of the driver as currently released
 - Moved initial readme content to the [HardwareTurnon](HardwareTurnon.md) document
 - Added the [Driver Details](THEOPS.md) document to provide more detail about the driver and driver-configuration
 - Added a [Change Log](ChangeLog.md) to capture notes about each release of the dirver
@@ -35,6 +38,8 @@ Latest Updates:
 
 What's working today with the current driver:
 
+- Compile-time selectable color depth from 3 to 8-bits per color.
+- P2 P2 Cube support (display on all 6 surfaces of cube)
 - Single panel support working well for supported chips, up to 4096 leds (64x64)
 - Supported Panel Driver Chips: FM6126A, FM6124, ICN2037, and MBI5124 (1/8 scan)
 - Multi-panel support working well for ICN2037 chip only (*we're trying to figure out the panel initialization sequences for chips like the FM6126A. Until we do, multi-panel won't work for these panels*)
@@ -77,6 +82,10 @@ Here's an example block for a **single panel**:
     ' (4) describe the organization in numbers of panels
     MAX_PANELS_PER_ROW = 1
     MAX_PANELS_PER_COLUMN = 1
+
+    ' (5) describe the color depth you want to support [3-8] bits per LED
+    '    NOTE full 24bit color is DEPTH_8BIT
+    COLOR_DEPTH = DEPTH_4BIT
 ```
 
 
@@ -99,6 +108,10 @@ Here's an example block for **twin 64x64 panels**:
     ' (4) describe the organization in numbers of panels
     MAX_PANELS_PER_ROW = 2
     MAX_PANELS_PER_COLUMN = 1
+
+    ' (5) describe the color depth you want to support [3-8] bits per LED
+    '    NOTE full 24bit color is DEPTH_8BIT
+    COLOR_DEPTH = DEPTH_4BIT
 ```
 
 Here's an example block for **P2 P2 Cube: 6 - 64x64 panels**:
@@ -120,6 +133,11 @@ Here's an example block for **P2 P2 Cube: 6 - 64x64 panels**:
     ' (4) describe the organization in numbers of panels
     MAX_PANELS_PER_ROW = 6
     MAX_PANELS_PER_COLUMN = 1
+
+    ' (5) describe the color depth you want to support [3-8] bits per LED
+    '    NOTE full 24bit color is DEPTH_8BIT
+    ' For cube use 3- or 4-bit depth to avoid flicker!
+    COLOR_DEPTH = DEPTH_4BIT
 ```
 
 
@@ -131,14 +149,16 @@ Definition of the constants in the file **isp\_hub75_hwGeometry.spin2**:
 | `PANEL_DRIVER_CHIP` | CHIP_UNKNOWN | in most cases UNKNOWN will work. Some specialized panels need a specific driver chip (e.g., those using the FM6126A, ICN2037, or the MBI5124\_8S) |
 | `MAX_PANEL_COLUMNS` | {none} | The number of LEDs in each row of your panel ( # pixels-wide) |
 | `MAX_PANEL_ROWS` | {none} | The number of LEDs in each column of your panel ( # pixels-high) |
-| `MAX_DISPLAY_COLUMNS` | {none} | The number of LEDs in each row of your multi-panel display |
-| `MAX_DISPLAY_ROWS` | {none} | The number of LEDs in each column of your multi-panel display |
-*The easiest way to do this would be to find an example configuration in that file, copy it and modify it to describe your hardware set up. Making sure, of course that the others are commented out.*
+| `PANEL_ADDR_LINES` | {none} | The number of Address lines driving your panels (ADDR\_ABC, ADDR\_ABCD, or ADDR\_ABCDE) |
+| `MAX_PANELS_PER_ROW` | {none} | The number of panels in each ROW of your display |
+| `MAX_PANELS_PER_COLUMN` | {none} | The number of panels in each COLUMN of your display |
+| `COLOR_DEPTH` | {none} | The color depth you wish to display on your panels (compile-time selectable from 3-bit to 8-bit) |
 
+*The easiest way to create your own configuration would be to find an example configuration in this file, copy it and modify it to describe your hardware set up. Making sure, of course that the others are commented out.*
 
-**NOTE:** as we get into more multi-panel display organizations there may also be configuration values for decribing the actual organization of the panels in more detail than the above setting describe.  We'll see...
+**NOTE:** as you get into multi-panel display organizations please pay careful attention to `MAX_PANELS_PER_ROW` and `MAX_PANELS_PER_COLUMN`.
 
-Once these values are set correctly, according to your own hardware set up, then you should be able to compile your code and run.
+Once these values are set correctly, according to your own hardware set up, then you should be able to compile your code and run.  
 
 More detail can be found in [Driver Introduction & Configuration](THEOPS.md)
 
@@ -214,9 +234,9 @@ Remember, this is without yet tuning the driver for best performance based on wh
 
 ----
 
-If you like my work and/or this has helped you in some way then feel free to help me out for a couple of :coffee:'s or :pizza: slices!
-
-[![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep)
+> If you like my work and/or this has helped you in some way then feel free to help me out for a couple of :coffee:'s or :pizza: slices -or- you can support my efforts by contributing at my Patreon site!
+>
+> [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep) &nbsp;&nbsp; -OR- &nbsp;&nbsp; [![Patreon](./images/patreon.png)](https://www.patreon.com/IronSheep?fan_landing=true)[Patreon.com/IronSheep](https://www.patreon.com/IronSheep?fan_landing=true)
 
 ----
 
