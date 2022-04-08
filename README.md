@@ -15,6 +15,9 @@ The P2 HUB75 Driver is available from a couple of sources:
 
 ```
 Latest Updates:
+07 Apr 2022
+- add support for GS6238S 
+- add Green/Blue flip support needed by GS6238S
 05 Apr 2022
 - Converted to new PWM generation mechanism allowing compile-time selection of desired display color depth of 3-bit to 8-bit.
 - Now uses 25% of RAM required by previous version for same color bit depth. 

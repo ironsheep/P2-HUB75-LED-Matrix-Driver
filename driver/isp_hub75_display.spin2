@@ -74,6 +74,7 @@ VAR { Object Instance Variables }
 
     byte    bScan_1_4
     byte    bSwapRB
+    byte    bSwapGB
 
 PUB start() : ok | scrollerIndex, dvrConfig, driverConfigRaw
     '' Start the underlying driver(s)
@@ -96,6 +97,7 @@ PUB start() : ok | scrollerIndex, dvrConfig, driverConfigRaw
     dvrConfig, driverConfigRaw := screen.getDriverFlags()
     bScan_1_4 := (dvrConfig & screen.SCAN_4) > 0 ? True : False
     bSwapRB := (dvrConfig & screen.RB_SWAP) > 0 ? True : False
+    bSwapGB := (dvrConfig & screen.GB_SWAP) > 0 ? True : False
 
 
     ' tell all about location of screen buffer
@@ -155,10 +157,10 @@ PUB commitScreenToPanelSet()
     'debug("dsp: commit!")
 
     if bScan_1_4
-        panelSet.convertScreen2PWM_14(@screen0, bSwapRB)
-        'panelSet.convertScreen2PWM_14_spin(@screen0, bSwapRB)
+        panelSet.convertScreen2PWM_14(@screen0, bSwapRB, bSwapGB)
+        'panelSet.convertScreen2PWM_14_spin(@screen0, bSwapRB, bSwapGB)
     else
-        panelSet.convertScreen2PWM(@screen0, bSwapRB)
+        panelSet.convertScreen2PWM(@screen0, bSwapRB, bSwapGB)
 
 
 { --------------     Text Handling     -------------- }

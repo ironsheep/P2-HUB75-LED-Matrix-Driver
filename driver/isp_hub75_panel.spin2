@@ -86,10 +86,10 @@ VAR { spin timing support }
     long    intrvlStart
     long    intrvlStop
 
-PUB convertScreen2PWM_14(p24bitScreen, bSwapRB) | pPwmFrameSet, nFrameOffset, nFrameIdx, nFrameCtr, pPwmFrame
+PUB convertScreen2PWM_14(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet, nFrameOffset, nFrameIdx, nFrameCtr, pPwmFrame
     '' Load a 24-bit-color image into PWM frame buffers at 8s (4 scan-lines at a time) [PASM]
     ' scan memory, write PWM bytes twice, sigh...
-    'debug("- PNL:cs2pwm(): scn ", uhex_long(p24bitScreen), uhex_long(bSwapRB))
+    'debug("- PNL:cs2pwm(): scn ", uhex_long(p24bitScreen), uhex_long(bSwapRB), uhex_long(bSwapGB))
 
     ' -------------------------------------------------------------------------
     ' NOTES for panel P4-1921-8S-V2.0 - 1/8 scan
@@ -186,19 +186,27 @@ maskModHalfScreen   long    ((screen.MAX_PHYSICAL_ROWS * screen.MAX_PHYSICAL_COL
 
 
 startS8
-            ' init variables
+                    ' init variables
+                    mov     redBitRGB1Value, #$01
+                    mov     greenBitRGB1Value, #$02
+                    mov     blueBitRGB1Value, #$04
+                    mov     redBitRGB2Value, #$08
+                    mov     greenBitRGB2Value, #$10
+                    mov     blueBitRGB2Value, #$20
                     ' setup for red/blue flip if needed
                     or      bSwapRB, bSwapRB   wz   ' T/F where: T=nz, F=z
                     ' T/nz = is Swapped
-    if_nz           mov     redBitRGB1Value, #$04
-    if_nz           mov     blueBitRGB1Value, #$01
-    if_nz           mov     redBitRGB2Value, #$20
-    if_nz           mov     blueBitRGB2Value, #$08
-                    ' F/z = is NOT Swapped
-    if_z            mov     redBitRGB1Value, #$01
-    if_z            mov     blueBitRGB1Value, #$04
-    if_z            mov     redBitRGB2Value, #$08
-    if_z            mov     blueBitRGB2Value, #$20
+    if_nz           mov     redBitRGB1Value, #$04       ' red1 gets blue
+    if_nz           mov     blueBitRGB1Value, #$01      ' blue1 gets red
+    if_nz           mov     redBitRGB2Value, #$20       ' red2 gets blue
+    if_nz           mov     blueBitRGB2Value, #$08      ' blue2 gets red
+                    ' setup for blue/green flip if needed
+                    or      bSwapGB, bSwapGB   wz   ' T/F where: T=nz, F=z
+                    ' T/nz = is Swapped
+    if_nz           mov     greenBitRGB1Value, #$04     ' green1 gets blue
+    if_nz           mov     blueBitRGB1Value, #$02      ' blue1 gets green
+    if_nz           mov     greenBitRGB2Value, #$20     ' green2 gets blue
+    if_nz           mov     blueBitRGB2Value, #$10      ' blue2 gets green
 for8SScreen
             ' for all pixels of the screen buffer
                 'repeat nPhysLineIdx from 0 to screen.MAX_PHYSICAL_ROWS - 1             ' [0-31]
@@ -341,9 +349,9 @@ doneS8
 
 ' -----------------------------------------------------------------------------
 
-PUB convertScreen2PWM(p24bitScreen, bSwapRB) | pPwmFrameSet
+PUB convertScreen2PWM(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet
     '' Load a 24-bit image into PWM frame buffers at 16s, 32s (2 scan-lines at a time) [SPIN]
-    ' XYZZYpnl debug("- PNL: loading screen at @", uhex_long_(p24bitScreen))
+    ' XYZZYpnl debug("- PNL: loading screen at @", uhex_long_(p24bitScreen), uhex_long(bSwapRB), uhex_long(bSwapGB))
     ' FACT: dual 64x64 panel yields 205.035 Hz (full PWM fps)
     ' save address of 24bit screen for use by called routines
     markStart()
@@ -393,16 +401,25 @@ start16s
                     ' for each pixels in half screen...
                     add     p24bitColorTop, p24bitScreen                        ' convert to address of last pixel in top half
                     add     p24bitColorBot, p24bitColorTop                      ' convert to address of last pixel in bottom half
+                    ' init variables
+                    mov     redBitTopValue, #$01
+                    mov     greenBitTopValue, #$02
+                    mov     blueBitTopValue, #$04
+                    mov     redBitBotValue, #$08
+                    mov     greenBitBotValue, #$10
+                    mov     blueBitBotValue, #$20
                     ' setup for red/blue flip if needed
-                    or      bSwapRB, bSwapRB   wz
-    if_nz           mov     redBitTopValue, #$04
-    if_nz           mov     blueBitTopValue, #$01
-    if_z            mov     redBitTopValue, #$01
-    if_z            mov     blueBitTopValue, #$04
-    if_nz           mov     redBitBotValue, #$20
-    if_nz           mov     blueBitBotValue, #$08
-    if_z            mov     redBitBotValue, #$08
-    if_z            mov     blueBitBotValue, #$20
+                    or      bSwapRB, bSwapRB   wz       ' T/F where: T=nz, F=z
+    if_nz           mov     redBitTopValue, #$04        ' redT gets blue
+    if_nz           mov     blueBitTopValue, #$01       ' blueT gets red
+    if_nz           mov     redBitBotValue, #$20        ' redB gets blue
+    if_nz           mov     blueBitBotValue, #$08       ' blueB gets red
+                    ' alternatively, setup for green/blue flip if needed
+                    or      bSwapGB, bSwapGB   wz   ' T/F where: T=nz, F=z
+    if_nz           mov     greenBitTopValue, #$04      ' greenT gets blue
+    if_nz           mov     blueBitTopValue, #$02      ' blueT gets green
+    if_nz           mov     greenBitBotValue, #$20      ' greenB gets blue
+    if_nz           mov     blueBitBotValue, #$10       ' blueB gets green
 nextPixel
                     ' load our 2 pixels color/pwm data (top and bottom half of panel)
                     rdlong  colorValue24bit, p24bitColorTop

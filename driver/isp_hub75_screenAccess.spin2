@@ -42,6 +42,7 @@ CON { reinterpret the users selections for driver internal use }
     CLK_WIDE_PULSE = user.CLK_WIDE_PULSE
     RB_SWAP = user.RB_SWAP
     SCAN_4 = user.SCAN_4
+    GB_SWAP = user.GB_SWAP
 
     ' which chip driver should be used
     PANEL_DRIVER_CHIP = user.PANEL_DRIVER_CHIP
@@ -218,7 +219,7 @@ PUB getDriverFlags() : desiredFlags, origFlags
     if origFlags == CHIP_FM6126A
         desiredFlags := CHIP_MANUAL_SPEC | LAT_POSN_OVERLAP | LAT_STYLE_OFFSET | INIT_PANEL_REQUIRED
     elseif origFlags == CHIP_GS6238S
-        desiredFlags := CHIP_MANUAL_SPEC | LAT_POSN_OVERLAP | LAT_STYLE_OFFSET '| INIT_PANEL_REQUIRED | RB_SWAP
+        desiredFlags := CHIP_MANUAL_SPEC | LAT_POSN_OVERLAP | LAT_STYLE_OFFSET | GB_SWAP '| INIT_PANEL_REQUIRED
     elseif origFlags == CHIP_MBI5124_8S
         desiredFlags := CHIP_MANUAL_SPEC | CHIP_UNK_LAT_END_ENCL | SCAN_4 | INIT_PANEL_REQUIRED
     elseif origFlags == CHIP_FM6124 or origFlags == CHIP_UNK_LAT_END_ENCL

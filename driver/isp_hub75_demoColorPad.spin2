@@ -1,0 +1,862 @@
+'' =================================================================================================
+''
+''   File....... isp_hub75_demoColorPad.spin2
+''   Purpose.... Top-level Demonstration - put up RGB PADS so we can check display driver
+''   Authors.... Stephen M Moraco
+''               -- Copyright (c) 2022 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... Apr 2022
+''   Updated.... 07 Apr 2022
+''
+'' =================================================================================================
+
+
+CON { timing }
+
+  CLK_FREQ = 335_000_000                                        ' system freq as a constant 2.985 nSec
+  _clkfreq = CLK_FREQ                                           ' set system clock
+
+CON { DEBUG PINs }
+
+'DEBUG_PIN = 0
+DEBUG_COGS = %11111111
+DEBUG_BAUD = 2_000_000
+
+VAR
+
+    long    cog
+    long    demoPausePeriod
+
+OBJ
+
+    color       : "isp_hub75_color"
+    pixels      : "isp_hub75_screenUtils"
+    screen      : "isp_hub75_screenAccess"
+    display     : "isp_hub75_display"
+
+CON { DEMO info }
+
+' 11 enables .bmp file display
+DEMO_COUNT = 11
+
+
+PUB main() : ok | demoIndex
+    '' Start underlying drivers and run demo
+
+    'repeat
+
+    'debug("`term temp size 82 50 textsize 10")
+
+    ok := cog := display.start()   ' send buffer to driver
+    if ok == -1
+        debug("- DEMO: underlying drivers failed!")
+        abort
+
+    demoPausePeriod := 3   ' seconds (time for current meas. to settle)
+
+'  NOTE: activate any of the following blocks to run the block instead of the demo.
+'   (These are used for focused testing on some aspect of the driver/panel)
+'{
+    repeat 1
+        demoParallax()
+
+    display.clearScreen()
+'}
+{
+    display.fillScreenNoPWM(color.BASE_WHITE)    ' full white panel NO PWM
+    repeat
+'}
+'{
+    display.clearScreen()
+    display.drawBoxOfColor(2, 0, 16, 16, TRUE, color.cFullRed)
+    display.drawBoxOfColor(2, 24, 16, 16, TRUE, color.cFullGreen)
+    display.drawBoxOfColor(2, 48, 16, 16, TRUE, color.cFullBlue)
+   'display.fillScreen(color.cWhite)    ' full single color panel w/PWM
+
+    display.setTextFont(display.TEXT_FONT_5x7)    ' font size
+    display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
+    display.setColoredTextAtLnCol(3, 0, string("Rd"), color.cFullRed)
+    display.setColoredTextAtLnCol(3, 4, string("Gr"), color.cFullGreen)
+    display.setColoredTextAtLnCol(3, 8, string("Bl"), color.cFullBlue)
+
+    display.commitScreenToPanelSet()
+
+    waitSec(demoPausePeriod * 20)
+'}
+{
+    repeat
+        display.fillScreenNoPWM(color.BASE_RED)    ' full single color panel NO pwm
+        waitSec(2)
+        display.fillScreenNoPWM(color.BASE_GREEN)    ' full single color panel NO pwm
+        waitSec(2)
+        display.fillScreenNoPWM(color.BASE_BLUE)    ' full single color panel NO pwm
+        waitSec(2)
+        display.fillScreenNoPWM(color.BASE_WHITE)    ' full single color panel NO pwm
+        waitSec(4)
+
+    repeat
+'}
+{
+    demoColorPalette12Panels()
+    repeat
+'}
+{
+    demoText()
+    repeat
+'}
+{
+    showFullColorSweep()
+    repeat
+'}
+{
+    show18scanColorCheck5()
+    repeat
+'}
+{
+    show18scanColorCheck()
+    repeat
+'}
+{
+    ' lines test
+    display.drawBoxOfColor(0, 0, 64, 64, false, color.cOlive)
+    display.drawBoxOfColor(3, 3, 58, 58, true, color.cMaroon)
+    display.drawLineOfColor(32, 0, 0, 63, color.cOrange)
+    display.drawLineOfColor(31, 0, 63, 63, color.cLime)
+    display.commitScreenToPanelSet()
+    repeat
+'}
+{
+    repeat 20
+        repeat demoIndex from 0 to DEMO_COUNT - 1
+            display.clearScreen()
+            'waitSec(1)
+            case demoIndex + 1
+                1: demoText()
+                2: demoParallax()
+                3: demoHueGroups()  ' needs fixing
+                4: demoHueLines()
+                5: demoColorPalette12Panels()
+                6: showFullColorSweep()
+                7: demoTest12x9ColorBrightness()
+                8: colorBlast()
+                9: demoText()
+               10: demoScreenBlast()
+
+            if demoIndex + 1 <> 10
+                waitSec(demoPausePeriod)
+'}
+
+    stop()
+
+PRI stop()
+    ' Stop the driver
+    if cog
+        display.stop()
+        cog := 0
+
+PRI waitSec(countSeconds)
+    repeat countSeconds
+        waitms(1000)
+
+' ==============================================================================
+'  Below here, lots of small demo routines
+' ------------------------------------------------------------------------------
+
+PRI demoParallax() | rtCol, ltCol, topRow, botRow
+    display.setTextFont(display.TEXT_FONT_5x7)    ' font size
+    display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
+
+    ltCol := 0
+    rtCol := screen.MAX_PANEL_COLUMNS - 1
+    topRow := 0
+    botRow :=  screen.MAX_PANEL_ROWS > 32 ? 32 - 1 : screen.MAX_PANEL_ROWS - 1
+    if screen.MAX_PANEL_ROWS < 32
+        botRow :=  screen.MAX_PANEL_ROWS - 1
+    display.drawLineOfColor(topRow, ltCol, topRow, rtCol, color.cYellow)    ' top line
+    display.drawLineOfColor(topRow, ltCol, botRow, ltCol, color.cRed)      ' left line
+    display.drawLineOfColor(topRow, rtCol, botRow, rtCol, color.cMagenta)   ' right line
+    display.drawLineOfColor(botRow, ltCol, botRow, rtCol, color.cGreen)     ' bottom Line
+    display.setColoredTextAtLnCol(1, 0, string(" Parallax"), color.cBlue)
+    display.setColoredTextAtLnCol(2, 0, string("Propeller2"), color.cBlue)
+    display.commitScreenToPanelSet()
+
+PRI demoAlignmentText()
+    display.setTextFont(display.TEXT_FONT_5x7)    ' font size
+    display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
+    display.setColoredTextAtLnCol(0, 0, string("Line 1"), color.cBlue)
+    display.setColoredTextAtLnCol(1, 0, string("Propeller"), color.cBlue)
+    display.setColoredTextAtLnCol(2, 0, string("Propeller2"), color.cBlue)
+    display.setColoredTextAtLnCol(3, 0, string("Line 4"), color.cBlue)
+    display.commitScreenToPanelSet()
+
+DAT { string data }
+
+pwmMsg  byte    "XXXfrm pwm",0
+bitMsg  byte    "-RGB "
+bitCt   byte    "nbit-",0
+
+PRI demoText() | frameCount
+    ' draw some text!
+    display.setTextFont(display.TEXT_FONT_5x7)    ' font size
+    display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
+    display.setColoredTextAtLnCol(0,0, string("iron sheep"), color.cMaroon)
+
+    frameCount := screen.pwmFrameCount()
+    case screen.COLOR_DEPTH
+        screen.DEPTH_3BIT:
+            pwmMsg.BYTE[0] := $20    ' space
+            pwmMsg.BYTE[1] := $20    ' space
+            pwmMsg.BYTE[2] := $30 + frameCount
+        screen.DEPTH_7BIT,screen.DEPTH_8BIT:
+            pwmMsg.BYTE[0] := $30 + (frameCount / 100)
+            pwmMsg.BYTE[1] := $30 + ((frameCount // 100) / 10)
+            pwmMsg.BYTE[2] := $30 + ((frameCount // 100) // 10)
+        other:
+            pwmMsg.BYTE[0] := $20    ' space
+            pwmMsg.BYTE[1] := $30 + (frameCount / 10)
+            pwmMsg.BYTE[2] := $30 + (frameCount // 10)
+    bitCt.BYTE[0] := screen.COLOR_DEPTH + $30
+
+    display.setColoredTextAtLnCol(1,0, @bitMsg, color.cOrange)
+    display.setColoredTextAtLnCol(2,0, @pwmMsg, color.cRainbow)
+    display.setColoredTextAtLnCol(3,0, string("led matrix"), color.cWhite)
+    display.commitScreenToPanelSet()
+
+PRI show18scanColorCheck()
+    ' test pattern used while debugging 1/8 scan capability
+    display.drawBoxOfColor(0, 1, 62, 4, TRUE, color.cRed)
+    display.drawBoxOfColor(4, 1, 62, 4, FALSE, color.cYellow)
+    display.drawBoxOfColor(8, 1, 62, 4, TRUE, color.cWhite)
+    display.drawBoxOfColor(12, 1, 62, 4, FALSE, color.cMagenta)
+    display.drawBoxOfColor(16, 1, 62, 4, TRUE, color.cBlue)
+    display.drawBoxOfColor(20, 1, 62, 4, FALSE, color.cRainbow)
+    display.drawBoxOfColor(24, 1, 62, 4, TRUE, color.cLime)
+    display.drawBoxOfColor(28, 1, 62, 4, FALSE, color.cOrange)
+    display.drawLineOfColor(0, 63, 31, 63, color.cGreen)
+    display.drawLineOfColor(0, 0, 31, 0, color.cBlueViolet)
+    display.drawLineOfColor(0, 32, 31, 32, color.cWhite)
+    display.drawLineOfColor(0, 31, 31, 31, color.cYellow)
+    display.commitScreenToPanelSet()
+
+PRI show18scanColorCheck2()
+    ' test pattern used while debugging 1/8 scan capability
+    ' TOP
+    display.drawBoxOfColor(0, 1, 31, 4, TRUE, color.cRed)
+    display.drawBoxOfColor(4, 1, 31, 4, TRUE, color.cWhite)
+    display.drawBoxOfColor(8, 1, 31, 4, TRUE, color.cYellow)
+    display.drawBoxOfColor(12, 1, 31, 4, TRUE, color.cLime)
+
+    display.drawBoxOfColor(0, 32, 31, 4, TRUE, color.cBlue)
+    display.drawBoxOfColor(4, 32, 31, 4, TRUE, color.cMagenta)
+    display.drawBoxOfColor(8, 32, 31, 4, TRUE, color.cGreen)
+    display.drawBoxOfColor(12, 32, 31, 4, TRUE, color.cOrange)
+
+    ' little boxes overlapping
+    display.drawBoxOfColor(2, 9, 14, 4, TRUE, color.cBlue)
+    display.drawBoxOfColor(10, 9, 14, 4, TRUE, color.cRed)
+    display.drawBoxOfColor(2, 41, 14, 4, TRUE, color.cWhite)
+    display.drawBoxOfColor(10, 41, 14, 4, TRUE, color.cLime)
+
+    ' BOTTOM
+    display.drawBoxOfColor(16, 1, 31, 4, TRUE, color.cBlue)
+    display.drawBoxOfColor(20, 1, 31, 4, TRUE, color.cMagenta)
+    display.drawBoxOfColor(24, 1, 31, 4, TRUE, color.cGreen)
+    display.drawBoxOfColor(28, 1, 31, 4, TRUE, color.cOrange)
+
+    display.drawBoxOfColor(16, 32, 31, 4, TRUE, color.cRed)
+    display.drawBoxOfColor(20, 32, 31, 4, TRUE, color.cWhite)
+    display.drawBoxOfColor(24, 32, 31, 4, TRUE, color.cYellow)
+    display.drawBoxOfColor(28, 32, 31, 4, TRUE, color.cLime)
+
+    ' little boxes overlapping
+    display.drawBoxOfColor(26, 9, 14, 4, TRUE, color.cMagenta)
+    display.drawBoxOfColor(18, 9, 14, 4, TRUE, color.cYellow)
+    display.drawBoxOfColor(26, 41, 14, 4, TRUE, color.cBlue)
+    display.drawBoxOfColor(18, 41, 14, 4, TRUE, color.cGreen)
+
+
+    display.drawLineOfColor(0, 63, 31, 63, color.cRainbow)
+    display.drawLineOfColor(0, 0, 31, 0, color.cBlueViolet)
+    display.commitScreenToPanelSet()
+
+PRI show18scanColorCheck3()
+    display.drawBoxOfColor(0, 0, 64, 32, TRUE, color.cRainbow)
+    display.commitScreenToPanelSet()
+
+PRI show18scanColorCheck4()
+    display.drawBoxOfColor(0, 0, 32, 16, TRUE, color.cRed)
+    display.drawBoxOfColor(0, 32, 32, 16, TRUE, color.cBlue)
+    display.drawBoxOfColor(16, 0, 32, 16, TRUE, color.cWhite)
+    display.drawBoxOfColor(16, 32, 32, 16, TRUE, color.cMagenta)
+
+    display.drawLineOfColor(0, 63, 31, 63, color.cLime)
+    display.drawLineOfColor(0, 0, 31, 0, color.cYellow)
+    display.commitScreenToPanelSet()
+
+PRI show18scanColorCheck5()
+    display.drawBoxOfColor(0, 1, 62, 3, TRUE, color.cRed)
+    display.drawBoxOfColor(3, 1, 62, 3, TRUE, color.cPurple)
+    display.drawBoxOfColor(6, 1, 62, 3, TRUE, color.cWhite)
+    display.drawBoxOfColor(9, 1, 62, 3, TRUE, color.cMagenta)
+    display.drawBoxOfColor(12, 1, 62, 3, TRUE, color.cYellow)
+    display.drawBoxOfColor(15, 1, 62, 3, TRUE, color.cGreen)
+    display.drawBoxOfColor(18, 1, 62, 3, TRUE, color.cOrange)
+    display.drawBoxOfColor(21, 1, 62, 3, TRUE, color.cLime)
+    display.drawBoxOfColor(24, 1, 62, 3, TRUE, color.cBlue)
+    display.drawBoxOfColor(27, 1, 62, 3, TRUE, color.cMaroon)
+    display.drawBoxOfColor(30, 1, 62, 2, TRUE, color.cOlive)
+
+    display.drawLineOfColor(0, 63, 31, 63, color.cLime)
+    display.drawLineOfColor(0, 0, 31, 0, color.cYellow)
+
+    numberTheRows()
+
+    display.commitScreenToPanelSet()
+
+PRI numberTheRows() | rowId, idCol, idOnes, idTens, tensColor, onesColor
+    tensColor := color.cCyan
+    onesColor := color.cCyan
+    repeat rowId from 1 to screen.MAX_PANEL_ROWS
+        idOnes := rowId // 10
+        idTens := rowId / 10
+        if idTens > 0
+            repeat idCol from 0 to idTens - 1
+                pixels.drawPixelAtRC(rowId - 1, idCol + 5, tensColor)
+        if idOnes > 0
+            repeat idCol from 0 to idOnes - 1
+                pixels.drawPixelAtRC(rowId - 1, idCol + 10, onesColor)
+
+PRI demoTestGammaTuneBrightness() | red, green, blue, row, col, rowOffset, colorGroup, bUseRed, bUseGreen, bUseBlue, colorValue
+
+    repeat colorGroup from 0 to 2
+        bUseRed := bUseGreen := bUseBlue := FALSE
+        case colorGroup
+            0:
+                row := 4
+                col := 6
+                bUseRed := bUseGreen := TRUE
+            1:
+                row := 4
+                col := 37
+                bUseBlue := bUseGreen := TRUE
+            2:
+                row := 16
+                col := 22
+                bUseBlue := bUseRed := TRUE
+            other:
+                debug("- invalid color group index")
+                abort
+
+        rowOffset := 0
+        repeat colorValue from 15 to 255 step 35
+            red := (bUseRed) ? colorValue : 0
+            green := (bUseGreen) ? colorValue : 0
+            blue := (bUseBlue) ? colorValue : 0
+            drawGammaTuneSwatch(7, row + rowOffset, col, red, green, blue)
+            rowOffset++
+
+    display.commitScreenToPanelSet()
+
+PRI drawGammaTuneSwatch(width, row, col, red, green, blue) | ltCol, midCol, rtCol, colOffset, ltClr, midClr, rtClr
+    ltCol := col
+    midCol := col + width
+    rtCol := col + (width * 2)
+    '     combinedValue := ((red & $ff) << 16) | ((green & $ff) << 8) | (blue & $ff)
+    green := green << 8
+    red := red << 16
+    if red == 0
+        ltClr := green
+        midClr := green | blue
+        rtClr := blue
+    elseif green == 0
+        ltClr := blue
+        midClr := blue | red
+        rtClr := red
+    else ' blue == 0
+        ltClr := red
+        midClr := red | green
+        rtClr := green
+
+    repeat colOffset from 0 to width - 1
+        pixels.drawPixelAtRC(row, ltCol + colOffset, ltClr)
+        pixels.drawPixelAtRC(row, midCol + colOffset, midClr)
+        pixels.drawPixelAtRC(row, rtCol + colOffset, rtClr)
+
+
+PRI demoTest12x9ColorBrightness() | red, green, blue, row, col, rowCtr, colCtr, clrLow, clrMed, clrHigh, clrBW, bThirdClr
+
+    repeat rowCtr from 0 to 8
+        clrLow := 0
+        case rowCtr
+            0:
+                clrMed := 25
+                clrHigh := 51
+                clrBW := 0
+            1:
+                clrMed := 51
+                clrHigh := 102
+                clrBW := 32
+            2:
+                clrMed := 76
+                clrHigh := 153
+                clrBW := 64
+            3:
+                clrMed := 102
+                clrHigh := 204
+                clrBW := 96
+            4:
+                clrMed := 128
+                clrHigh := 255
+                clrBW := 128
+            5:
+                clrMed := 128
+                clrHigh := 255
+                clrBW := 128
+            6:
+                clrMed := 51
+                clrHigh := 255
+                clrBW := 128
+                clrLow := 51
+            7:
+                clrMed := 102
+                clrHigh := 255
+                clrBW := 128
+                clrLow := 102
+            8:
+                clrMed := 153
+                clrHigh := 255
+                clrBW := 128
+                clrLow := 153
+            9:
+                clrMed := 204
+                clrHigh := 255
+                clrBW := 128
+                clrLow := 204
+            other:
+                clrMed := 0
+                clrHigh := 0
+                clrBW := 0
+
+        clrHigh := color.gammaPeek(clrHigh)
+        clrMed := color.gammaPeek(clrMed)
+        clrLow := color.gammaPeek(clrLow)
+        clrBW := color.gammaPeek(clrBW)
+
+        repeat colCtr from 0 to 12  ' last is BW
+            red := green := blue := 0
+            case colCtr
+                0:  ' rH
+                    red := clrHigh
+                    green := blue := clrLow
+                1:  ' rH, gM
+                    red := clrHigh
+                    green := clrMed
+                    blue := clrLow
+                2:  ' rH, gH
+                    red := clrHigh
+                    green := clrHigh
+                    blue := clrLow
+                3:  ' rM, gH
+                    red := clrMed
+                    green := clrHigh
+                    blue := clrLow
+                4:  ' gH
+                    green := clrHigh
+                    red := blue := clrLow
+                5:  ' gH, bM
+                    green := clrHigh
+                    blue := clrMed
+                    red := clrLow
+                6:  ' gH, bH
+                    green := clrHigh
+                    blue := clrHigh
+                    red := clrLow
+                7:  ' gM, bH
+                    green := clrMed
+                    blue := clrHigh
+                    red := clrLow
+                8:  ' bH
+                    blue := clrHigh
+                    red := green := clrLow
+                9:  ' rM, bH
+                    red := clrMed
+                    blue := clrHigh
+                    green := clrLow
+                10:  ' rH, bH
+                    red := clrHigh
+                    blue := clrHigh
+                    green := clrLow
+                11:  ' rH, bM
+                    red := clrHigh
+                    blue := clrMed
+                    green := clrLow
+                12:
+                    red := blue := green := clrBW
+
+            row := rowCtr * 3
+            if rowCtr <> 0 && rowCtr // 2 == 0
+                row++
+            col := colCtr * 5
+            drawSwatch(4, 3, row, col, color.cValueForRGB(red, green, blue))
+    display.commitScreenToPanelSet()
+
+PRI drawSwatch(width, height, row, col, rgbColor) | rowOffset, colOffset
+    repeat rowOffset from 0 to height - 1
+        repeat colOffset from 0 to width - 1
+            pixels.drawPixelAtRC(row + rowOffset, col + colOffset, rgbColor)
+
+PRI demoTest360ColorBrightness() | red, green, blue, row, col, rowCtr, degrees, colorValue
+
+    row := col := 0
+    repeat degrees from 0 to 359
+        colorValue := color.rgbColorFromDegrees(degrees)
+        repeat rowCtr from 0 to 4
+            pixels.drawPixelAtRC(row, col, colorValue)
+            col++
+            if col > 63
+                col := 0
+                row++
+    display.commitScreenToPanelSet()
+
+
+PRI demoTest16ColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex, useRed, useBlue, useGreen, colorValue, colorHue
+    row := 0
+
+    repeat colorHue from 0 to 255 step 16
+        colorValue := color.rgbColorFromDegrees(colorHue)
+        repeat rowCtr from 0 to 2
+            repeat col from 0 to 63
+                pixels.drawPixelAtRC(row, col, colorValue)
+            row++
+    display.commitScreenToPanelSet()
+
+
+PRI demoTest32ColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex, useRed, useBlue, useGreen, colorValue
+
+    row := 0
+
+    repeat colorIndex from 0 to 6
+        useRed := useGreen := useBlue := FALSE
+        case colorIndex
+            0: ' red
+                useRed := TRUE
+            1: ' green
+                useGreen := TRUE
+            2: ' blue
+                useBlue := TRUE
+            3: ' cyan
+                useRed := useBlue := TRUE
+            4: ' agenta
+                useRed := useGreen  := TRUE
+            5: ' yellow
+                useGreen := useBlue := TRUE
+            OTHER: ' white
+                useRed := useGreen := useBlue := TRUE
+
+        colorValue := 0
+        repeat rowCtr from 0 to 3
+            repeat col from 0 to 63
+                red := green := blue := 0
+                if useRed
+                    red := colorValue
+                if useGreen
+                    green := colorValue
+                if useBlue
+                    blue := colorValue
+
+                pixels.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+                if col // 4 == 0
+                    colorValue++
+            row++
+
+    display.commitScreenToPanelSet()
+
+PRI demoTest256ColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex, useRed, useBlue, useGreen, colorValue
+
+    row := 0
+
+    repeat colorIndex from 0 to 7
+        useRed := useGreen := useBlue := FALSE
+        case colorIndex
+            0: ' red
+                useRed := TRUE
+            1: ' green
+                useGreen := TRUE
+            2: ' blue
+                useBlue := TRUE
+            3: ' cyan
+                useRed := useBlue := TRUE
+            4: ' agenta
+                useRed := useGreen  := TRUE
+            5: ' yellow
+                useGreen := useBlue := TRUE
+            OTHER: ' white
+                useRed := useGreen := useBlue := TRUE
+
+        colorValue := 0
+        repeat rowCtr from 0 to 3
+            repeat col from 0 to 63
+                red := green := blue := 0
+                if useRed
+                    red := colorValue
+                if useGreen
+                    green := colorValue
+                if useBlue
+                    blue := colorValue
+
+                pixels.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+                colorValue++
+            row++
+
+    display.commitScreenToPanelSet()
+
+    'repeat  ' hold here!
+PRI demoColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex, useRed, useBlue, useGreen
+
+    row := 0
+
+    repeat colorIndex from 0 to 7
+        useRed := useGreen := useBlue := FALSE
+        case colorIndex
+            0: ' red
+                useRed := TRUE
+            1: ' green
+                useGreen := TRUE
+            2: ' blue
+                useBlue := TRUE
+            3: ' cyan
+                useRed := useBlue := TRUE
+            4: ' agenta
+                useRed := useGreen  := TRUE
+            5: ' yellow
+                useGreen := useBlue := TRUE
+            OTHER: ' white
+                useRed := useGreen := useBlue := TRUE
+
+        repeat rowCtr from 0 to 3
+            repeat col from 0 to 63
+                red := green := blue := 0
+                if useRed
+                    red := col * 4
+                if useGreen
+                    green := col * 4
+                if useBlue
+                    blue := col * 4
+                pixels.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+            row++
+
+    display.commitScreenToPanelSet()
+
+    'repeat  ' hold here!
+
+
+PRI demoHueLines() | row, col, colorOffset
+    ' COLOR PANEL using hue  - all in one line
+    col := 2
+    repeat row from 0 to 31
+        repeat colorOffset from 0 to 350 step 6
+            pixels.drawPixelAtRC(row, col, color.rgbColorFromDegrees(colorOffset))
+            col++
+            if col > 62         ' 62 is fun!  60 is desired
+                col := 2
+    display.commitScreenToPanelSet()
+
+PRI demoHueLinesToo() | row, col, colorOffset
+    ' COLOR PANEL using hue  - all in one line
+    col := 0
+    repeat row from 0 to 31
+        repeat colorOffset from 0 to 350 step 6
+            pixels.drawPixelAtRC(row, col, color.rgbColorFromDegrees(colorOffset))
+            col++
+            if col > 63         ' 62 is fun!  60 is desired
+                col := 0
+    display.commitScreenToPanelSet()
+
+
+PRI demoHueGroups() | row, col, green, panelNumber, colorOffset
+    ' COLOR PANEL using hue  6 groups
+    row := 0
+    repeat panelNumber from 0 to 350 step 60
+        repeat colorOffset from 0 to 4
+            repeat col from 0 to 59
+                    green := panelNumber + col
+                    pixels.drawPixelAtRC(row, col, color.rgbColorFromDegrees(green))
+            row++
+    display.commitScreenToPanelSet()
+
+PRI demoColorPalette12Panels() | red, panelNumber
+    ' 10x10x10 COLOR PANELs + BW panel
+    panelNumber := 0
+    repeat red from 0 to 255 step 25
+        generateGreenBluePanelAgainst(panelNumber, red)
+        panelNumber++
+    generateBWPanel(11)
+    display.commitScreenToPanelSet()
+
+CON { tiny panel constants }
+
+    kROW_HEIGHT_IN_PIX = 11
+    kCOL_WIDTH_IN_PIX = 16
+
+PRI generateGreenBluePanelAgainst(panelNumber, red) | panelRow, panelCol, row, col, green, blue, startCol
+    panelRow := panelNumber / 4
+    panelCol := panelNumber // 4
+    row := panelRow * kROW_HEIGHT_IN_PIX
+    startCol := col := panelCol * kCOL_WIDTH_IN_PIX
+    'debug("clr panelNbr=(", udec_(panelNumber), "),startRC=(", udec_(row), ",", udec_(col), ")")
+    repeat green from 0 to 230 step 25
+        repeat blue from 0 to 230 step 25
+            pixels.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+            col++
+        row++
+        col := startCol
+
+PRI generateBWPanel(panelNumber) | panelRow, panelCol, row, col, red, green, blue, startCol, colCtr, startRow
+    panelRow := panelNumber / 4
+    panelCol := panelNumber // 4
+    startRow := (panelRow * kROW_HEIGHT_IN_PIX)
+    row := startRow - 3 ' skip black rows
+    startCol := col := panelCol * kCOL_WIDTH_IN_PIX
+    'debug("bw panelNbr=(", udec_(panelNumber), "),startRC=(", udec_(row), ",", udec_(col), ")")
+    colCtr := 0
+    repeat green from 0 to 255 step 2
+        red := blue := green
+        if not row < startRow
+            pixels.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        col++
+        colCtr++
+        if colCtr >= 10
+            colCtr := 0
+            row++
+            col := startCol
+            'debug("bw panelNbr=(", udec_(panelNumber), "),startRC=(", udec_(row), ",", udec_(col), ")")
+
+PRI showFullColorSweep() | row, col, red, green, blue
+    ' basic bands - full color sweep
+    red := green := blue := 0
+    row := 2
+    col := 0
+    repeat red from 0 to 255        ' RED
+        pixels.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        col++
+        if (col > screen.MAX_PANEL_COLUMNS - 1)
+            row++
+            col := 0
+    red := green := blue := 0
+    repeat green from 0 to 255      ' GREEN
+        pixels.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        col++
+        if (col > screen.MAX_PANEL_COLUMNS - 1)
+            row++
+            col := 0
+    red := green := blue := 0
+    repeat blue from 0 to 255       ' BLUE
+        pixels.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        col++
+        if (col > screen.MAX_PANEL_COLUMNS - 1)
+            row++
+            col := 0
+    red := green := blue := 0
+    repeat red from 0 to 255        ' YELLOW'
+        green := red
+        pixels.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        col++
+        if (col > screen.MAX_PANEL_COLUMNS - 1)
+            row++
+            col := 0
+    red := green := blue := 0
+    repeat green from 0 to 255      ' CYAN
+        blue := green
+        pixels.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        col++
+        if (col > screen.MAX_PANEL_COLUMNS - 1)
+            row++
+            col := 0
+    red := green := blue := 0
+    repeat blue from 0 to 255       ' MAGENTA
+        red := blue
+        pixels.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        col++
+        if (col > screen.MAX_PANEL_COLUMNS - 1)
+            row++
+            col := 0
+    red := green := blue := 0
+    repeat blue from 0 to 255       ' WHITE
+        green := red := blue
+        pixels.drawPixelAtRC(row, col, color.cValueForRGB(red, green, blue))
+        col++
+        if (col > screen.MAX_PANEL_COLUMNS - 1)
+            row++
+            col := 0
+    red := green := blue := 0
+    display.commitScreenToPanelSet()
+
+
+PRI demoScreenBlast() | color3bit
+    repeat 5
+        repeat color3bit from 0 to 7
+            display.fillScreenNoPWM(color3bit)
+            waitms(2000)
+
+
+PRI colorBlast() | row, col, red, green, blue, blockX, blockY, subrow, subcol
+    ' color blast
+    'debug("- DEMO: draw colored pixels")
+    repeat blockX from 0 to 3
+        repeat blockY from 0 to 1
+            repeat subrow from 0 to 15
+                repeat subcol from 0 to 15
+                    row := (blockY * 16) + subrow
+                    col := (blockX * 16) + subcol
+                    red := subrow * (255 / 16)
+                    green := subcol * (255 / 16)
+                    blue := ((blockY * 4) + blockX) * (255 / 8)
+                    pixels.drawPixelAtRCwithRGB(row, col, red, green, blue)
+
+    display.commitScreenToPanelSet()
+
+
+PRI demoScreenBlastRed() | color3bit
+    color3bit := 1
+    display.fillScreenNoPWM(color3bit)
+
+PRI demoScreenBlastWhite() | color3bit
+    color3bit := 7
+    display.fillScreenNoPWM(color3bit)
+
+
+DAT
+
+'bmpFile1    FILE    "TstBGCol.bmp"
+bmpFile1    FILE    "TstBG-Up.bmp"
+
+CON { license }
+
+{{
+
+
+ -------------------------------------------------------------------------------------------------
+  MIT License
+
+  Copyright (c) 2020 Iron Sheep Productions, LLC
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+ =================================================================================================
+}}
