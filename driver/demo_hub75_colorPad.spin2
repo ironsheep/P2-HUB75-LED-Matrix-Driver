@@ -1,6 +1,6 @@
 '' =================================================================================================
 ''
-''   File....... isp_hub75_demoColorPad.spin2
+''   File....... demo_hub75_colorPad.spin2
 ''   Purpose.... Top-level Demonstration - put up RGB PADS so we can check display driver
 ''   Authors.... Stephen M Moraco
 ''               -- Copyright (c) 2022 Iron Sheep Productions, LLC

@@ -1,6 +1,6 @@
 '' =================================================================================================
 ''
-''   File....... isp_hub75_demoText.spin2
+''   File....... demo_hub75_text.spin2
 ''   Purpose.... Top-level Demonstration - showing off our HUB75 matrix and waterery  binary clock
 ''   Authors.... Stephen M Moraco
 ''               -- Copyright (c) 2020 Iron Sheep Productions, LLC

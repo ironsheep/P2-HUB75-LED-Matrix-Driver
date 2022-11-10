@@ -15,6 +15,22 @@ Work to appear in upcoming releases:
 - New morphing digits Matrix displays can be found at [P2 LED-Matrix Morphing Digits](https://github.com/ironsheep/P2-LED-Matrix-Morphing-Digits) Repository.
 
 
+## [2.0.0] 10 Nov 2022
+
+### Multiple HUB75 card support
+
+- Convert initialization: enable support for up to three hub75 cards!
+- Rename demo's
+- Upgrade scrolling, now supports up/down/rt/left!
+- Added support for New Panel (same chip as ICN2037 but different setttings new name is: **ICN2037_B** - colors are not swapped and scan is different)
+- Repo README's have been updated: changed demo file names, changed how configuration is done.
+
+
+### Known Issues v2.0.0
+
+- Multi-panel support for the FM6126A and MBI5124 driver chips is not yet working!
+- The driver is now fast enough now that there are slight display issues with panels using the MBI5124 chips. We're looking into this.
+
 ## [1.0.0] 05 Apr 2022
 
 ### Better color presentation, 1/4 RAM usage

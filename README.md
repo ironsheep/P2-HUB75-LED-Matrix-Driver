@@ -15,6 +15,10 @@ The P2 HUB75 Driver is available from a couple of sources:
 
 ```
 Latest Updates:
+10 Nov 2022
+- Convert initialization: enable support for up to three hub75 cards!
+- Rename demo's
+- Upgrade scrolling, now supports up/down/rt/left!
 07 Apr 2022
 - add support for GS6238S 
 - add Green/Blue flip support needed by GS6238S
@@ -173,10 +177,11 @@ There are a couple of demos which you can review then copy and paste from.  Thes
 
 | DEMO Program    |  Purpose |
 |-----------------|-------------|
-| isp\_hub75_demoColor.spin2 | presents the color features of the panel driver, displays a .bmp file |
-| isp\_hub75_demoText.spin2 | presents the text and scrolling features of the panel driver |
-| isp\_hub75_demo7seg.spin2 | presents a technique for doing multi-step animations using the panel driver |
-| isp\_hub75_demoMultiPanel.spin2 | presents techniques for drawing to the various surfaces of our P2 P2 Cube |
+| demo\_hub75_color.spin2 | Presents the color features of the panel driver, displays a .bmp file |
+| demo\_hub75_text.spin2 | Presents the text and scrolling features of the panel driver |
+| demo\_hub75_7seg.spin2 | Presents a technique for doing multi-step animations using the panel driver |
+| demo\_hub75_multiPanel.spin2 | Presents techniques for drawing to the various surfaces of our P2 P2 Cube |
+| demo_hub75_colorPad.spin2 | Simple single-screen demo so you can check if Red Green Blue LEDs are set correctly. (color patch should match text underneath if they are correct) |
 
 **NOTE:** most of the demo's are built for a 64x32 panels. You may have to modify them to run on your panel geometry.
 

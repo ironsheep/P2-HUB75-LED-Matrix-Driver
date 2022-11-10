@@ -21,9 +21,9 @@ Here are the reference programs you can study when learning to display to your p
 
 | DEMO TopLevel Files            |  Purpose |
 |-----------------|-------------|
-| isp\_hub75_demoColor.spin2 | Presents the color features of the panel driver |
-| isp\_hub75_demoText.spin2 | Presents the text and scrolling features of the panel driver |
-| isp\_hub75_demo7seg.spin2 | Presents a technique for doing multi-step animations using the panel driver |
+| demo\_hub75_color.spin2 | Presents the color features of the panel driver |
+| demo\_hub75_text.spin2 | Presents the text and scrolling features of the panel driver |
+| demo\_hub75_7seg.spin2 | Presents a technique for doing multi-step animations using the panel driver |
 
 **NOTE:** these demo's are built for a 64x32 panel. You may need to modify them if your panel is a differnt geometry.
 

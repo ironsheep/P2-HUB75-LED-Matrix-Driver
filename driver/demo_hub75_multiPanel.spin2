@@ -1,6 +1,6 @@
 '' =================================================================================================
 ''
-''   File....... isp_hub75_demoMultiPanel.spin2
+''   File....... demo_hub75_multiPanel.spin2
 ''   Purpose.... Top-level Demonstration - showing off our HUB75 matrix access to individual panels
 ''   Authors.... Stephen M Moraco
 ''               -- Copyright (c) 2021 Iron Sheep Productions, LLC
