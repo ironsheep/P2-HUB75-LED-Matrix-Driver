@@ -20,7 +20,7 @@ CON { Object Interface: PUBLIC ENUMs }
     FONT_8x8B_BYTES_PER_CHAR = 8
     FONT_5x7_BYTES_PER_CHAR = 7
 
-PUB null()      
+PUB null()
     '' This is not a top level object
 
 PUB getCharAddrForFont(selectdFont, cChar) : pCharBitmap
@@ -33,14 +33,14 @@ PUB getCharAddrForFont(selectdFont, cChar) : pCharBitmap
         TEXT_FONT_8x8B:
             pCharBitmap := getAddrFor8x8bChar(cChar)
 
-PUB getAddrFor8x8aChar(asciiByte) : p8x8CharBitmap   
+PUB getAddrFor8x8aChar(asciiByte) : p8x8CharBitmap
     '' Return the address of an 8x8 (a) character bitmap
     p8x8CharBitmap := 0
     if(asciiByte >= $20 && asciiByte <= $7f)
         ' NOTE: add + 1 to skip top blank row of char
         p8x8CharBitmap := @byte[@font8x8a][((asciiByte - $20) * FONT_8x8A_BYTES_PER_CHAR) + 1]
 
-PUB getAddrFor8x8bChar(asciiByte) : p8x8CharBitmap   
+PUB getAddrFor8x8bChar(asciiByte) : p8x8CharBitmap
     '' Return the address of an 8x8 (b) character bitmap
     if(asciiByte < $20 || asciiByte > $7f)
         asciiByte := $20
@@ -58,7 +58,7 @@ DAT { Font Bitmaps }
 '+=============================================================================+
 '+ mini font 8x8                                                               +
 '+=============================================================================+
-' Derived from: AiChip_SmallFont_Atari_lsb_001.spin                     
+' Derived from: AiChip_SmallFont_Atari_lsb_001.spin
 ' RR20100214 modified for 1-pinTV
 ' RR20181208 modified for P2 - table of ascii $20-$7F 96chars only
 '+=============================================================================+
@@ -932,6 +932,9 @@ font8x8a
 ' Peter Jakacki 2009
 ' A 5x7 bitmap font designed for the 128x64 graphic lcd
 ' each character takes up 7 bytes
+
+' REF https://blogfonts.com/5x7-practical-regular.font
+' SRCH: https://www.google.com/search?rlz=1C5CHFA_enUS882US882&sxsrf=ALiCzsa79T_wMQX67_Ws0aNplvxeInKj1Q:1664414812860&source=univ&tbm=isch&q=5x7+fonts&fir=LNjCHqcEM7F7cM%252CplOcsAShnEGjAM%252C_%253Bu7xY-xwToP5eqM%252Ccomd8_TZjwqVqM%252C_%253BpebRLxZOAWdi4M%252C8INUejkMJOe4EM%252C_%253B3WrlvlmKZCYEeM%252CkJrvFTSOal8gXM%252C_%253B2s3Vg9OfgL5dbM%252CFQGBVSIqI5GU7M%252C_%253BUuiSvHkh77dXwM%252C4rxv1mVqiR1gHM%252C_%253BS8GrwkZrBGijAM%252C4bq2t3UFIJ8DlM%252C_%253Ba2E_JckkgKUcxM%252CEieKmmIya9CQXM%252C_%253BFDhN7Oh5u1kL9M%252C8yGiE7WwcvmXeM%252C_%253B8SwZpn7rl4kA6M%252Cg-acDWQ-DXJ3pM%252C_&usg=AI4_-kQY3xrGI7cQRPlBXu4YTW40fykXMA&sa=X&ved=2ahUKEwiplbet7Lj6AhXUnWoFHeZiCHUQjJkEegQIAxAC&biw=1201&bih=1128&dpr=2.2#imgrc=u7xY-xwToP5eqM
 '
 font5x7
         BYTE    %00000    ' .....    $20
@@ -1460,7 +1463,7 @@ font5x7
         BYTE    %00001    ' ....X
         BYTE    %01111    ' .XXXX
         BYTE    %10001    ' X...X
-        BYTE    %01110    ' .XXX.
+        BYTE    %01110    ' .XXXX
 
         BYTE    %10000    ' X....    $62
         BYTE    %10000    ' X....
@@ -1472,11 +1475,11 @@ font5x7
 
         BYTE    %00000    ' .....    $63
         BYTE    %00000    ' .....
-        BYTE    %01110    ' .XXX.
+        BYTE    %01111    ' .XXXX
         BYTE    %10000    ' X....
         BYTE    %10000    ' X....
-        BYTE    %10001    ' X...X
-        BYTE    %01110    ' .XXX.
+        BYTE    %10000    ' X....
+        BYTE    %01111    ' .XXXX
 
         BYTE    %00001    ' ....X    $64
         BYTE    %00001    ' ....X
@@ -1494,8 +1497,8 @@ font5x7
         BYTE    %10000    ' X....
         BYTE    %01110    ' .XXX.
 
-        BYTE    %00110    ' ..XX.    $66
-        BYTE    %01001    ' .X..X
+        BYTE    %00111    ' ..XXX    $66
+        BYTE    %01000    ' .X...
         BYTE    %01000    ' .X...
         BYTE    %11110    ' XXXX.
         BYTE    %01000    ' .X...
@@ -1503,8 +1506,8 @@ font5x7
         BYTE    %01000    ' .X...
 
         BYTE    %00000    ' .....    $67
-        BYTE    %01111    ' .XXXX
-        BYTE    %10001    ' X...X
+        BYTE    %01101    ' .XX.X
+        BYTE    %10011    ' X..XX
         BYTE    %10001    ' X...X
         BYTE    %01111    ' .XXXX
         BYTE    %00001    ' ....X
@@ -1528,7 +1531,7 @@ font5x7
 
         BYTE    %00010    ' ...X.    $6A
         BYTE    %00000    ' .....
-        BYTE    %00010    ' ...X.
+        BYTE    %00110    ' ..XX.
         BYTE    %00010    ' ...X.
         BYTE    %00010    ' ...X.
         BYTE    %10010    ' X..X.
@@ -1542,133 +1545,133 @@ font5x7
         BYTE    %10100    ' X.X..
         BYTE    %10010    ' X..X.
 
-        BYTE    %10000    ' X....    $6C
-        BYTE    %10000    ' X....
-        BYTE    %10000    ' X....
-        BYTE    %10000    ' X....
-        BYTE    %10000    ' X....
-        BYTE    %10000    ' X....
-        BYTE    %11111    ' XXXXX
+        BYTE    %01000    ' .X...    $6C
+        BYTE    %01000    ' .X...
+        BYTE    %01000    ' .X...
+        BYTE    %01000    ' .X...
+        BYTE    %01000    ' .X...
+        BYTE    %01000    ' .X...
+        BYTE    %00100    ' ..X..
 
-        BYTE    %10001    ' X...X    $6D
-        BYTE    %11011    ' XX.XX
-        BYTE    %10101    ' X.X.X
+        BYTE    %00000    ' .....    $6D
+        BYTE    %00000    ' .....
+        BYTE    %01010    ' .X.X.
         BYTE    %10101    ' X.X.X
         BYTE    %10001    ' X...X
         BYTE    %10001    ' X...X
         BYTE    %10001    ' X...X
 
-        BYTE    %10001    ' X...X    $6E
-        BYTE    %10001    ' X...X
+        BYTE    %00000    ' .....    $6E
+        BYTE    %00000    ' .....
+        BYTE    %10110    ' X.XX.
         BYTE    %11001    ' XX..X
-        BYTE    %10101    ' X.X.X
+        BYTE    %10001    ' X...X
+        BYTE    %10001    ' X...X
+        BYTE    %10001    ' X...X
+
+        BYTE    %00000    ' .....    $6F
+        BYTE    %00000    ' .....
+        BYTE    %01110    ' .XXX.
+        BYTE    %10001    ' X...X
+        BYTE    %10001    ' X...X
+        BYTE    %10001    ' X...X
+        BYTE    %01110    ' .XXX.
+
+        BYTE    %00000    ' .....    $70
+        BYTE    %10110    ' X.XX.
+        BYTE    %11001    ' XX..X
+        BYTE    %10001    ' X...X
+        BYTE    %11110    ' XXXX.
+        BYTE    %10000    ' X....
+        BYTE    %10000    ' X....
+
+        BYTE    %00000    ' .....    $71
+        BYTE    %01101    ' .XX.X
         BYTE    %10011    ' X..XX
         BYTE    %10001    ' X...X
-        BYTE    %10001    ' X...X
+        BYTE    %01111    ' .XXXX
+        BYTE    %00001    ' ....X
+        BYTE    %00001    ' ....X
 
-        BYTE    %01110    ' .XXX.    $6F
-        BYTE    %10001    ' X...X
-        BYTE    %10001    ' X...X
-        BYTE    %10001    ' X...X
-        BYTE    %10001    ' X...X
-        BYTE    %10001    ' X...X
-        BYTE    %01110    ' .XXX.
-
-        BYTE    %11110    ' XXXX.    $70
-        BYTE    %10001    ' X...X
-        BYTE    %10001    ' X...X
-        BYTE    %11110    ' XXXX.
+        BYTE    %00000    ' .....    $72
+        BYTE    %00000    ' .....
+        BYTE    %10110    ' X.XX.
+        BYTE    %11001    ' XX..X
         BYTE    %10000    ' X....
         BYTE    %10000    ' X....
         BYTE    %10000    ' X....
 
-        BYTE    %01110    ' .XXX.    $71
-        BYTE    %10001    ' X...X
-        BYTE    %10001    ' X...X
-        BYTE    %10001    ' X...X
-        BYTE    %10101    ' X.X.X
-        BYTE    %10010    ' X..X.
-        BYTE    %01101    ' .XX.X
-
-        BYTE    %11110    ' XXXX.    $72
-        BYTE    %10001    ' X...X
-        BYTE    %10001    ' X...X
-        BYTE    %11110    ' XXXX.
-        BYTE    %10100    ' X.X..
-        BYTE    %10010    ' X..X.
-        BYTE    %10001    ' X...X
-
-        BYTE    %01111    ' .XXXX    $73
-        BYTE    %10000    ' X....
+        BYTE    %00000    ' .....    $73
+        BYTE    %00000    ' .....
+        BYTE    %01111    ' .XXXX
         BYTE    %10000    ' X....
         BYTE    %01110    ' .XXX.
         BYTE    %00001    ' ....X
-        BYTE    %00001    ' ....X
         BYTE    %11110    ' XXXX.
 
-        BYTE    %11111    ' XXXXX    $74
+        BYTE    %00000    ' .....    $74
         BYTE    %00100    ' ..X..
-        BYTE    %00100    ' ..X..
-        BYTE    %00100    ' ..X..
-        BYTE    %00100    ' ..X..
-        BYTE    %00100    ' ..X..
-        BYTE    %00100    ' ..X..
-
-        BYTE    %10001    ' X...X    $75
-        BYTE    %10001    ' X...X
-        BYTE    %10001    ' X...X
-        BYTE    %10001    ' X...X
-        BYTE    %10001    ' X...X
-        BYTE    %10001    ' X...X
         BYTE    %01110    ' .XXX.
+        BYTE    %00100    ' ..X..
+        BYTE    %00100    ' ..X..
+        BYTE    %00100    ' ..X..
+        BYTE    %00010    ' ...X.
 
-        BYTE    %10001    ' X...X    $76
+        BYTE    %00000    ' .....    $75
+        BYTE    %00000    ' .....
         BYTE    %10001    ' X...X
+        BYTE    %10001    ' X...X
+        BYTE    %10001    ' X...X
+        BYTE    %11001    ' XX..X
+        BYTE    %10110    ' X.XX.
+
+        BYTE    %00000    ' .....    $76
+        BYTE    %00000    ' .....
         BYTE    %10001    ' X...X
         BYTE    %10001    ' X...X
         BYTE    %10001    ' X...X
         BYTE    %01010    ' .X.X.
         BYTE    %00100    ' ..X..
 
-        BYTE    %10001    ' X...X    $77
+        BYTE    %00000    ' .....    $77
+        BYTE    %00000    ' .....
         BYTE    %10001    ' X...X
         BYTE    %10001    ' X...X
         BYTE    %10101    ' X.X.X
         BYTE    %10101    ' X.X.X
-        BYTE    %10101    ' X.X.X
         BYTE    %01010    ' .X.X.
 
-        BYTE    %10001    ' X...X    $78
+        BYTE    %00000    ' .....    $78
+        BYTE    %00000    ' .....
         BYTE    %10001    ' X...X
         BYTE    %01010    ' .X.X.
         BYTE    %00100    ' ..X..
         BYTE    %01010    ' .X.X.
-        BYTE    %10001    ' X...X
         BYTE    %10001    ' X...X
 
-        BYTE    %10001    ' X...X    $79
-        BYTE    %10001    ' X...X
-        BYTE    %10001    ' X...X
-        BYTE    %01010    ' .X.X.
-        BYTE    %00100    ' ..X..
-        BYTE    %00100    ' ..X..
-        BYTE    %00100    ' ..X..
+        BYTE    %00000    ' .....    $79
+        BYTE    %00000    ' .....
+        BYTE    %01001    ' .X..X
+        BYTE    %01001    ' .X..X
+        BYTE    %00111    ' ..xxx
+        BYTE    %00001    ' ....x
+        BYTE    %00110    ' ..XX.
 
-        BYTE    %11111    ' XXXXX    $7A
-        BYTE    %00001    ' ....X
+        BYTE    %00000    ' .....    $7A
+        BYTE    %00000    ' .....
+        BYTE    %11111    ' XXXXX
         BYTE    %00010    ' ...X.
         BYTE    %00100    ' ..X..
         BYTE    %01000    ' .X...
-        BYTE    %10000    ' X....
         BYTE    %11111    ' XXXXX
 
-        BYTE    %11100    ' XXX..    $7B
-        BYTE    %10000    ' X....
-        BYTE    %10000    ' X....
-        BYTE    %10000    ' X....
-        BYTE    %10000    ' X....
-        BYTE    %10000    ' X....
-        BYTE    %11100    ' XXX..
+        BYTE    %00110    ' .XX..    $7B
+        BYTE    %01000    ' X....
+        BYTE    %01000    ' X....
+        BYTE    %10000    ' .X...
+        BYTE    %01000    ' X....
+        BYTE    %01000    ' X....
+        BYTE    %00110    ' .XX..
 
         BYTE    %00100    ' ..X..    $7C
         BYTE    %00100    ' ..X..
@@ -1678,13 +1681,13 @@ font5x7
         BYTE    %00100    ' ..X..
         BYTE    %00100    ' ..X..
 
-        BYTE    %00111    ' ..XXX    $7D
-        BYTE    %00001    ' ....X
-        BYTE    %00001    ' ....X
-        BYTE    %00001    ' ....X
-        BYTE    %00001    ' ....X
-        BYTE    %00001    ' ....X
-        BYTE    %00111    ' ..XXX
+        BYTE    %01100    ' ..XX.    $7D
+        BYTE    %00010    ' ....X
+        BYTE    %00010    ' ....X
+        BYTE    %00001    ' ...X.
+        BYTE    %00010    ' ....X
+        BYTE    %00010    ' ....X
+        BYTE    %01100    ' ..XX.
 
         BYTE    %00000    ' .....    $7E
         BYTE    %00100    ' ..X..
@@ -1709,7 +1712,7 @@ font5x7
 ' A ROM font compatibile 8x8 font
 ' Its licensed CC0 and based on funscii (in turn based on unscii).
 ' https://forums.parallax.com/discussion/167894/a-rom-font-compatibile-8x8-font
-' each char takes up 0=8 bytes, there are 256 chars defined 
+' each char takes up 0=8 bytes, there are 256 chars defined
 ' ascii charset is at standard location $20-$7f
 '
 font8x8b
@@ -4050,4 +4053,3 @@ CON { license }
   SOFTWARE.
  =================================================================================================
 }}
-

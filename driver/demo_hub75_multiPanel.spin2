@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Apr 2021
-''   Updated.... 27 Apr 2021
+''   Updated.... 10 Nov 2022
 ''
 '' =================================================================================================
 
@@ -27,16 +27,19 @@ DEBUG_BAUD = 2_000_000
 VAR
 
     long    cog
+    long    chainIndex
     long    demoPausePeriod
     long    scrollPeriod
     long    textSize
 
 OBJ
 
-    color       : "isp_hub75_color"
-    pixels      : "isp_hub75_screenUtils"
-    screen      : "isp_hub75_screenAccess"
-    display     : "isp_hub75_display"
+    color       :   "isp_hub75_color"
+    colorUtils  :   "isp_hub75_colorUtils"
+    pixels      :   "isp_hub75_screenUtils"
+    hub75Bffrs  :   "isp_hub75_hwBuffers"
+    display     :   "isp_hub75_display"
+    user        :   "isp_hub75_hwGeometry"  ' hardware config common to all demos
 
 CON { DEMO info }
 
@@ -55,8 +58,10 @@ PUB main() : ok | demoIndex
     'repeat
 
     'debug("`term temp size 82 50 textsize 10")
+    hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.ADAPTER_BASE_PIN, user.PANEL_DRIVER_CHIP, user.PANEL_ADDR_LINES)
+    chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
-    ok := cog := display.start()   ' send buffer to driver
+    ok := cog := display.start(chainIndex)   ' send buffer to driver
     if ok == -1
         debug("- DEMO: underlying driver failed!")
         abort
@@ -116,9 +121,9 @@ PRI demoRandomPanelColors() | panelIndex, panelHue, panelColor
 
     display.clearScreenBuffer()
     repeat 20
-        repeat panelIndex from 0 to screen.MAX_PANELS - 1
+        repeat panelIndex from 0 to hub75Bffrs.maxPanels(chainIndex) - 1
             panelHue := (getrnd() +// 254) + 1
-            panelColor := color.rgbColorFromDegrees(panelHue)
+            panelColor := colorUtils.rgbColorFromDegrees(panelHue)
             display.fillPanel(panelIndex, panelColor)
         ' update our screen
         display.commitScreenToPanelSet()
@@ -195,7 +200,7 @@ PRI demoTopBottomScroll() | scrollerID, startTime
 
 PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, boxColor, hueIndex
 
-    panelHueWidth := 256 / screen.MAX_PANELS
+    panelHueWidth := 256 / hub75Bffrs.maxPanels(chainIndex)
 
     ' set up text subsystem
     'textSize := display.TEXT_FONT_5x7
@@ -210,12 +215,12 @@ PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, boxColor, hueInde
 
     panelIndex := 0
 
-    repeat panelIndex from 0 to screen.MAX_PANELS - 1
+    repeat panelIndex from 0 to hub75Bffrs.maxPanels(chainIndex) - 1
         ' color the panel
         hueIndex := panelIndex + 1
-        if hueIndex > screen.MAX_PANELS - 1
-            hueIndex -= screen.MAX_PANELS
-        panelColor := color.rgbColorFromDegrees(panelHueWidth * hueIndex)
+        if hueIndex > hub75Bffrs.maxPanels(chainIndex) - 1
+            hueIndex -= hub75Bffrs.maxPanels(chainIndex)
+        panelColor := colorUtils.rgbColorFromDegrees(panelHueWidth * hueIndex)
         display.fillPanel(panelIndex, panelColor)
         ' number the panel
         display.setCursorOnPanel(1,1, panelIndex)
@@ -223,9 +228,9 @@ PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, boxColor, hueInde
         display.setTextAtCursor(@panelIdMessage)
         ' draw a colored box in panel (don't use panel color)
         hueIndex := panelIndex + 3
-        if hueIndex > screen.MAX_PANELS - 1
-            hueIndex -= screen.MAX_PANELS
-        boxColor := color.rgbColorFromDegrees(panelHueWidth * hueIndex)
+        if hueIndex > hub75Bffrs.maxPanels(chainIndex) - 1
+            hueIndex -= hub75Bffrs.maxPanels(chainIndex)
+        boxColor := colorUtils.rgbColorFromDegrees(panelHueWidth * hueIndex)
         display.drawPanelBoxOfColor(panelIndex, 17, 10, 40, 34, TRUE, boxColor)
     display.commitScreenToPanelSet()
 

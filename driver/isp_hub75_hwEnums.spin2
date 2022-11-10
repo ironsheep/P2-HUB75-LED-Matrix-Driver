@@ -1,0 +1,97 @@
+'' =================================================================================================
+''
+''   File....... isp_hub75_hwEnums.spin2
+''   Purpose.... Describe hardware connection constants
+''   Authors.... Stephen M Moraco
+''               -- Copyright (c) 2022 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... Nov 2022
+''   Updated.... 10 Nov 2022
+''
+'' =================================================================================================
+'
+'  Interface constants used to describe HUB75 panel connection and configuration
+
+CON { Hardware Interface Constants }
+
+' =================================================================================================
+'  (1) here the P2 EVAL HUB75 Adapter is plugged in
+'   NOTE: the board does NOT run in PINS_P48_P63 (DO NOT USE THIS VALUE - Validation will FAIL!)
+' =================================================================================================
+#0[16], PINS_P0_P15, PINS_P16_P31, PINS_P32_P47, PINS_P48_P63
+
+' =================================================================================================
+'  (2) how many HUB75 boards are you connecting?
+' =================================================================================================
+#10[10], HUB75_ADAPTER_1, HUB75_ADAPTER_2, HUB75_ADAPTER_3
+
+' =================================================================================================
+'  (3) The Driver Chip on your panels
+' =================================================================================================
+' Driver Pre-defined flag combinations (use these unless your hardware is not in this list)
+#0, CHIP_UNKNOWN, CHIP_MANUAL_SPEC, CHIP_FM6126A, CHIP_FM6124, CHIP_UNK_LAT_END_ENCL, CHIP_ICN2037, CHIP_ICN2037_B, CHIP_UNK_LAT_END_ENCL_SLO_CLK, CHIP_MBI5124_8S, CHIP_GS6238S
+
+' Normal use:
+'   PANEL_DRIVER_CHIP = CHIP_FM6126A
+'
+' Manual Use when your hardware is not listed:
+'   PANEL_DRIVER_CHIP = CHIP_MANUAL_SPEC | {flag1} | {flag2} | etc..
+
+' NOTE:
+'   PANEL_DRIVER_CHIP = CHIP_FM6126A    ' which is: CHIP_MANUAL_SPEC | LAT_STYLE_OFFSET | LAT_POSN_OVERLAP | INIT_PANEL_REQUIRED
+'   PANEL_DRIVER_CHIP = CHIP_FM6124     ' which is: CHIP_MANUAL_SPEC
+'   PANEL_DRIVER_CHIP = CHIP_GS6238S    ' which is: CHIP_MANUAL_SPEC | LAT_STYLE_OFFSET | LAT_POSN_OVERLAP | GB_SWAP
+'   PANEL_DRIVER_CHIP = CHIP_ICN2037    ' which is: CHIP_MANUAL_SPEC | CLK_WIDE_PULSE | RB_SWAP
+'   PANEL_DRIVER_CHIP = CHIP_ICN2037_B  ' which is: CCHIP_MANUAL_SPEC | CLK_WIDE_PULSE | SCAN_4
+
+' Driver Manual Config Flags:
+#$100, LAT_STYLE_OFFSET, #$200, LAT_POSN_OVERLAP, #$400, INIT_PANEL_REQUIRED, #$800, CLK_WIDE_PULSE, #$1000, RB_SWAP, #$2000, SCAN_4, #$4000, GB_SWAP
+
+
+' =================================================================================================
+'  (4) Describe the overall layout of your hardware panel(s):
+' =================================================================================================
+
+' SUPPORTED address widths:  A-B-C, or A-B-C-D, or A-B-C-D-E
+#2, ADDR_UNKNOWN, ADDR_ABC, ADDR_ABCD, ADDR_ABCDE
+
+' =================================================================================================
+'  (5) Describe the color depth you'd like to display:
+' =================================================================================================
+
+' SUPPORTED depths:  3-8 bits
+#3, DEPTH_3BIT, DEPTH_4BIT, DEPTH_5BIT, DEPTH_6BIT, DEPTH_7BIT, DEPTH_8BIT
+
+PUB null()
+'' This is not a top level object
+
+CON { license }
+
+{{
+
+
+ -------------------------------------------------------------------------------------------------
+  MIT License
+
+  Copyright (c) 2020 Iron Sheep Productions, LLC
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+ =================================================================================================
+}}

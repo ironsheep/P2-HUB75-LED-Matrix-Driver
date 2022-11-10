@@ -21,8 +21,8 @@ CON { public control values }
 
 OBJ
 
-    screen          : "isp_hub75_screenAccess"
-    segments[7]     : "isp_hub75_segment"
+    hub75Bffrs      :   "isp_hub75_hwBuffers"
+    segments[7]     :   "isp_hub75_segment"
 
 DAT { initialized data }
 
@@ -39,6 +39,7 @@ segmentsByDigit
     byte    %0111_1011   ' 9 abcd-fg
 
 VAR { globals }
+    long    chainIndex
     long    currValue
     long    currRgbColor
     long    topY
@@ -51,15 +52,15 @@ VAR { globals }
 PUB null()
     '' This is NOT a top level object
 
-
-PUB placeDigit(row, column, digit, rgbColor)
-    '' Locate a desired digit on our screen. Draw initial segement if state is NOT off
+PUB placeDigit(nChainIdx, row, column, digit, rgbColor)
+    chainIndex := nChainIdx
+    '' Locate a desired digit on our screen  Draw initial segement if state is NOT off
     ' now we can inform segements of their own locations
     'debug("7s:placeDigit rc=(", udec_(row), ",", udec_(column),"), dgt=(", udec_(digit), "), RGB=(", uhex_long_(rgbColor),")")
     isSetup := FALSE
     ' FIXME: UNDONE shouldn't this limit to whole digit width from right edge???
-    leftX :=  0 #> column <# screen.MAX_DISPLAY_COLUMNS - 1
-    topY :=  0 #> row <# screen.MAX_DISPLAY_ROWS - 1
+    leftX :=  0 #> column <# hub75Bffrs.maxDisplayColumns(chainIndex) - 1
+    topY :=  0 #> row <# hub75Bffrs.maxDisplayRows(chainIndex) - 1
     currRgbColor := rgbColor
     currValue := DIGIT_NO_VALUE
     ensureIsSetup()
@@ -138,7 +139,7 @@ PRI initialSetup() | segIndex, orientation, segRow, segCol
             segRow := topY + 1 + segments.SEG_LENGTH + 0 - 1
             segCol := leftX + 1
 
-        segments[segIndex].placeSegment(segRow, segCol, orientation, segments.STATE_OFF, currRgbColor)
+        segments[segIndex].placeSegment(chainIndex, segRow, segCol, orientation, segments.STATE_OFF, currRgbColor)
 
     currValue := DIGIT_NO_VALUE
     isSetup := TRUE

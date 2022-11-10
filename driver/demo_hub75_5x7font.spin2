@@ -1,0 +1,153 @@
+'' =================================================================================================
+''
+''   File....... demo_hub75_5x7font.spin2
+''   Purpose.... Top-level Demonstration - showing off our HUB75 matrix  full 5x7 font set
+''   Authors.... Stephen M Moraco
+''               -- Copyright (c) 2022 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... Oct 2022
+''   Updated.... 10 Nov 2022
+''
+'' =================================================================================================
+
+
+CON { timing }
+
+  CLK_FREQ = 335_000_000                                        ' system freq as a constant
+  _clkfreq = CLK_FREQ                                           ' set system clock
+
+CON { DEBUG PINs }
+
+'DEBUG_PIN = 0
+
+VAR
+
+    long    cog
+    long    chainIndex
+    long    scrollPeriod
+    long    startTime
+
+OBJ
+
+    color       :   "isp_hub75_color"
+    display     :   "isp_hub75_display"
+    hub75Bffrs  :   "isp_hub75_hwBuffers"
+    user        :   "isp_hub75_hwGeometry"  ' hardware config common to all demos
+
+PUB main() : ok | bitCount, newMask
+
+    '' run demo - displaying text/graphics in various ways
+    hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.ADAPTER_BASE_PIN, user.PANEL_DRIVER_CHIP, user.PANEL_ADDR_LINES)
+    chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
+
+    ' startup our backend COG(s)
+    ok := cog := display.start(chainIndex)   ' send buffer to driver
+    if ok == -1
+        debug("- DEMO: underlying drivers failed!")
+        abort
+
+    demoFont()
+
+    waitSec(60)    ' 5 seconds
+
+    ' shutdown our backend COG(s)
+    if ok <> -1
+        display.stop()
+
+CON
+    CHARS_PER_ROW = 10
+    BYTES_PER_ROW = 11
+    NBR_ROWS = 13
+
+DAT
+    ' 10 rows (really 9.6, 10 chars + term. in each row)
+    charSet         BYTE    0[NBR_ROWS * BYTES_PER_ROW]
+
+PRI demoFont() | textSize, nChar, nRow, nCol, byteIdx, nCharIdx, nRows1stScreen
+    textSize := display.TEXT_FONT_5x7
+    'textSize := display.TEXT_FONT_8x8A
+    'textSize := display.TEXT_FONT_8x8B
+
+    bytefill(@charSet, 0, NBR_ROWS * BYTES_PER_ROW)
+    ' 1.5 rows
+    fillCharSet(0, $20, $2f)
+    ' 1.0 rows
+    fillCharSet(2, $3a, $40)
+    ' 1.0 rows
+    fillCharSet(3, $5b, $60)
+    ' 1.0 rows
+    fillCharSet(4, $7b, $7f)
+
+    nRows1stScreen := 5
+
+    ' 1.0 rows
+    fillCharSet(5, $30, $39)
+    ' 2.6 rows
+    fillCharSet(6, $41, $5a)
+    ' 2.6 rows
+    fillCharSet(9, $61, $7a)
+
+    display.clearScreen()
+    display.setTextFont(textSize)    ' font size
+    display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
+
+    repeat
+        display.clearScreenBuffer()
+        repeat nRow from 0 to nRows1stScreen - 1 + 1 ' +1 add in digits 0-9 on this screen too
+            display.setColoredTextAtLnCol(nRow, 0, @BYTE[@charSet][nRow * BYTES_PER_ROW], color.cYellow)
+
+        ' update our screen
+        display.commitScreenToPanelSet()
+        waitSec(10)    ' seconds
+
+        display.clearScreenBuffer()
+        repeat nRow from nRows1stScreen to NBR_ROWS - 1
+            display.setColoredTextAtLnCol(nRow - nRows1stScreen, 0, @BYTE[@charSet][(nRow) * BYTES_PER_ROW], color.cOrange)
+
+        ' update our screen
+        display.commitScreenToPanelSet()
+        waitSec(10)    ' seconds
+
+PRI fillCharSet(startRow, startHex, stopHex) | nCharIdx, nChar, nRow, nCol, nIdx
+    nCharIdx := startRow * CHARS_PER_ROW
+    repeat nChar from startHex to stopHex
+        nRow := nCharIdx / 10
+        nCol := nCharIdx +// 10
+        nIdx := (nRow * BYTES_PER_ROW) + nCol
+        BYTE [@charSet][nIdx] := nChar
+        nCharIdx++
+
+PRI waitSec(countSeconds)
+    repeat countSeconds
+        waitms(1000)
+
+CON { license }
+
+{{
+
+
+ -------------------------------------------------------------------------------------------------
+  MIT License
+
+  Copyright (c) 2022 Iron Sheep Productions, LLC
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+ =================================================================================================
+}}

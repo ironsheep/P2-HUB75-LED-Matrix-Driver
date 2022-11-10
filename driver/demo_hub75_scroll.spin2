@@ -1,12 +1,12 @@
 '' =================================================================================================
 ''
-''   File....... isp_hub75_demoText.spin2
-''   Purpose.... Top-level Demonstration - showing off our HUB75 matrix and waterery  binary clock
+''   File....... demo_hub75_scroll.spin2
+''   Purpose.... Top-level Demonstration - showing off our HUB75 matrix scolling capability
 ''   Authors.... Stephen M Moraco
-''               -- Copyright (c) 2020 Iron Sheep Productions, LLC
+''               -- Copyright (c) 2022 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
-''   Started.... Oct 2020
+''   Started.... Oct 2022
 ''   Updated.... 10 Nov 2022
 ''
 '' =================================================================================================
@@ -47,11 +47,6 @@ PUB main() : ok | bitCount, newMask
         debug("- DEMO: underlying drivers failed!")
         abort
 
-    demoText()
-    'repeat
-
-    waitSec(4)
-
     demoScrollingText()
 
     repeat
@@ -63,7 +58,7 @@ PUB main() : ok | bitCount, newMask
 PRI demoScrollingText() | scrollerID, textSize
     ' draw some scrolling text
 
-    scrollPeriod := 0    ' 50 * 10 mSec :: 50/100th Sec
+    scrollPeriod := 20    ' 50 * 10 mSec :: 50/100th Sec
 
     textSize := display.TEXT_FONT_5x7
     'textSize := display.TEXT_FONT_8x8A
@@ -81,13 +76,25 @@ PRI demoScrollingText() | scrollerID, textSize
         display.setColoredTextAtLnCol(1,0, string("scroll"), color.cOrange)
     ' show a region of scrolling text
     'scrollerID := display.scrollColoredTextOnLn(2, string("First long text012"), display.DIR_TO_RIGHT, color.cBlue)
-    scrollerID := display.scrollColoredTextOnLn(2, string("First long text-123          "), display.DIR_TO_LEFT, color.cBlue)
+    scrollerID := display.scrollColoredTextOnLn(2, string("First long text-123          "), display.DIR_TO_RIGHT, color.cBlue)
     ' configure it for one time scroll then stop when last bit arrives on screen
     'display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE)
     display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE_TO_CLEAR)
     'display.configureScrollLoopMode(scrollerID, display.SCROLL_FOREVER)
 
     scrollerID := display.scrollColoredTextOnLn(3, string("2nd shorter - "), display.DIR_TO_LEFT, color.cLime)
+    ' configure it for one time scroll then stop when last bit arrives on screen
+    'display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE)
+    'display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE_TO_CLEAR)
+    display.configureScrollLoopMode(scrollerID, display.SCROLL_FOREVER)
+
+    scrollerID := display.scrollColoredTextOnLn(4, string("3rd  UP  -"), display.DIR_UP, color.cCyan)
+    ' configure it for one time scroll then stop when last bit arrives on screen
+    'display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE)
+    'display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE_TO_CLEAR)
+    display.configureScrollLoopMode(scrollerID, display.SCROLL_FOREVER)
+
+    scrollerID := display.scrollColoredTextOnLn(6, string("4th Down -"), display.DIR_DOWN, color.cYellow)
     ' configure it for one time scroll then stop when last bit arrives on screen
     'display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE)
     'display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE_TO_CLEAR)
@@ -173,7 +180,7 @@ CON { license }
  -------------------------------------------------------------------------------------------------
   MIT License
 
-  Copyright (c) 2020 Iron Sheep Productions, LLC
+  Copyright (c) 2022 Iron Sheep Productions, LLC
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal

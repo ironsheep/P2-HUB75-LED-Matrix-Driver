@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 17 Oct 2020
+''   Updated.... 10 Nov 2022
 ''
 '' =================================================================================================
 
@@ -28,6 +28,7 @@ MAX_DIGITS = 8
 VAR
 
     long    cog
+    long    chainIndex
     long    segmentPeriod
     long    digitPeriod
     long    digitVal
@@ -37,18 +38,21 @@ VAR
 
 OBJ
 
-    color               : "isp_hub75_color"
-    display             : "isp_hub75_display"
-    pixels              : "isp_hub75_screenUtils"
-    digit[MAX_DIGITS]   : "isp_hub75_7seg"
-    screen              : "isp_hub75_screenAccess"
+    color               :   "isp_hub75_color"
+    display             :   "isp_hub75_display"
+    pixels              :   "isp_hub75_screenUtils"
+    digit[MAX_DIGITS]   :   "isp_hub75_7seg"
+    hub75Bffrs          :   "isp_hub75_hwBuffers"
+    user                :   "isp_hub75_hwGeometry"  ' hardware config common to all demos
 
 PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, builtPtr, color3bit, color24bit, pPixColor, colorOffset, byteOffset, hours24
     '' Start underlying drivers and run demo
 
     'debug("`term temp size 82 50 textsize 10")
+    hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.ADAPTER_BASE_PIN, user.PANEL_DRIVER_CHIP, user.PANEL_ADDR_LINES)
+    chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
-    ok := cog := display.start()   ' send buffer to driver
+    ok := cog := display.start(chainIndex)   ' send buffer to driver
     if ok == -1
         debug("- DEMO: underlying drivers failed!")
         abort
@@ -69,17 +73,17 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     ' High Speed CLOCK demo
     hours := minutes := 0
 
-    digit[0].placeDigit(8, 2, 0, color.cOrange)
-    digit[1].placeDigit(8, 17, 0, color.cOrange)
-    if screen.MAX_DISPLAY_COLUMNS > 32
-        digit[2].placeDigit(8, 35, 0, color.cOrange)
-        digit[3].placeDigit(8, 50, 0, color.cOrange)
-    if screen.MAX_DISPLAY_COLUMNS > 64
-        digit[4].placeDigit(8, 2+64, 1, color.cOrange)
-        digit[5].placeDigit(8, 17+64, 2, color.cOrange)
-    if screen.MAX_DISPLAY_COLUMNS > 96
-        digit[6].placeDigit(8, 35+64, 0, color.cOrange)
-        digit[7].placeDigit(8, 50+64, 0, color.cOrange)
+    digit[0].placeDigit(chainIndex, 8, 2, 0, color.cOrange)
+    digit[1].placeDigit(chainIndex, 8, 17, 0, color.cOrange)
+    if hub75Bffrs.maxDisplayColumns(chainIndex) > 32
+        digit[2].placeDigit(chainIndex, 8, 35, 0, color.cOrange)
+        digit[3].placeDigit(chainIndex, 8, 50, 0, color.cOrange)
+    if hub75Bffrs.maxDisplayColumns(chainIndex) > 64
+        digit[4].placeDigit(chainIndex, 8, 2+64, 1, color.cOrange)
+        digit[5].placeDigit(chainIndex, 8, 17+64, 2, color.cOrange)
+    if hub75Bffrs.maxDisplayColumns(chainIndex) > 96
+        digit[6].placeDigit(chainIndex, 8, 35+64, 0, color.cOrange)
+        digit[7].placeDigit(chainIndex, 8, 50+64, 0, color.cOrange)
 
     display.commitScreenToPanelSet()
     wait100thSecs(segmentPeriod)
@@ -100,10 +104,10 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
             digit[1].setValue(hours // 10)
             digit[2].setValue(minutes / 10)
             digit[3].setValue(minutes // 10)
-            if screen.MAX_DISPLAY_COLUMNS > 64
+            if hub75Bffrs.maxDisplayColumns(chainIndex) > 64
                 digit[4].setValue(hours24 / 10)
                 digit[5].setValue(hours24 // 10)
-            if screen.MAX_DISPLAY_COLUMNS > 96
+            if hub75Bffrs.maxDisplayColumns(chainIndex) > 96
                 digit[6].setValue(minutes / 10)
                 digit[7].setValue(minutes // 10)
 
@@ -119,10 +123,10 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
 {
 ' transitional DEMO
 
-    digit[0].placeDigit(8, 2, 5, color.cOrange)
-    digit[1].placeDigit(8, 18, 7, color.cOrange)
-    digit[2].placeDigit(8, 34, 1, color.cOrange)
-    digit[3].placeDigit(8, 50, 4, color.cOrange)
+    digit[0].placeDigit(chainIndex, 8, 2, 5, color.cOrange)
+    digit[1].placeDigit(chainIndex, 8, 18, 7, color.cOrange)
+    digit[2].placeDigit(chainIndex, 8, 34, 1, color.cOrange)
+    digit[3].placeDigit(chainIndex, 8, 50, 4, color.cOrange)
 
     display.commitScreenToPanelSet()
     wait100thSecs(segmentPeriod)
@@ -158,15 +162,15 @@ PRI showSecondsDots(lightDark) | red, green, blue, targetColor
 
     drawSecondsDot(15, 31, targetColor)
     drawSecondsDot(23, 31, targetColor)
-    if screen.MAX_DISPLAY_COLUMNS > 96
+    if hub75Bffrs.maxDisplayColumns(chainIndex) > 96
         drawSecondsDot(15, 31+64, targetColor)
         drawSecondsDot(23, 31+64, targetColor)
 
 PRI drawSecondsDot(row, column, rgbColor)
-    pixels.drawPixelAtRC(row, column, rgbColor)
-    pixels.drawPixelAtRC(row, column+1, rgbColor)
-    pixels.drawPixelAtRC(row+1, column, rgbColor)
-    pixels.drawPixelAtRC(row+1, column+1, rgbColor)
+    pixels.drawPixelAtRC(chainIndex, row, column, rgbColor)
+    pixels.drawPixelAtRC(chainIndex, row, column+1, rgbColor)
+    pixels.drawPixelAtRC(chainIndex, row+1, column, rgbColor)
+    pixels.drawPixelAtRC(chainIndex, row+1, column+1, rgbColor)
 
 PRI allDigitAnimationsComplete() : status
     status := TRUE

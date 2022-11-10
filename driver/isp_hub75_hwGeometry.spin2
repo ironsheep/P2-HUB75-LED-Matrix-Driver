@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 26 Dec 2020
+''   Updated.... 10 Nov 2022
 ''
 '' =================================================================================================
 ''
@@ -18,49 +18,6 @@
 '' -------------------------------------------------------------------------------------------------
 
 CON { Hardware Description }
-
-' =================================================================================================
-'  (1) here the P2 EVAL HUB75 Adapter is plugged in
-' =================================================================================================
-#0[16], PINS_P0_P15, PINS_P16_P31, PINS_P32_P47, PINS_P48_P63
-
-' =================================================================================================
-'  (2) The Driver Chip on your panels
-' =================================================================================================
-' Driver Manual Config Flags:
-#$100, LAT_STYLE_OFFSET, #$200, LAT_POSN_OVERLAP, #$400, INIT_PANEL_REQUIRED, #$800, CLK_WIDE_PULSE, #$1000, RB_SWAP, #$2000, SCAN_4, #$4000, GB_SWAP
-
-' Driver Pre-defined flag combinations (use these unless your hardware is not in this list)
-#0, CHIP_UNKNOWN, CHIP_MANUAL_SPEC, CHIP_FM6126A, CHIP_FM6124, CHIP_UNK_LAT_END_ENCL, CHIP_ICN2037, CHIP_UNK_LAT_END_ENCL_SLO_CLK, CHIP_MBI5124_8S, CHIP_GS6238S
-
-' Normal use:
-'   PANEL_DRIVER_CHIP = CHIP_FM6126A
-'
-' Manual Use when your hardware is not listed:
-'   PANEL_DRIVER_CHIP = CHIP_MANUAL_SPEC | {flag1} | {flag2} | etc..
-
-' NOTE:
-'   PANEL_DRIVER_CHIP = CHIP_FM6126A    ' which is: CHIP_MANUAL_SPEC | LAT_STYLE_OFFSET | LAT_POSN_OVERLAP | INIT_PANEL_REQUIRED
-'   PANEL_DRIVER_CHIP = CHIP_FM6124     ' which is: CHIP_MANUAL_SPEC
-'   PANEL_DRIVER_CHIP = CHIP_ICN2037    ' which is: CHIP_MANUAL_SPEC | CLK_WIDE_PULSE | RB_SWAP
-'   PANEL_DRIVER_CHIP = CHIP_GS6238S    ' which is: CHIP_MANUAL_SPEC | LAT_STYLE_OFFSET | LAT_POSN_OVERLAP | GB_SWAP
-' =================================================================================================
-'  (3) Describe the overall layout of your hardware panel(s):
-' =================================================================================================
-
-' SUPPORTED address widths:  A-B-C, or A-B-C-D, or A-B-C-D-E
-#2, ADDR_UNKNOWN, ADDR_ABC, ADDR_ABCD, ADDR_ABCDE
-
-' Normal use:
-'   PANEL_ADDR_LINES = {addrLinesNeeded}
-
-' =================================================================================================
-'  (4) Describe the color depth you'd like to display:
-' =================================================================================================
-
-' SUPPORTED depths:  3-8 bits
-#3, DEPTH_3BIT, DEPTH_4BIT, DEPTH_5BIT, DEPTH_6BIT, DEPTH_7BIT, DEPTH_8BIT
-
 
 
 ' -------------------------------------------------------------------------------------------------
@@ -77,27 +34,15 @@ CON { Hardware Description }
 '  Author's panel uses FM6126A chips
 '    max clock rate of 30MHz - [16.5ns hi/16.5ns lo]   TESTED NEW
 ' ----------------------------------------------------------
-'{
-    ADAPTER_BASE_PIN = PINS_P16_P31
+{
+    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+
     ' (1) determine what form of signalling the driver should use
-    PANEL_DRIVER_CHIP = CHIP_FM6126A
+    PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6126A
+    PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
 
-    ' (2) describe the panel electrical layout
-    MAX_PANEL_COLUMNS = 64
-    MAX_PANEL_ROWS = 32
-    PANEL_ADDR_LINES = ADDR_ABCD
-
-    ' (3) describe the organization of panel(s)
-    ' panels organization: visual layout
+    ' The visual organization of panel(s)
     '   [1]
-
-    ' (4) describe the organization in numbers of panels
-    MAX_PANELS_PER_ROW = 1
-    MAX_PANELS_PER_COLUMN = 1
-
-    ' (5) describe the color depth you want to support [3-8] bits per LED
-    '    NOTE full 24bit color is DEPTH_8BIT
-    COLOR_DEPTH = DEPTH_6BIT
 '}
 
 
@@ -114,25 +59,14 @@ CON { Hardware Description }
 '     bottom half (lines 16-31) driven by R2,G2,B2 pins
 ' ----------------------------------------------------------
 {
-    ADAPTER_BASE_PIN = PINS_P16_P31
+    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+
     ' (1) determine what form of signalling the driver should use
-    PANEL_DRIVER_CHIP = CHIP_FM6126A
+    PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6126A
+    PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
 
-    ' (2) describe the panel electrical layout
-    MAX_PANEL_COLUMNS = 64
-    MAX_PANEL_ROWS = 32
-    PANEL_ADDR_LINES = ADDR_ABCD
-
-    ' (3) describe the visual layout of the panel(s)
+    ' The visual organization of panel(s)
     '   [1][2]      1 row of 2 panels
-
-    ' (4) describe the organization in numbers of panels
-    MAX_PANELS_PER_ROW = 2
-    MAX_PANELS_PER_COLUMN = 1
-
-    ' (5) describe the color depth you want to support [3-8] bits per LED
-    '    NOTE full 24bit color is DEPTH_8BIT
-    COLOR_DEPTH = DEPTH_4BIT
 '}
 '
 ' -------------------------------------------------------------------------------------------------
@@ -148,25 +82,14 @@ CON { Hardware Description }
 '     bottom half (lines 16-31) driven by R2,G2,B2 pins
 ' ----------------------------------------------------------
 {
+    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+
     ' (1) determine what form of signalling the driver should use
-    PANEL_DRIVER_CHIP = CHIP_FM6126A
+    PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6126A
+    PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
 
-    ' (2) describe the panel electrical layout
-    MAX_PANEL_COLUMNS = 64
-    MAX_PANEL_ROWS = 32
-    PANEL_ADDR_LINES = ADDR_ABCD
-
-    ' (3) describe the organization of panel(s)
-    ' panels organization: visual layout
+    ' The visual organization of panel(s)
     '   [1][2][3][4]    ' one row of 4 panels
-
-    ' (4) describe the organization in numbers of panels
-    MAX_PANELS_PER_ROW = 4
-    MAX_PANELS_PER_COLUMN = 1
-
-    ' (5) describe the color depth you want to support [3-8] bits per LED
-    '    NOTE full 24bit color is DEPTH_8BIT
-    COLOR_DEPTH = DEPTH_4BIT
 '}
 '
 ' -------------------------------------------------------------------------------------------------
@@ -184,26 +107,14 @@ CON { Hardware Description }
 '    max clock rate of 30MHz - [16.5ns hi/16.5ns lo]   TESTED NEW
 ' ----------------------------------------------------------
 {
-    ADAPTER_BASE_PIN = PINS_P16_P31
+    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+
     ' (1) determine what form of signalling the driver should use
-    PANEL_DRIVER_CHIP = CHIP_FM6124
+    PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6124
+    PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
 
-    ' (2) describe the panel electrical layout
-    MAX_PANEL_COLUMNS = 64
-    MAX_PANEL_ROWS = 32
-    PANEL_ADDR_LINES = ADDR_ABCD
-
-    ' (3) describe the organization of panel(s)
-    ' panels organization: visual layout
+    ' The visual organization of panel(s)
     '   [1]
-
-    ' (4) describe the organization in numbers of panels
-    MAX_PANELS_PER_ROW = 1
-    MAX_PANELS_PER_COLUMN = 1
-
-    ' (5) describe the color depth you want to support [3-8] bits per LED
-    '    NOTE full 24bit color is DEPTH_8BIT
-    COLOR_DEPTH = DEPTH_4BIT
 '}
 
 '
@@ -222,26 +133,14 @@ CON { Hardware Description }
 '    max clock rate of 20MHz - [25ns hi/25ns lo]
 ' ----------------------------------------------------------
 {
-    ADAPTER_BASE_PIN = PINS_P16_P31
+    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+
    ' (1) determine what form of signalling the driver should use
-    PANEL_DRIVER_CHIP = CHIP_ICN2037
+    PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
+    PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 
-    ' (2) describe the panel electrical layout
-    MAX_PANEL_COLUMNS = 64
-    MAX_PANEL_ROWS = 64
-    PANEL_ADDR_LINES = ADDR_ABCDE
-
-    ' (3) describe the organization of panel(s)
-    ' panels organization: visual layout
+    ' The visual organization of panel(s)
     '   [1]     ' one panel
-    '
-    ' (4) describe the organization in numbers of panels
-    MAX_PANELS_PER_ROW = 1
-    MAX_PANELS_PER_COLUMN = 1
-
-    ' (5) describe the color depth you want to support [3-8] bits per LED
-    '    NOTE full 24bit color is DEPTH_8BIT
-    COLOR_DEPTH = DEPTH_4BIT
 '}
 
 ' -------------------------------------------------------------------------------------------------
@@ -259,26 +158,14 @@ CON { Hardware Description }
 '    max clock rate of 20MHz - [25ns hi/25ns lo]   TESTED NEW
 ' ----------------------------------------------------------
 {
-    ADAPTER_BASE_PIN = PINS_P16_P31
+    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+
    ' (1) determine what form of signalling the driver should use
-    PANEL_DRIVER_CHIP = CHIP_ICN2037
+    PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
+    PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 
-    ' (2) describe the panel electrical layout
-    MAX_PANEL_COLUMNS = 64
-    MAX_PANEL_ROWS = 64
-    PANEL_ADDR_LINES = ADDR_ABCDE
-
-    ' (3) describe the organization of panel(s)
-    ' panels organization: visual layout
+    ' The visual organization of panel(s)
     '   [1]      1 row of 1 panel
-    '
-    ' (4) describe the organization in numbers of panels
-    MAX_PANELS_PER_ROW = 1
-    MAX_PANELS_PER_COLUMN = 1
-
-    ' (5) describe the color depth you want to support [3-8] bits per LED
-    '    NOTE full 24bit color is DEPTH_8BIT
-    COLOR_DEPTH = DEPTH_8BIT
 '}
 
 
@@ -297,26 +184,14 @@ CON { Hardware Description }
 '    max clock rate of 20MHz - [25ns hi/25ns lo]   TESTED NEW
 ' ----------------------------------------------------------
 {
-    ADAPTER_BASE_PIN = PINS_P16_P31
+    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+
    ' (1) determine what form of signalling the driver should use
-    PANEL_DRIVER_CHIP = CHIP_MBI5124_8S
+    PANEL_DRIVER_CHIP = hwEnum.CHIP_MBI5124_8S
+    PANEL_ADDR_LINES = hwEnum.ADDR_ABC
 
-    ' (2) describe the panel electrical layout
-    MAX_PANEL_COLUMNS = 64 'works!!!! for PWM
-    MAX_PANEL_ROWS = 32
-    PANEL_ADDR_LINES = ADDR_ABC
-
-    ' (3) describe the organization of panel(s)
-    ' panels organization: visual layout
+    ' The visual organization of panel(s)
     '   [1]     ' one panel
-    '
-    ' (4) describe the organization in numbers of panels
-    MAX_PANELS_PER_ROW = 1
-    MAX_PANELS_PER_COLUMN = 1
-
-    ' (5) describe the color depth you want to support [3-8] bits per LED
-    '    NOTE full 24bit color is DEPTH_8BIT
-    COLOR_DEPTH = DEPTH_4BIT
 '}
 
 ' -------------------------------------------------------------------------------------------------
@@ -334,26 +209,14 @@ CON { Hardware Description }
 '    max clock rate of 20MHz - [25ns hi/25ns lo]
 ' ----------------------------------------------------------
 {
-    ADAPTER_BASE_PIN = PINS_P32_P47
+    ADAPTER_BASE_PIN = hwEnum.PINs_P32_P47
+
    ' (1) determine what form of signalling the driver should use
-    PANEL_DRIVER_CHIP = CHIP_MBI5124_8S ' CHIP_UNKNOWN
+    PANEL_DRIVER_CHIP = hwEnum.CHIP_MBI5124_8S ' hwEnum.CHIP_UNKNOWN
+    PANEL_ADDR_LINES = hwEnum.ADDR_ABC
 
-    ' (2) describe the panel electrical layout
-    MAX_PANEL_COLUMNS = 64
-    MAX_PANEL_ROWS = 32
-    PANEL_ADDR_LINES = ADDR_ABC
-
-    ' (3) describe the organization of panel(s)
-    ' panels organization: visual layout
+    ' The visual organization of panel(s)
     '   [1][2]      1 row of 2 panels
-    '
-    ' (4) describe the organization in numbers of panels
-    MAX_PANELS_PER_ROW = 2
-    MAX_PANELS_PER_COLUMN = 1
-
-    ' (5) describe the color depth you want to support [3-8] bits per LED
-    '    NOTE full 24bit color is DEPTH_8BIT
-    COLOR_DEPTH = DEPTH_4BIT
 '}
 
 ' -------------------------------------------------------------------------------------------------
@@ -371,26 +234,14 @@ CON { Hardware Description }
 '    max clock rate of 30MHz - [16.5ns hi/16.5ns lo]   TESTED NEW
 ' ----------------------------------------------------------
 {
-    ADAPTER_BASE_PIN = PINS_P16_P31
+    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+
    ' (1) determine what form of signalling the driver should use
-    PANEL_DRIVER_CHIP = CHIP_GS6238S ' CHIP_UNKNOWN
+    PANEL_DRIVER_CHIP = hwEnum.CHIP_GS6238S ' hwEnum.CHIP_UNKNOWN
+    PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
 
-    ' (2) describe the panel electrical layout
-    MAX_PANEL_COLUMNS = 64
-    MAX_PANEL_ROWS = 32
-    PANEL_ADDR_LINES = ADDR_ABCD
-
-    ' (3) describe the organization of panel(s)
-    ' panels organization: visual layout
+    ' The visual organization of panel(s)
     '   [1]      1 row of 1 panel
-    '
-    ' (4) describe the organization in numbers of panels
-    MAX_PANELS_PER_ROW = 1
-    MAX_PANELS_PER_COLUMN = 1
-
-    ' (5) describe the color depth you want to support [3-8] bits per LED
-    '    NOTE full 24bit color is DEPTH_8BIT
-    COLOR_DEPTH = DEPTH_7BIT
 '}
 
 
@@ -408,27 +259,15 @@ CON { Hardware Description }
 '  Author's panel uses ICN2037 chips
 '    max clock rate of 20MHz - [25ns hi/25ns lo]   TESTED NEW
 ' ----------------------------------------------------------
-{
-    ADAPTER_BASE_PIN = PINS_P16_P31
+'{
+    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+
    ' (1) determine what form of signalling the driver should use
-    PANEL_DRIVER_CHIP = CHIP_ICN2037
+    PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
+    PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 
-    ' (2) describe the panel electrical layout
-    MAX_PANEL_COLUMNS = 64
-    MAX_PANEL_ROWS = 64
-    PANEL_ADDR_LINES = ADDR_ABCDE
-
-    ' (3) describe the organization of panel(s)
-    ' panels organization: visual layout
+    ' The visual organization of panel(s)
     '   [6]     ' one row of 6 panels (our cube is electrically 1 row)
-    '
-    ' (4) describe the organization in numbers of panels
-    MAX_PANELS_PER_ROW = 6
-    MAX_PANELS_PER_COLUMN = 1
-
-    ' (5) describe the color depth you want to support [3-8] bits per LED
-    '    NOTE full 24bit color is DEPTH_8BIT
-    COLOR_DEPTH = DEPTH_4BIT
 '}
 
 
@@ -438,7 +277,7 @@ CON { Hardware Description }
 '  (3) SPECIAL for using only part of your full display panel:
 ' =================================================================================================
 
-    ' (5) describe the subset of your display you'd like to use
+    ' (2) describe the subset of your display you'd like to use
     '  and then where would you like it placed within the full display
     '
     '  TBD - these are NOT YET SUPPORTED by the driver!
@@ -452,13 +291,18 @@ CON { Hardware Description }
 ' -------------------------------------------------------------------------------------------------
 ' ------------------------ Add your configurations ABOVE here -------------------------------------
 '
+OBJ
 
-PUB null()      '' This is not a top level object
+    hwEnum   : "isp_hub75_hwEnums"  ' hub75 attachment, set up constants
+
+
+
+PUB null()
+'' This is not a top level object
 
 CON { license }
 
 {{
-
 
  -------------------------------------------------------------------------------------------------
   MIT License
