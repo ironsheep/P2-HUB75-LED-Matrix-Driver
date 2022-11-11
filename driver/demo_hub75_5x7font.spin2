@@ -35,7 +35,7 @@ OBJ
     hub75Bffrs  :   "isp_hub75_hwBuffers"
     user        :   "isp_hub75_hwGeometry"  ' hardware config common to all demos
 
-PUB main() : ok | bitCount, newMask
+PUB main() : ok | bitCount, newMask, vertPixelCount
 
     '' run demo - displaying text/graphics in various ways
     hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.ADAPTER_BASE_PIN, user.PANEL_DRIVER_CHIP, user.PANEL_ADDR_LINES)
@@ -47,7 +47,13 @@ PUB main() : ok | bitCount, newMask
         debug("- DEMO: underlying drivers failed!")
         abort
 
-    demoFont()
+    initCharacterSet()
+
+    vertPixelCount := hub75Bffrs.maxDisplayRows(chainIndex)
+    if vertPixelCount > 32
+        demoFont64x64()
+    else
+        demoFont64x32()
 
     waitSec(60)    ' 5 seconds
 
@@ -58,35 +64,82 @@ PUB main() : ok | bitCount, newMask
 CON
     CHARS_PER_ROW = 10
     BYTES_PER_ROW = 11
-    NBR_ROWS = 13
+    NBR_ROWS_64 = 13
+    ROWS_PER_SCREEN_64 = 10
+    ROWS_PER_SCREEN_32 = 5
+    NBR_ROWS_32 = 6
 
 DAT
     ' 10 rows (really 9.6, 10 chars + term. in each row)
-    charSet         BYTE    0[NBR_ROWS * BYTES_PER_ROW]
+    charSet         BYTE    0[NBR_ROWS_64 * BYTES_PER_ROW]
 
-PRI demoFont() | textSize, nChar, nRow, nCol, byteIdx, nCharIdx, nRows1stScreen
+PRI initCharacterSet() | nBytesFilled
+    bytefill(@charSet, 0, NBR_ROWS_64 * BYTES_PER_ROW)
+    ' 1.5 rows
+    fillCharSet(0, 0, $20, $2f)    ' special chars (16)
+    ' 1.0 rows
+    nBytesFilled := fillCharSet(2, 0, $3a, $40)    ' special chars (7)
+    fillCharSet(2, nBytesFilled, $7e, $7f)    ' special chars (3)
+    ' 1.0 rows
+    nBytesFilled := fillCharSet(3, 0, $5b, $60)    ' special chars (6)
+    fillCharSet(3, nBytesFilled, $7b, $7d)    ' special chars (3)
+
+    ' 1.0 rows
+    fillCharSet(5, 0, $30, $39)    ' 0-9
+    ' 2.6 rows
+    fillCharSet(6, 0, $41, $5a)    ' UPPER CASE A-Z
+    ' 2.6 rows
+    fillCharSet(9, 0, $61, $7a)    ' LOWER CASE A-Z
+
+PRI demoFont64x32() | textSize, nChar, nRow, nCol, byteIdx, nCharIdx, nScreenRow
     textSize := display.TEXT_FONT_5x7
     'textSize := display.TEXT_FONT_8x8A
     'textSize := display.TEXT_FONT_8x8B
 
-    bytefill(@charSet, 0, NBR_ROWS * BYTES_PER_ROW)
-    ' 1.5 rows
-    fillCharSet(0, $20, $2f)
-    ' 1.0 rows
-    fillCharSet(2, $3a, $40)
-    ' 1.0 rows
-    fillCharSet(3, $5b, $60)
-    ' 1.0 rows
-    fillCharSet(4, $7b, $7f)
+    display.clearScreen()
+    display.setTextFont(textSize)    ' font size
+    display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
 
-    nRows1stScreen := 5
+    repeat
+        ' 3.5 rows
+        display.clearScreenBuffer()
+        nScreenRow := 0
+        repeat nRow from 0 to 3
+            display.setColoredTextAtLnCol(nScreenRow, 0, @BYTE[@charSet][nRow * BYTES_PER_ROW], color.cYellow)
+            nScreenRow++
 
-    ' 1.0 rows
-    fillCharSet(5, $30, $39)
-    ' 2.6 rows
-    fillCharSet(6, $41, $5a)
-    ' 2.6 rows
-    fillCharSet(9, $61, $7a)
+        ' update our screen
+        display.commitScreenToPanelSet()
+        waitSec(10)    ' seconds
+
+        nScreenRow := 0
+        display.clearScreenBuffer()
+        repeat nRow from 5 to 8
+            display.setColoredTextAtLnCol(nScreenRow, 0, @BYTE[@charSet][(nRow) * BYTES_PER_ROW], color.cOrange)
+            nScreenRow++
+
+        ' update our screen
+        display.commitScreenToPanelSet()
+        waitSec(10)    ' seconds
+
+        nScreenRow := 0
+        display.clearScreenBuffer()
+        nRow := 5
+        display.setColoredTextAtLnCol(nScreenRow, 0, @BYTE[@charSet][(nRow) * BYTES_PER_ROW], color.cOrange)
+        nScreenRow := 1
+        repeat nRow from 9 to 11
+            display.setColoredTextAtLnCol(nScreenRow, 0, @BYTE[@charSet][(nRow) * BYTES_PER_ROW], color.cOrange)
+            nScreenRow++
+
+        ' update our screen
+        display.commitScreenToPanelSet()
+        waitSec(10)    ' seconds
+
+PRI demoFont64x64() | textSize, nChar, nRow, nCol, byteIdx, nCharIdx, nRows1stScreen
+    textSize := display.TEXT_FONT_5x7
+    'textSize := display.TEXT_FONT_8x8A
+    'textSize := display.TEXT_FONT_8x8B
+    nRows1stScreen := ROWS_PER_SCREEN_64 / 2
 
     display.clearScreen()
     display.setTextFont(textSize)    ' font size
@@ -102,15 +155,16 @@ PRI demoFont() | textSize, nChar, nRow, nCol, byteIdx, nCharIdx, nRows1stScreen
         waitSec(10)    ' seconds
 
         display.clearScreenBuffer()
-        repeat nRow from nRows1stScreen to NBR_ROWS - 1
+        repeat nRow from nRows1stScreen to NBR_ROWS_64 - 1
             display.setColoredTextAtLnCol(nRow - nRows1stScreen, 0, @BYTE[@charSet][(nRow) * BYTES_PER_ROW], color.cOrange)
 
         ' update our screen
         display.commitScreenToPanelSet()
         waitSec(10)    ' seconds
 
-PRI fillCharSet(startRow, startHex, stopHex) | nCharIdx, nChar, nRow, nCol, nIdx
-    nCharIdx := startRow * CHARS_PER_ROW
+PRI fillCharSet(startRow, startCol, startHex, stopHex) : nCount | nCharIdx, nChar, nRow, nCol, nIdx
+    nCharIdx := (startRow * CHARS_PER_ROW) + startCol
+    nCount := (stopHex + 1) - startHex
     repeat nChar from startHex to stopHex
         nRow := nCharIdx / 10
         nCol := nCharIdx +// 10
