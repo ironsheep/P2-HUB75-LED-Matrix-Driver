@@ -12,7 +12,7 @@ Work to appear in upcoming releases:
 
 - Fix multi-panel support for chips that are not yet working in multi-panel form
 - I've even some fun animated clocks coming (sorry, I'm been doing software clocks of many, many, forms for a long time.)
-- New morphing digits Matrix displays can be found at [P2 LED-Matrix Morphing Digits](https://github.com/ironsheep/P2-LED-Matrix-Morphing-Digits) Repository.
+- Morphing digits Matrix displays can be found at [P2 LED-Matrix Morphing Digits](https://github.com/ironsheep/P2-LED-Matrix-Morphing-Digits) Repository.
 
 
 ## [2.0.0] 10 Nov 2022
@@ -20,10 +20,11 @@ Work to appear in upcoming releases:
 ### Multiple HUB75 card support
 
 - Convert initialization: enable support for up to three hub75 cards!
-- Rename demo's
-- Upgrade scrolling, now supports up/down/rt/left!
-- Added support for New Panel (same chip as ICN2037 but different setttings new name is: **ICN2037_B** - colors are not swapped and scan is different)
-- Repo README's have been updated: changed demo file names, changed how configuration is done.
+- Rename demos (*now all start with demo_*)
+- Add new demos: `demo_hub75_5x7font.spin2` and `demo_hub75_scroll.spin2`
+- Upgrade scrolling, now supports scroll directions: `up, down, left, right`
+- Added support for New Panel (*same chip as ICN2037 but slightly different setttings, new name is:* **ICN2037_B***: where colors are not swapped and scan is different*)
+- Repo README's have been updated: *changed demo file names, changed how configuration is done*.
 
 
 ### Known Issues v2.0.0
