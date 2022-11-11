@@ -21,9 +21,14 @@ Here are the reference programs you can study when learning to display to your p
 
 | DEMO TopLevel Files            |  Purpose |
 |-----------------|-------------|
-| demo\_hub75_color.spin2 | Presents the color features of the panel driver |
+| demo\_hub75_color.spin2 | Presents the color features of the panel driver, displays a .bmp file |
 | demo\_hub75_text.spin2 | Presents the text and scrolling features of the panel driver |
 | demo\_hub75_7seg.spin2 | Presents a technique for doing multi-step animations using the panel driver |
+| demo\_hub75_multiPanel.spin2 | Presents techniques for drawing to the various surfaces of our P2 P2 Cube |
+ demo\_hub75_5x7font.spin2 | Present pages (every 10 sec) showing the latest 5x7 full character-set font |
+| demo\_hub75_scroll.spin2 | Shows off the 4 supported text-scrolling directions (albeit slowly ;-)
+| demo\_hub75_colorPad.spin2 | **TEST** Simple single-screen demo so you can check if Red Green Blue LEDs are set correctly. (*color patch will match color name underneath if settings for color-swap are correct*) |
+
 
 **NOTE:** these demo's are built for a 64x32 panel. You may need to modify them if your panel is a differnt geometry.
 
@@ -34,14 +39,16 @@ The driver itself is composed of the following files (with a few extras thrown i
 | group / Driver File           |  Purpose |
 |-----------------|-------------|
 | **- User Configuration -** | |
-| isp\_hub75_hwGeometry.spin2 | USER MODIFIED configuration file |
+| isp\_hub75_hwGeometry.spin2 | USER MODIFIED configuration compile-time file |
+| isp\_hub75_hwBuffers.spin2 | USER MODIFIED configuration run-time tables file |
 | **- Core Driver -** | |
-| isp\_hub75_color.spin2 |  Core - Color constants, translation, routines, etc. |
+| isp\_hub75_color.spin2 |  Core - Color constants |
+| isp\_hub75_colorUtils.spin2 |  Core - Color translation routines, etc. |
 | isp\_hub75_display.spin2 | Core - the drawing primitives and screen buffer |
 | isp\_hub75_fonts.spin2 | Core - fonts for text support |
+| isp\_hub75_hwEnums.spin2 | Core - enumerations for panel, panel connection description |
 | isp\_hub75_panel.spin2 | Core - the layer translating screen buffer to PWM buffers |
 | isp\_hub75_rgb3bit.spin2 | Core - the PASM Hub75 driver |
-| isp\_hub75_screenAccess.spin2 | Core - light-weight access to Screen Buffer |
 | isp\_hub75_screenUtils.spin2 | Core - non-panal drawing primitives |
 | **- Extras -** | |
 | isp\_hub75\_display_bmp.spin2 | **Optional** - load .bmp file content into screen buffer |
@@ -72,12 +79,19 @@ Once you haave the driver source files added to your project you will first need
 |-----------------|-------------|-------------|
 | `ADAPTER_BASE_PIN` | PINS\_P16_P31 |  Identify which pin-group your HUB75 board is connected |
 | `PANEL_DRIVER_CHIP` | CHIP_UNKNOWN | in most cases UNKNOWN will work. Some specialized panels need a specific driver chip (e.g., those using the FM6126A) |
+| `PANEL_ADDR_LINES` | {none} | The number of Address lines driving your panels (ADDR\_ABC, ADDR\_ABCD, or ADDR\_ABCDE) |
+
+And by modifying the following values in the file **isp\_hub75_hwBuffers.spin2**:
+
+| Name            | Default | Description |
+|-----------------|-------------|-------------|
 | `MAX_PANEL_COLUMNS` | {none} | The number of LEDs in each row of your panel ( # pixels-wide) |
 | `MAX_PANEL_ROWS` | {none} | The number of LEDs in each column of your panel ( # pixels-high) |
-| `PANEL_ADDR_LINES` | {none} | The number of Address lines driving your panels (ADDR\_ABC, ADDR\_ABCD, or ADDR\_ABCDE) |
 | `MAX_DISPLAY_COLUMNS` | {none} | The number of LEDs in each ROW of your multi-panel display |
 | `MAX_DISPLAY_ROWS` | {none} | The number of LEDs in each COLUMN of your multi-panel display |
 | `COLOR_DEPTH` | {none} | The color depth you wish to display on your panels (compile-time selectable from 3-bit to 8-bit) |
+
+**NOTE:** there will be a copy of the above constants for each HUB75 adapter card you wish to activate!
 
 ## Notes on driver internals
 

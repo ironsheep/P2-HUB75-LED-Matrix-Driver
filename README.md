@@ -1,4 +1,4 @@
-# HUB75 LED Matrix Driver for Propeller 2
+# P2 HUB75 LED Matrix Driver
 
 ![Project Maintenance][maintenance-shield]
 
@@ -17,14 +17,15 @@ The P2 HUB75 Driver is available from a couple of sources:
 Latest Updates:
 10 Nov 2022
 - Convert initialization: enable support for up to three hub75 cards!
-- Rename demo's
-- Upgrade scrolling, now supports up/down/rt/left!
+- Rename demo's, add two more demo's
+- Upgrade scrolling, now supports up/down/right/left!
+- Add support for another variation of 
 07 Apr 2022
 - add support for GS6238S 
 - add Green/Blue flip support needed by GS6238S
 05 Apr 2022
 - Converted to new PWM generation mechanism allowing compile-time selection of desired display color depth of 3-bit to 8-bit.
-- Now uses 25% of RAM required by previous version for same color bit depth. 
+- Now uses 25% of RAM required by previous version for same color bit depth.
 - Frees up 300kB RAM on P2 P2 Cube Application
 - Latest timing and memory usage info posted.
 11 May 2021
@@ -96,6 +97,8 @@ Definition of the constants specified in the file **isp\_hub75_hwGeometry.spin2*
 | `ADAPTER_BASE_PIN` | {none}  |  Identify which pin-group your HUB75 board is connected |
 | `PANEL_DRIVER_CHIP` | CHIP_UNKNOWN | in most cases UNKNOWN will work. Some specialized panels need a specific driver chip (e.g., those using the FM6126A, ICN2037, or the MBI5124\_8S) |
 | `PANEL_ADDR_LINES` | {none} | The number of Address lines driving your panels (ADDR\_ABC, ADDR\_ABCD, or ADDR\_ABCDE) |
+
+The next file **isp\_hub75_hwBuffers.spin2** is where you activate in-memory tables, one for each hub75 card you wish to activate. Two are activated by default. You will have to adjust the constants for each of the entries you wish to use. If you only use one hub75 card (but two of the entries are activated by default, you don't have to adjust the 2nd entry. It will just be ignored at runtime.
 
 Definition of the constants specified in the file **isp\_hub75_hwBuffers.spin2**:
 
