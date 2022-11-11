@@ -89,7 +89,7 @@ Upcoming work on the driver:
 
 ## Driver Setup and Configuration
 
-Once you haave the driver downloaded and the source files added to your project you will first need to configure the driver by creating a block of constants which describe the configuration of your panel(s) in the files: **isp\_hub75_hwGeometry.spin2** and **isp\_hub75_hwBuffers.spin2**.
+Once you have the driver downloaded and the source files added to your project you will first need to configure the driver by creating a block of constants which describe the configuration of your panel(s) in the files: **isp\_hub75_hwGeometry.spin2** and **isp\_hub75_hwBuffers.spin2**.
 
 Conversion from v1.x to v2.x is a small bit of work but you'll be done in minutes. For help, refer to [Update to v2.0 Checklist](Checklist-v1-v2.md).
 
@@ -256,9 +256,12 @@ There are a couple of demos which you can review then copy and paste from.  Thes
 | demo\_hub75_colorPad.spin2 | **TEST** Simple single-screen demo so you can check if Red Green Blue LEDs are set correctly. (*color patch will match color name underneath if settings for color-swap are correct*) |
 
 
-**NOTE:** most of the demo's are built for a 64x32 panels. You may have to modify them to run on your panel geometry.
+**NOTE1:** most of the demo's are built for a 64x32 panels. You may have to modify them to run on your panel geometry.
 
 Once you have a sense for what these demo's do and how they do it, writing your own display code should be fairly easy and initially may even be a copy-n-paste effort from the demo source to your own display code.
+
+**NOTE2** If you are looking for an example of starting up more than one HUB75 cards please refer to the "Starting up two HUB75 cards" example found in the [Update to v2.0 Checklist](Checklist-v1-v2.md#use-new-form-of-start-up-code).
+
 
 Please enjoy and let me know if there are features you want to see in this driver!
 
