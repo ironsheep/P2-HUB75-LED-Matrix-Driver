@@ -185,9 +185,11 @@ PUB ...() | frontPanelIdx, backPanelIdx
 
 ### Writing display code for your panels
 
-Now that your driver is configured and you've started the driver (or drivers) the rest of the display code is pretty much the same. Your existing code shouldn't change.
+Now that your driver is configured and you've started the driver (or drivers) the rest of the single HUB75 card display code is pretty much the same. Your existing code shouldn't change.
 
-That's it. If you've followed along and update the two files with specifics that describe your panels and you've adjusted your top-level file to start the driver in the new way then you are good to go. 
+Of course, if when you decide to activate two or three HUB75 cards then you'll be selecting from 2-3 display object instances as shown in the "two hub75 cards" example above.
+
+That's it. If you've followed along and updated the two files with specifics that describe your panels and you've adjusted your top-level file to start the driver in the new way then you are good to go!
 
 I hope you continue to enjoy using this driver. As always please feel free to report issues or discuss how you are using the driver in our Matrix driver thread [P2 Driver for HUB75 LED Matrix Panels](https://forums.parallax.com/discussion/172288/p2-driver-for-hub75-led-matrix-panels#latest). You can also file BUG reports or feature requests at the driver repository [Issues Page](https://github.com/ironsheep/P2-HUB75-LED-Matrix-Driver/issues).
 
