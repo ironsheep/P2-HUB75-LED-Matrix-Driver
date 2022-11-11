@@ -54,6 +54,9 @@ Additional pages:
 
 - [HardwareTurnon](HardwareTurnon.md) - Describes the initial turn-on effort of this driver
 - [Driver Details](THEOPS.md) - Provides more detail about the driver and driver-configuration
+- [Panel Config/Timing Details](HUB75-Driver-SWver1.md) - Notes about each panel-driver chip this P2 driver supports
+- [HUB75 Card Details](HUB75-brd-config.md) - Pins and Probing Support provided by HUB75 card
+- [P2 P2 Cube testing](CubePix.md) - Author's test hardware - Flat P2 P2 Cube Configuration
 - [Change Log](ChangeLog.md) - Notes about each release of this driver
 
 
@@ -62,7 +65,7 @@ Additional pages:
 What's working today with the current driver:
 
 - 5x7 font is now full upper/lower case plus all control characters found in standard ASCII set
-- Up to 3 hub75 cards supported on a single P2
+- Up to 3 HUB75 cards supported on a single P2
 - Compile-time selectable color depth from 3 to 8-bits per color, per hub75 card
 - P2 P2 Cube support (display on all 6 surfaces of cube)
 - Single panel support working well for supported chips, up to 4096 leds (64x64)
@@ -88,6 +91,8 @@ Upcoming work on the driver:
 
 Once you haave the driver downloaded and the source files added to your project you will first need to configure the driver by creating a block of constants which describe the configuration of your panel(s) in the files: **isp\_hub75_hwGeometry.spin2** and **isp\_hub75_hwBuffers.spin2**.
 
+Conversion from v1.x to v2.x is a small bit of work but you'll be done in minutes. For help, refer to [Update to v2.0 Checklist](Checklist-v1-v2.md).
+
 ### Driver Constants used for configuration
 
 Definition of the constants specified in the file **isp\_hub75_hwGeometry.spin2**:
@@ -98,7 +103,7 @@ Definition of the constants specified in the file **isp\_hub75_hwGeometry.spin2*
 | `PANEL_DRIVER_CHIP` | CHIP_UNKNOWN | in most cases UNKNOWN will work. Some specialized panels need a specific driver chip (e.g., those using the FM6126A, ICN2037, or the MBI5124\_8S) |
 | `PANEL_ADDR_LINES` | {none} | The number of Address lines driving your panels (ADDR\_ABC, ADDR\_ABCD, or ADDR\_ABCDE) |
 
-The next file **isp\_hub75_hwBuffers.spin2** is where you activate in-memory tables, one for each hub75 card you wish to activate. Two are activated by default. You will have to adjust the constants for each of the entries you wish to use. If you only use one hub75 card (but two of the entries are activated by default, you don't have to adjust the 2nd entry. It will just be ignored at runtime.
+The next file **isp\_hub75_hwBuffers.spin2** is where you customize in-memory table entries, one for each hub75 card you wish to activate. Two entries are activated by default. You will have to adjust the constants for each of the entries you wish to use. If you only use one hub75 card (but two of the entries are activated by default) you don't have to adjust the 2nd entry. It will just be ignored at runtime.
 
 Definition of the constants specified in the file **isp\_hub75_hwBuffers.spin2**:
 
