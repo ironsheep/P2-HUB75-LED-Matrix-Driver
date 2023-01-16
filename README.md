@@ -19,7 +19,7 @@ Latest Updates:
 - Convert initialization: enable support for up to three hub75 cards!
 - Rename demo's, add two more demo's
 - Upgrade scrolling, now supports up/down/right/left!
-- Add support for another variation of 
+- Added support for New Panel (same chip as ICN2037 but different setttings new name is: **ICN2037_B** - colors are not swapped and scan is different)
 07 Apr 2022
 - add support for GS6238S 
 - add Green/Blue flip support needed by GS6238S
