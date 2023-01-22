@@ -27,7 +27,12 @@ CON { Hardware Interface Constants }
 #10[10], HUB75_ADAPTER_1, HUB75_ADAPTER_2, HUB75_ADAPTER_3
 
 ' =================================================================================================
-'  (3) The Driver Chip on your panels
+'  (3) panel content rotation
+' =================================================================================================
+#15[5], ROT_UNKNOWN, ROT_NONE, ROT_LEFT_90, ROT_RIGHT_90, ROT_180
+
+' =================================================================================================
+'  (4) The Driver Chip on your panels
 ' =================================================================================================
 ' Driver Pre-defined flag combinations (use these unless your hardware is not in this list)
 #0, CHIP_UNKNOWN, CHIP_MANUAL_SPEC, CHIP_FM6126A, CHIP_FM6124, CHIP_UNK_LAT_END_ENCL, CHIP_ICN2037, CHIP_ICN2037_B, CHIP_UNK_LAT_END_ENCL_SLO_CLK, CHIP_MBI5124_8S, CHIP_GS6238S
@@ -50,14 +55,14 @@ CON { Hardware Interface Constants }
 
 
 ' =================================================================================================
-'  (4) Describe the overall layout of your hardware panel(s):
+'  (5) Describe the overall layout of your hardware panel(s):
 ' =================================================================================================
 
 ' SUPPORTED address widths:  A-B-C, or A-B-C-D, or A-B-C-D-E
 #2, ADDR_UNKNOWN, ADDR_ABC, ADDR_ABCD, ADDR_ABCDE
 
 ' =================================================================================================
-'  (5) Describe the color depth you'd like to display:
+'  (6) Describe the color depth you'd like to display:
 ' =================================================================================================
 
 ' SUPPORTED depths:  3-8 bits

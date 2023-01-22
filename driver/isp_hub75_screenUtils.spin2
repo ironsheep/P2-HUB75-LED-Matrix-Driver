@@ -40,7 +40,26 @@ PUB drawPixelAtRCwithRGB(nChainIdx, row, column, red, green, blue) | rowIndex, c
     '' Place r,g,b color pixel at r,c
     rowIndex := 0 #> row <# hub75Bffrs.maxDisplayRows(nChainIdx) - 1
     columnIndex :=  0 #> column <# hub75Bffrs.maxDisplayColumns(nChainIdx) - 1
-    colorOffset := ((rowIndex * hub75Bffrs.maxDisplayColumns(nChainIdx)) + columnIndex) * hub75Bffrs.bytesPerColor(nChainIdx)
+    case hub75Bffrs.panelRotation(nChainIdx)
+        hub75Bffrs.ROT_LEFT_90:
+            pScreen := rowIndex
+            rowIndex := columnIndex
+            columnIndex := pScreen
+            rowIndex := (hub75Bffrs.maxDisplayColumns(nChainIdx) - 1) - rowIndex
+            colorOffset := ((rowIndex * hub75Bffrs.maxDisplayRows(nChainIdx)) + columnIndex) * hub75Bffrs.bytesPerColor(nChainIdx)
+        hub75Bffrs.ROT_RIGHT_90:
+            pScreen := rowIndex
+            rowIndex := columnIndex
+            columnIndex := pScreen
+            columnIndex := (hub75Bffrs.maxDisplayRows(nChainIdx) - 1) - columnIndex
+            colorOffset := ((rowIndex * hub75Bffrs.maxDisplayRows(nChainIdx)) + columnIndex) * hub75Bffrs.bytesPerColor(nChainIdx)
+        hub75Bffrs.ROT_180:
+            columnIndex := (hub75Bffrs.maxDisplayColumns(nChainIdx) - 1) - columnIndex
+            rowIndex := (hub75Bffrs.maxDisplayRows(nChainIdx) - 1) - rowIndex
+            colorOffset := ((rowIndex * hub75Bffrs.maxDisplayColumns(nChainIdx)) + columnIndex) * hub75Bffrs.bytesPerColor(nChainIdx)
+       other:
+            colorOffset := ((rowIndex * hub75Bffrs.maxDisplayColumns(nChainIdx)) + columnIndex) * hub75Bffrs.bytesPerColor(nChainIdx)
+
     pScreen := hub75Bffrs.displayBufferAddress(nChainIdx)
     pColor := @byte[pScreen][colorOffset]
     'if isDebugLocn(rowIndex, columnIndex)
@@ -49,7 +68,6 @@ PUB drawPixelAtRCwithRGB(nChainIdx, row, column, red, green, blue) | rowIndex, c
     byte[pColor][0] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_RED, red)
     byte[pColor][1] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_GREEN, green)
     byte[pColor][2] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_BLUE, blue)
-
 
 CON { license }
 

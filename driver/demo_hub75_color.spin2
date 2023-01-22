@@ -29,6 +29,10 @@ VAR
     long    chainIndex
     long    demoPausePeriod
 
+    long    pnlRowCount
+    long    pnlColCount
+
+
 OBJ
 
     color       :   "isp_hub75_color"
@@ -126,6 +130,23 @@ PUB main() : ok | demoIndex
     display.commitScreenToPanelSet()
     repeat
 '}
+    pnlRowCount := hub75Bffrs.rowsPerPanel(chainIndex)
+    pnlColCount := hub75Bffrs.columnsPerPanel(chainIndex)
+
+    display.clearScreen()
+    'debug("* Hue Groups")
+    'demoHueGroups()
+    'debug("* Hue Lines")
+    'demoHueLines()
+    'debug("* Palette 12 Panels")
+    'demoColorPalette12Panels()
+    'debug("* Full Color Sweep")
+    'showFullColorSweep()
+    'debug("* 12x9 Color Brightness")
+    'demoTest12x9ColorBrightness()
+    'debug("* Color Blast")
+    'colorBlast()
+    'repeat
 
     repeat 20
         repeat demoIndex from 0 to DEMO_COUNT - 1
@@ -168,11 +189,11 @@ PRI demoParallax() | rtCol, ltCol, topRow, botRow
     display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
 
     ltCol := 0
-    rtCol := hub75Bffrs.columnsPerPanel(chainIndex) - 1
+    rtCol := pnlColCount - 1
     topRow := 0
-    botRow :=  hub75Bffrs.rowsPerPanel(chainIndex) > 32 ? 32 - 1 : hub75Bffrs.rowsPerPanel(chainIndex) - 1
-    if hub75Bffrs.rowsPerPanel(chainIndex) < 32
-        botRow :=  hub75Bffrs.rowsPerPanel(chainIndex) - 1
+    botRow :=  pnlRowCount > 32 ? 32 - 1 : pnlRowCount - 1
+    if pnlRowCount < 32
+        botRow :=  pnlRowCount - 1
     display.drawLineOfColor(topRow, ltCol, topRow, rtCol, color.cYellow)    ' top line
     display.drawLineOfColor(topRow, ltCol, botRow, ltCol, color.cRed)      ' left line
     display.drawLineOfColor(topRow, rtCol, botRow, rtCol, color.cMagenta)   ' right line
@@ -317,7 +338,7 @@ PRI show18scanColorCheck5()
 PRI numberTheRows() | rowId, idCol, idOnes, idTens, tensColor, onesColor
     tensColor := color.cCyan
     onesColor := color.cCyan
-    repeat rowId from 1 to hub75Bffrs.rowsPerPanel(chainIndex)
+    repeat rowId from 1 to pnlRowCount
         idOnes := rowId // 10
         idTens := rowId / 10
         if idTens > 0
@@ -384,7 +405,12 @@ PRI drawGammaTuneSwatch(width, row, col, red, green, blue) | ltCol, midCol, rtCo
         pixels.drawPixelAtRC(chainIndex, row, rtCol + colOffset, rtClr)
 
 
-PRI demoTest12x9ColorBrightness() | red, green, blue, row, col, rowCtr, colCtr, clrLow, clrMed, clrHigh, clrBW, bThirdClr
+PRI demoTest12x9ColorBrightness() | red, green, blue, row, col, rowCtr, colCtr, clrLow, clrMed, clrHigh, clrBW, bThirdClr, swatchWidth, swatchHt
+    'swatchWidth := pnlColCount > 64 ? 10 : 5
+    'swatchHt := pnlRowCount > 32 ? 6 : 3
+
+    swatchWidth :=  (pnlColCount - 13) / 13
+    swatchHt :=  (pnlRowCount - 9) / 9
 
     repeat rowCtr from 0 to 8
         clrLow := 0
@@ -494,11 +520,9 @@ PRI demoTest12x9ColorBrightness() | red, green, blue, row, col, rowCtr, colCtr, 
                 12:
                     red := blue := green := clrBW
 
-            row := rowCtr * 3
-            if rowCtr <> 0 && rowCtr // 2 == 0
-                row++
-            col := colCtr * 5
-            drawSwatch(4, 3, row, col, colorUtils.cValueForRGB(red, green, blue))
+            row := (rowCtr * swatchHt) + rowCtr
+            col := (colCtr * swatchWidth) + colCtr
+            drawSwatch(swatchWidth, swatchHt, row, col, colorUtils.cValueForRGB(red, green, blue))
     display.commitScreenToPanelSet()
 
 PRI drawSwatch(width, height, row, col, rgbColor) | rowOffset, colOffset
@@ -650,16 +674,20 @@ PRI demoColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex, useR
 
     'repeat  ' hold here!
 
+CON
 
-PRI demoHueLines() | row, col, colorOffset
+   COL_START_OFFSET = 2
+
+PRI demoHueLines() | row, col, colorOffset, startOffset
     ' COLOR PANEL using hue  - all in one line
-    col := 2
-    repeat row from 0 to 31
-        repeat colorOffset from 0 to 350 step 6
+    startOffset := (pnlColCount > 64) ? COL_START_OFFSET * 2 : COL_START_OFFSET
+    col := startOffset
+    repeat row from 0 to pnlRowCount - 1
+        repeat colorOffset from 0 to 359 step 6
             pixels.drawPixelAtRC(chainIndex, row, col, colorUtils.rgbColorFromDegrees(colorOffset))
             col++
-            if col > 62         ' 62 is fun!  60 is desired
-                col := 2
+            if col > pnlColCount - startOffset        ' col-ofset is fun!  col-(2*ofst) is desired
+                col := startOffset
     display.commitScreenToPanelSet()
 
 PRI demoHueLinesToo() | row, col, colorOffset
@@ -677,11 +705,11 @@ PRI demoHueLinesToo() | row, col, colorOffset
 PRI demoHueGroups() | row, col, green, panelNumber, colorOffset
     ' COLOR PANEL using hue  6 groups
     row := 0
-    repeat panelNumber from 0 to 350 step 60
-        repeat colorOffset from 0 to 4
-            repeat col from 0 to 59
-                    green := panelNumber + col
-                    pixels.drawPixelAtRC(chainIndex, row, col, colorUtils.rgbColorFromDegrees(green))
+    repeat panelNumber from 0 to 359 step 60
+        repeat colorOffset from 0 to ((pnlRowCount - 1) / 6) - 1
+            repeat col from 0 to pnlColCount - 1
+                green := panelNumber + col
+                pixels.drawPixelAtRC(chainIndex, row, col, colorUtils.rgbColorFromDegrees(green))
             row++
     display.commitScreenToPanelSet()
 
@@ -696,14 +724,32 @@ PRI demoColorPalette12Panels() | red, panelNumber
 
 CON { tiny panel constants }
 
-    kROW_HEIGHT_IN_PIX = 11
-    kCOL_WIDTH_IN_PIX = 16
+    ' these adjust panel spacing only
 
-PRI generateGreenBluePanelAgainst(panelNumber, red) | panelRow, panelCol, row, col, green, blue, startCol
+   ' for 64w 32h
+    'kROW_HEIGHT_IN_PIX = 11
+    'kCOL_WIDTH_IN_PIX = 16
+   ' for 64w 64h
+    'kROW_HEIGHT_IN_PIX = 22
+    'kCOL_WIDTH_IN_PIX = 16
+   ' for 128w 64h
+    'kROW_HEIGHT_IN_PIX = 22
+    'kCOL_WIDTH_IN_PIX = 32
+
+PRI offsetForPanel() : rowHeight, colWidth
+    rowHeight := 11
+    if pnlRowCount > 32
+        rowHeight := 22
+    colWidth := 16
+    if pnlColCount > 64
+        colWidth := 32
+
+PRI generateGreenBluePanelAgainst(panelNumber, red) | panelRow, panelCol, row, col, green, blue, startCol, rowHt, colWdth
+    rowHt, colWdth := offsetForPanel()
     panelRow := panelNumber / 4
     panelCol := panelNumber // 4
-    row := panelRow * kROW_HEIGHT_IN_PIX
-    startCol := col := panelCol * kCOL_WIDTH_IN_PIX
+    row := panelRow * rowHt
+    startCol := col := panelCol * colWdth
     'debug("clr panelNbr=(", udec_(panelNumber), "),startRC=(", udec_(row), ",", udec_(col), ")")
     repeat green from 0 to 230 step 25
         repeat blue from 0 to 230 step 25
@@ -712,12 +758,13 @@ PRI generateGreenBluePanelAgainst(panelNumber, red) | panelRow, panelCol, row, c
         row++
         col := startCol
 
-PRI generateBWPanel(panelNumber) | panelRow, panelCol, row, col, red, green, blue, startCol, colCtr, startRow
+PRI generateBWPanel(panelNumber) | panelRow, panelCol, row, col, red, green, blue, startCol, colCtr, startRow, rowHt, colWdth
+    rowHt, colWdth := offsetForPanel()
     panelRow := panelNumber / 4
     panelCol := panelNumber // 4
-    startRow := (panelRow * kROW_HEIGHT_IN_PIX)
+    startRow := (panelRow * rowHt)
     row := startRow - 3 ' skip black rows
-    startCol := col := panelCol * kCOL_WIDTH_IN_PIX
+    startCol := col := panelCol * colWdth
     'debug("bw panelNbr=(", udec_(panelNumber), "),startRC=(", udec_(row), ",", udec_(col), ")")
     colCtr := 0
     repeat green from 0 to 255 step 2
@@ -732,64 +779,80 @@ PRI generateBWPanel(panelNumber) | panelRow, panelCol, row, col, red, green, blu
             col := startCol
             'debug("bw panelNbr=(", udec_(panelNumber), "),startRC=(", udec_(row), ",", udec_(col), ")")
 
-PRI showFullColorSweep() | row, col, red, green, blue
+PRI showFullColorSweep() | row, col, red, green, blue, rowsPerSweep, rowsPerSweepRow, rowOffset
     ' basic bands - full color sweep
+    rowsPerSweep := 256 / pnlColCount
+    rowsPerSweepRow := pnlRowCount / (rowsPerSweep * 8)
+
     red := green := blue := 0
     row := 2
     col := 0
     repeat red from 0 to 255        ' RED
-        pixels.drawPixelAtRC(chainIndex, row, col, colorUtils.cValueForRGB(red, green, blue))
+        repeat rowOffset from 0 to rowsPerSweepRow - 1
+            pixels.drawPixelAtRC(chainIndex, row + rowOffset, col, colorUtils.cValueForRGB(red, green, blue))
         col++
-        if (col > hub75Bffrs.columnsPerPanel(chainIndex) - 1)
-            row++
+        if (col > pnlColCount - 1)
+            row += rowsPerSweepRow
             col := 0
+
     red := green := blue := 0
     repeat green from 0 to 255      ' GREEN
-        pixels.drawPixelAtRC(chainIndex, row, col, colorUtils.cValueForRGB(red, green, blue))
+        repeat rowOffset from 0 to rowsPerSweepRow - 1
+            pixels.drawPixelAtRC(chainIndex, row + rowOffset, col, colorUtils.cValueForRGB(red, green, blue))
         col++
-        if (col > hub75Bffrs.columnsPerPanel(chainIndex) - 1)
-            row++
+        if (col > pnlColCount - 1)
+            row += rowsPerSweepRow
             col := 0
+
     red := green := blue := 0
     repeat blue from 0 to 255       ' BLUE
-        pixels.drawPixelAtRC(chainIndex, row, col, colorUtils.cValueForRGB(red, green, blue))
+        repeat rowOffset from 0 to rowsPerSweepRow - 1
+            pixels.drawPixelAtRC(chainIndex, row + rowOffset, col, colorUtils.cValueForRGB(red, green, blue))
         col++
-        if (col > hub75Bffrs.columnsPerPanel(chainIndex) - 1)
-            row++
+        if (col > pnlColCount - 1)
+            row += rowsPerSweepRow
             col := 0
+
     red := green := blue := 0
     repeat red from 0 to 255        ' YELLOW'
         green := red
-        pixels.drawPixelAtRC(chainIndex, row, col, colorUtils.cValueForRGB(red, green, blue))
+        repeat rowOffset from 0 to rowsPerSweepRow - 1
+            pixels.drawPixelAtRC(chainIndex, row + rowOffset, col, colorUtils.cValueForRGB(red, green, blue))
         col++
-        if (col > hub75Bffrs.columnsPerPanel(chainIndex) - 1)
-            row++
+        if (col > pnlColCount - 1)
+            row += rowsPerSweepRow
             col := 0
+
     red := green := blue := 0
     repeat green from 0 to 255      ' CYAN
         blue := green
-        pixels.drawPixelAtRC(chainIndex, row, col, colorUtils.cValueForRGB(red, green, blue))
+        repeat rowOffset from 0 to rowsPerSweepRow - 1
+            pixels.drawPixelAtRC(chainIndex, row + rowOffset, col, colorUtils.cValueForRGB(red, green, blue))
         col++
-        if (col > hub75Bffrs.columnsPerPanel(chainIndex) - 1)
-            row++
+        if (col > pnlColCount - 1)
+            row += rowsPerSweepRow
             col := 0
+
     red := green := blue := 0
     repeat blue from 0 to 255       ' MAGENTA
         red := blue
-        pixels.drawPixelAtRC(chainIndex, row, col, colorUtils.cValueForRGB(red, green, blue))
+        repeat rowOffset from 0 to rowsPerSweepRow - 1
+            pixels.drawPixelAtRC(chainIndex, row + rowOffset, col, colorUtils.cValueForRGB(red, green, blue))
         col++
-        if (col > hub75Bffrs.columnsPerPanel(chainIndex) - 1)
-            row++
+        if (col > pnlColCount - 1)
+            row += rowsPerSweepRow
             col := 0
+
     red := green := blue := 0
     repeat blue from 0 to 255       ' WHITE
         green := red := blue
-        pixels.drawPixelAtRC(chainIndex, row, col, colorUtils.cValueForRGB(red, green, blue))
+        repeat rowOffset from 0 to rowsPerSweepRow - 1
+            pixels.drawPixelAtRC(chainIndex, row + rowOffset, col, colorUtils.cValueForRGB(red, green, blue))
         col++
-        if (col > hub75Bffrs.columnsPerPanel(chainIndex) - 1)
-            row++
+        if (col > pnlColCount - 1)
+            row += rowsPerSweepRow
             col := 0
-    red := green := blue := 0
+
     display.commitScreenToPanelSet()
 
 
@@ -800,17 +863,19 @@ PRI demoScreenBlast() | color3bit
             waitms(2000)
 
 
-PRI colorBlast() | row, col, red, green, blue, blockX, blockY, subrow, subcol
+PRI colorBlast() | row, col, red, green, blue, blockX, blockY, subrow, subcol, tileWidth, tileHeight
     ' color blast
     'debug("- DEMO: draw colored pixels")
+    tileWidth := pnlColCount / 4
+    tileHeight := pnlRowCount / 2
     repeat blockX from 0 to 3
         repeat blockY from 0 to 1
-            repeat subrow from 0 to 15
-                repeat subcol from 0 to 15
-                    row := (blockY * 16) + subrow
-                    col := (blockX * 16) + subcol
-                    red := subrow * (255 / 16)
-                    green := subcol * (255 / 16)
+            repeat subrow from 0 to tileHeight - 1
+                repeat subcol from 0 to tileWidth - 1
+                    row := (blockY * tileHeight) + subrow
+                    col := (blockX * tileWidth) + subcol
+                    red := subrow * (255 / tileHeight)
+                    green := subcol * (255 / tileWidth)
                     blue := ((blockY * 4) + blockX) * (255 / 8)
                     pixels.drawPixelAtRCwithRGB(chainIndex, row, col, red, green, blue)
 

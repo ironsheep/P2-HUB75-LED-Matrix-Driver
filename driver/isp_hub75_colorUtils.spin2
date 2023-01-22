@@ -21,7 +21,7 @@ OBJ
 
 DAT { driver controls for testing }
 
-bGammaEnable BYTE   TRUE
+bGammaEnable BYTE   FALSE
 
 PUB null()
     '' This is not a top level object

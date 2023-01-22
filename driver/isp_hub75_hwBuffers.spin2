@@ -27,6 +27,11 @@ CON { Interface Constant Forwarding }
     DEPTH_7BIT = hwEnum.DEPTH_7BIT
     DEPTH_8BIT = hwEnum.DEPTH_8BIT
 
+    ROT_NONE = hwEnum.ROT_NONE
+    ROT_LEFT_90 = hwEnum.ROT_LEFT_90
+    ROT_RIGHT_90 = hwEnum.ROT_RIGHT_90
+    ROT_180 = hwEnum.ROT_180
+
 OBJ
 
     hwEnum   : "isp_hub75_hwEnums"  ' hub75 attachment, set up constants
@@ -42,7 +47,7 @@ CON { User Panel Connection and Configuration }
     ' |  User configure
 
     ' (1) describe the panel electrical layout
-    DISP0_MAX_PANEL_COLUMNS = 64
+    DISP0_MAX_PANEL_COLUMNS = 128
     DISP0_MAX_PANEL_ROWS = 64
 
     ' (2) describe the organization of panel(s)
@@ -55,6 +60,9 @@ CON { User Panel Connection and Configuration }
     ' (3) describe the color depth you want to support [3-8] bits per LED
     '    NOTE full 24bit color is DEPTH_8BIT
     DISP0_COLOR_DEPTH = hwEnum.DEPTH_6BIT
+
+    ' (4) Apply desired rotation
+    DISP0_ROTATION = hwEnum.ROT_180
 
     ' |  End User configure
     ' \-------------------------------------------
@@ -100,6 +108,9 @@ CON { User Panel Connection and Configuration }
     '    NOTE full 24bit color is DEPTH_8BIT
     DISP1_COLOR_DEPTH = hwEnum.DEPTH_6BIT
 
+    ' (4) Apply desired rotation
+    DISP1_ROTATION = hwEnum.ROT_NONE
+
     ' |  End User configure
     ' \-------------------------------------------
 
@@ -143,6 +154,9 @@ CON { User Panel Connection and Configuration }
     ' (3) describe the color depth you want to support [3-8] bits per LED
     '    NOTE full 24bit color is DEPTH_8BIT
     DISP2_COLOR_DEPTH = DEPTH_6BIT
+
+    ' (4) Apply desired rotation
+    DISP2_ROTATION = hwEnum.ROT_NONE
 
     ' |  End User configure
     ' \-------------------------------------------
@@ -200,7 +214,7 @@ screenTableEnt0
                     LONG    @hub75Buffer0, @pwmFrames0_1, @pwmFrames0_2
                     LONG    DISP0_MAX_DISPLAY_COLUMNS, DISP0_MAX_DISPLAY_ROWS
                     LONG    DISP0_COLOR_DEPTH, DISP0_BYTES_PER_COLOR
-                    LONG    DISP0_SCRN_SIZE_IN_LONGS, DISP0_PWM_FRAME_SIZE_IN_BYTES
+                    LONG    DISP0_SCRN_SIZE_IN_LONGS, DISP0_PWM_FRAME_SIZE_IN_BYTES, DISP0_ROTATION
                     LONG    DISP0_MAX_PANEL_COLUMNS, DISP0_MAX_PANEL_ROWS, DISP0_MAX_PANELS_PER_COLUMN, DISP0_MAX_PANELS_PER_ROW
                     LONG    PLACEHOLDER_CHIP_TYPE, PLACEHOLDER_PIN_BASE, PLACEHOLDER_ADDR_LINES
 screenTableEnt0End
@@ -209,7 +223,7 @@ screenTableEnt1
                     LONG    @hub75Buffer1, @pwmFrames1_1, @pwmFrames1_2
                     LONG    DISP1_MAX_DISPLAY_COLUMNS, DISP1_MAX_DISPLAY_ROWS
                     LONG    DISP1_COLOR_DEPTH, DISP1_BYTES_PER_COLOR
-                    LONG    DISP1_SCRN_SIZE_IN_LONGS, DISP1_PWM_FRAME_SIZE_IN_BYTES
+                    LONG    DISP1_SCRN_SIZE_IN_LONGS, DISP1_PWM_FRAME_SIZE_IN_BYTES, DISP1_ROTATION
                     LONG    DISP1_MAX_PANEL_COLUMNS, DISP1_MAX_PANEL_ROWS, DISP1_MAX_PANELS_PER_COLUMN, DISP1_MAX_PANELS_PER_ROW
                     LONG    PLACEHOLDER_CHIP_TYPE, PLACEHOLDER_PIN_BASE, PLACEHOLDER_ADDR_LINES
 
@@ -219,7 +233,7 @@ screenTableEnt2
                     LONG    @hub75Buffer2, @pwmFrames2_1, @pwmFrames2_2
                     LONG    DISP2_MAX_DISPLAY_COLUMNS, DISP2_MAX_DISPLAY_ROWS
                     LONG    DISP2_COLOR_DEPTH, DISP2_BYTES_PER_COLOR
-                    LONG    DISP2_SCRN_SIZE_IN_LONGS, DISP2_PWM_FRAME_SIZE_IN_BYTES
+                    LONG    DISP2_SCRN_SIZE_IN_LONGS, DISP2_PWM_FRAME_SIZE_IN_BYTES, DISP2_ROTATION
                     LONG    DISP2_MAX_PANEL_COLUMNS, DISP2_MAX_PANEL_ROWS, DISP2_MAX_PANELS_PER_COLUMN, DISP2_MAX_PANELS_PER_ROW
                     LONG    PLACEHOLDER_CHIP_TYPE, PLACEHOLDER_PIN_BASE, PLACEHOLDER_ADDR_LINES
 '}
@@ -242,9 +256,9 @@ CON { PRIVATE internal constants }
 
 #0,  ENTR_SCRN_BUFFER_ADDR_OFST, ENTR_FRM1_BUFFER_ADDR_OFST, ENTR_FRM2_BUFFER_ADDR_OFST
 #3,  ENTR_MAX_COLUMNS_OFST, ENTR_MAX_ROWS_OFST, ENTR_COLOR_DEPTH, ENTR_BYTES_PER_COLOR_OFST
-#7,  ENTR_SCRN_SIZE_IN_LONGS_OFST, ENTR_FRM_SIZE_IN_BYTES_OFST
-#9,  ENTR_PANEL_COLUMNS_OFST, ENTR_PANEL_ROWS_OFST, ENTR_PANELS_PER_COLUMN_OFST, ENTR_PANELS_PER_ROW_OFST
-#13, ENTR_CHIP_TYPE_OFST, ENTR_HUB75_PIN_BASE_OFST, ENTR_HPANEL_ADDR_LINES_OFST
+#7,  ENTR_SCRN_SIZE_IN_LONGS_OFST, ENTR_FRM_SIZE_IN_BYTES_OFST, ENTR_ROTATION_OFST
+#10, ENTR_PANEL_COLUMNS_OFST, ENTR_PANEL_ROWS_OFST, ENTR_PANELS_PER_COLUMN_OFST, ENTR_PANELS_PER_ROW_OFST
+#14, ENTR_CHIP_TYPE_OFST, ENTR_HUB75_PIN_BASE_OFST, ENTR_HPANEL_ADDR_LINES_OFST
 
 PUB null()
 '' This is not a top level object
@@ -312,6 +326,11 @@ PUB pwmFrameSizeInLongs(nChainIdx) : nLongs | nBytes
 '' Return the number of LONGs needed to store a single PWM frame of a display image for the nChainIdx HUB75 adapter
     nBytes := pwmFrameSizeInBytes(nChainIdx)   ' count of bytes
     nLongs := (nBytes + 3) / 4
+
+PUB panelRotation(nChainIdx) : ePanelRotation | pEntry
+'' Return the enum indicating desire rotation
+    pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
+    ePanelRotation := LONG[pEntry][ENTR_ROTATION_OFST]
 
 PUB columnsPerPanel(nChainIdx) : nPanelColumns | pEntry
 '' Return the number of pixels in a single panel row for the nChainIdx HUB75 adapter
