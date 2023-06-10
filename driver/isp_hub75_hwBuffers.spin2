@@ -1,0 +1,543 @@
+'' =================================================================================================
+''
+''   File....... isp_hub75_hwBuffers.spin2
+''   Purpose.... Describe layout of the users attached RGB LED Matrix Panel-set
+''   Authors.... Stephen M Moraco
+''               -- Copyright (c) 2022 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... Nov 2022
+''   Updated.... 10 Nov 2022
+''
+'' =================================================================================================
+'
+'  Interface constants used to describe HUB75 panel connection and configuration
+
+CON { Interface Constant Forwarding }
+
+    ' this reduces include complexity for demo's
+    HUB75_ADAPTER_1 = hwEnum.HUB75_ADAPTER_1
+    HUB75_ADAPTER_2 = hwEnum.HUB75_ADAPTER_2
+    HUB75_ADAPTER_3 = hwEnum.HUB75_ADAPTER_3
+
+    DEPTH_3BIT = hwEnum.DEPTH_3BIT
+    DEPTH_4BIT = hwEnum.DEPTH_4BIT
+    DEPTH_5BIT = hwEnum.DEPTH_5BIT
+    DEPTH_6BIT = hwEnum.DEPTH_6BIT
+    DEPTH_7BIT = hwEnum.DEPTH_7BIT
+    DEPTH_8BIT = hwEnum.DEPTH_8BIT
+
+    ROT_NONE = hwEnum.ROT_NONE
+    ROT_LEFT_90 = hwEnum.ROT_LEFT_90
+    ROT_RIGHT_90 = hwEnum.ROT_RIGHT_90
+    ROT_180 = hwEnum.ROT_180
+
+OBJ
+
+    hwEnum   : "isp_hub75_hwEnums"  ' hub75 attachment, set up constants
+
+CON { User Panel Connection and Configuration }
+
+''  User customized section describing the memory allocated to our matrix panel displays
+' -------------------------------------------------------------------
+' panel set on 1st HUB75 adapter board - DISP0_* constants
+' -------------------------------------------------------------------
+
+    ' /-------------------------------------------
+    ' |  User configure
+
+    ' (1) describe the panel electrical layout
+    DISP0_MAX_PANEL_COLUMNS = 128
+    DISP0_MAX_PANEL_ROWS = 64
+
+    ' (2) describe the organization of panel(s)
+    ' panels organization: visual layout
+    '   [1]      1 row of 1 panel
+    '
+    DISP0_MAX_PANELS_PER_ROW = 1
+    DISP0_MAX_PANELS_PER_COLUMN = 1
+
+    ' (3) describe the color depth you want to support [3-8] bits per LED
+    '    NOTE full 24bit color is DEPTH_8BIT
+    DISP0_COLOR_DEPTH = hwEnum.DEPTH_6BIT
+
+    ' (4) Apply desired rotation
+    DISP0_ROTATION = hwEnum.ROT_180
+
+    ' |  End User configure
+    ' \-------------------------------------------
+
+    DISP0_MAX_DISPLAY_ROWS = DISP0_MAX_PANELS_PER_COLUMN * DISP0_MAX_PANEL_ROWS
+    DISP0_MAX_DISPLAY_COLUMNS = DISP0_MAX_PANELS_PER_ROW * DISP0_MAX_PANEL_COLUMNS
+
+    ' (8 bits per byte)
+    DISP0_BITS_PER_COLOR = DISP0_COLOR_DEPTH * 3
+    DISP0_BYTES_PER_COLOR = (DISP0_BITS_PER_COLOR + 7) / 8
+
+    DISP0_SCRN_SIZE_IN_BYTES = (((DISP0_MAX_DISPLAY_COLUMNS * DISP0_MAX_DISPLAY_ROWS * DISP0_BYTES_PER_COLOR) + 3) / 4) * 4
+    DISP0_SCRN_SIZE_IN_LONGS = (DISP0_SCRN_SIZE_IN_BYTES / 4)
+
+    DISP0_MAX_PANELS = DISP0_MAX_PANELS_PER_ROW * DISP0_MAX_PANELS_PER_COLUMN
+
+    ' what is our PWM frame size
+    ' PWM Frames are 4 bits per pixel full display count of pixels
+    DISP0_PWM_FRAME_SIZE_IN_BYTES = (DISP0_MAX_DISPLAY_COLUMNS * DISP0_MAX_DISPLAY_ROWS) / 2
+    DISP0_PWM_FRAME_SIZE_IN_LONGS = (DISP0_PWM_FRAME_SIZE_IN_BYTES + 3) / 4
+
+    DISP0_FRAMESET_SIZE_IN_LONGS = DISP0_COLOR_DEPTH * DISP0_PWM_FRAME_SIZE_IN_LONGS
+
+' -------------------------------------------------------------------
+' panel set on 2nd HUB75 adapter board - DISP1_* constants
+' -------------------------------------------------------------------
+
+    ' /-------------------------------------------
+    ' |  User configure
+
+    ' (1) describe the panel electrical layout
+    DISP1_MAX_PANEL_COLUMNS = 64
+    DISP1_MAX_PANEL_ROWS = 64
+
+    ' (2) describe the organization of panel(s)
+    ' panels organization: visual layout
+    '   [1]      1 row of 1 panel
+    '
+    DISP1_MAX_PANELS_PER_ROW = 1
+    DISP1_MAX_PANELS_PER_COLUMN = 1
+
+    ' (3) describe the color depth you want to support [3-8] bits per LED
+    '    NOTE full 24bit color is DEPTH_8BIT
+    DISP1_COLOR_DEPTH = hwEnum.DEPTH_6BIT
+
+    ' (4) Apply desired rotation
+    DISP1_ROTATION = hwEnum.ROT_NONE
+
+    ' |  End User configure
+    ' \-------------------------------------------
+
+    DISP1_MAX_DISPLAY_ROWS = DISP1_MAX_PANELS_PER_COLUMN * DISP1_MAX_PANEL_ROWS
+    DISP1_MAX_DISPLAY_COLUMNS = DISP1_MAX_PANELS_PER_ROW * DISP1_MAX_PANEL_COLUMNS
+
+    ' (8 bits per byte)
+    DISP1_BITS_PER_COLOR = DISP1_COLOR_DEPTH * 3
+    DISP1_BYTES_PER_COLOR = (DISP1_BITS_PER_COLOR + 7) / 8
+
+    DISP1_SCRN_SIZE_IN_BYTES = (((DISP1_MAX_DISPLAY_COLUMNS * DISP1_MAX_DISPLAY_ROWS * DISP1_BYTES_PER_COLOR) + 3) / 4) * 4
+    DISP1_SCRN_SIZE_IN_LONGS = (DISP1_SCRN_SIZE_IN_BYTES / 4)
+
+    DISP1_MAX_PANELS = DISP1_MAX_PANELS_PER_ROW * DISP1_MAX_PANELS_PER_COLUMN
+
+    ' what is our PWM frame size
+    ' PWM Frames are 4 bits per pixel full display count of pixels
+    DISP1_PWM_FRAME_SIZE_IN_BYTES = (DISP1_MAX_DISPLAY_COLUMNS * DISP1_MAX_DISPLAY_ROWS) / 2
+    DISP1_PWM_FRAME_SIZE_IN_LONGS = (DISP1_PWM_FRAME_SIZE_IN_BYTES + 3) / 4
+
+    DISP1_FRAMESET_SIZE_IN_LONGS = DISP1_COLOR_DEPTH * DISP1_PWM_FRAME_SIZE_IN_LONGS
+
+' -------------------------------------------------------------------
+' panel set on 3rd HUB75 adapter board - DISP2_* constants
+' -------------------------------------------------------------------
+{
+    ' /-------------------------------------------
+    ' |  User configure
+
+    ' (1) describe the panel electrical layout
+    DISP2_MAX_PANEL_COLUMNS = 64
+    DISP2_MAX_PANEL_ROWS = 64
+
+    ' (2) describe the organization of panel(s)
+    ' panels organization: visual layout
+    '   [1]      1 row of 1 panel
+    '
+    DISP2_MAX_PANELS_PER_ROW = 1
+    DISP2_MAX_PANELS_PER_COLUMN = 1
+
+    ' (3) describe the color depth you want to support [3-8] bits per LED
+    '    NOTE full 24bit color is DEPTH_8BIT
+    DISP2_COLOR_DEPTH = DEPTH_6BIT
+
+    ' (4) Apply desired rotation
+    DISP2_ROTATION = hwEnum.ROT_NONE
+
+    ' |  End User configure
+    ' \-------------------------------------------
+
+    DISP2_MAX_DISPLAY_ROWS = DISP2_MAX_PANELS_PER_COLUMN * DISP2_MAX_PANEL_ROWS
+    DISP2_MAX_DISPLAY_COLUMNS = DISP2_MAX_PANELS_PER_ROW * DISP2_MAX_PANEL_COLUMNS
+
+    ' (8 bits per byte)
+    DISP2_BITS_PER_COLOR = DISP2_COLOR_DEPTH * 3
+    DISP2_BYTES_PER_COLOR = (DISP2_BITS_PER_COLOR + 7) / 8
+
+    DISP2_SCRN_SIZE_IN_BYTES = (((DISP2_MAX_DISPLAY_COLUMNS * DISP2_MAX_DISPLAY_ROWS * DISP2_BYTES_PER_COLOR) + 3) / 4) * 4
+    DISP2_SCRN_SIZE_IN_LONGS = (DISP2_SCRN_SIZE_IN_BYTES / 4)
+
+    DISP2_MAX_PANELS = DISP2_MAX_PANELS_PER_ROW * DISP2_MAX_PANELS_PER_COLUMN
+
+    ' what is our PWM frame size
+    ' PWM Frames are 4 bits per pixel full display count of pixels
+    DISP2_PWM_FRAME_SIZE_IN_BYTES = (DISP2_MAX_DISPLAY_COLUMNS * DISP2_MAX_DISPLAY_ROWS) / 2
+    DISP2_PWM_FRAME_SIZE_IN_LONGS = (DISP2_PWM_FRAME_SIZE_IN_BYTES + 3) / 4
+
+    DISP2_FRAMESET_SIZE_IN_LONGS = DISP2_COLOR_DEPTH * DISP2_PWM_FRAME_SIZE_IN_LONGS
+'}
+
+' -------------------------------------------------------------------
+' common to all HUB75 adapter boards
+' -------------------------------------------------------------------
+
+    PLACEHOLDER_CHIP_TYPE = 0
+    PLACEHOLDER_PIN_BASE = 0
+    PLACEHOLDER_ADDR_LINES = 0
+
+DAT { Buffers and configuration values for each HUB75 adapter/chain of panels }
+
+' allocating one or more screens of pixels of 24bit color
+' our screen bitmap of RGB colors (pwm bit lengths ;-)
+
+hub75Buffer0            LONG    0[DISP0_SCRN_SIZE_IN_LONGS]  ' 6kB buffer (4 bytes / LONG)
+pwmFrames0_1            LONG    0[DISP0_FRAMESET_SIZE_IN_LONGS]
+pwmFrames0_2            LONG    0[DISP0_FRAMESET_SIZE_IN_LONGS]
+
+hub75Buffer1            LONG    0[DISP1_SCRN_SIZE_IN_LONGS]  ' 6kB buffer (4 bytes / LONG)
+pwmFrames1_1            LONG    0[DISP1_FRAMESET_SIZE_IN_LONGS]
+pwmFrames1_2            LONG    0[DISP1_FRAMESET_SIZE_IN_LONGS]
+
+{
+hub75Buffer2            LONG    0[DISP2_SCRN_SIZE_IN_LONGS]  ' 6kB buffer (4 bytes / LONG)
+pwmFrames2_1            LONG    0[DISP2_FRAMESET_SIZE_IN_LONGS]
+pwmFrames2_2            LONG    0[DISP2_FRAMESET_SIZE_IN_LONGS]
+'}
+
+screenTableEnt0
+                    ' each entry is 3 longs...
+                    ' 1st HUB75 chain
+                    LONG    @hub75Buffer0, @pwmFrames0_1, @pwmFrames0_2
+                    LONG    DISP0_MAX_DISPLAY_COLUMNS, DISP0_MAX_DISPLAY_ROWS
+                    LONG    DISP0_COLOR_DEPTH, DISP0_BYTES_PER_COLOR
+                    LONG    DISP0_SCRN_SIZE_IN_LONGS, DISP0_PWM_FRAME_SIZE_IN_BYTES, DISP0_ROTATION
+                    LONG    DISP0_MAX_PANEL_COLUMNS, DISP0_MAX_PANEL_ROWS, DISP0_MAX_PANELS_PER_COLUMN, DISP0_MAX_PANELS_PER_ROW
+                    LONG    PLACEHOLDER_CHIP_TYPE, PLACEHOLDER_PIN_BASE, PLACEHOLDER_ADDR_LINES
+screenTableEnt0End
+screenTableEnt1
+                    ' 2nd HUB75 chain
+                    LONG    @hub75Buffer1, @pwmFrames1_1, @pwmFrames1_2
+                    LONG    DISP1_MAX_DISPLAY_COLUMNS, DISP1_MAX_DISPLAY_ROWS
+                    LONG    DISP1_COLOR_DEPTH, DISP1_BYTES_PER_COLOR
+                    LONG    DISP1_SCRN_SIZE_IN_LONGS, DISP1_PWM_FRAME_SIZE_IN_BYTES, DISP1_ROTATION
+                    LONG    DISP1_MAX_PANEL_COLUMNS, DISP1_MAX_PANEL_ROWS, DISP1_MAX_PANELS_PER_COLUMN, DISP1_MAX_PANELS_PER_ROW
+                    LONG    PLACEHOLDER_CHIP_TYPE, PLACEHOLDER_PIN_BASE, PLACEHOLDER_ADDR_LINES
+
+{
+                    ' 3rd HUB75 chain
+screenTableEnt2
+                    LONG    @hub75Buffer2, @pwmFrames2_1, @pwmFrames2_2
+                    LONG    DISP2_MAX_DISPLAY_COLUMNS, DISP2_MAX_DISPLAY_ROWS
+                    LONG    DISP2_COLOR_DEPTH, DISP2_BYTES_PER_COLOR
+                    LONG    DISP2_SCRN_SIZE_IN_LONGS, DISP2_PWM_FRAME_SIZE_IN_BYTES, DISP2_ROTATION
+                    LONG    DISP2_MAX_PANEL_COLUMNS, DISP2_MAX_PANEL_ROWS, DISP2_MAX_PANELS_PER_COLUMN, DISP2_MAX_PANELS_PER_ROW
+                    LONG    PLACEHOLDER_CHIP_TYPE, PLACEHOLDER_PIN_BASE, PLACEHOLDER_ADDR_LINES
+'}
+screenTableEntEnd
+screenTable
+                    LONG    @screenTableEnt0
+                    LONG    @screenTableEnt1
+'                    LONG    @screenTableEnt2
+screenTableEnd
+
+entrySizeInBytes    LONG    (@screenTableEnt0End - @screenTableEnt0)
+tableSizeInBytes    LONG    (@screenTableEntEnd - @screenTableEnt0)
+numberScreens       LONG    (@screenTableEnd - @screenTable) >> 2     ' this can't be compile-time initialized
+
+bFirstTime          LONG    TRUE
+
+CON { PRIVATE internal constants }
+
+    NOT_INITIALIZED = -1
+
+#0,  ENTR_SCRN_BUFFER_ADDR_OFST, ENTR_FRM1_BUFFER_ADDR_OFST, ENTR_FRM2_BUFFER_ADDR_OFST
+#3,  ENTR_MAX_COLUMNS_OFST, ENTR_MAX_ROWS_OFST, ENTR_COLOR_DEPTH, ENTR_BYTES_PER_COLOR_OFST
+#7,  ENTR_SCRN_SIZE_IN_LONGS_OFST, ENTR_FRM_SIZE_IN_BYTES_OFST, ENTR_ROTATION_OFST
+#10, ENTR_PANEL_COLUMNS_OFST, ENTR_PANEL_ROWS_OFST, ENTR_PANELS_PER_COLUMN_OFST, ENTR_PANELS_PER_ROW_OFST
+#14, ENTR_CHIP_TYPE_OFST, ENTR_HUB75_PIN_BASE_OFST, ENTR_HPANEL_ADDR_LINES_OFST
+
+PUB null()
+'' This is not a top level object
+
+PUB configure(eHub75Chain, ePinBase, eChipType, eAddrLines) | pEntry, nChainIdx, bValidPins
+'' Record the base-pin, chip type, number of address lines for the nChainIdx HUB75 adapter
+
+    nChainIdx := indexForHub75ChainId(eHub75Chain)    ' 10, 20, 30
+    pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
+    bValidPins := TRUE
+    case ePinBase
+        hwEnum.PINS_P0_P15:
+        hwEnum.PINS_P16_P31:
+        hwEnum.PINS_P32_P47:
+        hwEnum.PINS_P48_P63:
+            bValidPins := FALSE ' hub75 board can't work here
+            debug("HUB75: configure() Can't use PINS 48-63: [isp_hub75_hwBuffers.spin2] Aborted!")
+        other:
+            bValidPins := FALSE ' this is not a ligit base number
+            debug("HUB75: configure() Invalid PinBase/PinGroup specfied: [isp_hub75_hwBuffers.spin2] Aborted!")
+
+    if not bValidPins
+        abort   ' we can't continue given this error
+    else
+        LONG[pEntry][ENTR_CHIP_TYPE_OFST] := eChipType
+        LONG[pEntry][ENTR_HUB75_PIN_BASE_OFST] := ePinBase
+        LONG[pEntry][ENTR_HPANEL_ADDR_LINES_OFST] := eAddrLines
+        if bFirstTime
+            'dbgMemDump(@"PTRs", @screenTable, numberScreens * 4)
+            'dbgMemDump(@"Entry 0", @screenTableEnt0, entrySizeInBytes)
+            bFirstTime := FALSE
+        debug("HUB75: configure() idx=", udec_(nChainIdx), udec(nChainIdx), udec(ePinBase), udec(eAddrLines))
+
+PUB maxDisplayColumns(nChainIdx) : nMaxColumns | pEntry
+'' Return the number of pixels in a display row for the nChainIdx HUB75 adapter
+    pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
+    nMaxColumns := LONG[pEntry][ENTR_MAX_COLUMNS_OFST]
+
+PUB maxDisplayRows(nChainIdx) : nMaxRows | pEntry
+'' Return the number of pixels in a display column for the nChainIdx HUB75 adapter
+    pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
+    nMaxRows := LONG[pEntry][ENTR_MAX_ROWS_OFST]
+
+PUB colorDepth(nChainIdx) : nDepthInBits | pEntry
+'' Return the number of bits for a color (red, green, or blue) [3-8 bits] for the nChainIdx HUB75 adapter
+    pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
+    nDepthInBits := LONG[pEntry][ENTR_COLOR_DEPTH]
+
+PUB bytesPerColor(nChainIdx) : nBytes | pEntry
+'' Return the number of bytes needed to store a pixel color (r+b+g) for the nChainIdx HUB75 adapter
+    pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
+    nBytes := LONG[pEntry][ENTR_BYTES_PER_COLOR_OFST]
+
+PUB displaySizeInLongs(nChainIdx) : nLongs | pEntry
+'' Return the number of LONGs needed to store an entire display image for the nChainIdx HUB75 adapter
+    pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
+    nLongs := LONG[pEntry][ENTR_SCRN_SIZE_IN_LONGS_OFST]
+
+PUB pwmFrameSizeInBytes(nChainIdx) : nBytes | pEntry
+'' Return the number of LONGs needed to store a single PWM frame of a display image for the nChainIdx HUB75 adapter
+    pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
+    nBytes := LONG[pEntry][ENTR_FRM_SIZE_IN_BYTES_OFST]
+
+PUB pwmFrameSizeInLongs(nChainIdx) : nLongs | nBytes
+'' Return the number of LONGs needed to store a single PWM frame of a display image for the nChainIdx HUB75 adapter
+    nBytes := pwmFrameSizeInBytes(nChainIdx)   ' count of bytes
+    nLongs := (nBytes + 3) / 4
+
+PUB panelRotation(nChainIdx) : ePanelRotation | pEntry
+'' Return the enum indicating desire rotation
+    pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
+    ePanelRotation := LONG[pEntry][ENTR_ROTATION_OFST]
+
+PUB columnsPerPanel(nChainIdx) : nPanelColumns | pEntry
+'' Return the number of pixels in a single panel row for the nChainIdx HUB75 adapter
+    pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
+    nPanelColumns := LONG[pEntry][ENTR_PANEL_COLUMNS_OFST]
+
+PUB rowsPerPanel(nChainIdx) : nPanelRows | pEntry
+'' Return the number of pixels in a single panel column for the nChainIdx HUB75 adapter
+    pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
+    nPanelRows := LONG[pEntry][ENTR_PANEL_ROWS_OFST]
+
+PUB panelsPerColumn(nChainIdx) : nColumnPanels | pEntry
+'' Return the number of panels in each column for the nChainIdx HUB75 adapter
+    pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
+    nColumnPanels := LONG[pEntry][ENTR_PANELS_PER_COLUMN_OFST]
+
+PUB panelsPerRow(nChainIdx) : nRowPanels | pEntry
+'' Return the number of panels in each row for the nChainIdx HUB75 adapter
+    pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
+    nRowPanels := LONG[pEntry][ENTR_PANELS_PER_ROW_OFST]
+
+PUB displayBufferAddress(nChainIdx) : pDisplayBuffer | pEntry
+'' Return the address of the memory buffer associated with the nChainIdx HUB75 adapter
+    pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
+    pDisplayBuffer := @@LONG[pEntry][ENTR_SCRN_BUFFER_ADDR_OFST]
+
+PUB pwmFrame1BufferAddress(nChainIdx) : pPwmFrm1Buffer | pEntry
+'' Return the address of the 1st PWM Frame buffer associated with the nChainIdx HUB75 adapter
+    pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
+    pPwmFrm1Buffer := @@LONG[pEntry][ENTR_FRM1_BUFFER_ADDR_OFST]
+
+PUB pwmFrame2BufferAddress(nChainIdx) : pPwmFrm2Buffer | pEntry
+'' Return the address of the 2nd PWM Frame buffer associated with the nChainIdx HUB75 adapter
+    pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
+    pPwmFrm2Buffer := @@LONG[pEntry][ENTR_FRM2_BUFFER_ADDR_OFST]
+
+PUB chipType(nChainIdx) : nChipType | pEntry
+'' Return the chip-type for the nChainIdx HUB75 adapter
+    pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
+    nChipType := LONG[pEntry][ENTR_CHIP_TYPE_OFST]
+
+PUB pinBase(nChainIdx) : nPinBase | pEntry
+'' Return the basePin for the nChainIdx HUB75 adapter
+    pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
+    nPinBase := LONG[pEntry][ENTR_HUB75_PIN_BASE_OFST]
+
+PUB addressLines(nChainIdx) : nAddrLines | pEntry
+'' Return the number of HUB75 address lines for the nChainIdx HUB75 adapter
+    pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
+    nAddrLines := LONG[pEntry][ENTR_HPANEL_ADDR_LINES_OFST]
+
+PUB maxPanels(nChainIdx) : nMaxPanels | pEntry
+'' Return the total number of panels connected to the nChainIdx HUB75 adapter
+    nMaxPanels := panelsPerColumn(nChainIdx) * panelsPerRow(nChainIdx)
+
+PUB zeroFillBuffer(nChainIdx) | pBffr, nBffrLen
+'' Zero fill the display buffer associated with the nChainIdx HUB75 adapter
+    nBffrLen := displaySizeInLongs(nChainIdx)
+    pBffr := displayBufferAddress(nChainIdx)
+    longfill(pBffr, 0, nBffrLen)
+
+PUB indexForHub75ChainId(eHub75Chain) : nChainIdx | bValidChain
+'' Return the index into our table for a given HUB75 Adapter
+    nChainIdx := 0  ' default to first or only panel
+    bValidChain := TRUE
+    case eHub75Chain
+        HUB75_ADAPTER_1:
+        HUB75_ADAPTER_2:
+        HUB75_ADAPTER_3:
+        other:
+            bValidChain := FALSE
+            debug("ERROR: unknown chain id (", udec_(eHub75Chain), ") must be [10, 20, or 30]")
+            abort
+    if bValidChain
+        nChainIdx := (eHub75Chain / 10) - 1  ' 10, 20, 30 -> 1,2,3 -> 0,1,2
+
+PUB pwmFrameCount(nChainIdx) : nbrPwmFrames | nColorDepth
+'' Return the number of pwm frames to display for selected bit depth
+    nColorDepth := colorDepth(nChainIdx)
+    case nColorDepth
+        hwEnum.DEPTH_3BIT:
+            nbrPwmFrames := 7
+        hwEnum.DEPTH_4BIT:
+            nbrPwmFrames := 15
+        hwEnum.DEPTH_5BIT:
+            nbrPwmFrames := 31
+        hwEnum.DEPTH_6BIT:
+            nbrPwmFrames := 63
+        hwEnum.DEPTH_7BIT:
+            nbrPwmFrames := 127
+        hwEnum.DEPTH_8BIT:
+            nbrPwmFrames := 255
+        other:
+            nbrPwmFrames := 15  ' default to DEPTH_4BIT if set badly
+
+PUB offsetToPanel(nChainIdx, nPanelIndex) : offsetPixelRows, offsetPixelColumns | gridRow, gridColumn, nMaxPanels, panelIndex
+'' Return x,y offset to specified panel from top-left corner of display
+    offsetPixelRows := offsetPixelColumns := 0
+    nMaxPanels := maxPanels(nChainIdx)
+    if nMaxPanels > 0
+        panelIndex :=  0 #> nPanelIndex <# nMaxPanels - 1
+        if nPanelIndex <> panelIndex
+            debug("* Warning invalid nPanelIndex (", udec_(nPanelIndex), ") for display! of ", udec_(nMaxPanels), " panels")
+
+        if panelsPerRow(nChainIdx) == 1
+            ' we have a column of panels
+            offsetPixelRows := panelIndex * rowsPerPanel(nChainIdx)
+        elseif panelsPerColumn(nChainIdx) == 1
+            ' we have a row of panels
+            offsetPixelColumns := panelIndex * columnsPerPanel(nChainIdx)
+        else
+            ' we have a grid of panels: MAX_PANELS_PER_ROW x MAX_PANELS_PER_COLUMN
+            gridRow := panelIndex / panelsPerRow(nChainIdx)
+            gridColumn := panelIndex // panelsPerRow(nChainIdx)
+            offsetPixelRows := gridRow * rowsPerPanel(nChainIdx)
+            offsetPixelColumns := gridColumn * columnsPerPanel(nChainIdx)
+
+    return offsetPixelRows, offsetPixelColumns
+
+PUB getDriverFlags(nChainIdx) : desiredFlags, eChipType
+'' Return flags describing the compiled driver configuration
+    desiredFlags := eChipType := chipType(nChainIdx)
+    if eChipType == hwEnum.CHIP_FM6126A
+        desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.LAT_POSN_OVERLAP | hwEnum.LAT_STYLE_OFFSET | hwEnum.INIT_PANEL_REQUIRED
+    elseif eChipType == hwEnum.CHIP_GS6238S
+        desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.LAT_POSN_OVERLAP | hwEnum.LAT_STYLE_OFFSET | hwEnum.GB_SWAP '| hwEnum.INIT_PANEL_REQUIRED
+    elseif eChipType == hwEnum.CHIP_MBI5124_8S
+        desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.CHIP_UNK_LAT_END_ENCL | hwEnum.SCAN_4 | hwEnum.INIT_PANEL_REQUIRED
+    elseif eChipType == hwEnum.CHIP_FM6124 or eChipType == hwEnum.CHIP_UNK_LAT_END_ENCL
+        if eChipType == hwEnum.CHIP_FM6124
+            desiredFlags := hwEnum.CHIP_MANUAL_SPEC
+    elseif eChipType == hwEnum.CHIP_ICN2037 or eChipType == hwEnum.CHIP_ICN2037_B or eChipType == hwEnum.CHIP_UNK_LAT_END_ENCL_SLO_CLK
+        if eChipType == hwEnum.CHIP_ICN2037
+            desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.CLK_WIDE_PULSE | hwEnum.RB_SWAP
+        elseif eChipType == hwEnum.CHIP_ICN2037_B
+            desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.CLK_WIDE_PULSE | hwEnum.SCAN_4
+    elseif eChipType & $ff <> hwEnum.CHIP_MANUAL_SPEC
+        ' report ERROR and exit
+        debug("- have unknown CHIP ", ubin_word(desiredFlags))
+        abort
+
+PUB dbgMemDump(pMessage, pBytes, lenBytes) | bytBffr, colIdx, rowIdx, maxCol, maxRow, dispLen
+'' Dump bytes in hex format to debug() terminal
+    debug("`temp '", zstr_(pMessage), ": bffr=", uhex_long_(pBytes), "(", udec_(lenBytes), ")' 13")
+    maxCol := lenBytes >= 16 ? 15 : lenBytes
+    maxRow := (lenBytes / 16)
+    if maxRow * 16 < lenBytes
+        maxRow++
+    if maxRow == 0
+        maxRow := 1
+
+    bytBffr := pBytes
+    waitus(35)
+    'returns
+    dispLen := 0
+    repeat rowIdx from 1 to maxRow
+        if rowIdx < 10
+            debug("`temp ' '")  ' space
+        debug("`temp '  ", uhex_long_(bytBffr), ": '")
+        repeat colIdx from 0 to maxCol
+            debug("`temp '", uhex_byte_(byte[bytBffr+colIdx]), " '")
+            dispLen++
+            if dispLen >= lenBytes
+                quit
+            if colIdx == 7
+                debug("`temp ' '")      ' space
+
+        bytBffr += 16
+        debug("`temp 13")               ' newline
+        waitus(85)  ' 50 too short, 70 less issue, 75 better,
+    waitms(2)
+
+PRI ptrTableEntry(nChainIdx) : pEntry | validScreenIdx
+    'debug("HUB75dbg: ", udec(nChainIdx), udec(numberScreens), udec(tableSizeInBytes), udec(entrySizeInBytes))
+    validScreenIdx := 0 #> nChainIdx <# numberScreens - 1
+    if nChainIdx <> validScreenIdx
+        debug("HUB75: not enough HUB75 buffers allocated: [isp_hub75_hwBuffers.spin2]")
+        abort
+
+    pEntry := @@LONG[@screenTable][validScreenIdx] ' get ptr to table entry
+
+CON { license }
+
+{{
+
+ -------------------------------------------------------------------------------------------------
+  MIT License
+
+  Copyright (c) 2022 Iron Sheep Productions, LLC
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+ =================================================================================================
+
+}}

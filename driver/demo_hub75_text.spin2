@@ -1,0 +1,196 @@
+'' =================================================================================================
+''
+''   File....... isp_hub75_demoText.spin2
+''   Purpose.... Top-level Demonstration - showing off our HUB75 matrix and waterery  binary clock
+''   Authors.... Stephen M Moraco
+''               -- Copyright (c) 2020 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... Oct 2020
+''   Updated.... 10 Nov 2022
+''
+'' =================================================================================================
+
+
+CON { timing }
+
+  CLK_FREQ = 335_000_000                                        ' system freq as a constant
+  _clkfreq = CLK_FREQ                                           ' set system clock
+
+CON { DEBUG PINs }
+
+'DEBUG_PIN = 0
+
+VAR
+
+    long    cog
+    long    chainIndex
+    long    scrollPeriod
+    long    startTime
+
+OBJ
+
+    color       :   "isp_hub75_color"
+    hub75Bffrs  :   "isp_hub75_hwBuffers"
+    display     :   "isp_hub75_display"
+    user        :   "isp_hub75_hwGeometry"  ' hardware config common to all demos
+
+PUB main() : ok | bitCount, newMask
+
+    '' run demo - displaying text/graphics in various ways
+    hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.ADAPTER_BASE_PIN, user.PANEL_DRIVER_CHIP, user.PANEL_ADDR_LINES)
+    chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
+
+    ' startup our backend COG(s)
+    ok := cog := display.start(chainIndex)   ' send buffer to driver
+    if ok == -1
+        debug("- DEMO: underlying drivers failed!")
+        abort
+
+    demoText()
+    'repeat
+
+    waitSec(4)
+
+    demoScrollingText()
+
+    repeat
+
+    ' shutdown our backend COG(s)
+    if ok <> -1
+        display.stop()
+
+PRI demoScrollingText() | scrollerID, textSize
+    ' draw some scrolling text
+
+    scrollPeriod := 0    ' 50 * 10 mSec :: 50/100th Sec
+
+    textSize := display.TEXT_FONT_5x7
+    'textSize := display.TEXT_FONT_8x8A
+    'textSize := display.TEXT_FONT_8x8B
+
+    display.clearScreen()
+    display.setTextFont(textSize)    ' font size
+    display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
+    ' show some static text on 64x32 display
+    if textSize == display.TEXT_FONT_5x7
+        display.setColoredTextAtLnCol(0,0, string("Iron Sheep"), color.cMaroon)
+        display.setColoredTextAtLnCol(1,0, string("ScrollDemo"), color.cOrange)
+    else
+        display.setColoredTextAtLnCol(0,0, string("SHEEP"), color.cMaroon)
+        display.setColoredTextAtLnCol(1,0, string("scroll"), color.cOrange)
+    ' show a region of scrolling text
+    'scrollerID := display.scrollColoredTextOnLn(2, string("First long text012"), display.DIR_TO_RIGHT, color.cBlue)
+    scrollerID := display.scrollColoredTextOnLn(2, string("First long text-123          "), display.DIR_TO_LEFT, color.cBlue)
+    ' configure it for one time scroll then stop when last bit arrives on screen
+    'display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE)
+    display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE_TO_CLEAR)
+    'display.configureScrollLoopMode(scrollerID, display.SCROLL_FOREVER)
+
+    scrollerID := display.scrollColoredTextOnLn(3, string("2nd shorter - "), display.DIR_TO_LEFT, color.cLime)
+    ' configure it for one time scroll then stop when last bit arrives on screen
+    'display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE)
+    'display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE_TO_CLEAR)
+    display.configureScrollLoopMode(scrollerID, display.SCROLL_FOREVER)
+
+    ' update our screen
+    display.commitScreenToPanelSet()
+
+    'repeat
+
+    ' now loop while scrolling finishes
+    wait100thSecs(scrollPeriod)
+
+    ' while scrolling not done...
+    repeat while NOT display.isScrollingComplete()
+        ' move the text
+        'startTime := getct()
+        display.animateScroll()
+        'showDuration(startTime, string("top:ANI"))
+        ' commit to screen
+        'startTime := getct()
+        display.commitScreenToPanelSet()
+        'showDuration(startTime, string("top:ANI-wr"))
+
+        ' delay while we stare wide-eyed at the new...
+        'wait100thSecs(scrollPeriod)
+        wait100thSecs(scrollPeriod)
+
+
+PRI showDuration(startTimeValue, pFuncTitle) | duration, converted
+    duration := getct() - startTimeValue
+    converted := muldiv64(duration, 1_000_000, clkfreq)
+    debug("- elapsed ", zstr_(pFuncTitle), ": ", udec_(converted), " uSec")
+
+DAT { string data }
+
+pwmMsg  byte    "XXXfrm pwm",0
+bitMsg  byte    "-RGB "
+bitCt   byte    "nbit-",0
+
+PRI demoText() | pFrameCountStr, frameCount
+    ' draw some text!
+    display.clearScreen()
+    display.setTextFont(display.TEXT_FONT_5x7)    ' font size
+    display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
+    display.setColoredTextAtLnCol(0,0, string("iron sheep"), color.cMaroon)
+
+    frameCount := hub75Bffrs.pwmFrameCount(chainIndex)
+    case hub75Bffrs.colorDepth(chainIndex)
+        hub75Bffrs.DEPTH_3BIT:
+            pwmMsg.BYTE[0] := $20    ' space
+            pwmMsg.BYTE[1] := $20    ' space
+            pwmMsg.BYTE[2] := $30 + frameCount
+        hub75Bffrs.DEPTH_7BIT,hub75Bffrs.DEPTH_8BIT:
+            pwmMsg.BYTE[0] := $30 + (frameCount / 100)
+            pwmMsg.BYTE[1] := $30 + ((frameCount // 100) / 10)
+            pwmMsg.BYTE[2] := $30 + ((frameCount // 100) // 10)
+        other:
+            pwmMsg.BYTE[0] := $20    ' space
+            pwmMsg.BYTE[1] := $30 + (frameCount / 10)
+            pwmMsg.BYTE[2] := $30 + (frameCount // 10)
+    bitCt.BYTE[0] := hub75Bffrs.colorDepth(chainIndex) + $30
+
+    display.setColoredTextAtLnCol(1,0, @bitMsg, color.cOrange)
+    display.setColoredTextAtLnCol(2,0, @pwmMsg, color.cMagenta)
+    display.setColoredTextAtLnCol(3,0, string("led matrix"), color.cWhite)
+    display.commitScreenToPanelSet()
+
+PRI waitSec(countSeconds)
+    repeat countSeconds
+        waitms(1000)
+
+PRI wait100thSecs(count)
+    '' wait for N 110ths of a second
+    repeat count
+        waitms(10)  ' 1/100 seconds
+
+CON { license }
+
+{{
+
+
+ -------------------------------------------------------------------------------------------------
+  MIT License
+
+  Copyright (c) 2020 Iron Sheep Productions, LLC
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+ =================================================================================================
+}}

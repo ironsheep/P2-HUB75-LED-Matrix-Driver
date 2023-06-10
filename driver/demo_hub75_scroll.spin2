@@ -1,13 +1,13 @@
 '' =================================================================================================
 ''
-''   File....... isp_hub75_demoText.spin2
-''   Purpose.... Top-level Demonstration - showing off our HUB75 matrix and waterery  binary clock
+''   File....... demo_hub75_scroll.spin2
+''   Purpose.... Top-level Demonstration - showing off our HUB75 matrix scolling capability
 ''   Authors.... Stephen M Moraco
-''               -- Copyright (c) 2020 Iron Sheep Productions, LLC
+''               -- Copyright (c) 2022 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
-''   Started.... Oct 2020
-''   Updated.... 17 Oct 2020
+''   Started.... Oct 2022
+''   Updated.... 10 Nov 2022
 ''
 '' =================================================================================================
 
@@ -24,29 +24,28 @@ CON { DEBUG PINs }
 VAR
 
     long    cog
+    long    chainIndex
     long    scrollPeriod
     long    startTime
 
 OBJ
 
-    color       : "isp_hub75_color"
-    screen      : "isp_hub75_screenAccess"
-    display     : "isp_hub75_display"
+    color       :   "isp_hub75_color"
+    hub75Bffrs  :   "isp_hub75_hwBuffers"
+    display     :   "isp_hub75_display"
+    user        :   "isp_hub75_hwGeometry"  ' hardware config common to all demos
 
 PUB main() : ok | bitCount, newMask
 
     '' run demo - displaying text/graphics in various ways
+    hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.ADAPTER_BASE_PIN, user.PANEL_DRIVER_CHIP, user.PANEL_ADDR_LINES)
+    chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
     ' startup our backend COG(s)
-    ok := cog := display.start()   ' send buffer to driver
+    ok := cog := display.start(chainIndex)   ' send buffer to driver
     if ok == -1
         debug("- DEMO: underlying drivers failed!")
         abort
-
-    demoText()
-    'repeat
-
-    waitSec(4)
 
     demoScrollingText()
 
@@ -59,7 +58,7 @@ PUB main() : ok | bitCount, newMask
 PRI demoScrollingText() | scrollerID, textSize
     ' draw some scrolling text
 
-    scrollPeriod := 0    ' 50 * 10 mSec :: 50/100th Sec
+    scrollPeriod := 20    ' 50 * 10 mSec :: 50/100th Sec
 
     textSize := display.TEXT_FONT_5x7
     'textSize := display.TEXT_FONT_8x8A
@@ -77,13 +76,25 @@ PRI demoScrollingText() | scrollerID, textSize
         display.setColoredTextAtLnCol(1,0, string("scroll"), color.cOrange)
     ' show a region of scrolling text
     'scrollerID := display.scrollColoredTextOnLn(2, string("First long text012"), display.DIR_TO_RIGHT, color.cBlue)
-    scrollerID := display.scrollColoredTextOnLn(2, string("First long text-123          "), display.DIR_TO_LEFT, color.cBlue)
+    scrollerID := display.scrollColoredTextOnLn(2, string("First long text-123          "), display.DIR_TO_RIGHT, color.cBlue)
     ' configure it for one time scroll then stop when last bit arrives on screen
     'display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE)
     display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE_TO_CLEAR)
     'display.configureScrollLoopMode(scrollerID, display.SCROLL_FOREVER)
 
     scrollerID := display.scrollColoredTextOnLn(3, string("2nd shorter - "), display.DIR_TO_LEFT, color.cLime)
+    ' configure it for one time scroll then stop when last bit arrives on screen
+    'display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE)
+    'display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE_TO_CLEAR)
+    display.configureScrollLoopMode(scrollerID, display.SCROLL_FOREVER)
+
+    scrollerID := display.scrollColoredTextOnLn(4, string("3rd  UP  -"), display.DIR_UP, color.cCyan)
+    ' configure it for one time scroll then stop when last bit arrives on screen
+    'display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE)
+    'display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE_TO_CLEAR)
+    display.configureScrollLoopMode(scrollerID, display.SCROLL_FOREVER)
+
+    scrollerID := display.scrollColoredTextOnLn(6, string("4th Down -"), display.DIR_DOWN, color.cYellow)
     ' configure it for one time scroll then stop when last bit arrives on screen
     'display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE)
     'display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE_TO_CLEAR)
@@ -131,13 +142,13 @@ PRI demoText() | pFrameCountStr, frameCount
     display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
     display.setColoredTextAtLnCol(0,0, string("iron sheep"), color.cMaroon)
 
-    frameCount := screen.pwmFrameCount()
-    case screen.COLOR_DEPTH
-        screen.DEPTH_3BIT:
+    frameCount := hub75Bffrs.pwmFrameCount(chainIndex)
+    case hub75Bffrs.colorDepth(chainIndex)
+        hub75Bffrs.DEPTH_3BIT:
             pwmMsg.BYTE[0] := $20    ' space
             pwmMsg.BYTE[1] := $20    ' space
             pwmMsg.BYTE[2] := $30 + frameCount
-        screen.DEPTH_7BIT,screen.DEPTH_8BIT:
+        hub75Bffrs.DEPTH_7BIT,hub75Bffrs.DEPTH_8BIT:
             pwmMsg.BYTE[0] := $30 + (frameCount / 100)
             pwmMsg.BYTE[1] := $30 + ((frameCount // 100) / 10)
             pwmMsg.BYTE[2] := $30 + ((frameCount // 100) // 10)
@@ -145,7 +156,7 @@ PRI demoText() | pFrameCountStr, frameCount
             pwmMsg.BYTE[0] := $20    ' space
             pwmMsg.BYTE[1] := $30 + (frameCount / 10)
             pwmMsg.BYTE[2] := $30 + (frameCount // 10)
-    bitCt.BYTE[0] := screen.COLOR_DEPTH + $30
+    bitCt.BYTE[0] := hub75Bffrs.colorDepth(chainIndex) + $30
 
     display.setColoredTextAtLnCol(1,0, @bitMsg, color.cOrange)
     display.setColoredTextAtLnCol(2,0, @pwmMsg, color.cMagenta)
@@ -169,7 +180,7 @@ CON { license }
  -------------------------------------------------------------------------------------------------
   MIT License
 
-  Copyright (c) 2020 Iron Sheep Productions, LLC
+  Copyright (c) 2022 Iron Sheep Productions, LLC
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal

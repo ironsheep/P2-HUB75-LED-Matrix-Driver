@@ -2,11 +2,11 @@
 
 ![Project Maintenance][maintenance-shield]
 
-NOTE: this is NEW information as of v1.x!  An older version is here: [Sofware Ver0.x Timings](HUB75-Driver-SWver0.md)
+NOTE: this is NEW information as of v1.x! It applies to v1.0.x and later.  An older version is here: [Sofware Ver0.x Timings](HUB75-Driver-SWver0.md)
 
 ## Intent
 
-The P2 HUB75 backend-end driver has configuration values we place in the file: **isp_hub75_hwGeometry.spin2**.  This page presents more detail of what's happening behind the scenes for some of these configurable values.
+The P2 HUB75 backend-end driver has configuration values we place in the files: **isp\_hub75_hwGeometry.spin2** and **isp\_hub75_hwBuffers.spin2**.  This page presents more detail of what's happening behind the scenes for some of these configurable values.
 
 ## Driver Adjustable Settings for given Panel
 
@@ -61,9 +61,9 @@ The driver supoorts two forms of latch position:
 
 In the OVERLAPPED case: we see LATCH going high before the start of the three last serial bits of the row and ending after the last serial data bit.  However, in the AFTER case we see the LATCH signal going high after the final serial bit of the row is sent.
 
-## Driver configuration by chip type - S/W Ver 1.x Timings
+## Driver configuration by chip type</br>(S/W Ver 1.x and later Timings)
 
-In this section we are recording the configuration we've shown that works for each of the following driver chips we've seen used in the panels.  As you identify more, please file an issue telling us the settings you found that work with your panels' driver chip. And we'll add the new details to this document for us all to see.
+In this section we are recording the configuration we've shown that works for each of the following driver chips we've seen used in the panels.  As you identify more, please file an issue telling us the settings you found that work with your panels' driver chip. And we'll add the new details to this document for us all to see.  *When you file and issue we'll also upgrade the driver in a later release to officially support the new driver chip you've gotten working.*
 
 ### Driver Chip: FM6126A
 
@@ -76,7 +76,7 @@ This is the most complicated of the driver chips to date. These chips don't turn
 - RED\_BLUE_SWAP: False
 - SCAN_4: False
 
-Signal Timings - 64x32 panel - for driver v1.x:
+Signal Timings - 64x32 panel - for driver v1.x (and later):
 
 ![v1.x timings](images/chip-fm6126a-timings.png)
 
@@ -95,7 +95,7 @@ This is the most simple chip form. This chip also supports faster data CLK (Max 
 - RED\_BLUE_SWAP: False
 - SCAN_4: False
 
-Signal Timings - 64x32 panel - for driver v1.x:
+Signal Timings - 64x32 panel - for driver v1.x (and later):
 
 ![v1.x timings](images/chip-fm6124-timings.png)
 
@@ -114,8 +114,28 @@ This is nearly the same as the FM6124 but needs a slower data CLK (Max 20MHz) (w
 - RED\_BLUE_SWAP: True
 - SCAN_4: False
 
-Signal Timings - 64x64 panel - for driver v1.x:
+Signal Timings - 64x64 panel - for driver v1.x (and later):
 
+
+![v1.x timings](images/chip-icn2037-timings.png)
+
+**NOTE** *the orange indicates a frame-rate less than 60Hz so you may see some flicker.*
+
+---
+### Driver Chip: ICN2037_B (UNKNOWN)
+
+(Added in v2.0.0 of the driver)
+
+This is nearly the same as the FM6124 but needs a slower data CLK (Max 20MHz) (wider pulse width) and unlike the ICN2037 this instance of P4 64x64 panel that I tested DOES NOT have Red/Blue swapped but DOES need SCAN_4 enabled.
+
+- LATCH_STYLE: ENCLOSED
+- LATCH_POSITION: AFTER 
+- CONFIGURE_PANEL: False
+- WIDER_CLOCK: True
+- RED\_BLUE_SWAP: **False** *(diff from ICN2037)*
+- SCAN_4: **True** *(diff from ICN2037)*
+
+Signal Timings - 64x64 panel - for driver v1.x (and later):
 
 ![v1.x timings](images/chip-icn2037-timings.png)
 
@@ -136,7 +156,7 @@ This is nearly the same as the FM6124 but but halves the number of address lines
 - RED\_BLUE_SWAP: False
 - SCAN_4: True
 
-Signal Timings - 64x32 panel - for driver v1.x:
+Signal Timings - 64x32 panel - for driver v1.x (and later):
 
 ![v1.x timings](images/chip-mbi5124-timings.png)
 
@@ -158,7 +178,7 @@ This is nearly the same as the FM6124 but needs a slower data CLK (Max 20MHz) (w
 - RED\_BLUE_SWAP: True
 - SCAN_4: False
 
-Signal Timings - 64x32 panel x 6! - for driver v1.x.
+Signal Timings - 64x32 panel x 6! - for driver v1.x (and later).
 
 ![v1.x timings](images/chip-icn2037-cube-timings.png)
 

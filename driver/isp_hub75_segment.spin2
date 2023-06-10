@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 18 Oct 2020
+''   Updated.... 5 Nov 2022
 ''
 '' =================================================================================================
 
@@ -36,11 +36,12 @@ SEG_LENGTH = 10
 cBlack = $000000
 
 OBJ
-    screen      : "isp_hub75_screenAccess"
-    pixels      : "isp_hub75_screenUtils"
-    color       : "isp_hub75_color"
+    hub75Bffrs  :   "isp_hub75_hwBuffers"
+    pixels      :   "isp_hub75_screenUtils"
+    colorUtils  :   "isp_hub75_colorUtils"
 
 VAR
+    long    chainIndex
     long    segOrientation
     long    currentState
     long    nextState
@@ -55,13 +56,14 @@ VAR
 PUB null()
     '' This is NOT a top level object
 
-PUB placeSegment(row, column, orientation, initialState, rgbColor)
+PUB placeSegment(nChainIdx, row, column, orientation, initialState, rgbColor)
+    chainIndex := nChainIdx
     'debug("seg:placeSegment rc=(", udec_(row), ",", udec_(column), "), orient=(", udec_(orientation), "), state=(", udec_(initialState), "), RGB=(", uhex_long_(rgbColor),")")
-    '' Locate a desired segment on our screen. Draw initial segement if state is NOT off
+    '' Locate a desired segment on our screen  Draw initial segement if state is NOT off
     ' record settings choices we are given extrapolating some
     desiredEndState := currentState := nextState := STATE_OFF
-    segStartX :=  0 #> column <# screen.MAX_DISPLAY_COLUMNS - 1
-    segStartY :=  0 #> row <# screen.MAX_DISPLAY_ROWS - 1
+    segStartX :=  0 #> column <# hub75Bffrs.maxDisplayColumns(chainIndex) - 1
+    segStartY :=  0 #> row <# hub75Bffrs.maxDisplayRows(chainIndex) - 1
     segOrientation := orientation
     segRgbColor := rgbColor
     case orientation
@@ -304,18 +306,18 @@ PRI updateMiddleSegment(newState) | pixInset, rowIndex
 
 PRI drawLine(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column
     'debug("seg:drwLn fmRC=(", udec_(fmRow), ",", udec_(fmColumn), "), toRC=(", udec_(toRow), ",", udec_(toColumn), "), RGB=(", uhex_long(rgbColor), ")")
-    fmRow :=  0 #> fmRow <# screen.MAX_DISPLAY_ROWS - 1
-    fmColumn :=  0 #> fmColumn <# screen.MAX_DISPLAY_COLUMNS - 1
-    toRow :=  0 #> toRow <# screen.MAX_DISPLAY_ROWS - 1
-    toColumn :=  0 #> toColumn <# screen.MAX_DISPLAY_COLUMNS - 1
+    fmRow :=  0 #> fmRow <# hub75Bffrs.maxDisplayRows(chainIndex) - 1
+    fmColumn :=  0 #> fmColumn <# hub75Bffrs.maxDisplayColumns(chainIndex) - 1
+    toRow :=  0 #> toRow <# hub75Bffrs.maxDisplayRows(chainIndex) - 1
+    toColumn :=  0 #> toColumn <# hub75Bffrs.maxDisplayColumns(chainIndex) - 1
     if fmRow == toRow
         ' draw Horizontal Line
         repeat column from fmColumn to toColumn
-            pixels.drawPixelAtRCwithRGB(fmRow, column, color.rgbForCValue(rgbColor))
+            pixels.drawPixelAtRCwithRGB(chainIndex, fmRow, column, colorUtils.rgbForCValue(rgbColor))
     elseif fmColumn == toColumn
         ' draw Vertical Line
         repeat row from fmRow to toRow
-            pixels.drawPixelAtRCwithRGB(row, fmColumn, color.rgbForCValue(rgbColor))
+            pixels.drawPixelAtRCwithRGB(chainIndex, row, fmColumn, colorUtils.rgbForCValue(rgbColor))
     else
         debug("DIAG lines not implemented !")
         abort
