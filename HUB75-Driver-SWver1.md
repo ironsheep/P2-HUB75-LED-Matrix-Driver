@@ -18,15 +18,16 @@ The driver currently offers the following adjustments:
 | LATCH_POSITION | OVERLAPPED  with the Last Bits of the row AFTER the last bits of the row | When should the latch occur relative to the bits for each row? |
 | INIT_PANEL | True, [False] | The Driver chips on this panel require/support a configuration stream prior to normal operation (e.g., FM6126A, FM6126Q, FM6127, and MBI5124)
 | WIDER_CLOCK | True, [False] | Inject a wait during the high portion of the data clock (ICN2037 Has 20MHz limit)
-| RED\_BLUE_SWAP | True, [False] | It seems that our 64x64 panel requires the red and blue lines to be swapped
-| SCAN\_4 | True, [False] | By default [False] the driver sends half the panel pixels over the each of the two sets of RGB lines (RGB1,RGB2), A 1/8th scan panel however [True] sends two diff regions of 1/4 of the panel which is a different pixel ordering. 
+| RB_SWAP | True, [False] | It seems that our 64x64 panel requires the red and blue lines to be swapped
+| GB_SWAP | True, [False] | The ICN2037 (not _B variant) panels requires the green and blue lines to be swapped
+| SCAN\_4 | True, [False] | By default [False] the driver sends half the panel pixels over the each of the two sets of RGB lines (RGB1,RGB2), A 1/8th scan panel however [True] sends two diff regions of 1/4 of the panel which is a different pixel ordering.
 | ADAPTER\_BASE_PIN | 0-15, 16-31, 32-47, 48-63 [*no default*] | compile driver to use specific header pair to which the HUB75 Adapater card is attached
 
 ### Composite Selections (by Chip id)
 
-The chip types are collections of the above settings which make it easier to get the settings correct for your panel by specifying a single chip ID versus a mix of the above option. 
+The chip types are collections of the above settings which make it easier to get the settings correct for your panel by specifying a single chip ID versus a mix of the above option.
 
-| Chip Type           |  settings used 
+| Chip Type           |  settings used
 |---|---|
 | CHIP_FM6126A = | <PRE>CHIP\_MANUAL\_SPEC, LAT\_POSN\_OVERLAP, LAT\_STYLE\_OFFSET, INIT\_PANEL\_REQUIRE</PRE>
 | CHIP_GS6238S = | <PRE>CHIP\_MANUAL\_SPEC, LAT\_POSN\_OVERLAP, LAT\_STYLE\_OFFSET, GB\_SWAP</PRE>
@@ -85,7 +86,7 @@ In this section we are recording the configuration we've shown that works for ea
 This is the most complicated of the driver chips to date. These chips don't turn on reliably until they've been configured which is a process nearly the same as writing a single row of data but with special meaning to the bit stream and special latch timing. This Chip supports faster data CLK (Max 30MHz)
 
 - LATCH_STYLE: OFFSET
-- LATCH_POSITION: OVERLAPPED 
+- LATCH_POSITION: OVERLAPPED
 - CONFIGURE_PANEL: True
 - WIDER_CLOCK: False
 - RED\_BLUE_SWAP: False
@@ -104,7 +105,7 @@ Signal Timings - 64x32 panel - for driver v1.x (and later):
 This is the most simple chip form. This chip also supports faster data CLK (Max 30MHz) although the driver doesn't, yet.
 
 - LATCH_STYLE: ENCLOSED
-- LATCH_POSITION: AFTER 
+- LATCH_POSITION: AFTER
 - CONFIGURE_PANEL: False
 - WIDER_CLOCK: False
 - RED\_BLUE_SWAP: False
@@ -123,7 +124,7 @@ Signal Timings - 64x32 panel - for driver v1.x (and later):
 This is nearly the same as the FM6124 but needs a slower data CLK (Max 20MHz) (wider pulse width) and our 64x64 panels appear to need Red/Blue swapped!?.
 
 - LATCH_STYLE: ENCLOSED
-- LATCH_POSITION: AFTER 
+- LATCH_POSITION: AFTER
 - CONFIGURE_PANEL: False
 - WIDER_CLOCK: True
 - RED\_BLUE_SWAP: True
@@ -144,7 +145,7 @@ Signal Timings - 64x64 panel - for driver v1.x (and later):
 This is nearly the same as the FM6124 but needs a slower data CLK (Max 20MHz) (wider pulse width) and unlike the ICN2037 this instance of P4 64x64 panel that I tested DOES NOT have Red/Blue swapped but DOES need SCAN_4 enabled.
 
 - LATCH_STYLE: ENCLOSED
-- LATCH_POSITION: AFTER 
+- LATCH_POSITION: AFTER
 - CONFIGURE_PANEL: False
 - WIDER_CLOCK: True
 - RED\_BLUE_SWAP: **False** *(diff from ICN2037)*
@@ -160,12 +161,12 @@ Signal Timings - 64x64 panel - for driver v1.x (and later):
 
 ### Driver Chip: MBI5124_8S (MBI5124 but panel is 1/8 scan)
 
-This is nearly the same as the FM6124 but but halves the number of address lines which is normally panel rows / 2, but in this case is panel rows / 4. It also clocks out 2x the number of pixels per row.  
+This is nearly the same as the FM6124 but but halves the number of address lines which is normally panel rows / 2, but in this case is panel rows / 4. It also clocks out 2x the number of pixels per row.
 
 *NOTE: The MBI5124 does support configuration but it appears that it is already configured at power-up so this driver does not attempt to configure the panel currently. The setting CONFIGURE_PANEL is marked as true so if we add configuration later the driver will use it.*
 
 - LATCH_STYLE: ENCLOSED
-- LATCH_POSITION: AFTER 
+- LATCH_POSITION: AFTER
 - CONFIGURE_PANEL: True
 - WIDER_CLOCK: False
 - RED\_BLUE_SWAP: False
@@ -187,7 +188,7 @@ This is nearly the same as the FM6124 but needs a slower data CLK (Max 20MHz) (w
 
 
 - LATCH_STYLE: ENCLOSED
-- LATCH_POSITION: AFTER 
+- LATCH_POSITION: AFTER
 - CONFIGURE_PANEL: False
 - WIDER_CLOCK: True
 - RED\_BLUE_SWAP: True
