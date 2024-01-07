@@ -22,6 +22,21 @@ The driver currently offers the following adjustments:
 | SCAN\_4 | True, [False] | By default [False] the driver sends half the panel pixels over the each of the two sets of RGB lines (RGB1,RGB2), A 1/8th scan panel however [True] sends two diff regions of 1/4 of the panel which is a different pixel ordering. 
 | ADAPTER\_BASE_PIN | 0-15, 16-31, 32-47, 48-63 [*no default*] | compile driver to use specific header pair to which the HUB75 Adapater card is attached
 
+### Composite Selections (by Chip id)
+
+The chip types are collections of the above settings which make it easier to get the settings correct for your panel by specifying a single chip ID versus a mix of the above option. 
+
+| Chip Type           |  settings used 
+|---|---|
+| CHIP_FM6126A = | <PRE>CHIP\_MANUAL\_SPEC, LAT\_POSN\_OVERLAP, LAT\_STYLE\_OFFSET, INIT\_PANEL\_REQUIRE</PRE>
+| CHIP_GS6238S = | <PRE>CHIP\_MANUAL\_SPEC, LAT\_POSN\_OVERLAP, LAT\_STYLE\_OFFSET, GB\_SWAP</PRE>
+| CHIP\_MBI5124_8S = | <PRE>CHIP\_MANUAL\_SPEC, CHIP\_UNK\_LAT\_END\_ENCL, SCAN\_4, INIT\_PANEL\_REQUIRED</PRE>
+| CHIP_FM6124 = |<PRE>CHIP\_MANUAL\_SPEC</PRE>
+| CHIP_ICN2037 = |<PRE>CHIP\_MANUAL\_SPEC, CLK\_WIDE\_PULSE, RB_SWAP</PRE>
+| CHIP\_ICN2037_B = | <PRE>CHIP\_MANUAL\_SPEC, CLK\_WIDE\_PULSE, SCAN_4</PRE>
+
+When trying to identify what needed for an as-of-yet unidentified chip then you will likely want to find the closest chip that sort of works then convert to the expanded set and tweak the selections 1 by 1 to see if a better mix of drive styles will work.
+
 ### PURPOSE: LATCH_STYLE
 
 The driver has two built-in LATCH, OE! styles supporting the hardware we've seen to date.
