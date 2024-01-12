@@ -108,7 +108,7 @@ Here's a quick diagram you can use to gain a general understanding of how this d
 
 **Figure 2**: Flow of data within the driver.
 
-Basically, this image shows that the user code draws in 24-bit color values. As these are written to the screen buffer they are translated into PWM values. WHen the screen is committed (the image is transferred to the display) the screen image is split out into individual PWM buffers one for each of the 16 sub-frames which together comprise one full color video frame being displayed at roughtly 60 fps.
+Basically, this image shows that the user code draws in 24-bit color values. As these are written to the screen buffer they are translated into PWM values. When the screen is committed (the image is transferred to the display) the screen image is split out into individual PWM buffers one for each of the 16 sub-frames which together comprise one full color video frame being displayed at roughtly 60 fps.
 
 The storage format is shown in the diagram at the various points of translation.
 
@@ -125,7 +125,7 @@ This allowed us to use a PWM Frame-set which consists of one plane for each bit 
 
 ## Driver Max panels supported
 
-The number of panels this driver supports is based upon how the driver consumes RAM. When we exceed the size taht will fit in RAM, we hit a limit message which says `[x] Object files exceed 1M bytes.`. Here's a table depicting the MAX Panels the driver currently supports in terms of panel size, number of panels and the resulting total pixel count.
+The number of panels this driver supports is based upon how the driver consumes RAM. When we exceed the size that will fit in RAM, we hit a limit message which says `[x] Object files exceed 1M bytes.`. Here's a table depicting the MAX Panels the driver currently supports in terms of panel size, number of panels and the resulting total pixel count.
 
 | Panel Size | max panels | total pixels | Notes |
 | --- | --- | --- | --- |
