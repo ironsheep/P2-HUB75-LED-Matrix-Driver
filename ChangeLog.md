@@ -15,6 +15,19 @@ Work to appear in upcoming releases:
 - Morphing digits Matrix displays can be found at [P2 LED-Matrix Morphing Digits](https://github.com/ironsheep/P2-LED-Matrix-Morphing-Digits) Repository.
 
 
+## [2.1.0] 10 Jan 2024
+
+### New chip support and new fonts
+
+- Add support for panels using **DP5125D** chips
+- Add Chips' 5x7 dithered fonts
+- ICN2037_B was renamed to **ICN2038S** 
+
+### Known Issues v2.1.0
+
+- Multi-panel support for the FM6126A and MBI5124 driver chips is not yet working!
+- The driver is now fast enough now that there are slight display issues with panels using the MBI5124 chips. We're looking into this.
+
 ## [2.0.0] 10 Nov 2022
 
 ### Multiple HUB75 card support
