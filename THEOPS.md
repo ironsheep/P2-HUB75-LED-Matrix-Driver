@@ -10,6 +10,13 @@ On this page you'll learn what files make up the driver (and/or come with it) an
 
 ### Pages: [README](README.md) | [Hardware Turn-on](HardwareTurnon.md) | Driver Details | [Change Log](ChangeLog.md)
 
+Within this page:
+
+- [Driver Files]() - the purpose of each file found in the driver
+- [Configuring the Driver]() - how to describe your panels to the driver
+- [Notes on Internals]() - more in the internal data flow within the driver
+- [Max Panels Supported]() - I'm planning on buying panels. How many panels does this driver support?
+
 
 ## Driver file organization
 
@@ -114,6 +121,20 @@ This allowed us to use a PWM Frame-set which consists of one plane for each bit 
 ![Displaying Bit Depths](images/BitDepths.png)
 
 **Figure 3**: Creating a full color frame.
+
+
+## Driver Max panels supported
+
+The number of panels this driver supports is based upon how the driver consumes RAM. When we exceed the size taht will fit in RAM, we hit a limit message which says `[x] Object files exceed 1M bytes.`. Here's a table depicting the MAX Panels the driver currently supports in terms of panel size, number of panels and the resulting total pixel count.
+
+| Panel Size | max panels | total pixels | Notes |
+| --- | --- | --- | --- |
+| 32x32 | 27 | 27,648 |
+| 64x32 | 13 | 26,624 |
+| 64x64 | 6 | 24,576 | our cube!
+| 128x64 | 3 | 24,576 |
+
+One of my upcoming efforts is to review in detail how the drive uses RAM. I'll look into using the LUTs and using the EDGE on board RAM and fine tuning how the driver allocates RAM to see if any of these approaches can increase the number of panels this dirver can support.
 
 ## Notes on HUB75 pins used by driver
 
