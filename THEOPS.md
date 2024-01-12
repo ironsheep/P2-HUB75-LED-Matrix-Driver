@@ -12,10 +12,10 @@ On this page you'll learn what files make up the driver (and/or come with it) an
 
 Within this page:
 
-- [Driver Files]() - the purpose of each file found in the driver
-- [Configuring the Driver]() - how to describe your panels to the driver
-- [Notes on Internals]() - more in the internal data flow within the driver
-- [Max Panels Supported]() - I'm planning on buying panels. How many panels does this driver support?
+- [Driver Files](#driver-file-organization) - the purpose of each file found in the driver
+- [Configuring the Driver](#configuring-the-driver) - how to describe your panels to the driver
+- [Notes on Internals](#notes-on-driver-internals) - more in the internal data flow within the driver
+- [Max Panels Supported](#driver-max-panels-supported) - I'm planning on buying panels. How many panels does this driver support?
 
 
 ## Driver file organization
@@ -134,7 +134,13 @@ The number of panels this driver supports is based upon how the driver consumes 
 | 64x64 | 6 | 24,576 | our cube!
 | 128x64 | 3 | 24,576 |
 
-One of my upcoming efforts is to review in detail how the drive uses RAM. I'll look into using the LUTs and using the EDGE on board RAM and fine tuning how the driver allocates RAM to see if any of these approaches can increase the number of panels this dirver can support.
+One of my upcoming efforts is to review in detail how the driver uses RAM. I'll look into:
+
+- using the LUTs 
+- using the EDGE on board RAM 
+- fine tuning how the driver allocates RAM
+
+My hope would be that I'll find that using one or more of these approaches will increase the number of panels this driver can support.
 
 ## Notes on HUB75 pins used by driver
 
