@@ -134,6 +134,12 @@ The number of panels this driver supports is based upon how the driver consumes 
 | 64x64 | 6 | 24,576 | our cube!
 | 128x64 | 3 | 24,576 |
 
+**NOTE**: The driver supports using 1-3 HUB75 adapters. This means you can have up to three chains of panels attached to one P2. The table above specifies how many total pixels (total panels of given goemetry) can be supported. When configuring multiple HUB75 adapters this total is now spread across all adapters.  In other words, the pixel count of all panels attached to a single P2 must not exceed the limits shown in the table.
+
+**NOTE2**: If you have panels by different vendors  (different driving ICs) you can use multiple HUB75 cards to accomodate this. Just make sure you have all panels of a given IC type on a single chain. Put all the panels with the next IC type on the next chain, the next HUB75 adapter.  Drive all the chains from the single P2.
+
+### Research Needed
+
 One of my upcoming efforts is to review in detail how the driver uses RAM. I'll look into:
 
 - using the LUTs 
