@@ -130,12 +130,24 @@ This allowed us to use a PWM Frame-set which consists of one plane for each bit 
 
 The number of panels this driver supports is based upon how the driver consumes RAM. When we exceed the size that will fit in RAM, we hit a limit message which says `[x] Object files exceed 1M bytes.`. Here's a table depicting the MAX Panels the driver currently supports in terms of panel size, number of panels and the resulting total pixel count.
 
+Driver v1.x and v2.x:
+
 | Panel Size | max panels | total pixels | Notes |
 | --- | --- | --- | --- |
 | 32x32 | 27 | 27,648 |
 | 64x32 | 13 | 26,624 |
 | 64x64 | 6 | 24,576 | our cube!
 | 128x64 | 3 | 24,576 |
+
+Driver v3.x:
+
+| Panel Size | max panels | total pixels | Notes |
+| --- | --- | --- | --- |
+| 32x32 | 64 | 65,536 |
+| 64x32 | 32 | 65,536 |
+| 64x64 | 16 | 66,536 | our cube uses 6 of these!
+| 128x64 | 8 | 66,536 |
+| 128x128 | 8 | 66,536 |
 
 **NOTE**: The driver supports using 1-3 HUB75 adapters. This means you can have up to three chains of panels attached to one P2. The table above specifies how many total pixels (total panels of given goemetry) can be supported. When configuring multiple HUB75 adapters this total is now spread across all adapters.  In other words, the pixel count of all panels attached to a single P2 must not exceed the limits shown in the table.
 
@@ -149,7 +161,7 @@ One of my upcoming efforts is to review in detail how the driver uses RAM. I'll 
 - using the EDGE on board RAM 
 - fine tuning how the driver allocates RAM
 
-My hope would be that I'll find that using one or more of these approaches will increase the number of panels this driver can support.
+My hope would be that I'll find that using one or more of these approaches will reduce our RAM usage.
 
 ## Notes on HUB75 pins used by driver
 
