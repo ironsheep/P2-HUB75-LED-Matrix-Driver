@@ -139,7 +139,7 @@ Signal Timings - 64x64 panel - for driver v1.x (and later):
 **NOTE** *the orange indicates a frame-rate less than 60Hz so you may see some flicker.*
 
 ---
-### Driver Chip: ICN2037_B (UNKNOWN)
+### Driver Chip: ICN2038S (UNKNOWN)
 
 (Added in v2.0.0 of the driver)
 

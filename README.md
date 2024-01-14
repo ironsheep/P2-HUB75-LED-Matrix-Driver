@@ -64,21 +64,36 @@ Additional pages:
 
 What's working today with the current driver:
 
-- 5x7 font is now full upper/lower case plus all control characters found in standard ASCII set
-- Up to 3 HUB75 cards supported on a single P2
+- **5x7 font** is now full upper/lower case plus all control characters found in standard ASCII set
+- **5x7 dithered font** - full upper/lower case plus all control characters found in standard ASCII set
+- **5x7 dithered font with descenders** - full upper/lower case plus all control characters found in standard ASCII set
+- Up to **3 HUB75 cards** supported on a single P2
 - Compile-time selectable color depth from 3 to 8-bits per color, per hub75 card
 - P2 P2 Cube support (display on all 6 surfaces of cube)
-- Single panel support working well for supported chips, up to 4096 leds (64x64)
-- Supported Panel Driver Chips: FM6126A, FM6124, ICN2037, and MBI5124 (1/8 scan)
-- Multi-panel support working well for ICN2037 chip only (*we're trying to figure out the panel initialization sequences for chips like the FM6126A. Until we do, multi-panel won't work for these panels*)
+- Single panel support working well for supported chips, up to 8192 leds (128x64)
+- Supported Panel Driver Chips: FM6126A, FM6124, ICN2037, ICN2038S, and MBI5124 (1/8 scan)
+- Multi-panel support working well for ICN2037 chip only (*we're trying to figure out the panel initialization sequences for chips like the FM6126A. Until we do, Multi-panel won't work for these panels*)
 - PWM'ing images to achieve 3-bit to 8-bit color per LED (9-bit to 24-bit color per pixel)
 - Displaying text in both 5x7 and 8x8 fonts
 - Initial version of scrolling text - will get more performant in future updates (now up, down, right, and left scroll!)
-- Basic color pixel placement at row, column (whole panel-set and single-panel-of-set forms)
-- Basic drawing primitives (whole panel-set and single-panel-of-set forms)
+- Basic color pixel placement at row, column (whole panel-set and Single-panel-of-set forms)
+- Basic drawing primitives (whole panel-set and Single-panel-of-set forms)
 - Loading and displaying images from .bmp files (that are identically sized to your single panel)  *This demonstration is built for 64x32 panels only, any other will require code rework. This is here to demonstrate how it can be done. The rework should be simple work within this example*
 
 **NOTE:** *With every update we post we also update the [ChangeLog](ChangeLog.md). It will have the most up-to-date driver code/feature status.*
+
+## Chips Supported
+This driver works with the following chips. Other chips may well work since the adaptation to a chip is selecting various driver settings control signalling to the chip.  Here are the chips we have tested and proven working in Single- or Multi-panel configurations:
+
+| Chip | Status | Manufacturer | Notes
+| --- | --- | --- | --- |
+| FM6124 | working `Single-panel` | Shenzhen Funman Electronics Group Co., Ltd. 
+| FM6126A | working `Multi-panel` | Shenzhen Funman Electronics Group Co., Ltd. | Requires Panel init sequence to get Multi-panel working!
+| GS6238S | working `Single-panel` | ?? | ??
+| ICN2037 | working `Multi-panel` | Chipone Technology (Beijing) Co., Ltd. | Our P2 P2 cube panels 
+| ICN2037BP | working `Multi-panel` |Chipone Technology (Beijing) Co., Ltd. |
+| ICN2038S | working `Multi-panel` | Chipone Technology (Beijing) Co., Ltd. |
+| MBI5124GP | working `Single-panel` | Macroblock, Inc. (Taiwan) | Requires Panel init sequence to get Multi-panel working! ( no docs so haven't figured this one out yet, **please contact me if** you've found code for an init sequence! )
 
 ## Pending Development
 
@@ -89,13 +104,22 @@ Upcoming work on the driver:
 
 ## Driver Setup and Configuration
 
-Once you have the driver downloaded and the source files added to your project you will first need to configure the driver by creating a block of constants which describe the configuration of your panel(s) in the files: **isp\_hub75_hwGeometry.spin2** and **isp\_hub75_hwBuffers.spin2**.
+Once you have the driver downloaded and the source files added to your project you will first need to configure the driver by creating a block of constants which describe the configuration of your panel(s) in the files: **demo\_hub75_hwGeometry.spin2** and **isp\_hub75_hwBuffers.spin2**.
 
 Conversion from v1.x to v2.x is a small bit of work but you'll be done in minutes. For help, refer to [Update to v2.0 Checklist](Checklist-v1-v2.md).
 
 ### Driver Constants used for configuration
 
-Definition of the constants specified in the file **isp\_hub75_hwGeometry.spin2**:
+A quick overview of files to adjust to your hardware:
+
+| Filename | use | what's needing adjustment |
+| --- | --- | --- |
+| demo\_hub75_hwGeometry.spin2 | Inform demo files of your hardware | adjust adapter location, chip type, and address lines
+| isp\_hub75_hwPanelConfig.spin2 | Inform driver of your panel geometry | There is a live section for each of three adapters. For any adapters you will use, adjust panel size, panel arrangement, color depth, and rotation
+| isp\_hub75_hwBufferAccess.spin2 | Allocate small tables describing the panel geometries attached to your adapters | 3 entries need to be uncommented for each of the 2nd adapter and 3rd adapters
+| isp\_hub75_hwBuffers.spin2 | Allocate large buffers matching your panel geometries attached to your adapters | 3 entries need to be uncommented for each of the 2nd adapter and 3rd adapters
+
+All the **demo** files use the constants specified in the file **demo\_hub75_hwGeometry.spin2**. Modify the contents of this file and all your demos will know what hardware is attached. Values in the file are:
 
 | Name            | Default | Description |
 |-----------------|-------------|-------------|
@@ -103,7 +127,7 @@ Definition of the constants specified in the file **isp\_hub75_hwGeometry.spin2*
 | `PANEL_DRIVER_CHIP` | CHIP_UNKNOWN | in most cases UNKNOWN will work. Some specialized panels need a specific driver chip (e.g., those using the FM6126A, ICN2037, or the MBI5124\_8S) |
 | `PANEL_ADDR_LINES` | {none} | The number of Address lines driving your panels (ADDR\_ABC, ADDR\_ABCD, or ADDR\_ABCDE) |
 
-The next file **isp\_hub75_hwBuffers.spin2** is where you customize in-memory table entries, one for each hub75 card you wish to activate. Two entries are activated by default. You will have to adjust the constants for each of the entries you wish to use. If you only use one hub75 card (but two of the entries are activated by default) you don't have to adjust the 2nd entry. It will just be ignored at runtime.
+The next file **isp\_hub75_hwBuffers.spin2** is where you customize in-memory table entries, one for each hub75 card you wish to activate. One entry is activated by default. You will have to adjust the constants for each of the entries you wish to use. If you only use one hub75 card (but two of the entries are activated by default) you don't have to adjust the 2nd entry. It will just be ignored at runtime.
 
 Definition of the constants specified in the file **isp\_hub75_hwBuffers.spin2**:
 
@@ -117,7 +141,7 @@ Definition of the constants specified in the file **isp\_hub75_hwBuffers.spin2**
 
 *The easiest way to create your own configuration would be to find an example configuration in this file, copy it and modify it to describe your hardware set up. Making sure, of course that the others are commented out.*
 
-**NOTE:** as you get into multi-panel display organizations please pay careful attention to `MAX_PANELS_PER_ROW` and `MAX_PANELS_PER_COLUMN`.
+**NOTE:** as you get into Multi-panel display organizations please pay careful attention to `MAX_PANELS_PER_ROW` and `MAX_PANELS_PER_COLUMN`.
 
 Once these values are set correctly, according to your own hardware set up, then you should be able to compile your code and run.  
 
@@ -128,7 +152,7 @@ More detail can be found in [Driver Introduction & Configuration](THEOPS.md)
 
 Now let's look at examples as would be specified in these two files. Here's an example of both files content for a **single panel**:
 
-(Within the file **isp\_hub75_hwGeometry.spin2**)
+(Within the file **demo\_hub75_hwGeometry.spin2**)
 
 ```python
     ADAPTER_BASE_PIN = PINS_P32_P47
@@ -165,7 +189,7 @@ Now let's look at examples as would be specified in these two files. Here's an e
 
 Here's an example for **twin 64x64 panels**:
 
-(In the file **isp\_hub75_hwGeometry.spin2**)
+(In the file **demo\_hub75_hwGeometry.spin2**)
 
 ```python
     ADAPTER_BASE_PIN = PINS_P32_P47
@@ -202,7 +226,7 @@ Here's an example for **twin 64x64 panels**:
 
 Here's an example for **P2 P2 Cube: 6 - 64x64 panels**:
 
-(In the file **isp\_hub75_hwGeometry.spin2**)
+(In the file **demo\_hub75_hwGeometry.spin2**)
 
 ```python
     ADAPTER_BASE_PIN = PINS_P32_P47
@@ -309,7 +333,7 @@ But let's be more specific:
 | - | w/P2 Eval HyperRAM  |  Will we need, can we benefit from, using HyperRAM / External RAM? |
 | - | w/uSD Storage  | What is our performace displaying images / video directly from the P2 uSD card? |
 | - | w/Receiving image data from RPi  | Is the RPi SPI interface sufficient to keep our panels streaming video? |
-| Reusable Driver | - | Ensure driver can be configured for (1) single panel size, (2) organization of multi-panel chains, and (3) the various panel chip-sets which require different clocking styles (within practical limits: *all panels must use the same chip-set*) |
+| Reusable Driver | - | Ensure driver can be configured for (1) single panel size, (2) organization of Multi-panel chains, and (3) the various panel chip-sets which require different clocking styles (within practical limits: *all panels must use the same chip-set*) |
 | long-term | - | Can we drive multiple panel chains - we have 64 GPIO pins on the P2... we should easily be able to connect 3 HUB75 adapters. Can we drive them all at video frame rates?  What is our limitation here? |
 
 **NOTE:** Initial turn-on of the pasm2 driver code (1st draft reasonably performant code, not the fastest possible) shows that I'm getting a 1000fps rate with 3 bit color.  This will be derated by PWM especially as we get a much better PWM in place more usefully handling brightness control.

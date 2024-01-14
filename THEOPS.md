@@ -34,10 +34,10 @@ Here are the reference programs you can study when learning to display to your p
 | demo\_hub75_multiPanel.spin2 | Presents techniques for drawing to the various surfaces of our P2 P2 Cube |
  demo\_hub75_5x7font.spin2 | Present pages (every 10 sec) showing the latest 5x7 full character-set font |
 | demo\_hub75_scroll.spin2 | Shows off the 4 supported text-scrolling directions (albeit slowly ;-)
-| demo\_hub75_colorPad.spin2 | **TEST** Simple single-screen demo so you can check if Red Green Blue LEDs are set correctly. (*color patch will match color name underneath if settings for color-swap are correct*) |
+| demo\_hub75_colorPad.spin2 | **TEST** Simple single-screen demo so you can check if Red Green Blue LEDs are configured correctly. (*color patch will match color name underneath if settings for color-swap are correct*) |
 
 
-**NOTE:** these demo's are built for a 64x32 panel. You may need to modify them if your panel is a differnt geometry.
+**NOTE:** these demo's are built for 64x32 panels and 64x64 panels. You may need to modify them if your panel is a different geometry.
 
 ### Driver files
 
@@ -46,8 +46,10 @@ The driver itself is composed of the following files (with a few extras thrown i
 | group / Driver File           |  Purpose |
 |-----------------|-------------|
 | **- User Configuration -** | |
-| isp\_hub75_hwGeometry.spin2 | USER MODIFIED configuration compile-time file |
-| isp\_hub75_hwBuffers.spin2 | USER MODIFIED configuration run-time tables file |
+| demo\_hub75_hwGeometry.spin2 | USER MODIFIED configuration: compile-time constants used by demos |
+| isp\_hub75_hwPanelsConfig.spin2 | USER MODIFIED configuration: compile-time constants, describe the panels attached to each hub75 adapter |
+| isp\_hub75_hwBufferAccess.spin2 | USER MODIFIED configuration: compile-time allocation of small tables, allocates small tables for each chain (one enabled by default, remaining two commented out) |
+| isp\_hub75_hwBuffers.spin2 | USER MODIFIED configuration: compile-time allocation of small tables, allocates large buffers for each chain (one enabled by default, remaining two commented out) |
 | **- Core Driver -** | |
 | isp\_hub75_color.spin2 |  Core - Color constants |
 | isp\_hub75_colorUtils.spin2 |  Core - Color translation routines, etc. |
@@ -80,7 +82,7 @@ To this driver the panels look like the following:
 
 In the above image you see panels describe in terms of rows and columns, and you also see the overall display described in rows and columns but comprised of multiple panels in some arrangement.  The configuration settings following are intended to describe the geometry of your display to the driver.  The organization you describe in these settings causes the underlying driver to allocate buffer space tailored to your display and conditions the hub75 signalling to work correctly for your display. Additionally, if your panels use certain chips the signalling will be changed to conform to what those chips need to work.
 
-Once you haave the driver source files added to your project you will first need to configure the driver by modifying the following values in the file **isp\_hub75_hwGeometry.spin2**:
+Once you haave the driver source files added to your project you will first need to configure the driver by modifying the following values in the file **demo\_hub75_hwGeometry.spin2**:
 
 | Name            | Default | Description |
 |-----------------|-------------|-------------|
@@ -97,6 +99,7 @@ And by modifying the following values in the file **isp\_hub75_hwBuffers.spin2**
 | `MAX_DISPLAY_COLUMNS` | {none} | The number of LEDs in each ROW of your multi-panel display |
 | `MAX_DISPLAY_ROWS` | {none} | The number of LEDs in each COLUMN of your multi-panel display |
 | `COLOR_DEPTH` | {none} | The color depth you wish to display on your panels (compile-time selectable from 3-bit to 8-bit) |
+| `Roataion` | {none} | The color depth you wish to display on your panels (compile-time selectable from 3-bit to 8-bit) |
 
 **NOTE:** there will be a copy of the above constants for each HUB75 adapter card you wish to activate!
 
