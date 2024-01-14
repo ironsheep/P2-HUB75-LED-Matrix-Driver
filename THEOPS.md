@@ -147,7 +147,9 @@ Driver v3.x:
 | 64x32 | 32 | 65,536 |
 | 64x64 | 16 | 66,536 | our cube uses 6 of these!
 | 128x64 | 8 | 66,536 |
-| 128x128 | 8 | 66,536 |
+| 128x128 | 4 | 66,536 |
+
+Generally you can make a single display out of many panels from ranging from 256x256 pixels to 2048x32 pixels or 32x2048 pixels (how high is your ceiling?). With panels ranging from p1.5 to p10 (1.5mm to 10mm led center-to-center) these displays could be quite large and of course will draw many amps of 5V. ;-)
 
 **NOTE**: The driver supports using 1-3 HUB75 adapters. This means you can have up to three chains of panels attached to one P2. The table above specifies how many total pixels (total panels of given goemetry) can be supported. When configuring multiple HUB75 adapters this total is now spread across all adapters.  In other words, the pixel count of all panels attached to a single P2 must not exceed the limits shown in the table.
 
