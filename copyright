@@ -11,9 +11,11 @@ Copyright:
 
     The overall p2-LED-Matrix-Driver project is
 
-        Copyright © 2020 Iron Sheep Productions, LLC
+        Copyright © 2024 Iron Sheep Productions, LLC
 
-LICENSE
+License:
+
+    Copyright (c) 2024 Iron Sheep Productions, LLC
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to deal
@@ -33,10 +35,6 @@ LICENSE
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-This project is:
-
-    Copyright © 2020 Iron Sheep Productions, LLC <info@ironsheep.biz>
-
-and is licensed under the MIT License.
+This project is licensed under the MIT License.
 
 For a complete copy of the license, see `[LICENSE](LICENSE)'.

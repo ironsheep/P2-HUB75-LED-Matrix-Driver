@@ -85,28 +85,36 @@ What's working today with the current driver:
 ## Chips Supported
 This driver works with the following chips. Other chips may well work since the adaptation to a chip is selecting various driver settings control signalling to the chip.  Here are the chips we have tested and proven working in Single- or Multi-panel configurations:
 
-| Chip | Status | Manufacturer | Notes
-| --- | --- | --- | --- |
-| FM6124 | working `Single-panel` | Shenzhen Funman Electronics Group Co., Ltd. 
-| FM6126A | working `Multi-panel` | Shenzhen Funman Electronics Group Co., Ltd. | Requires Panel init sequence to get Multi-panel working!
-| GS6238S | working `Single-panel` | ?? | ??
-| ICN2037 | working `Multi-panel` | Chipone Technology (Beijing) Co., Ltd. | Our P2 P2 cube panels 
-| ICN2037BP | working `Multi-panel` |Chipone Technology (Beijing) Co., Ltd. |
-| ICN2038S | working `Multi-panel` | Chipone Technology (Beijing) Co., Ltd. |
-| MBI5124GP | working `Single-panel` | Macroblock, Inc. (Taiwan) | Requires Panel init sequence to get Multi-panel working! ( no docs so haven't figured this one out yet, **please contact me if** you've found code for an init sequence! )
+| Chip | Address | Max Clk | Status | Manufacturer | Notes
+| --- | --- | --- | --- | --- | --- |
+| DP5125D | ABC | ?? | working `Multi-panel` | Shenzhen Developer Microelectronics Co., Ltd |
+| FM6124 | ABCD | 30 MHz | working `Single-panel` | Shenzhen Funman Electronics Group Co., Ltd. 
+| FM6126A | ABCD | 30 MHz | working `Multi-panel` | Shenzhen Funman Electronics Group Co., Ltd. | Requires Panel init sequence to get Multi-panel working!
+| GS6238S | ABCD | ?? | working `Single-panel` | ?? | ??
+| ICN2037 | ABCDE | 30 MHz | working `Multi-panel` | Chipone Technology (Beijing) Co., Ltd. | Our P2 P2 cube panels 
+| ICN2037BP | ABCDE | 30 MHz | working `Multi-panel` |Chipone Technology (Beijing) Co., Ltd. |
+| ICN2038S | ABCDE | 30 MHz | working `Multi-panel` | Chipone Technology (Beijing) Co., Ltd. |
+| MBI5124GP | ABC | 25 MHz | working `Single-panel` | Macroblock, Inc. (Taiwan) | Requires Panel init sequence to get Multi-panel working! Finally have datasheet, there is hope!
 
 ## Pending Development
 
 Upcoming work on the driver:
 
-- Finishing work on initialization of panel chips that require it. It's working for single panels but not multiple panels in the chain. *There's a lot of information that is just not readily found on this panels making continuing this "kind of hit-or-miss".*
+- Finishing work on initialization of panel chips that require it (MBI5124GP). It's working for single panels but not multiple panels in the chain. *There's a lot of information that is just not readily found on this panels making continuing this "kind of hit-or-miss".*
 - Finishing implementation of 2-dimentional panel-set support. Today the driver can handle a single row of multiple panels, but handling N-rows of N-columns of panels needs to be implemented/tested.
 
 ## Driver Setup and Configuration
 
-Once you have the driver downloaded and the source files added to your project you will first need to configure the driver by creating a block of constants which describe the configuration of your panel(s) in the files: **demo\_hub75_hwGeometry.spin2** and **isp\_hub75_hwBuffers.spin2**.
+Once you have the driver downloaded and the source files added to your project you will first need to configure the driver by adjusting the constants which describe the configuration of your panel(s) in the files: **isp\_hub75_hwPanelConfig.spin2** and enabling a 2nd and even a 3rd hub75 adapter in  **isp\_hub75_hwBufferAccess.spin2** and **isp\_hub75_hwBuffers.spin2** if you are using more than one hub75 adapter (3 are supported on a single P2).  The first hub75 adapter is already enabled in these files.
+
+
+### Updating from v1.x?
 
 Conversion from v1.x to v2.x is a small bit of work but you'll be done in minutes. For help, refer to [Update to v2.0 Checklist](Checklist-v1-v2.md).
+
+### Updating from v2.x?
+
+Conversion from v2.x to v3.x is a small bit of work but you'll be done in minutes. For help, refer to [Update to v3.0 Checklist](Checklist-v2-v3.md).
 
 ### Driver Constants used for configuration
 
@@ -114,148 +122,145 @@ A quick overview of files to adjust to your hardware:
 
 | Filename | use | what's needing adjustment |
 | --- | --- | --- |
-| demo\_hub75_hwGeometry.spin2 | Inform demo files of your hardware | adjust adapter location, chip type, and address lines
-| isp\_hub75_hwPanelConfig.spin2 | Inform driver of your panel geometry | There is a live section for each of three adapters. For any adapters you will use, adjust panel size, panel arrangement, color depth, and rotation
+| isp\_hub75_hwPanelConfig.spin2 | Inform driver of panel geometry, type and connection for each hub75 adapter | There is a live section for each of three adapters. For any adapters you will use, adjust adapter location, chip type, address lines, panel size, panel arrangement, color depth, and rotation
 | isp\_hub75_hwBufferAccess.spin2 | Allocate small tables describing the panel geometries attached to your adapters | 3 entries need to be uncommented for each of the 2nd adapter and 3rd adapters
 | isp\_hub75_hwBuffers.spin2 | Allocate large buffers matching your panel geometries attached to your adapters | 3 entries need to be uncommented for each of the 2nd adapter and 3rd adapters
 
-All the **demo** files use the constants specified in the file **demo\_hub75_hwGeometry.spin2**. Modify the contents of this file and all your demos will know what hardware is attached. Values in the file are:
+
+Definition of the constants specified in the file **isp\_hub75_hwPanelConfig.spin2**:
 
 | Name            | Default | Description |
 |-----------------|-------------|-------------|
-| `ADAPTER_BASE_PIN` | {none}  |  Identify which pin-group your HUB75 board is connected |
-| `PANEL_DRIVER_CHIP` | CHIP_UNKNOWN | in most cases UNKNOWN will work. Some specialized panels need a specific driver chip (e.g., those using the FM6126A, ICN2037, or the MBI5124\_8S) |
-| `PANEL_ADDR_LINES` | {none} | The number of Address lines driving your panels (ADDR\_ABC, ADDR\_ABCD, or ADDR\_ABCDE) |
+| `DISPx_ADAPTER_BASE_PIN` | {none}  |  Identify which pin-group your HUB75 board is connected |
+| `DISPx_PANEL_DRIVER_CHIP` | CHIP_UNKNOWN | in most cases UNKNOWN will work. Some specialized panels need a specific driver chip (e.g., those using the FM6126A, ICN2037, MBI5124\_8S, etc.) |
+| `DISPx_PANEL_ADDR_LINES` | {none} | The number of Address lines driving your panels (ADDR\_ABC, ADDR\_ABCD, or ADDR\_ABCDE) |
+| `DISPx_MAX_PANEL_COLUMNS` | {none} | The number of LEDs in each row of your panel ( # pixels-wide) |
+| `DISPx_MAX_PANEL_ROWS` | {none} | The number of LEDs in each column of your panel ( # pixels-high) |
+| `DISPx_MAX_PANELS_PER_ROW` | {none} | The number of panels in each ROW of your display |
+| `DISPx_MAX_PANELS_PER_COLUMN` | {none} | The number of panels in each COLUMN of your display |
+| `DISPx_COLOR_DEPTH` | {none} | The color depth you wish to display on your panels (compile-time selectable from 3-bit to 8-bit) |
+| `DISPx_ROTATION` | {none} | You can rotate the display by setting this value. ROT\_NONE and ROT\_180 works on all panels, while ROT\_LEFT\_90 and ROT\_RIGHT\_90 work best on square displays |
 
-The next file **isp\_hub75_hwBuffers.spin2** is where you customize in-memory table entries, one for each hub75 card you wish to activate. One entry is activated by default. You will have to adjust the constants for each of the entries you wish to use. If you only use one hub75 card (but two of the entries are activated by default) you don't have to adjust the 2nd entry. It will just be ignored at runtime.
+**NOTE**: the DISPx_ is a place holder for DISP0\_\*, DISP1\_\* and DISP2\_\* constants indicating the 1st, 2nd, and 3rd HUB75 cards.
 
-Definition of the constants specified in the file **isp\_hub75_hwBuffers.spin2**:
+**NOTE**: All the **demo** files use the DISP0_* constants in the above file, meaning they all use the 1st HUB75 adapter.
 
-| Name            | Default | Description |
-|-----------------|-------------|-------------|
-| `MAX_PANEL_COLUMNS` | {none} | The number of LEDs in each row of your panel ( # pixels-wide) |
-| `MAX_PANEL_ROWS` | {none} | The number of LEDs in each column of your panel ( # pixels-high) |
-| `MAX_PANELS_PER_ROW` | {none} | The number of panels in each ROW of your display |
-| `MAX_PANELS_PER_COLUMN` | {none} | The number of panels in each COLUMN of your display |
-| `COLOR_DEPTH` | {none} | The color depth you wish to display on your panels (compile-time selectable from 3-bit to 8-bit) |
+**NOTE:** as you get into Multi-panel display organizations please pay careful attention to `DISPx_MAX_PANELS_PER_ROW` and `DISPx_MAX_PANELS_PER_COLUMN`.
 
-*The easiest way to create your own configuration would be to find an example configuration in this file, copy it and modify it to describe your hardware set up. Making sure, of course that the others are commented out.*
+The file **isp\_hub75_hwBufferAccess.spin2** is where you customize in-memory table entries, one for each hub75 card you wish to activate. One entry is activated by default. You have to uncomment the code for the 2nd and 3rd HUB75 adapters if you wish to use them.
 
-**NOTE:** as you get into Multi-panel display organizations please pay careful attention to `MAX_PANELS_PER_ROW` and `MAX_PANELS_PER_COLUMN`.
+The file **isp\_hub75_hwBuffers.spin2** is where you customize in-memory large buffers, one for each hub75 card you wish to activate. One entry is activated by default.  You have to uncomment the code for the 2nd and 3rd HUB75 adapters if you wish to use them.
+
 
 Once these values are set correctly, according to your own hardware set up, then you should be able to compile your code and run.  
+
 
 More detail can be found in [Driver Introduction & Configuration](THEOPS.md)
 
 
 ### Example Driver Configurations
 
-Now let's look at examples as would be specified in these two files. Here's an example of both files content for a **single panel**:
+Now let's look at examples as would be specified in the panel configuration file. Here's an example of file content for a **single panel**:
 
-(Within the file **demo\_hub75_hwGeometry.spin2**)
-
-```python
-    ADAPTER_BASE_PIN = PINS_P32_P47
-   ' (1) determine what form of signalling the driver should use
-    PANEL_DRIVER_CHIP = CHIP_MBI5124_8S
-    PANEL_ADDR_LINES = ADDR_ABC
-```
-
-(Within the file **isp\_hub75_hwBuffers.spin2**)
+(Within the file **isp\_hub75_hwPanelConfig.spin2**)
 
 ```python
     ' /-------------------------------------------
     ' |  User configure
 
-    ' (1) describe the panel electrical layout
-    DISP0_MAX_PANEL_COLUMNS = 64
-    DISP0_MAX_PANEL_ROWS = 64
+    ' (1) describe the panel connections, addressing and chips
+    DISP0_ADAPTER_BASE_PIN = hwEnum.PINS_P16_P31
+    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6126A
+    DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
 
-    ' (2) describe the organization of panel(s)
-    ' panels organization: visual layout
+    ' (2) describe the single panel physical size
+    DISP0_MAX_PANEL_COLUMNS = 64
+    DISP0_MAX_PANEL_ROWS = 32
+
+    ' the organization of the panels: visual layout
     '   [1]      1 row of 1 panel
     '
     DISP0_MAX_PANELS_PER_ROW = 1
     DISP0_MAX_PANELS_PER_COLUMN = 1
 
     ' (3) describe the color depth you want to support [3-8] bits per LED
-    '    NOTE full 24bit color is DEPTH_8BIT
-    DISP0_COLOR_DEPTH = hwEnum.DEPTH_6BIT
+    '    NOTE full 24bit color is hwEnum.DEPTH_8BIT
+    '    NOTE: 3-5 bit depth is 2 bytes per pixel, while 6-8 bit depth is 3 bytes per pixel
+    DISP0_COLOR_DEPTH = hwEnum.DEPTH_5BIT
+
+    ' (4) Apply desired rotation to entire display
+    DISP0_ROTATION = hwEnum.ROT_NONE
 
     ' |  End User configure
     ' \-------------------------------------------
-
 ```
 
-Here's an example for **twin 64x64 panels**:
+Here's an example for **twin 64x32 panels**:
 
-(In the file **demo\_hub75_hwGeometry.spin2**)
-
-```python
-    ADAPTER_BASE_PIN = PINS_P32_P47
-   ' (1) determine what form of signalling the driver should use
-    PANEL_DRIVER_CHIP = CHIP_ICN2037
-    PANEL_ADDR_LINES = ADDR_ABCDE
-```
-
-(Within the file **isp\_hub75_hwBuffers.spin2**)
+(Within the file **isp\_hub75_hwPanelConfig.spin2**)
 
 ```python
     ' /-------------------------------------------
     ' |  User configure
 
-    ' (1) describe the panel electrical layout
-    DISP0_MAX_PANEL_COLUMNS = 64
-    DISP0_MAX_PANEL_ROWS = 64
+    ' (1) describe the panel connections, addressing and chips
+    DISP2_ADAPTER_BASE_PIN = hwEnum.PINS_P16_P31
+    DISP2_PANEL_DRIVER_CHIP = hwEnum.FM6126A
+    DISP2_PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
 
-    ' (2) describe the organization of panel(s)
-    ' panels organization: visual layout
-    '   [1][2]      1 row of 2 panels
+    ' (2) describe the single panel physical size
+    DISP2_MAX_PANEL_COLUMNS = 64
+    DISP2_MAX_PANEL_ROWS = 32
+
+    ' the organization of the panels: visual layout
+    '   [1]       2 rows of 1 panel, ea. (a 64x64 display)
+    '   [1]      
     '
-    DISP0_MAX_PANELS_PER_ROW = 2
-    DISP0_MAX_PANELS_PER_COLUMN = 1
+    DISP2_MAX_PANELS_PER_ROW = 1
+    DISP2_MAX_PANELS_PER_COLUMN = 2
 
     ' (3) describe the color depth you want to support [3-8] bits per LED
-    '    NOTE full 24bit color is DEPTH_8BIT
-    DISP0_COLOR_DEPTH = hwEnum.DEPTH_6BIT
+    '    NOTE full 24bit color is hwEnum.DEPTH_8BIT
+    '    NOTE: 3-5 bit depth is 2 bytes per pixel, while 6-8 bit depth is 3 bytes per pixel
+    DISP2_COLOR_DEPTH = hwEnum.DEPTH_6BIT
+
+    ' (4) Apply desired rotation to entire display
+    DISP2_ROTATION = hwEnum.ROT_180
 
     ' |  End User configure
     ' \-------------------------------------------
-
 ```
 
 Here's an example for **P2 P2 Cube: 6 - 64x64 panels**:
 
-(In the file **demo\_hub75_hwGeometry.spin2**)
-
-```python
-    ADAPTER_BASE_PIN = PINS_P32_P47
-   ' (1) determine what form of signalling the driver should use
-    PANEL_DRIVER_CHIP = CHIP_ICN2037
-    PANEL_ADDR_LINES = ADDR_ABCDE
-```
-
-
-(Within the file **isp\_hub75_hwBuffers.spin2**)
+(Within the file **isp\_hub75_hwPanelConfig.spin2**)
 
 ```python
     ' /-------------------------------------------
     ' |  User configure
 
-    ' (1) describe the panel electrical layout
+    ' (1) describe the panel connections, addressing and chips
+    DISP0_ADAPTER_BASE_PIN = hwEnum.PINS_P16_P31
+    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
+    DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
+
+    ' (2) describe the single panel physical size
     DISP0_MAX_PANEL_COLUMNS = 64
     DISP0_MAX_PANEL_ROWS = 64
 
-    ' (2) describe the organization of panel(s)
-    ' panels organization: visual layout
-    '   [1][6]      1 row of 6 panels
+    ' the organization of the panels: visual layout
+    '   [6]      1 row of 6 panels (yes, but we wrapped them into a cube with 6 sides)
     '
     DISP0_MAX_PANELS_PER_ROW = 6
     DISP0_MAX_PANELS_PER_COLUMN = 1
 
     ' (3) describe the color depth you want to support [3-8] bits per LED
-    '    NOTE full 24bit color is DEPTH_8BIT
-    DISP0_COLOR_DEPTH = hwEnum.DEPTH_6BIT
+    '    NOTE full 24bit color is hwEnum.DEPTH_8BIT
+    '    NOTE: 3-5 bit depth is 2 bytes per pixel, while 6-8 bit depth is 3 bytes per pixel
+    DISP0_COLOR_DEPTH = hwEnum.DEPTH_5BIT
+
+    ' (4) Apply desired rotation to entire display
+    DISP0_ROTATION = hwEnum.ROT_NONE
 
     ' |  End User configure
     ' \-------------------------------------------
@@ -284,7 +289,7 @@ There are a couple of demos which you can review then copy and paste from.  Thes
 
 Once you have a sense for what these demo's do and how they do it, writing your own display code should be fairly easy and initially may even be a copy-n-paste effort from the demo source to your own display code.
 
-**NOTE2** If you are looking for an example of starting up more than one HUB75 cards please refer to the "Starting up two HUB75 cards" example found in the [Update to v2.0 Checklist](Checklist-v1-v2.md#use-new-form-of-start-up-code).
+**NOTE2** If you are looking for an example of starting up more than one HUB75 cards please refer to the "Starting up two HUB75 cards" example found in the [Update to v3.0 Checklist](Checklist-v2-v3.md).
 
 
 Please enjoy and let me know if there are features you want to see in this driver!
