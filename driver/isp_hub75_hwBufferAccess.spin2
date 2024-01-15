@@ -342,7 +342,7 @@ PUB getDriverFlags(nChainIdx) : desiredFlags, eChipType
         desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.LAT_POSN_OVERLAP | hwEnum.LAT_STYLE_OFFSET | hwEnum.GB_SWAP
     elseif eChipType == hwEnum.CHIP_DP5125D
         desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.LAT_POSN_OVERLAP | hwEnum.LAT_STYLE_OFFSET | hwEnum.SCAN_4
-    elseif eChipType == hwEnum.CHIP_MBI5124_8S
+    elseif eChipType == hwEnum.CHIP_MBI5124GP
         desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.CHIP_UNK_LAT_END_ENCL | hwEnum.SCAN_4 | hwEnum.INIT_PANEL_REQUIRED
     elseif eChipType == hwEnum.CHIP_FM6124 or eChipType == hwEnum.CHIP_UNK_LAT_END_ENCL
         if eChipType == hwEnum.CHIP_FM6124

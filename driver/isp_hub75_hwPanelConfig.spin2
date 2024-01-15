@@ -17,7 +17,20 @@ OBJ
 
 CON { User Panel Connection and Configuration }
 
+' Reference: addr width for known chips:
+'
+'       DP5125D                 ABC
+'       MBI5124GP               ABC
+'
+'       FM6124                  ABCD
+'       FM6126A                 ABCD
+'       GS6238S                 ABCD
+'
+'       ICN2037                 ABCDE
+'       ICN2038S                ABCDE
+
 ''  User customized section describing the memory allocated to our matrix panel displays
+
 ' -------------------------------------------------------------------
 ' panel set on 1st HUB75 adapter board - DISP0_* constants
 ' -------------------------------------------------------------------
@@ -27,12 +40,12 @@ CON { User Panel Connection and Configuration }
 
     ' (1) describe the panel connections, addressing and chips
     DISP0_ADAPTER_BASE_PIN = hwEnum.PINS_P16_P31
-    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6126A
-    DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
+    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
+    DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 
     ' (2) describe the single panel physical size
     DISP0_MAX_PANEL_COLUMNS = 64
-    DISP0_MAX_PANEL_ROWS = 32
+    DISP0_MAX_PANEL_ROWS = 64
 
     ' the organization of the panels: visual layout
     '   [1]      1 row of 1 panel
@@ -43,7 +56,7 @@ CON { User Panel Connection and Configuration }
     ' (3) describe the color depth you want to support [3-8] bits per LED
     '    NOTE full 24bit color is hwEnum.DEPTH_8BIT
     '    NOTE: 3-5 bit depth is 2 bytes per pixel, while 6-8 bit depth is 3 bytes per pixel
-    DISP0_COLOR_DEPTH = hwEnum.DEPTH_7BIT
+    DISP0_COLOR_DEPTH = hwEnum.DEPTH_6BIT
 
     ' (4) Apply desired rotation to entire display
     DISP0_ROTATION = hwEnum.ROT_NONE
@@ -322,7 +335,7 @@ CON { More Hardware Setup Notes }
     ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
 
    ' (1) determine what form of signalling the driver should use
-    PANEL_DRIVER_CHIP = hwEnum.CHIP_MBI5124_8S
+    PANEL_DRIVER_CHIP = hwEnum.CHIP_MBI5124GP
     PANEL_ADDR_LINES = hwEnum.ADDR_ABC
 
 ' -------------------------------------------------------------------------------------------------
@@ -343,7 +356,7 @@ CON { More Hardware Setup Notes }
     ADAPTER_BASE_PIN = hwEnum.PINs_P32_P47
 
    ' (1) determine what form of signalling the driver should use
-    PANEL_DRIVER_CHIP = hwEnum.CHIP_MBI5124_8S ' hwEnum.CHIP_UNKNOWN
+    PANEL_DRIVER_CHIP = hwEnum.CHIP_MBI5124GP
     PANEL_ADDR_LINES = hwEnum.ADDR_ABC
 
 ' -------------------------------------------------------------------------------------------------
@@ -364,7 +377,7 @@ CON { More Hardware Setup Notes }
     ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
 
    ' (1) determine what form of signalling the driver should use
-    PANEL_DRIVER_CHIP = hwEnum.CHIP_GS6238S ' hwEnum.CHIP_UNKNOWN
+    PANEL_DRIVER_CHIP = hwEnum.CHIP_GS6238S
     PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
 
 ' -------------------------------------------------------------------------------------------------

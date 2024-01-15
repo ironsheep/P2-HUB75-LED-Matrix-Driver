@@ -231,8 +231,8 @@ PUB start(nID, nChainIdx) : ok | tmpVar, panelCt, tmpConstant, widthInPanels, he
     debug("RG3:  CONFIG ", ubin_word(dvrConfig))
     if eChipType == hwEnum.CHIP_FM6126A
         debug("  -- FM6126A")
-    elseif eChipType == hwEnum.CHIP_MBI5124_8S
-        debug("  -- MBI5124-8S")
+    elseif eChipType == hwEnum.CHIP_MBI5124GP
+        debug("  -- MBI5124GP")
     elseif eChipType == hwEnum.CHIP_GS6238S
         debug("  -- GS6238S")
     elseif eChipType == hwEnum.CHIP_DP5125D
@@ -276,7 +276,7 @@ PUB start(nID, nChainIdx) : ok | tmpVar, panelCt, tmpConstant, widthInPanels, he
     '   before attempting to use the panel
     if bInitPanel
         setupPins()
-        if eChipType == hwEnum.CHIP_MBI5124_8S
+        if eChipType == hwEnum.CHIP_MBI5124GP
             resetPanelMBI5124()
         elseif eChipType == hwEnum.CHIP_FM6126A
             resetPanelFM6126()

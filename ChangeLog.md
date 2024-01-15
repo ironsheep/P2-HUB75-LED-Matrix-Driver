@@ -22,6 +22,7 @@ Work to appear in upcoming releases:
 - Add support for panels using **DP5125D** chips
 - Add Chips' 5x7 dithered fonts
 - ICN2037_B was renamed to **ICN2038S** 
+- MBI5124_8S was renamed to **MBI5124GP**
 - Rearranged user configurable files in order to improve compilation under Pnut/Propeller Tool - This allows us to support many more total pixels (now 64k) in a display.
 
 ### Known Issues v2.1.0
