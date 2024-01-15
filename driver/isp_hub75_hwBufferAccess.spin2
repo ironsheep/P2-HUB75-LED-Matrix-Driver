@@ -3,11 +3,11 @@
 ''   File....... isp_hub75_hwBufferAccess.spin2
 ''   Purpose.... Describe layout of the users attached RGB LED Matrix Panel-set
 ''   Authors.... Stephen M Moraco
-''               -- Copyright (c) 2022 Iron Sheep Productions, LLC
+''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Nov 2022
-''   Updated.... 10 Nov 2022
+''   Updated.... 15 Jan 2024
 ''
 '' =================================================================================================
 '
@@ -404,7 +404,7 @@ CON { license }
  -------------------------------------------------------------------------------------------------
   MIT License
 
-  Copyright (c) 2022 Iron Sheep Productions, LLC
+  Copyright (c) 2024 Iron Sheep Productions, LLC
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal

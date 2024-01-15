@@ -3,25 +3,47 @@
 ''   File....... isp_hub75_fonts.spin2
 ''   Purpose.... Provide lookup for one or more fonts - also includes the fonts themselves
 ''   Authors.... Stephen M Moraco
-''               -- Copyright (c) 2020 Iron Sheep Productions, LLC
+''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 17 Oct 2020
+''   Updated.... 15 Jan 2024
 ''
 '' =================================================================================================
 
 CON { Object Interface: PUBLIC ENUMs }
 
 ' supported fonts:
-#0, TEXT_FONT_DEFAULT, TEXT_FONT_5x7, TEXT_FONT_8x8A, TEXT_FONT_8x8B
+#0, TEXT_FONT_DEFAULT, TEXT_FONT_5x7, TEXT_FONT_8x8A, TEXT_FONT_8x8B, TEXT_FONT_5x7_DITH, TEXT_FONT_5x7_DITH_DCNDR
 
     FONT_8x8A_BYTES_PER_CHAR = 8
     FONT_8x8B_BYTES_PER_CHAR = 8
     FONT_5x7_BYTES_PER_CHAR = 7
+    ' following are words per char, hence * 2
+    '  in these two-bits define each pixel
+    FONT_5x7_DITH_BYTES_PER_CHAR = 7 * 2
+    FONT_5x7_DITH_DCNDR_BP_CHAR = 9 * 2
 
 PUB null()
     '' This is not a top level object
+
+PUB getGeometryOfFont(selectdFont) : nWidth, nHeight
+    case selectdFont
+        TEXT_FONT_DEFAULT..TEXT_FONT_5x7:
+            nWidth := 5
+            nHeight := 7
+        TEXT_FONT_8x8A:
+            nWidth := 7
+            nHeight := 7
+        TEXT_FONT_8x8B:
+            nWidth := 8
+            nHeight := 8
+        TEXT_FONT_5x7_DITH:
+            nWidth := 5
+            nHeight := 7
+        TEXT_FONT_5x7_DITH_DCNDR:
+            nWidth := 5
+            nHeight := 9
 
 PUB getCharAddrForFont(selectdFont, cChar) : pCharBitmap
     '' Return address of char from specified font
@@ -32,6 +54,38 @@ PUB getCharAddrForFont(selectdFont, cChar) : pCharBitmap
             pCharBitmap := getAddrFor8x8aChar(cChar)
         TEXT_FONT_8x8B:
             pCharBitmap := getAddrFor8x8bChar(cChar)
+        TEXT_FONT_5x7_DITH:       ' font4
+            pCharBitmap := getAddrFor5x7DithChar(cChar)
+        TEXT_FONT_5x7_DITH_DCNDR: ' font5
+            pCharBitmap := getAddrFor5x7DithDcndrChar(cChar)
+        other:
+            pCharBitmap := getAddrFor5x7Char(cChar)
+
+PUB isDitheredFont(selectdFont) : bDitheredStatus
+'' Return T/F where T means {} is a two-bits per pixel font
+    case selectdFont
+        TEXT_FONT_5x7_DITH:       ' font4
+            bDitheredStatus := TRUE
+        TEXT_FONT_5x7_DITH_DCNDR: ' font5
+            bDitheredStatus := TRUE
+        other:
+            bDitheredStatus := FALSE
+
+PUB getAddrFor5x7DithChar(asciiByte) : p5x7DithCharBitmap
+    '' Return the address of an 8x8 (a) character bitmap
+    p5x7DithCharBitmap := 0
+    if(asciiByte >= $20 && asciiByte <= $7f)
+        ' NOTE: add + 1 to skip top blank row of char
+        p5x7DithCharBitmap := @byte[@font5x7dith][((asciiByte - $20) * FONT_5x7_DITH_BYTES_PER_CHAR)]
+    'if asciiByte == $20
+    '    debug("FONT: ar=", uhex_long_(@font5x7dith), uhex_byte_(asciiByte), " at @", uhex_long_(p5x7DithCharBitmap))
+
+PUB getAddrFor5x7DithDcndrChar(asciiByte) : p8x8CharBitmap
+    '' Return the address of an 8x8 (a) character bitmap
+    p8x8CharBitmap := 0
+    if(asciiByte >= $20 && asciiByte <= $7f)
+        ' NOTE: add + 1 to skip top blank row of char
+        p8x8CharBitmap := @byte[@font5x7dithDcndr][((asciiByte - $20) * FONT_5x7_DITH_DCNDR_BP_CHAR)]
 
 PUB getAddrFor8x8aChar(asciiByte) : p8x8CharBitmap
     '' Return the address of an 8x8 (a) character bitmap
@@ -4023,6 +4077,1942 @@ font8x8b
 
 '+=============================================================================+
 
+font5x7dith
+' Font4: W=(6), H=(8) 5x7 Dithered Font
+'   filename=font4.bin, alpha1=85, alpha2=0,   font_width=6, font_height=8         ' 5x7
+'
+' char bitmap is 7 words (8th would be blank) of 12 ms-bits of ea word (2 bits per pixel)
+'
+' Character $20
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %00000000_00000000     ' row #3
+    WORD    %00000000_00000000     ' row #4
+    WORD    %00000000_00000000     ' row #5
+    WORD    %00000000_00000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+
+' Character $21
+    WORD    %00001100_00000000     ' row #1
+    WORD    %00001100_00000000     ' row #2
+    WORD    %00001100_00000000     ' row #3
+    WORD    %00001100_00000000     ' row #4
+    WORD    %00001100_00000000     ' row #5
+    WORD    %00000000_00000000     ' row #6
+    WORD    %00011101_00000000     ' row #7
+
+' Character $22
+    WORD    %00110011_00000000     ' row #1
+    WORD    %00110011_00000000     ' row #2
+    WORD    %00110011_00000000     ' row #3
+    WORD    %00000000_00000000     ' row #4
+    WORD    %00000000_00000000     ' row #5
+    WORD    %00000000_00000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+
+' Character $23
+    WORD    %00110011_00000000     ' row #1
+    WORD    %11111111_11000000     ' row #2
+    WORD    %00110011_00000000     ' row #3
+    WORD    %00110011_00000000     ' row #4
+    WORD    %11111111_11000000     ' row #5
+    WORD    %00110011_00000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+
+' Character $24
+    WORD    %00001100_00000000     ' row #1
+    WORD    %01111111_11000000     ' row #2
+    WORD    %11010000_00000000     ' row #3
+    WORD    %01111111_01000000     ' row #4
+    WORD    %00000001_11000000     ' row #5
+    WORD    %11111111_01000000     ' row #6
+    WORD    %00001100_00000000     ' row #7
+
+' Character $25
+    WORD    %11110000_00000000     ' row #1
+    WORD    %11110001_11000000     ' row #2
+    WORD    %00000111_01000000     ' row #3
+    WORD    %00011101_00000000     ' row #4
+    WORD    %01110100_00000000     ' row #5
+    WORD    %11010011_11000000     ' row #6
+    WORD    %00000011_11000000     ' row #7
+
+' Character $26
+    WORD    %01110100_00000000     ' row #1
+    WORD    %11001100_00000000     ' row #2
+    WORD    %11001100_00000000     ' row #3
+    WORD    %01111101_11000000     ' row #4
+    WORD    %11000011_00000000     ' row #5
+    WORD    %11000011_00000000     ' row #6
+    WORD    %01111101_11000000     ' row #7
+
+' Character $27
+    WORD    %00001100_00000000     ' row #1
+    WORD    %00001100_00000000     ' row #2
+    WORD    %00001100_00000000     ' row #3
+    WORD    %00000000_00000000     ' row #4
+    WORD    %00000000_00000000     ' row #5
+    WORD    %00000000_00000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+
+' Character $28
+    WORD    %00000111_00000000     ' row #1
+    WORD    %00011101_00000000     ' row #2
+    WORD    %00111100_00000000     ' row #3
+    WORD    %00111100_00000000     ' row #4
+    WORD    %00111100_00000000     ' row #5
+    WORD    %00011101_00000000     ' row #6
+    WORD    %00000111_00000000     ' row #7
+
+' Character $29
+    WORD    %00110100_00000000     ' row #1
+    WORD    %00011101_00000000     ' row #2
+    WORD    %00001111_00000000     ' row #3
+    WORD    %00001111_00000000     ' row #4
+    WORD    %00001111_00000000     ' row #5
+    WORD    %00011101_00000000     ' row #6
+    WORD    %00110100_00000000     ' row #7
+
+' Character $2A
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00001100_00000000     ' row #2
+    WORD    %11011101_11000000     ' row #3
+    WORD    %00111111_00000000     ' row #4
+    WORD    %11011101_11000000     ' row #5
+    WORD    %00001100_00000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+
+' Character $2B
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00001100_00000000     ' row #2
+    WORD    %00001100_00000000     ' row #3
+    WORD    %11111111_11000000     ' row #4
+    WORD    %00001100_00000000     ' row #5
+    WORD    %00001100_00000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+
+' Character $2C
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %00000000_00000000     ' row #3
+    WORD    %00000000_00000000     ' row #4
+    WORD    %00111100_00000000     ' row #5
+    WORD    %01111100_00000000     ' row #6
+    WORD    %11110100_00000000     ' row #7
+
+' Character $2D
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %00000000_00000000     ' row #3
+    WORD    %11111111_11000000     ' row #4
+    WORD    %00000000_00000000     ' row #5
+    WORD    %00000000_00000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+
+' Character $2E
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %00000000_00000000     ' row #3
+    WORD    %00000000_00000000     ' row #4
+    WORD    %00000000_00000000     ' row #5
+    WORD    %00111100_00000000     ' row #6
+    WORD    %00111100_00000000     ' row #7
+
+' Character $2F
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000001_11000000     ' row #2
+    WORD    %00000111_01000000     ' row #3
+    WORD    %00011101_00000000     ' row #4
+    WORD    %01110100_00000000     ' row #5
+    WORD    %11010000_00000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+
+' Character $30
+    WORD    %01111111_01000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %11000111_11000000     ' row #3
+    WORD    %11011101_11000000     ' row #4
+    WORD    %11110100_11000000     ' row #5
+    WORD    %11010001_11000000     ' row #6
+    WORD    %01111111_01000000     ' row #7
+
+' Character $31
+    WORD    %00011100_00000000     ' row #1
+    WORD    %01111100_00000000     ' row #2
+    WORD    %11011100_00000000     ' row #3
+    WORD    %00001100_00000000     ' row #4
+    WORD    %00001100_00000000     ' row #5
+    WORD    %00001100_00000000     ' row #6
+    WORD    %11111111_11000000     ' row #7
+
+' Character $32
+    WORD    %01111111_01000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %00000001_11000000     ' row #3
+    WORD    %00011111_01000000     ' row #4
+    WORD    %01110100_00000000     ' row #5
+    WORD    %11010000_00000000     ' row #6
+    WORD    %11111111_11000000     ' row #7
+
+' Character $33
+    WORD    %11111111_11000000     ' row #1
+    WORD    %00000001_11000000     ' row #2
+    WORD    %00000011_01000000     ' row #3
+    WORD    %00001111_01000000     ' row #4
+    WORD    %00000001_11000000     ' row #5
+    WORD    %11010001_11000000     ' row #6
+    WORD    %01111111_01000000     ' row #7
+
+' Character $34
+    WORD    %00000111_00000000     ' row #1
+    WORD    %00011111_00000000     ' row #2
+    WORD    %01110011_00000000     ' row #3
+    WORD    %11000011_00000000     ' row #4
+    WORD    %11111111_11000000     ' row #5
+    WORD    %00000011_00000000     ' row #6
+    WORD    %00000011_00000000     ' row #7
+
+' Character $35
+    WORD    %11111111_11000000     ' row #1
+    WORD    %11000000_00000000     ' row #2
+    WORD    %11000000_00000000     ' row #3
+    WORD    %11111111_01000000     ' row #4
+    WORD    %00000001_11000000     ' row #5
+    WORD    %11010001_11000000     ' row #6
+    WORD    %01111111_01000000     ' row #7
+
+' Character $36
+    WORD    %00011111_01000000     ' row #1
+    WORD    %01110100_00000000     ' row #2
+    WORD    %11010000_00000000     ' row #3
+    WORD    %11111111_01000000     ' row #4
+    WORD    %11000001_11000000     ' row #5
+    WORD    %11010001_11000000     ' row #6
+    WORD    %01111111_01000000     ' row #7
+
+' Character $37
+    WORD    %11111111_11000000     ' row #1
+    WORD    %11000000_11000000     ' row #2
+    WORD    %00000001_11000000     ' row #3
+    WORD    %00000011_01000000     ' row #4
+    WORD    %00000111_00000000     ' row #5
+    WORD    %00001101_00000000     ' row #6
+    WORD    %00001100_00000000     ' row #7
+
+' Character $38
+    WORD    %01111111_01000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %11010001_11000000     ' row #3
+    WORD    %01111111_01000000     ' row #4
+    WORD    %11010001_11000000     ' row #5
+    WORD    %11010001_11000000     ' row #6
+    WORD    %01111111_01000000     ' row #7
+
+' Character $39
+    WORD    %01111111_01000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %11010000_11000000     ' row #3
+    WORD    %01111111_11000000     ' row #4
+    WORD    %00000001_11000000     ' row #5
+    WORD    %00000111_01000000     ' row #6
+    WORD    %01111101_00000000     ' row #7
+
+' Character $3A
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00111100_00000000     ' row #2
+    WORD    %00111100_00000000     ' row #3
+    WORD    %00000000_00000000     ' row #4
+    WORD    %00000000_00000000     ' row #5
+    WORD    %00111100_00000000     ' row #6
+    WORD    %00111100_00000000     ' row #7
+
+' Character $3B
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00111100_00000000     ' row #2
+    WORD    %00111100_00000000     ' row #3
+    WORD    %00000000_00000000     ' row #4
+    WORD    %00111100_00000000     ' row #5
+    WORD    %01111100_00000000     ' row #6
+    WORD    %11110100_00000000     ' row #7
+
+' Character $3C
+    WORD    %00000001_11000000     ' row #1
+    WORD    %00000111_01000000     ' row #2
+    WORD    %00011101_00000000     ' row #3
+    WORD    %01110100_00000000     ' row #4
+    WORD    %00011101_00000000     ' row #5
+    WORD    %00000111_01000000     ' row #6
+    WORD    %00000001_11000000     ' row #7
+
+' Character $3D
+    WORD    %00000000_00000000     ' row #1
+    WORD    %11111111_11000000     ' row #2
+    WORD    %00000000_00000000     ' row #3
+    WORD    %00000000_00000000     ' row #4
+    WORD    %11111111_11000000     ' row #5
+    WORD    %00000000_00000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+
+' Character $3E
+    WORD    %11010000_00000000     ' row #1
+    WORD    %01110100_00000000     ' row #2
+    WORD    %00011101_00000000     ' row #3
+    WORD    %00000111_01000000     ' row #4
+    WORD    %00011101_00000000     ' row #5
+    WORD    %01110100_00000000     ' row #6
+    WORD    %11010000_00000000     ' row #7
+
+' Character $3F
+    WORD    %01111111_01000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %00000001_11000000     ' row #3
+    WORD    %00000111_01000000     ' row #4
+    WORD    %00001101_00000000     ' row #5
+    WORD    %00000000_00000000     ' row #6
+    WORD    %00011101_00000000     ' row #7
+
+' Character $40
+    WORD    %01111111_01000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %11000111_11000000     ' row #3
+    WORD    %11001100_11000000     ' row #4
+    WORD    %11000111_11000000     ' row #5
+    WORD    %11010000_00000000     ' row #6
+    WORD    %01111111_00000000     ' row #7
+
+' Character $41
+    WORD    %01111111_01000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %11000000_11000000     ' row #3
+    WORD    %11111111_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11000000_11000000     ' row #6
+    WORD    %11000000_11000000     ' row #7
+
+' Character $42
+    WORD    %11111111_01000000     ' row #1
+    WORD    %11000001_11000000     ' row #2
+    WORD    %11000001_11000000     ' row #3
+    WORD    %11111111_01000000     ' row #4
+    WORD    %11000001_11000000     ' row #5
+    WORD    %11000001_11000000     ' row #6
+    WORD    %11111111_01000000     ' row #7
+
+' Character $43
+    WORD    %01111111_01000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %11000000_00000000     ' row #3
+    WORD    %11000000_00000000     ' row #4
+    WORD    %11000000_00000000     ' row #5
+    WORD    %11010001_11000000     ' row #6
+    WORD    %01111111_01000000     ' row #7
+
+' Character $44
+    WORD    %11111111_01000000     ' row #1
+    WORD    %11000001_11000000     ' row #2
+    WORD    %11000000_11000000     ' row #3
+    WORD    %11000000_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11000001_11000000     ' row #6
+    WORD    %11111111_01000000     ' row #7
+
+' Character $45
+    WORD    %11111111_11000000     ' row #1
+    WORD    %11000000_00000000     ' row #2
+    WORD    %11000000_00000000     ' row #3
+    WORD    %11111111_00000000     ' row #4
+    WORD    %11000000_00000000     ' row #5
+    WORD    %11000000_00000000     ' row #6
+    WORD    %11111111_11000000     ' row #7
+
+' Character $46
+    WORD    %11111111_11000000     ' row #1
+    WORD    %11000000_00000000     ' row #2
+    WORD    %11000000_00000000     ' row #3
+    WORD    %11111111_00000000     ' row #4
+    WORD    %11000000_00000000     ' row #5
+    WORD    %11000000_00000000     ' row #6
+    WORD    %11000000_00000000     ' row #7
+
+' Character $47
+    WORD    %01111111_01000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %11000000_00000000     ' row #3
+    WORD    %11001111_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11010001_11000000     ' row #6
+    WORD    %01111111_01000000     ' row #7
+
+' Character $48
+    WORD    %11000000_11000000     ' row #1
+    WORD    %11000000_11000000     ' row #2
+    WORD    %11000000_11000000     ' row #3
+    WORD    %11111111_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11000000_11000000     ' row #6
+    WORD    %11000000_11000000     ' row #7
+
+' Character $49
+    WORD    %11111111_11000000     ' row #1
+    WORD    %00001100_00000000     ' row #2
+    WORD    %00001100_00000000     ' row #3
+    WORD    %00001100_00000000     ' row #4
+    WORD    %00001100_00000000     ' row #5
+    WORD    %00001100_00000000     ' row #6
+    WORD    %11111111_11000000     ' row #7
+
+' Character $4A
+    WORD    %00000000_11000000     ' row #1
+    WORD    %00000000_11000000     ' row #2
+    WORD    %00000000_11000000     ' row #3
+    WORD    %00000000_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11010001_11000000     ' row #6
+    WORD    %01111111_01000000     ' row #7
+
+' Character $4B
+    WORD    %11000001_11000000     ' row #1
+    WORD    %11000111_01000000     ' row #2
+    WORD    %11011101_00000000     ' row #3
+    WORD    %11110100_00000000     ' row #4
+    WORD    %11011101_00000000     ' row #5
+    WORD    %11000111_01000000     ' row #6
+    WORD    %11000001_11000000     ' row #7
+
+' Character $4C
+    WORD    %11000000_00000000     ' row #1
+    WORD    %11000000_00000000     ' row #2
+    WORD    %11000000_00000000     ' row #3
+    WORD    %11000000_00000000     ' row #4
+    WORD    %11000000_00000000     ' row #5
+    WORD    %11000000_00000000     ' row #6
+    WORD    %11111111_11000000     ' row #7
+
+' Character $4D
+    WORD    %11010001_11000000     ' row #1
+    WORD    %11110111_11000000     ' row #2
+    WORD    %11011101_11000000     ' row #3
+    WORD    %11001100_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11000000_11000000     ' row #6
+    WORD    %11000000_11000000     ' row #7
+
+' Character $4E
+    WORD    %11000000_11000000     ' row #1
+    WORD    %11010000_11000000     ' row #2
+    WORD    %11110100_11000000     ' row #3
+    WORD    %11011101_11000000     ' row #4
+    WORD    %11000111_11000000     ' row #5
+    WORD    %11000001_11000000     ' row #6
+    WORD    %11000000_11000000     ' row #7
+
+' Character $4F
+    WORD    %01111111_01000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %11000000_11000000     ' row #3
+    WORD    %11000000_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11010001_11000000     ' row #6
+    WORD    %01111111_01000000     ' row #7
+
+' Character $50
+    WORD    %11111111_01000000     ' row #1
+    WORD    %11000001_11000000     ' row #2
+    WORD    %11000001_11000000     ' row #3
+    WORD    %11111111_01000000     ' row #4
+    WORD    %11000000_00000000     ' row #5
+    WORD    %11000000_00000000     ' row #6
+    WORD    %11000000_00000000     ' row #7
+
+' Character $51
+    WORD    %01111111_01000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %11000000_11000000     ' row #3
+    WORD    %11000000_11000000     ' row #4
+    WORD    %11001101_11000000     ' row #5
+    WORD    %11010111_01000000     ' row #6
+    WORD    %01111101_11000000     ' row #7
+
+' Character $52
+    WORD    %11111111_01000000     ' row #1
+    WORD    %11000001_11000000     ' row #2
+    WORD    %11000001_11000000     ' row #3
+    WORD    %11111111_01000000     ' row #4
+    WORD    %11001101_00000000     ' row #5
+    WORD    %11000111_01000000     ' row #6
+    WORD    %11000001_11000000     ' row #7
+
+' Character $53
+    WORD    %01111111_01000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %11010000_00000000     ' row #3
+    WORD    %01111111_01000000     ' row #4
+    WORD    %00000001_11000000     ' row #5
+    WORD    %11010001_11000000     ' row #6
+    WORD    %01111111_01000000     ' row #7
+
+' Character $54
+    WORD    %11111111_11000000     ' row #1
+    WORD    %00001100_00000000     ' row #2
+    WORD    %00001100_00000000     ' row #3
+    WORD    %00001100_00000000     ' row #4
+    WORD    %00001100_00000000     ' row #5
+    WORD    %00001100_00000000     ' row #6
+    WORD    %00001100_00000000     ' row #7
+
+' Character $55
+    WORD    %11000000_11000000     ' row #1
+    WORD    %11000000_11000000     ' row #2
+    WORD    %11000000_11000000     ' row #3
+    WORD    %11000000_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11010001_11000000     ' row #6
+    WORD    %01111111_01000000     ' row #7
+
+' Character $56
+    WORD    %11000000_11000000     ' row #1
+    WORD    %11000000_11000000     ' row #2
+    WORD    %11010001_11000000     ' row #3
+    WORD    %01110011_01000000     ' row #4
+    WORD    %00110111_00000000     ' row #5
+    WORD    %00011101_00000000     ' row #6
+    WORD    %00001100_00000000     ' row #7
+
+' Character $57
+    WORD    %11000000_11000000     ' row #1
+    WORD    %11000000_11000000     ' row #2
+    WORD    %11000000_11000000     ' row #3
+    WORD    %11001100_11000000     ' row #4
+    WORD    %11011101_11000000     ' row #5
+    WORD    %11110111_11000000     ' row #6
+    WORD    %11010001_11000000     ' row #7
+
+' Character $58
+    WORD    %11000000_11000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %01110111_01000000     ' row #3
+    WORD    %00011101_00000000     ' row #4
+    WORD    %01110111_01000000     ' row #5
+    WORD    %11010001_11000000     ' row #6
+    WORD    %11000000_11000000     ' row #7
+
+' Character $59
+    WORD    %11000000_11000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %01110111_01000000     ' row #3
+    WORD    %00011101_00000000     ' row #4
+    WORD    %00001100_00000000     ' row #5
+    WORD    %00001100_00000000     ' row #6
+    WORD    %00001100_00000000     ' row #7
+
+' Character $5A
+    WORD    %11111111_11000000     ' row #1
+    WORD    %00000001_11000000     ' row #2
+    WORD    %00000111_01000000     ' row #3
+    WORD    %00011101_00000000     ' row #4
+    WORD    %01110100_00000000     ' row #5
+    WORD    %11010000_00000000     ' row #6
+    WORD    %11111111_11000000     ' row #7
+
+' Character $5B
+    WORD    %00111111_11000000     ' row #1
+    WORD    %00111100_00000000     ' row #2
+    WORD    %00111100_00000000     ' row #3
+    WORD    %00111100_00000000     ' row #4
+    WORD    %00111100_00000000     ' row #5
+    WORD    %00111100_00000000     ' row #6
+    WORD    %00111111_11000000     ' row #7
+
+' Character $5C
+    WORD    %00000000_00000000     ' row #1
+    WORD    %11010000_00000000     ' row #2
+    WORD    %01110100_00000000     ' row #3
+    WORD    %00011101_00000000     ' row #4
+    WORD    %00000111_01000000     ' row #5
+    WORD    %00000001_11000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+
+' Character $5D
+    WORD    %11111111_00000000     ' row #1
+    WORD    %00001111_00000000     ' row #2
+    WORD    %00001111_00000000     ' row #3
+    WORD    %00001111_00000000     ' row #4
+    WORD    %00001111_00000000     ' row #5
+    WORD    %00001111_00000000     ' row #6
+    WORD    %11111111_00000000     ' row #7
+
+' Character $5E
+    WORD    %00011101_00000000     ' row #1
+    WORD    %01110111_01000000     ' row #2
+    WORD    %11010001_11000000     ' row #3
+    WORD    %00000000_00000000     ' row #4
+    WORD    %00000000_00000000     ' row #5
+    WORD    %00000000_00000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+
+' Character $5F
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %00000000_00000000     ' row #3
+    WORD    %00000000_00000000     ' row #4
+    WORD    %00000000_00000000     ' row #5
+    WORD    %00000000_00000000     ' row #6
+    WORD    %11111111_11000000     ' row #7
+
+' Character $60
+    WORD    %00110100_00000000     ' row #1
+    WORD    %00011101_00000000     ' row #2
+    WORD    %00000111_00000000     ' row #3
+    WORD    %00000000_00000000     ' row #4
+    WORD    %00000000_00000000     ' row #5
+    WORD    %00000000_00000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+
+' Character $61
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %01111111_01000000     ' row #3
+    WORD    %00000001_11000000     ' row #4
+    WORD    %01111111_11000000     ' row #5
+    WORD    %11010000_11000000     ' row #6
+    WORD    %01111111_11000000     ' row #7
+
+' Character $62
+    WORD    %11000000_00000000     ' row #1
+    WORD    %11000000_00000000     ' row #2
+    WORD    %11011111_01000000     ' row #3
+    WORD    %11110101_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11000001_11000000     ' row #6
+    WORD    %11111111_01000000     ' row #7
+
+' Character $63
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %01111111_01000000     ' row #3
+    WORD    %11010001_11000000     ' row #4
+    WORD    %11000000_00000000     ' row #5
+    WORD    %11010000_00000000     ' row #6
+    WORD    %01111111_11000000     ' row #7
+
+' Character $64
+    WORD    %00000000_11000000     ' row #1
+    WORD    %00000000_11000000     ' row #2
+    WORD    %01111101_11000000     ' row #3
+    WORD    %11010111_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11010000_11000000     ' row #6
+    WORD    %01111111_11000000     ' row #7
+
+' Character $65
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %01111111_01000000     ' row #3
+    WORD    %11010001_11000000     ' row #4
+    WORD    %11111111_01000000     ' row #5
+    WORD    %11010000_00000000     ' row #6
+    WORD    %01111111_11000000     ' row #7
+
+' Character $66
+    WORD    %00011111_01000000     ' row #1
+    WORD    %00110101_11000000     ' row #2
+    WORD    %00110000_00000000     ' row #3
+    WORD    %11111111_00000000     ' row #4
+    WORD    %00110000_00000000     ' row #5
+    WORD    %00110000_00000000     ' row #6
+    WORD    %00110000_00000000     ' row #7
+
+' Character $67
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %01111111_11000000     ' row #3
+    WORD    %11010000_11000000     ' row #4
+    WORD    %01111111_11000000     ' row #5
+    WORD    %00000001_11000000     ' row #6
+    WORD    %11111111_01000000     ' row #7
+
+' Character $68
+    WORD    %11000000_00000000     ' row #1
+    WORD    %11000000_00000000     ' row #2
+    WORD    %11011111_01000000     ' row #3
+    WORD    %11110101_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11000000_11000000     ' row #6
+    WORD    %11000000_11000000     ' row #7
+
+' Character $69
+    WORD    %00111100_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %00111100_00000000     ' row #3
+    WORD    %00001100_00000000     ' row #4
+    WORD    %00001100_00000000     ' row #5
+    WORD    %00001100_00000000     ' row #6
+    WORD    %11111111_11000000     ' row #7
+
+' Character $6A
+    WORD    %00001111_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %00001111_00000000     ' row #3
+    WORD    %00000011_00000000     ' row #4
+    WORD    %00000011_00000000     ' row #5
+    WORD    %00000111_00000000     ' row #6
+    WORD    %11111101_00000000     ' row #7
+
+' Character $6B
+    WORD    %11000000_00000000     ' row #1
+    WORD    %11000000_00000000     ' row #2
+    WORD    %11000001_11000000     ' row #3
+    WORD    %11000111_01000000     ' row #4
+    WORD    %11011101_00000000     ' row #5
+    WORD    %11110111_01000000     ' row #6
+    WORD    %11000001_11000000     ' row #7
+
+' Character $6C
+    WORD    %00111100_00000000     ' row #1
+    WORD    %00001100_00000000     ' row #2
+    WORD    %00001100_00000000     ' row #3
+    WORD    %00001100_00000000     ' row #4
+    WORD    %00001100_00000000     ' row #5
+    WORD    %00001100_00000000     ' row #6
+    WORD    %11111111_11000000     ' row #7
+
+' Character $6D
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %11110111_01000000     ' row #3
+    WORD    %11011101_11000000     ' row #4
+    WORD    %11001100_11000000     ' row #5
+    WORD    %11001100_11000000     ' row #6
+    WORD    %11001100_11000000     ' row #7
+
+' Character $6E
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %11011111_01000000     ' row #3
+    WORD    %11110101_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11000000_11000000     ' row #6
+    WORD    %11000000_11000000     ' row #7
+
+' Character $6F
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %01111111_01000000     ' row #3
+    WORD    %11010001_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11010001_11000000     ' row #6
+    WORD    %01111111_01000000     ' row #7
+
+' Character $70
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %11111111_01000000     ' row #3
+    WORD    %11000001_11000000     ' row #4
+    WORD    %11110101_11000000     ' row #5
+    WORD    %11001111_01000000     ' row #6
+    WORD    %11000000_00000000     ' row #7
+
+' Character $71
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %01111111_11000000     ' row #3
+    WORD    %11010000_11000000     ' row #4
+    WORD    %11010111_11000000     ' row #5
+    WORD    %01111100_11000000     ' row #6
+    WORD    %00000000_11000000     ' row #7
+
+' Character $72
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %11011111_01000000     ' row #3
+    WORD    %11110101_11000000     ' row #4
+    WORD    %11000000_00000000     ' row #5
+    WORD    %11000000_00000000     ' row #6
+    WORD    %11000000_00000000     ' row #7
+
+' Character $73
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %01111111_11000000     ' row #3
+    WORD    %11010000_00000000     ' row #4
+    WORD    %01111111_01000000     ' row #5
+    WORD    %00000001_11000000     ' row #6
+    WORD    %11111111_01000000     ' row #7
+
+' Character $74
+    WORD    %00110000_00000000     ' row #1
+    WORD    %00110000_00000000     ' row #2
+    WORD    %11111111_11000000     ' row #3
+    WORD    %00110000_00000000     ' row #4
+    WORD    %00110000_00000000     ' row #5
+    WORD    %00110100_00000000     ' row #6
+    WORD    %00011111_11000000     ' row #7
+
+' Character $75
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %11000000_11000000     ' row #3
+    WORD    %11000000_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11010111_11000000     ' row #6
+    WORD    %01111101_11000000     ' row #7
+
+' Character $76
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %11000000_11000000     ' row #3
+    WORD    %11000000_11000000     ' row #4
+    WORD    %11010001_11000000     ' row #5
+    WORD    %01110111_01000000     ' row #6
+    WORD    %00011101_00000000     ' row #7
+
+' Character $77
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %11000000_11000000     ' row #3
+    WORD    %11000000_11000000     ' row #4
+    WORD    %11001100_11000000     ' row #5
+    WORD    %11011101_11000000     ' row #6
+    WORD    %01110111_01000000     ' row #7
+
+' Character $78
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %11010001_11000000     ' row #3
+    WORD    %01110111_01000000     ' row #4
+    WORD    %00011101_00000000     ' row #5
+    WORD    %01110111_01000000     ' row #6
+    WORD    %11010001_11000000     ' row #7
+
+' Character $79
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %11000000_11000000     ' row #3
+    WORD    %11010000_11000000     ' row #4
+    WORD    %01111111_11000000     ' row #5
+    WORD    %00000001_11000000     ' row #6
+    WORD    %11111111_01000000     ' row #7
+
+' Character $7A
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %11111111_11000000     ' row #3
+    WORD    %00000111_01000000     ' row #4
+    WORD    %00011101_00000000     ' row #5
+    WORD    %01110100_00000000     ' row #6
+    WORD    %11111111_11000000     ' row #7
+
+' Character $7B
+    WORD    %00000111_11000000     ' row #1
+    WORD    %00001111_01000000     ' row #2
+    WORD    %00001111_00000000     ' row #3
+    WORD    %00111100_00000000     ' row #4
+    WORD    %00001111_00000000     ' row #5
+    WORD    %00001111_01000000     ' row #6
+    WORD    %00000111_11000000     ' row #7
+
+' Character $7C
+    WORD    %00001100_00000000     ' row #1
+    WORD    %00001100_00000000     ' row #2
+    WORD    %00001100_00000000     ' row #3
+    WORD    %00001100_00000000     ' row #4
+    WORD    %00001100_00000000     ' row #5
+    WORD    %00001100_00000000     ' row #6
+    WORD    %00001100_00000000     ' row #7
+
+' Character $7D
+    WORD    %11110100_00000000     ' row #1
+    WORD    %01111100_00000000     ' row #2
+    WORD    %00111100_00000000     ' row #3
+    WORD    %00001111_00000000     ' row #4
+    WORD    %00111100_00000000     ' row #5
+    WORD    %01111100_00000000     ' row #6
+    WORD    %11110100_00000000     ' row #7
+
+' Character $7E
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %01110100_00000000     ' row #3
+    WORD    %11011101_11000000     ' row #4
+    WORD    %00000111_01000000     ' row #5
+    WORD    %00000000_00000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+
+' Character $7F
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %00000000_00000000     ' row #3
+    WORD    %00000000_00000000     ' row #4
+    WORD    %00000000_00000000     ' row #5
+    WORD    %00000000_00000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+
+'+=============================================================================+
+
+font5x7dithDcndr
+'
+' Font5: W=(6), H=(10) 5x7 Dithered Font with Descenders
+'   filename=font5.bin, alpha1=85, alpha2=0,   font_width=6, font_height=10        ' 5x7 descenders
+'
+' char bitmap is 9 words (10th would be blank) of 12 ms-bits of ea word (2 bits per pixel)
+'
+' Character $20
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %00000000_00000000     ' row #3
+    WORD    %00000000_00000000     ' row #4
+    WORD    %00000000_00000000     ' row #5
+    WORD    %00000000_00000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $21
+    WORD    %00001100_00000000     ' row #1
+    WORD    %00001100_00000000     ' row #2
+    WORD    %00001100_00000000     ' row #3
+    WORD    %00001100_00000000     ' row #4
+    WORD    %00001100_00000000     ' row #5
+    WORD    %00000000_00000000     ' row #6
+    WORD    %00011101_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $22
+    WORD    %00110011_00000000     ' row #1
+    WORD    %00110011_00000000     ' row #2
+    WORD    %00110011_00000000     ' row #3
+    WORD    %00000000_00000000     ' row #4
+    WORD    %00000000_00000000     ' row #5
+    WORD    %00000000_00000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $23
+    WORD    %00110011_00000000     ' row #1
+    WORD    %11111111_11000000     ' row #2
+    WORD    %00110011_00000000     ' row #3
+    WORD    %00110011_00000000     ' row #4
+    WORD    %11111111_11000000     ' row #5
+    WORD    %00110011_00000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $24
+    WORD    %00001100_00000000     ' row #1
+    WORD    %01111111_11000000     ' row #2
+    WORD    %11010000_00000000     ' row #3
+    WORD    %01111111_01000000     ' row #4
+    WORD    %00000001_11000000     ' row #5
+    WORD    %11111111_01000000     ' row #6
+    WORD    %00001100_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $25
+    WORD    %11110000_00000000     ' row #1
+    WORD    %11110001_11000000     ' row #2
+    WORD    %00000111_01000000     ' row #3
+    WORD    %00011101_00000000     ' row #4
+    WORD    %01110100_00000000     ' row #5
+    WORD    %11010011_11000000     ' row #6
+    WORD    %00000011_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $26
+    WORD    %01110100_00000000     ' row #1
+    WORD    %11001100_00000000     ' row #2
+    WORD    %11001100_00000000     ' row #3
+    WORD    %01111101_11000000     ' row #4
+    WORD    %11000011_00000000     ' row #5
+    WORD    %11000011_00000000     ' row #6
+    WORD    %01111101_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $27
+    WORD    %00001100_00000000     ' row #1
+    WORD    %00001100_00000000     ' row #2
+    WORD    %00001100_00000000     ' row #3
+    WORD    %00000000_00000000     ' row #4
+    WORD    %00000000_00000000     ' row #5
+    WORD    %00000000_00000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $28
+    WORD    %00000111_00000000     ' row #1
+    WORD    %00011101_00000000     ' row #2
+    WORD    %00111100_00000000     ' row #3
+    WORD    %00111100_00000000     ' row #4
+    WORD    %00111100_00000000     ' row #5
+    WORD    %00111100_00000000     ' row #6
+    WORD    %00011101_00000000     ' row #7
+    WORD    %00000111_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $29
+    WORD    %00110100_00000000     ' row #1
+    WORD    %00011101_00000000     ' row #2
+    WORD    %00001111_00000000     ' row #3
+    WORD    %00001111_00000000     ' row #4
+    WORD    %00001111_00000000     ' row #5
+    WORD    %00001111_00000000     ' row #6
+    WORD    %00011101_00000000     ' row #7
+    WORD    %00110100_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $2A
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00001100_00000000     ' row #2
+    WORD    %11011101_11000000     ' row #3
+    WORD    %00111111_00000000     ' row #4
+    WORD    %11011101_11000000     ' row #5
+    WORD    %00001100_00000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $2B
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00001100_00000000     ' row #2
+    WORD    %00001100_00000000     ' row #3
+    WORD    %11111111_11000000     ' row #4
+    WORD    %00001100_00000000     ' row #5
+    WORD    %00001100_00000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $2C
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %00000000_00000000     ' row #3
+    WORD    %00000000_00000000     ' row #4
+    WORD    %00000000_00000000     ' row #5
+    WORD    %00111100_00000000     ' row #6
+    WORD    %01111100_00000000     ' row #7
+    WORD    %11110100_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $2D
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %00000000_00000000     ' row #3
+    WORD    %11111111_11000000     ' row #4
+    WORD    %00000000_00000000     ' row #5
+    WORD    %00000000_00000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $2E
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %00000000_00000000     ' row #3
+    WORD    %00000000_00000000     ' row #4
+    WORD    %00000000_00000000     ' row #5
+    WORD    %00111100_00000000     ' row #6
+    WORD    %00111100_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $2F
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000001_11000000     ' row #2
+    WORD    %00000111_01000000     ' row #3
+    WORD    %00011101_00000000     ' row #4
+    WORD    %01110100_00000000     ' row #5
+    WORD    %11010000_00000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $30
+    WORD    %01111111_01000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %11000111_11000000     ' row #3
+    WORD    %11011101_11000000     ' row #4
+    WORD    %11110100_11000000     ' row #5
+    WORD    %11010001_11000000     ' row #6
+    WORD    %01111111_01000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $31
+    WORD    %00011100_00000000     ' row #1
+    WORD    %01111100_00000000     ' row #2
+    WORD    %11011100_00000000     ' row #3
+    WORD    %00001100_00000000     ' row #4
+    WORD    %00001100_00000000     ' row #5
+    WORD    %00001100_00000000     ' row #6
+    WORD    %11111111_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $32
+    WORD    %01111111_01000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %00000001_11000000     ' row #3
+    WORD    %00011111_01000000     ' row #4
+    WORD    %01110100_00000000     ' row #5
+    WORD    %11010000_00000000     ' row #6
+    WORD    %11111111_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $33
+    WORD    %11111111_11000000     ' row #1
+    WORD    %00000001_11000000     ' row #2
+    WORD    %00000011_01000000     ' row #3
+    WORD    %00001111_01000000     ' row #4
+    WORD    %00000001_11000000     ' row #5
+    WORD    %11010001_11000000     ' row #6
+    WORD    %01111111_01000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $34
+    WORD    %00000111_00000000     ' row #1
+    WORD    %00011111_00000000     ' row #2
+    WORD    %01110011_00000000     ' row #3
+    WORD    %11000011_00000000     ' row #4
+    WORD    %11111111_11000000     ' row #5
+    WORD    %00000011_00000000     ' row #6
+    WORD    %00000011_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $35
+    WORD    %11111111_11000000     ' row #1
+    WORD    %11000000_00000000     ' row #2
+    WORD    %11000000_00000000     ' row #3
+    WORD    %11111111_01000000     ' row #4
+    WORD    %00000001_11000000     ' row #5
+    WORD    %11010001_11000000     ' row #6
+    WORD    %01111111_01000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $36
+    WORD    %00011111_01000000     ' row #1
+    WORD    %01110100_00000000     ' row #2
+    WORD    %11010000_00000000     ' row #3
+    WORD    %11111111_01000000     ' row #4
+    WORD    %11000001_11000000     ' row #5
+    WORD    %11010001_11000000     ' row #6
+    WORD    %01111111_01000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $37
+    WORD    %11111111_11000000     ' row #1
+    WORD    %11000000_11000000     ' row #2
+    WORD    %00000001_11000000     ' row #3
+    WORD    %00000011_01000000     ' row #4
+    WORD    %00000111_00000000     ' row #5
+    WORD    %00001101_00000000     ' row #6
+    WORD    %00001100_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $38
+    WORD    %01111111_01000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %11010001_11000000     ' row #3
+    WORD    %01111111_01000000     ' row #4
+    WORD    %11010001_11000000     ' row #5
+    WORD    %11010001_11000000     ' row #6
+    WORD    %01111111_01000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $39
+    WORD    %01111111_01000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %11010000_11000000     ' row #3
+    WORD    %01111111_11000000     ' row #4
+    WORD    %00000001_11000000     ' row #5
+    WORD    %00000111_01000000     ' row #6
+    WORD    %01111101_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $3A
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00111100_00000000     ' row #2
+    WORD    %00111100_00000000     ' row #3
+    WORD    %00000000_00000000     ' row #4
+    WORD    %00000000_00000000     ' row #5
+    WORD    %00111100_00000000     ' row #6
+    WORD    %00111100_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $3B
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00111100_00000000     ' row #2
+    WORD    %00111100_00000000     ' row #3
+    WORD    %00000000_00000000     ' row #4
+    WORD    %00000000_00000000     ' row #5
+    WORD    %00111100_00000000     ' row #6
+    WORD    %01111100_00000000     ' row #7
+    WORD    %11110100_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $3C
+    WORD    %00000001_11000000     ' row #1
+    WORD    %00000111_01000000     ' row #2
+    WORD    %00011101_00000000     ' row #3
+    WORD    %01110100_00000000     ' row #4
+    WORD    %00011101_00000000     ' row #5
+    WORD    %00000111_01000000     ' row #6
+    WORD    %00000001_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $3D
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %11111111_11000000     ' row #3
+    WORD    %00000000_00000000     ' row #4
+    WORD    %00000000_00000000     ' row #5
+    WORD    %11111111_11000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $3E
+    WORD    %11010000_00000000     ' row #1
+    WORD    %01110100_00000000     ' row #2
+    WORD    %00011101_00000000     ' row #3
+    WORD    %00000111_01000000     ' row #4
+    WORD    %00011101_00000000     ' row #5
+    WORD    %01110100_00000000     ' row #6
+    WORD    %11010000_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $3F
+    WORD    %01111111_01000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %00000001_11000000     ' row #3
+    WORD    %00000111_01000000     ' row #4
+    WORD    %00001101_00000000     ' row #5
+    WORD    %00000000_00000000     ' row #6
+    WORD    %00011101_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $40
+    WORD    %01111111_01000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %11000111_11000000     ' row #3
+    WORD    %11001100_11000000     ' row #4
+    WORD    %11000111_11000000     ' row #5
+    WORD    %11010000_00000000     ' row #6
+    WORD    %01111111_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $41
+    WORD    %01111111_01000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %11000000_11000000     ' row #3
+    WORD    %11111111_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11000000_11000000     ' row #6
+    WORD    %11000000_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $42
+    WORD    %11111111_01000000     ' row #1
+    WORD    %11000001_11000000     ' row #2
+    WORD    %11000001_11000000     ' row #3
+    WORD    %11111111_01000000     ' row #4
+    WORD    %11000001_11000000     ' row #5
+    WORD    %11000001_11000000     ' row #6
+    WORD    %11111111_01000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $43
+    WORD    %01111111_01000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %11000000_00000000     ' row #3
+    WORD    %11000000_00000000     ' row #4
+    WORD    %11000000_00000000     ' row #5
+    WORD    %11010001_11000000     ' row #6
+    WORD    %01111111_01000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $44
+    WORD    %11111111_01000000     ' row #1
+    WORD    %11000001_11000000     ' row #2
+    WORD    %11000000_11000000     ' row #3
+    WORD    %11000000_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11000001_11000000     ' row #6
+    WORD    %11111111_01000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $45
+    WORD    %11111111_11000000     ' row #1
+    WORD    %11000000_00000000     ' row #2
+    WORD    %11000000_00000000     ' row #3
+    WORD    %11111111_00000000     ' row #4
+    WORD    %11000000_00000000     ' row #5
+    WORD    %11000000_00000000     ' row #6
+    WORD    %11111111_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $46
+    WORD    %11111111_11000000     ' row #1
+    WORD    %11000000_00000000     ' row #2
+    WORD    %11000000_00000000     ' row #3
+    WORD    %11111111_00000000     ' row #4
+    WORD    %11000000_00000000     ' row #5
+    WORD    %11000000_00000000     ' row #6
+    WORD    %11000000_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $47
+    WORD    %01111111_01000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %11000000_00000000     ' row #3
+    WORD    %11001111_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11010001_11000000     ' row #6
+    WORD    %01111111_01000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $48
+    WORD    %11000000_11000000     ' row #1
+    WORD    %11000000_11000000     ' row #2
+    WORD    %11000000_11000000     ' row #3
+    WORD    %11111111_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11000000_11000000     ' row #6
+    WORD    %11000000_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $49
+    WORD    %11111111_11000000     ' row #1
+    WORD    %00001100_00000000     ' row #2
+    WORD    %00001100_00000000     ' row #3
+    WORD    %00001100_00000000     ' row #4
+    WORD    %00001100_00000000     ' row #5
+    WORD    %00001100_00000000     ' row #6
+    WORD    %11111111_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $4A
+    WORD    %00000000_11000000     ' row #1
+    WORD    %00000000_11000000     ' row #2
+    WORD    %00000000_11000000     ' row #3
+    WORD    %00000000_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11010001_11000000     ' row #6
+    WORD    %01111111_01000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $4B
+    WORD    %11000001_11000000     ' row #1
+    WORD    %11000111_01000000     ' row #2
+    WORD    %11011101_00000000     ' row #3
+    WORD    %11110100_00000000     ' row #4
+    WORD    %11011101_00000000     ' row #5
+    WORD    %11000111_01000000     ' row #6
+    WORD    %11000001_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $4C
+    WORD    %11000000_00000000     ' row #1
+    WORD    %11000000_00000000     ' row #2
+    WORD    %11000000_00000000     ' row #3
+    WORD    %11000000_00000000     ' row #4
+    WORD    %11000000_00000000     ' row #5
+    WORD    %11000000_00000000     ' row #6
+    WORD    %11111111_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $4D
+    WORD    %11010001_11000000     ' row #1
+    WORD    %11110111_11000000     ' row #2
+    WORD    %11011101_11000000     ' row #3
+    WORD    %11001100_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11000000_11000000     ' row #6
+    WORD    %11000000_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $4E
+    WORD    %11000000_11000000     ' row #1
+    WORD    %11010000_11000000     ' row #2
+    WORD    %11110100_11000000     ' row #3
+    WORD    %11011101_11000000     ' row #4
+    WORD    %11000111_11000000     ' row #5
+    WORD    %11000001_11000000     ' row #6
+    WORD    %11000000_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $4F
+    WORD    %01111111_01000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %11000000_11000000     ' row #3
+    WORD    %11000000_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11010001_11000000     ' row #6
+    WORD    %01111111_01000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $50
+    WORD    %11111111_01000000     ' row #1
+    WORD    %11000001_11000000     ' row #2
+    WORD    %11000001_11000000     ' row #3
+    WORD    %11111111_01000000     ' row #4
+    WORD    %11000000_00000000     ' row #5
+    WORD    %11000000_00000000     ' row #6
+    WORD    %11000000_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $51
+    WORD    %01111111_01000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %11000000_11000000     ' row #3
+    WORD    %11000000_11000000     ' row #4
+    WORD    %11001101_11000000     ' row #5
+    WORD    %11010111_01000000     ' row #6
+    WORD    %01111101_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $52
+    WORD    %11111111_01000000     ' row #1
+    WORD    %11000001_11000000     ' row #2
+    WORD    %11000001_11000000     ' row #3
+    WORD    %11111111_01000000     ' row #4
+    WORD    %11001101_00000000     ' row #5
+    WORD    %11000111_01000000     ' row #6
+    WORD    %11000001_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $53
+    WORD    %01111111_01000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %11010000_00000000     ' row #3
+    WORD    %01111111_01000000     ' row #4
+    WORD    %00000001_11000000     ' row #5
+    WORD    %11010001_11000000     ' row #6
+    WORD    %01111111_01000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $54
+    WORD    %11111111_11000000     ' row #1
+    WORD    %00001100_00000000     ' row #2
+    WORD    %00001100_00000000     ' row #3
+    WORD    %00001100_00000000     ' row #4
+    WORD    %00001100_00000000     ' row #5
+    WORD    %00001100_00000000     ' row #6
+    WORD    %00001100_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $55
+    WORD    %11000000_11000000     ' row #1
+    WORD    %11000000_11000000     ' row #2
+    WORD    %11000000_11000000     ' row #3
+    WORD    %11000000_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11010001_11000000     ' row #6
+    WORD    %01111111_01000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $56
+    WORD    %11000000_11000000     ' row #1
+    WORD    %11000000_11000000     ' row #2
+    WORD    %11010001_11000000     ' row #3
+    WORD    %01110011_01000000     ' row #4
+    WORD    %00110111_00000000     ' row #5
+    WORD    %00011101_00000000     ' row #6
+    WORD    %00001100_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $57
+    WORD    %11000000_11000000     ' row #1
+    WORD    %11000000_11000000     ' row #2
+    WORD    %11000000_11000000     ' row #3
+    WORD    %11001100_11000000     ' row #4
+    WORD    %11011101_11000000     ' row #5
+    WORD    %11110111_11000000     ' row #6
+    WORD    %11010001_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $58
+    WORD    %11000000_11000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %01110111_01000000     ' row #3
+    WORD    %00011101_00000000     ' row #4
+    WORD    %01110111_01000000     ' row #5
+    WORD    %11010001_11000000     ' row #6
+    WORD    %11000000_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $59
+    WORD    %11000000_11000000     ' row #1
+    WORD    %11010001_11000000     ' row #2
+    WORD    %01110111_01000000     ' row #3
+    WORD    %00011101_00000000     ' row #4
+    WORD    %00001100_00000000     ' row #5
+    WORD    %00001100_00000000     ' row #6
+    WORD    %00001100_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $5A
+    WORD    %11111111_11000000     ' row #1
+    WORD    %00000001_11000000     ' row #2
+    WORD    %00000111_01000000     ' row #3
+    WORD    %00011101_00000000     ' row #4
+    WORD    %01110100_00000000     ' row #5
+    WORD    %11010000_00000000     ' row #6
+    WORD    %11111111_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $5B
+    WORD    %00111111_11000000     ' row #1
+    WORD    %00111100_00000000     ' row #2
+    WORD    %00111100_00000000     ' row #3
+    WORD    %00111100_00000000     ' row #4
+    WORD    %00111100_00000000     ' row #5
+    WORD    %00111100_00000000     ' row #6
+    WORD    %00111100_00000000     ' row #7
+    WORD    %00111111_11000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $5C
+    WORD    %00000000_00000000     ' row #1
+    WORD    %11010000_00000000     ' row #2
+    WORD    %01110100_00000000     ' row #3
+    WORD    %00011101_00000000     ' row #4
+    WORD    %00000111_01000000     ' row #5
+    WORD    %00000001_11000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $5D
+    WORD    %11111111_00000000     ' row #1
+    WORD    %00001111_00000000     ' row #2
+    WORD    %00001111_00000000     ' row #3
+    WORD    %00001111_00000000     ' row #4
+    WORD    %00001111_00000000     ' row #5
+    WORD    %00001111_00000000     ' row #6
+    WORD    %00001111_00000000     ' row #7
+    WORD    %11111111_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $5E
+    WORD    %00011101_00000000     ' row #1
+    WORD    %01110111_01000000     ' row #2
+    WORD    %11010001_11000000     ' row #3
+    WORD    %00000000_00000000     ' row #4
+    WORD    %00000000_00000000     ' row #5
+    WORD    %00000000_00000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $5F
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %00000000_00000000     ' row #3
+    WORD    %00000000_00000000     ' row #4
+    WORD    %00000000_00000000     ' row #5
+    WORD    %00000000_00000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+    WORD    %11111111_11000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $60
+    WORD    %00110100_00000000     ' row #1
+    WORD    %00011101_00000000     ' row #2
+    WORD    %00000111_00000000     ' row #3
+    WORD    %00000000_00000000     ' row #4
+    WORD    %00000000_00000000     ' row #5
+    WORD    %00000000_00000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $61
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %01111111_01000000     ' row #3
+    WORD    %00000001_11000000     ' row #4
+    WORD    %01111111_11000000     ' row #5
+    WORD    %11010000_11000000     ' row #6
+    WORD    %01111111_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $62
+    WORD    %11000000_00000000     ' row #1
+    WORD    %11000000_00000000     ' row #2
+    WORD    %11011111_01000000     ' row #3
+    WORD    %11110101_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11000001_11000000     ' row #6
+    WORD    %11111111_01000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $63
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %01111111_01000000     ' row #3
+    WORD    %11010001_11000000     ' row #4
+    WORD    %11000000_00000000     ' row #5
+    WORD    %11010000_00000000     ' row #6
+    WORD    %01111111_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $64
+    WORD    %00000000_11000000     ' row #1
+    WORD    %00000000_11000000     ' row #2
+    WORD    %01111101_11000000     ' row #3
+    WORD    %11010111_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11010000_11000000     ' row #6
+    WORD    %01111111_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $65
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %01111111_01000000     ' row #3
+    WORD    %11010001_11000000     ' row #4
+    WORD    %11111111_01000000     ' row #5
+    WORD    %11010000_00000000     ' row #6
+    WORD    %01111111_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $66
+    WORD    %00011111_11000000     ' row #1
+    WORD    %00110100_00000000     ' row #2
+    WORD    %11111111_00000000     ' row #3
+    WORD    %00110000_00000000     ' row #4
+    WORD    %00110000_00000000     ' row #5
+    WORD    %00110000_00000000     ' row #6
+    WORD    %00110000_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $67
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %01111111_11000000     ' row #3
+    WORD    %11010000_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11010111_11000000     ' row #6
+    WORD    %01111101_11000000     ' row #7
+    WORD    %00000001_11000000     ' row #8
+    WORD    %00111111_01000000     ' row #9
+
+' Character $68
+    WORD    %11000000_00000000     ' row #1
+    WORD    %11000000_00000000     ' row #2
+    WORD    %11011111_01000000     ' row #3
+    WORD    %11110101_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11000000_11000000     ' row #6
+    WORD    %11000000_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $69
+    WORD    %00111100_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %00111100_00000000     ' row #3
+    WORD    %00001100_00000000     ' row #4
+    WORD    %00001100_00000000     ' row #5
+    WORD    %00001100_00000000     ' row #6
+    WORD    %11111111_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $6A
+    WORD    %00001111_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %00001111_00000000     ' row #3
+    WORD    %00000011_00000000     ' row #4
+    WORD    %00000011_00000000     ' row #5
+    WORD    %00000011_00000000     ' row #6
+    WORD    %00000011_00000000     ' row #7
+    WORD    %00000111_00000000     ' row #8
+    WORD    %11111101_00000000     ' row #9
+
+' Character $6B
+    WORD    %11000000_00000000     ' row #1
+    WORD    %11000000_00000000     ' row #2
+    WORD    %11000001_11000000     ' row #3
+    WORD    %11000111_01000000     ' row #4
+    WORD    %11011101_00000000     ' row #5
+    WORD    %11110111_01000000     ' row #6
+    WORD    %11000001_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $6C
+    WORD    %00111100_00000000     ' row #1
+    WORD    %00001100_00000000     ' row #2
+    WORD    %00001100_00000000     ' row #3
+    WORD    %00001100_00000000     ' row #4
+    WORD    %00001100_00000000     ' row #5
+    WORD    %00001100_00000000     ' row #6
+    WORD    %11111111_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $6D
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %11110111_01000000     ' row #3
+    WORD    %11011101_11000000     ' row #4
+    WORD    %11001100_11000000     ' row #5
+    WORD    %11001100_11000000     ' row #6
+    WORD    %11001100_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $6E
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %11011111_01000000     ' row #3
+    WORD    %11110101_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11000000_11000000     ' row #6
+    WORD    %11000000_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $6F
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %01111111_01000000     ' row #3
+    WORD    %11010001_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11010001_11000000     ' row #6
+    WORD    %01111111_01000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $70
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %11111111_01000000     ' row #3
+    WORD    %11000001_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11110101_11000000     ' row #6
+    WORD    %11011111_01000000     ' row #7
+    WORD    %11000000_00000000     ' row #8
+    WORD    %11000000_00000000     ' row #9
+
+' Character $71
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %01111111_11000000     ' row #3
+    WORD    %11010000_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11010111_11000000     ' row #6
+    WORD    %01111101_11000000     ' row #7
+    WORD    %00000000_11000000     ' row #8
+    WORD    %00000000_11000000     ' row #9
+
+' Character $72
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %11011111_01000000     ' row #3
+    WORD    %11110101_11000000     ' row #4
+    WORD    %11000000_00000000     ' row #5
+    WORD    %11000000_00000000     ' row #6
+    WORD    %11000000_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $73
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %01111111_11000000     ' row #3
+    WORD    %11010000_00000000     ' row #4
+    WORD    %01111111_01000000     ' row #5
+    WORD    %00000001_11000000     ' row #6
+    WORD    %11111111_01000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $74
+    WORD    %00110000_00000000     ' row #1
+    WORD    %00110000_00000000     ' row #2
+    WORD    %11111111_11000000     ' row #3
+    WORD    %00110000_00000000     ' row #4
+    WORD    %00110000_00000000     ' row #5
+    WORD    %00110100_00000000     ' row #6
+    WORD    %00011111_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $75
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %11000000_11000000     ' row #3
+    WORD    %11000000_11000000     ' row #4
+    WORD    %11000000_11000000     ' row #5
+    WORD    %11010111_11000000     ' row #6
+    WORD    %01111101_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $76
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %11000000_11000000     ' row #3
+    WORD    %11000000_11000000     ' row #4
+    WORD    %11010001_11000000     ' row #5
+    WORD    %01110111_01000000     ' row #6
+    WORD    %00011101_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $77
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %11000000_11000000     ' row #3
+    WORD    %11000000_11000000     ' row #4
+    WORD    %11001100_11000000     ' row #5
+    WORD    %11011101_11000000     ' row #6
+    WORD    %01110111_01000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $78
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %11010001_11000000     ' row #3
+    WORD    %01110111_01000000     ' row #4
+    WORD    %00011101_00000000     ' row #5
+    WORD    %01110111_01000000     ' row #6
+    WORD    %11010001_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $79
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %11000000_11000000     ' row #3
+    WORD    %11010001_11000000     ' row #4
+    WORD    %01110011_01000000     ' row #5
+    WORD    %00110111_00000000     ' row #6
+    WORD    %00011101_00000000     ' row #7
+    WORD    %00011100_00000000     ' row #8
+    WORD    %11110100_00000000     ' row #9
+
+' Character $7A
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %11111111_11000000     ' row #3
+    WORD    %00000111_01000000     ' row #4
+    WORD    %00011101_00000000     ' row #5
+    WORD    %01110100_00000000     ' row #6
+    WORD    %11111111_11000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $7B
+    WORD    %00000111_11000000     ' row #1
+    WORD    %00001111_01000000     ' row #2
+    WORD    %00001111_00000000     ' row #3
+    WORD    %00111100_00000000     ' row #4
+    WORD    %00111100_00000000     ' row #5
+    WORD    %00001111_00000000     ' row #6
+    WORD    %00001111_01000000     ' row #7
+    WORD    %00000111_11000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $7C
+    WORD    %00001100_00000000     ' row #1
+    WORD    %00001100_00000000     ' row #2
+    WORD    %00001100_00000000     ' row #3
+    WORD    %00001100_00000000     ' row #4
+    WORD    %00001100_00000000     ' row #5
+    WORD    %00001100_00000000     ' row #6
+    WORD    %00001100_00000000     ' row #7
+    WORD    %00001100_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $7D
+    WORD    %11110100_00000000     ' row #1
+    WORD    %01111100_00000000     ' row #2
+    WORD    %00111100_00000000     ' row #3
+    WORD    %00001111_00000000     ' row #4
+    WORD    %00001111_00000000     ' row #5
+    WORD    %00111100_00000000     ' row #6
+    WORD    %01111100_00000000     ' row #7
+    WORD    %11110100_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $7E
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %01110100_00000000     ' row #3
+    WORD    %11011101_11000000     ' row #4
+    WORD    %00000111_01000000     ' row #5
+    WORD    %00000000_00000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+' Character $7F
+    WORD    %00000000_00000000     ' row #1
+    WORD    %00000000_00000000     ' row #2
+    WORD    %00000000_00000000     ' row #3
+    WORD    %00000000_00000000     ' row #4
+    WORD    %00000000_00000000     ' row #5
+    WORD    %00000000_00000000     ' row #6
+    WORD    %00000000_00000000     ' row #7
+    WORD    %00000000_00000000     ' row #8
+    WORD    %00000000_00000000     ' row #9
+
+'+=============================================================================+
 
 CON { license }
 
@@ -4032,7 +6022,7 @@ CON { license }
  -------------------------------------------------------------------------------------------------
   MIT License
 
-  Copyright (c) 2020 Iron Sheep Productions, LLC
+  Copyright (c) 2024 Iron Sheep Productions, LLC
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal

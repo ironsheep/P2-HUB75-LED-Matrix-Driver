@@ -3,45 +3,47 @@
 ''   File....... isp_hub75_display.spin2
 ''   Purpose.... control text placement on HUB75 RGB Matrix
 ''   Authors.... Stephen M Moraco
-''               -- Copyright (c) 2020 Iron Sheep Productions, LLC
+''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 5 Nov 2022
+''   Updated.... 15 Jan 2024
 ''
 '' =================================================================================================
 
 CON { Object Interface: PUBLIC ENUMs }
 
-NOT_FOUND = -1
+  NOT_FOUND = -1
 
-' supported Text Fonts
+  ' supported Text Fonts
 
-TEXT_FONT_DEFAULT = fonts.TEXT_FONT_DEFAULT
-TEXT_FONT_5x7 = fonts.TEXT_FONT_5x7
-TEXT_FONT_8x8A = fonts.TEXT_FONT_8x8A
-TEXT_FONT_8x8B = fonts.TEXT_FONT_8x8B
+  TEXT_FONT_DEFAULT           = fonts.TEXT_FONT_DEFAULT
+  TEXT_FONT_5x7               = fonts.TEXT_FONT_5x7
+  TEXT_FONT_5x7_DITH          = fonts.TEXT_FONT_5x7_DITH
+  TEXT_FONT_5x7_DITH_DCNDR    = fonts.TEXT_FONT_5x7_DITH_DCNDR
+  TEXT_FONT_8x8A              = fonts.TEXT_FONT_8x8A
+  TEXT_FONT_8x8B              = fonts.TEXT_FONT_8x8B
 
-' scrolling support
-'  enum: scrolling direction (these start from 10 decimal)
-DIR_UNKNOWN     = scroller.DIR_UNKNOWN
-DIR_TO_LEFT     = scroller.DIR_TO_LEFT
-DIR_TO_RIGHT    = scroller.DIR_TO_RIGHT
-DIR_DOWN        = scroller.DIR_DOWN
-DIR_UP          = scroller.DIR_UP
+  ' scrolling support
+  '  enum: scrolling direction (these start from 10 decimal)
+  DIR_UNKNOWN     = scroller.DIR_UNKNOWN
+  DIR_TO_LEFT     = scroller.DIR_TO_LEFT
+  DIR_TO_RIGHT    = scroller.DIR_TO_RIGHT
+  DIR_DOWN        = scroller.DIR_DOWN
+  DIR_UP          = scroller.DIR_UP
 
-' enum: scrolling duration
-SCROLL_UNKNOWN      = scroller.SCROLL_UNKNOWN
-SCROLL_FOREVER      = scroller.SCROLL_FOREVER
-SCROLL_ONCE         = scroller.SCROLL_ONCE
-SCROLL_ONCE_TO_CLEAR = scroller.SCROLL_ONCE_TO_CLEAR
-SCROLL_N_TIMES      = scroller.SCROLL_N_TIMES
+  ' enum: scrolling duration
+  SCROLL_UNKNOWN      = scroller.SCROLL_UNKNOWN
+  SCROLL_FOREVER      = scroller.SCROLL_FOREVER
+  SCROLL_ONCE         = scroller.SCROLL_ONCE
+  SCROLL_ONCE_TO_CLEAR = scroller.SCROLL_ONCE_TO_CLEAR
+  SCROLL_N_TIMES      = scroller.SCROLL_N_TIMES
 
-' enum: text alignment (these start from 0 decimal)
-#0, ALIGN_UNKNOWN, ALIGN_RIGHT, ALIGN_CENTER, ALIGN_LEFT
+  ' enum: text alignment (these start from 0 decimal)
+  #0, ALIGN_UNKNOWN, ALIGN_RIGHT, ALIGN_CENTER, ALIGN_LEFT
 
-' FIXME: UNDONE make this user configurable
-MAX_SCROLLING_REGIONS = 4
+  ' FIXME: UNDONE make this user configurable
+  MAX_SCROLLING_REGIONS = 4
 
 OBJ { Objects Used by this Object }
 
@@ -50,6 +52,7 @@ OBJ { Objects Used by this Object }
     panelSet    :   "isp_hub75_panel"
     fonts       :   "isp_hub75_fonts"
     hwEnum      :   "isp_hub75_hwEnums"  ' hub75 attachment, set up constants
+    colorUtils :    "isp_hub75_colorUtils"
     scroller[MAX_SCROLLING_REGIONS] : "isp_hub75_scrollingText"
 
 VAR { Object Instance Variables }
@@ -63,21 +66,22 @@ VAR { Object Instance Variables }
 
     LONG    cog
 
-    byte    selectedTextFont
-    byte    topOffsetInPix
-    byte    leftOffsetInPix
-    byte    charHeightInPix
-    byte    charWidthInPix
-    byte    horizontalGapInPix
-    byte    verticalGapInPix
-    byte    hBitmapOffsetInPix
-    byte    maxPanelTextLines
-    byte    maxPanelTextColumns
-    byte    panelFixupOffetInPix
+    BYTE    selectedTextFont
+    BYTE    bFontIsDithered
+    BYTE    topOffsetInPix
+    BYTE    leftOffsetInPix
+    BYTE    charHeightInPix
+    BYTE    charWidthInPix
+    BYTE    horizontalGapInPix
+    BYTE    verticalGapInPix
+    BYTE    hBitmapOffsetInPix
+    BYTE    maxPanelTextLines
+    BYTE    maxPanelTextColumns
+    BYTE    panelFixupOffetInPix
 
-    byte    bScan_1_4
-    byte    bSwapRB
-    byte    bSwapGB
+    BYTE    bScan_1_4
+    BYTE    bSwapRB
+    BYTE    bSwapGB
 
     LONG    bDidShowOnce
     BYTE   padBuffer[MAX_PAD_BUFFER_BYTES]
@@ -210,37 +214,32 @@ PUB homeCursorOnPanel(panelIndex)
     '' Return the cursor to top left corner of the selected panel
     setCursorOnPanel(0, 0, panelIndex)
 
-PUB setTextFont(newFont) | scrollerIndex, hUnusedPix, vUnusedPix
+PUB setTextFont(newFont) | scrollerIndex, hUnusedPix, vUnusedPix, heightCorrection
     '' Select font and update text grid size
     ' currently we only support our 8x8 and 5x7 fonts
     panelFixupOffetInPix := 0
+    heightCorrection := 0
+    hBitmapOffsetInPix := 0
     case newFont
         TEXT_FONT_DEFAULT..TEXT_FONT_5x7:
-            charHeightInPix := 7
-            charWidthInPix := 5
-            hBitmapOffsetInPix := 0
-            maxTextLines := (hub75Bffrs.maxDisplayRows(chainIndex) / (charHeightInPix + 1))
-            maxTextColumns := (hub75Bffrs.maxDisplayColumns(chainIndex) / (charWidthInPix + 1))
-
+            heightCorrection := 1
+        TEXT_FONT_5x7_DITH:
+            heightCorrection := 1
+        TEXT_FONT_5x7_DITH_DCNDR:
+            heightCorrection := 1
         TEXT_FONT_8x8A:
-            charHeightInPix := 7
-            charWidthInPix := 7
             hBitmapOffsetInPix := 1
-            maxTextLines := (hub75Bffrs.maxDisplayRows(chainIndex) / (charHeightInPix + 0))  ' 7x7 fonts in 8x8 tile have blank row below so don't add one
-            maxTextColumns :=  (hub75Bffrs.maxDisplayColumns(chainIndex) / (charWidthInPix + 0))  ' 7x7 fonts in 8x8 tile have blank col after so don't add one
-
         TEXT_FONT_8x8B:
-            charHeightInPix := 8
-            charWidthInPix := 8
-            hBitmapOffsetInPix := 0
-            maxTextLines := (hub75Bffrs.maxDisplayRows(chainIndex) / (charHeightInPix + 0))  ' 7x7 fonts in 8x8 tile have blank row below so don't add one
-            maxTextColumns :=  (hub75Bffrs.maxDisplayColumns(chainIndex) / (charWidthInPix + 0))  ' 7x7 fonts in 8x8 tile have blank col after so don't add one
-
         OTHER:
             debug("*ERROR* unknown text size*")
             abort
 
     selectedTextFont := newFont
+    charWidthInPix, charHeightInPix := fonts.getGeometryOfFont(newFont)
+    maxTextLines := (hub75Bffrs.maxDisplayRows(chainIndex) / (charHeightInPix + heightCorrection))
+    maxTextColumns := (hub75Bffrs.maxDisplayColumns(chainIndex) / (charWidthInPix + heightCorrection))
+
+    bFontIsDithered := fonts.isDitheredFont(newFont)
 
     vUnusedPix := hub75Bffrs.maxDisplayRows(chainIndex) - (maxTextLines * charHeightInPix)
     hUnusedPix := hub75Bffrs.maxDisplayColumns(chainIndex) - (maxTextColumns * charWidthInPix)
@@ -283,9 +282,9 @@ PUB setColoredTextAtLnCol(line, column, pZString, rgbColor) | charIndex
     setCursor(line, column)
     charIndex := 0
     repeat
-        if byte[pZString][charIndex] <> 0
-            setColorCharAtCursor(byte[pZString][charIndex++], rgbColor)
-    while byte[pZString][charIndex] <> 0
+        if BYTE[pZString][charIndex] <> 0
+            setColorCharAtCursor(BYTE[pZString][charIndex++], rgbColor)
+    while BYTE[pZString][charIndex] <> 0
 
 PUB centerColoredTextAtLn(line, pZString, rgbColor) | textLen, desiredCol
     '' Center text on specific line using current text color
@@ -294,10 +293,14 @@ PUB centerColoredTextAtLn(line, pZString, rgbColor) | textLen, desiredCol
     'debug("DSP: cctal() ", udec(desiredCol), udec(textLen), zstr(pZString))
     setColoredTextAtLnCol(line, desiredCol, pZString, rgbColor)
 
+VAR
+  LONG      lastColumn
+
 PUB setColoredTextAtLnWithAlignPad(line, pZString, rgbColor, alignment, padLen) | offset, valLen, lineWidth, paddedStr, padOffset
     '' Align and Pad text on specific line using current text color
     paddedStr := pZString
     valLen := strsize(pZString)
+
     'debug("sctalwap: ln=", udec_(line), " [", zstr_(pZString), "](", udec_(valLen), ") ", udec(alignment), udec(padLen))
     lineWidth := numberTextColumns()
     ' calc padded string offset
@@ -311,6 +314,11 @@ PUB setColoredTextAtLnWithAlignPad(line, pZString, rgbColor, alignment, padLen) 
         other:
             ' ALIGN_CENTER - pad on right
             offset := 0
+
+    'if padLen == 5 and offset <> 5
+    lastColumn := offset + padLen
+    if lastColumn <> 10
+      debug("DSP: ERROR1: off Edge? r,c=[", udec_(line), ",", udec_(offset), "] ", udec(padLen), udec(valLen), ", [", zstr_(pZString), "] endCol=", udec_(lastColumn))
 
     ' if we need to pad...
     if valLen < padLen
@@ -332,6 +340,8 @@ PUB setColoredTextAtLnWithAlignPad(line, pZString, rgbColor, alignment, padLen) 
         paddedStr := @padBuffer
 
     'debug("               [", zstr_(paddedStr), "](", udec_(strsize(paddedStr)), ") col=", udec_(offset))
+    if strsize(paddedStr) + offset > lineWidth
+        debug("DSP: ERROR2: off Edge! ", udec(offset), udec(padLen), udec(valLen), zstr(pZString))
     setColoredTextAtLnCol(line, offset, paddedStr, rgbColor)
 
 PUB setCharAtCursor(cChar)
@@ -347,7 +357,7 @@ PUB setCharAtLnCol(line, column, cChar)
     '' Write character to display at R,C using current text color
     setColoredCharAtLnCol(line, column, cChar, currTextColor)
 
-PUB setColoredCharAtLnCol(line, column, cChar, rgbColor) | pCharBitMap, tlScreenOffset, tlCharOffset, cLineIdx, cColumnIdx, sRowPixIdx, sColumnPixIdx, cBitIdx, cByteIdx, cRowBits, pixColumn
+PUB setColoredCharAtLnCol(line, column, cChar, rgbColor) | pCharBitMap, tlScreenOffset, tlCharOffset, cLineIdx, cColumnIdx, sRowPixIdx, sColumnPixIdx, cColOffset, cRowOffset, cRowBits, pixColumn
     '' Write cChar to display R,C using rgbColor
     'debug("DSP: setCharAtCursor @LnCol(", udec_(line), ",", udec_(column), "), char=", uhex_(cChar), ", RGB=", uhex_long_(rgbColor), udec(topOffsetInPix), udec(leftOffsetInPix))
     cLineIdx := 0 #> line <# maxTextLines - 1
@@ -360,15 +370,33 @@ PUB setColoredCharAtLnCol(line, column, cChar, rgbColor) | pCharBitMap, tlScreen
     ' NOTE: panelFixupOffetInPix is only non-zero when we are placing text on specific panel!
     sColumnPixIdx := leftOffsetInPix + panelFixupOffetInPix + (cColumnIdx * (charWidthInPix + horizontalGapInPix))
 
-    repeat cByteIdx from 0 to charHeightInPix - 1
-        cRowBits := byte[pCharBitMap][cByteIdx]
-        'debug("- char row(", udec_(cByteIdx), ") ", ubin(cRowBits))
-        repeat cBitIdx from charWidthInPix - 1 to 0
-            pixColumn := sColumnPixIdx + cBitIdx
-            if (cRowBits & (1 << ((charWidthInPix - 1) - cBitIdx))) > 0
-                pixels.drawPixelAtRC(chainIndex, sRowPixIdx + cByteIdx, pixColumn, rgbColor)
-            else
-                pixels.drawPixelAtRC(chainIndex, sRowPixIdx + cByteIdx, pixColumn, 0)
+    if bFontIsDithered
+        placeDitheredCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor)
+    else
+        placeCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor)
+
+PRI placeCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor) | cRowOffset, cRowBits, cColOffset, pixColor, cBitOffset
+    repeat cRowOffset from 0 to charHeightInPix - 1
+        cRowBits := BYTE[pCharBitMap][cRowOffset]
+        repeat cColOffset from 0 to charWidthInPix - 1
+            cBitOffset := (charWidthInPix - 1) - cColOffset
+            pixColor := ((cRowBits & (1 << cBitOffset)) > 0) ? rgbColor : $000000
+            pixels.drawPixelAtRC(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor)
+
+PRI placeDitheredCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor) | cRowOffset, cRowBits, cColOffset, ditheredRGBColor, cBitOffset, pixVal, pixColor
+    ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, 36)      ' 50% brightness
+    'debug(" COLOR PERCENT ", uhex_long_(rgbColor), " -> ", uhex_long_(ditheredRGBColor))
+    repeat cRowOffset from 0 to charHeightInPix - 1
+        cRowBits := WORD[pCharBitMap][cRowOffset]         ' ms 12 bits are char def'n (of the 16bits)
+        'debug(" FONT row ", ubin_word_(cRowBits))
+        repeat cColOffset from 0 to charWidthInPix - 1
+            cBitOffset := cColOffset * 2
+            pixVal := ((cRowBits << cBitOffset) & $c000) >> 14
+            'debug("   PIX ", ubin_(pixVal))
+            pixColor := rgbColor
+            if pixVal <> 3
+                 pixColor := (pixVal == 1) ? ditheredRGBColor : $000000    ' val == [2,0] = black
+            pixels.drawPixelAtRC(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor)
 
 PRI offsetToTextOnPanel(line, column, panelIndex) : panelLine, panelColumn | gridRow, gridColumn, boundedPanelIndex, boundedColumn, tmpCharOffsetInPix, panelOffsetInChars, desiredCharOffsetInPix
     boundedPanelIndex := 0 #> panelIndex <# hub75Bffrs.maxPanels(chainIndex) - 1
@@ -487,6 +515,12 @@ PUB animateScroll() | scrollerIndex
         if NOT scroller[scrollerIndex].isIdle()
             if NOT scroller[scrollerIndex].isScrollingComplete()
                 scroller[scrollerIndex].animateScroll()
+
+PUB releaseScroller(indexAllocated)
+    '' Mark this scroller as no longer in use
+    if indexAllocated > 0 and indexAllocated < MAX_SCROLLING_REGIONS
+        ' make this once again avial for reuse
+        scroller[indexAllocated].release()
 
 PRI nextFreeScroller() : scrollerIndexToUse | scrollerIndex
     scrollerIndexToUse := NOT_FOUND
@@ -637,7 +671,7 @@ CON { license }
  -------------------------------------------------------------------------------------------------
   MIT License
 
-  Copyright (c) 2020 Iron Sheep Productions, LLC
+  Copyright (c) 2024 Iron Sheep Productions, LLC
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal

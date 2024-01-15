@@ -3,11 +3,11 @@
 ''   File....... isp_hub75_scrollingText.spin2
 ''   Purpose.... Manipulate a scrolling region on our display panel
 ''   Authors.... Stephen M Moraco
-''               -- Copyright (c) 2020 Iron Sheep Productions, LLC
+''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 18 Oct 2020
+''   Updated.... 15 Jan 2024
 ''
 '' =================================================================================================
 
@@ -36,6 +36,7 @@ OBJ
     hub75Bffrs  :   "isp_hub75_hwBufferAccess"
     pixels      :   "isp_hub75_screenUtils"
     fonts       :   "isp_hub75_fonts"
+    colorUtils  :   "isp_hub75_colorUtils"
 
 DAT { initialized data - class-static variables }
 
@@ -68,7 +69,8 @@ VAR { globals - instance variables }
     BYTE    horizontalGapInPix
     BYTE    hBitmapOffsetInPix
 
-    LONG    selectedTextFont
+    BYTE    selectedTextFont
+    BYTE    bFontIsDithered
 
     LONG    remainingPixToScroll
     LONG    charHzPixOffset         ' offset into "charWidthInPix + horizontalGapInPix" field
@@ -107,6 +109,7 @@ PUB setFontInfo(nbrTextColumns, charWidth, charHeight, leadingGap, horizontalGap
     horizontalGapInPix := horizontalGap
     hBitmapOffsetInPix := hBitmapOffset
     selectedTextFont := textFont
+    bFontIsDithered := fonts.isDitheredFont(selectedTextFont)
 
 ' EXAMPLES
 '    configureScrollLoopCount(row, column, widthInChars, "hello world", display.DIR_LEFT, rgbColor)
@@ -114,8 +117,11 @@ PUB setFontInfo(nbrTextColumns, charWidth, charHeight, leadingGap, horizontalGap
 PUB isIdle() : statusValue
     '' Return T/F where T means this scroller instance is IDLE
     statusValue := (ctCharsToScroll == 0) ? TRUE : FALSE
-
     'debug("stx:isIdle(", udec_(instanceID), ") RET=", sdec_(statusValue))
+
+PUB release()
+    '' Mark this scroller as avail. for reuse
+    ctCharsToScroll := 0
 
 PUB configureScrollLoopMode(loopMode)
     '' Specify scrolling text duration (forever, once, twice, etc.)
@@ -400,8 +406,7 @@ PRI placeSpaceAtRC(row, column, widthInPix) : endColumn | colIndex, rowIndex
 
     endColumn := column + widthInPix
 
-
-PRI placeBitmapFrontAtRCWithColor(row, column, bitInset, nbrFieldBits, pChrBitmap, rgbColor) : endColumn | cBitIdx, cByteIdx, cRowBits, pixColor, colOffset, pixColumn, pixRow, cBitOffset, nbrCharBits
+PRI placeBitmapFrontAtRCWithColor(row, column, bitInset, nbrFieldBits, pChrBitmap, rgbColor) : endColumn | cBitIdx, cByteIdx, cRowBits, pixColor, colOffset, pixColumn, pixRow, cBitOffset, nbrCharBits, pixVal, ditheredRGBColor
     ' Write cChar to display R,C using rgbColor using given bitmap
     'startTime := getct()
     nbrCharBits := (nbrFieldBits > 0) ? nbrFieldBits - horizontalGapInPix : 0
@@ -411,6 +416,25 @@ PRI placeBitmapFrontAtRCWithColor(row, column, bitInset, nbrFieldBits, pChrBitma
     '    rgbColor := $00ff00             ' TESTING color our leading char green
     endColumn := column + nbrCharBits   ' point to gap locn
     if nbrCharBits > 0
+        if bFontIsDithered
+            ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, 36)      ' 50% brightness
+            repeat cByteIdx from 0 to charHeightInPix - 1
+                cRowBits := WORD[pChrBitmap][cByteIdx]
+                pixRow := row + cByteIdx
+                ' from right edge of char to left
+                colOffset := 0
+                repeat cBitIdx from bitInset to bitInset + charWidthInPix - 1   ' 4-0, 4-1, 4-2, 4-3, 4-4
+                    cBitOffset := cBitIdx * 2
+                    pixVal := (cRowBits & ($c000 >> cBitOffset)) >> (14 - cBitOffset)
+                    pixColor := rgbColor
+                    if pixVal <> 3
+                        pixColor := (pixVal == 1) ? ditheredRGBColor : $000000
+                    pixColumn := column + colOffset
+                    ' dont paint beyond our left edge
+                    if pixColumn >= leftColumn
+                        pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
+                    colOffset++
+        else
         repeat cByteIdx from 0 to charHeightInPix - 1
             cRowBits := BYTE[pChrBitmap][cByteIdx]
             pixRow := row + cByteIdx
@@ -432,14 +456,33 @@ PRI placeBitmapFrontAtRCWithColor(row, column, bitInset, nbrFieldBits, pChrBitma
     'debug("stx:pBMf() ", udec(instanceID), udec(row), udec(column), udec(bitInset), udec(nbrCharBits), udec(endColumn))
     'showDuration(startTime, string("stx:pbF"))
 
-
-PRI placeBitmapBackAtRCWithColor(row, column, bitInset, nbrCharBits, pChrBitmap, rgbColor) : endColumn | cBitIdx, cByteIdx, cRowBits, pixColor, colOffset, pixColumn, pixRow, cBitOffset
+PRI placeBitmapBackAtRCWithColor(row, column, bitInset, nbrCharBits, pChrBitmap, rgbColor) : endColumn | cBitIdx, cByteIdx, cRowBits, pixColor, colOffset, pixColumn, pixRow, cBitOffset, maxCols, pixVal, ditheredRGBColor
     ' Write cChar to display R,C using rgbColor using given bitmap
     'startTime := getct()
     'debug("stx:pbB ", udec(column), udec(bitInset), udec(nbrCharBits), uhex_long(pChrBitmap))
     'rgbColor := $ffff00 ' TESTING color our trailing char yellow
     endColumn := column + nbrCharBits
+    maxCols := hub75Bffrs.maxDisplayColumns(chainIndex)
     if nbrCharBits > 0
+        if bFontIsDithered
+            ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, 36)      ' 50% brightness
+            repeat cByteIdx from 0 to charHeightInPix - 1
+                cRowBits := WORD[pChrBitmap][cByteIdx]
+                pixRow := row + cByteIdx
+                ' from right edge of char to left
+                colOffset := nbrCharBits - 1
+                repeat cBitIdx from bitInset to bitInset + nbrCharBits - 1  ' 4-0, 4-1, 4-2, 4-3, 4-4
+                    cBitOffset := cBitIdx * 2
+                    pixVal := (cRowBits & ($c000 >> cBitOffset)) >> (14 - cBitOffset)
+                    pixColor := rgbColor
+                    if pixVal <> 3
+                        pixColor := (pixVal == 1) ? ditheredRGBColor : $000000
+                    pixColumn := column + (nbrCharBits - 1) - colOffset
+                    ' dont paint off edge of matrix
+                    if pixColumn < maxCols
+                        pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
+                    colOffset--
+        else
         repeat cByteIdx from 0 to charHeightInPix - 1
             cRowBits := BYTE[pChrBitmap][cByteIdx]
             pixRow := row + cByteIdx
@@ -450,7 +493,7 @@ PRI placeBitmapBackAtRCWithColor(row, column, bitInset, nbrCharBits, pChrBitmap,
                 pixColor := cRowBits & (1 << cBitOffset) > 0 ? rgbColor : $000000
                 pixColumn := column + (nbrCharBits - 1) - colOffset
                 ' dont paint off edge of matrix
-                if pixColumn < hub75Bffrs.maxDisplayColumns(chainIndex)
+                if pixColumn < maxCols
                     pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
                 colOffset--
 
@@ -459,11 +502,39 @@ PRI placeBitmapBackAtRCWithColor(row, column, bitInset, nbrCharBits, pChrBitmap,
 'DAT { test debug data }
 '    debugCount  BYTE    42
 
-PRI placeColrBitmapVtOffsetAtRC(row, column, vtPxOffset, pChrBitmap, rgbColor) : endColumn | cBitIdx, rowIdx, cByteIdx, cRowBits, pixColor, pixRow, cBitOffset, colOffset, pixColumn
+PRI placeColrBitmapVtOffsetAtRC(row, column, vtPxOffset, pChrBitmap, rgbColor) : endColumn | cBitIdx, rowIdx, cByteIdx, cRowBits, pixColor, pixRow, cBitOffset, colOffset, pixColumn, maxCols, pixVal, ditheredRGBColor
 ' special NOTE: show bitmap vertically offset by {vtPxOffset}
 '   BUT!!!   vtPxOffset is 0-charHeight (meaning 1 more than rows of pixels)
 '   for this extra row of pixels we paint black!
     endColumn := column + charWidthInPix
+    maxCols := hub75Bffrs.maxDisplayColumns(chainIndex)
+    if bFontIsDithered
+        ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, 36)      ' 50% brightness
+        repeat rowIdx from 0 to charHeightInPix - 1
+            pixRow := row + rowIdx
+            cByteIdx := (rowIdx + vtPxOffset) +// (charHeightInPix + 1)    ' [0-(charHeight-1), and charHeight] where charHeight means black row of pixels
+            if cByteIdx > charHeightInPix - 1
+                cRowBits := 0     ' no 1 bits (all BG color)
+            else
+                cRowBits := WORD[pChrBitmap][cByteIdx]
+    '        if debugCount > 0 ' and vtPxOffset <> 0
+    '            debugCount--
+    '            if debugCount > 0
+    '                debug("pcbVt: ", udec(vtPxOffset), udec(cByteIdx))
+            ' from right edge of char to left
+            colOffset := charWidthInPix - 1
+            repeat cBitIdx from 0 to charWidthInPix - 1  ' 4-0, 4-1, 4-2, 4-3, 4-4
+                cBitOffset := cBitIdx * 2
+                pixVal := (cRowBits & ($c000 >> cBitOffset)) >> (14 - cBitOffset)
+                pixColor := rgbColor
+                if pixVal <> 3
+                    pixColor := (pixVal == 1) ? ditheredRGBColor : $000000
+                pixColumn := column + (charWidthInPix - 1) - colOffset
+                ' dont paint off edge of matrix
+                if pixColumn < maxCols
+                    pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
+                colOffset--
+    else
     repeat rowIdx from 0 to charHeightInPix - 1
         pixRow := row + rowIdx
         cByteIdx := (rowIdx + vtPxOffset) +// (charHeightInPix + 1)    ' [0-(charHeight-1), and charHeight] where charHeight means black row of pixels
@@ -482,7 +553,7 @@ PRI placeColrBitmapVtOffsetAtRC(row, column, vtPxOffset, pChrBitmap, rgbColor) :
             pixColor := cRowBits & (1 << cBitOffset) > 0 ? rgbColor : $000000
             pixColumn := column + (charWidthInPix - 1) - colOffset
             ' dont paint off edge of matrix
-            if pixColumn < hub75Bffrs.maxDisplayColumns(chainIndex)
+            if pixColumn < maxCols
                 pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
             colOffset--
 
@@ -499,7 +570,7 @@ CON { license }
  -------------------------------------------------------------------------------------------------
   MIT License
 
-  Copyright (c) 2020 Iron Sheep Productions, LLC
+  Copyright (c) 2024 Iron Sheep Productions, LLC
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
