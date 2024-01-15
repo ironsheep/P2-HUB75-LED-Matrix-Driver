@@ -15,6 +15,12 @@ The P2 HUB75 Driver is available from a couple of sources:
 
 ```
 Latest Updates:
+15 Jan 2024
+- Add support for panels using DP5125D chips
+- Add Chips' 5x7 dithered fonts
+- ICN2037_B was renamed to ICN2038S
+- MBI5124_8S was renamed to MBI5124GP
+- Rearranged user configurable files in order to support many more total pixels (now 64k) in a display.
 10 Nov 2022
 - Convert initialization: enable support for up to three hub75 cards!
 - Rename demo's, add two more demo's
