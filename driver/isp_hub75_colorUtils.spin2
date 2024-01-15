@@ -3,11 +3,11 @@
 ''   File....... isp_hub75_colorUtils.spin2
 ''   Purpose.... Provide utility color routines
 ''   Authors.... Stephen M Moraco
-''               -- Copyright (c) 2022 Iron Sheep Productions, LLC
+''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Nov 2022
-''   Updated.... 5 Nov 2022
+''   Updated.... 15 Jan 2024
 ''
 '' =================================================================================================
 
@@ -17,7 +17,7 @@ CON
 
 OBJ
 
-    hub75Bffrs  :   "isp_hub75_hwBuffers"
+    hub75Bffrs  :   "isp_hub75_hwBufferAccess"
 
 DAT { driver controls for testing }
 
@@ -33,6 +33,10 @@ PUB init()
 PUB setBrightness(newBrightness)
     '' Set the global brightness value
     defaultBrightness := newBrightness
+
+PUB isGammaEnabled() : bIsEnabled
+    '' Return T/F where T means gamma is compiled in
+    bIsEnabled := bGammaEnable
 
 PUB getBrightness() : brightness
     '' Return the global brightness value
@@ -115,6 +119,15 @@ PUB rgbColorFromDegrees(degrees) : rcbColor | offset60, fract60, red, green, blu
     rcbColor := cValueForRGB(red, green, blue)
     'debug("- degrees=", udec_(degrees), ", color=", uhex_long_(rcbColor), " RGB=", udec_(red), ", ", udec_(green), ", ", udec_(blue), ")" )
 
+PUB reducedBrightnessOfCValue(combinedValue, percent): reducedCValue | red, green, blue, adjPercent, fPercent
+    '' CONVERT: return value that is % of brightness
+    adjPercent := 0 #> percent <# 100
+    red, green, blue := rgbForCValue(combinedValue)
+    fPercent := float(adjPercent) /. 100.0
+    red := trunc(float(red) *. fPercent)
+    green := trunc(float(green) *. fPercent)
+    blue := trunc(float(blue) *. fPercent)
+    reducedCValue := cValueForRGB(red, green, blue)
 
 PUB rgbForCValue(combinedValue) : red, green, blue
     '' CONVERT: combined color value to r,g,b
@@ -125,6 +138,12 @@ PUB rgbForCValue(combinedValue) : red, green, blue
 PUB cValueForRGB(red, green, blue) : combinedValue
     '' CONVERT: r,g,b to combined value
     combinedValue := ((red & $ff) << 16) | ((green & $ff) << 8) | (blue & $ff)
+
+PUB gammaPtrs(): pGammaRed, pGammaGreen, pGammaBlue
+    '' Return pointers to the gamma tables we are using
+    pGammaRed := @gamma
+    pGammaGreen := @gamma
+    pGammaBlue := @gamma
 
 PUB colorAtDesiredBitWidth(nChainIdx, hex8bit) : pwmBits
     '' CALCULATE: proper duty cycle for intensity of 0-255
@@ -329,7 +348,7 @@ CON { license }
  -------------------------------------------------------------------------------------------------
   MIT License
 
-  Copyright (c) 2022 Iron Sheep Productions, LLC
+  Copyright (c) 2024 Iron Sheep Productions, LLC
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal

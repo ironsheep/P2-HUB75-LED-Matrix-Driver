@@ -3,11 +3,11 @@
 ''   File....... isp_hub75_rgb3bit.spin2
 ''   Purpose.... Drive a HUB75 panel of RGB LEDs
 ''   Authors.... Stephen M Moraco
-''               -- Copyright (c) 2020 Iron Sheep Productions, LLC
+''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 5 Nov 2022
+''   Updated.... 15 Jan 2024
 ''
 '' =================================================================================================
 
@@ -66,7 +66,7 @@ CON { Data }
 
 OBJ
 
-    hub75Bffrs  :   "isp_hub75_hwBuffers"
+    hub75Bffrs  :   "isp_hub75_hwBufferAccess"
     color       :   "isp_hub75_color"
     hwEnum      :   "isp_hub75_hwEnums"  ' hub75 attachment, set up constants
 
@@ -116,7 +116,22 @@ PUB null()
 '' This is not a top level object
 
 PUB start(nID, nChainIdx) : ok | tmpVar, panelCt, tmpConstant, widthInPanels, heightInPanels, pwmRowSizeInLongs, pwmRowsInCogBuffer
-    '' Setup the pasm2 driver vars, then start a new cog running the driver
+
+'' Setup the pasm2 driver vars, then start a new cog running the driver
+''
+'' @param nId - debug instance id
+'' @param nChainIdx - index of the desired chain
+'' @returns ok - cogID() of driver cog if successful, -1 if not
+
+' Local Variables:
+' @local tmpVar -
+' @local panelCt -
+' @local tmpConstant -
+' @local widthInPanels -
+' @local heightInPanels -
+' @local pwmRowSizeInLongs -
+' @local pwmRowsInCogBuffer -
+
     chainIndex := nChainIdx
     instanceID := nID
     debug("RG3: #", udec_(instanceID), " -START-")
@@ -216,18 +231,20 @@ PUB start(nID, nChainIdx) : ok | tmpVar, panelCt, tmpConstant, widthInPanels, he
     debug("RG3:  CONFIG ", ubin_word(dvrConfig))
     if eChipType == hwEnum.CHIP_FM6126A
         debug("  -- FM6126A")
-    elseif eChipType == hwEnum.CHIP_MBI5124_8S
-        debug("  -- MBI5124-8S")
+    elseif eChipType == hwEnum.CHIP_MBI5124GP
+        debug("  -- MBI5124GP")
     elseif eChipType == hwEnum.CHIP_GS6238S
         debug("  -- GS6238S")
+    elseif eChipType == hwEnum.CHIP_DP5125D
+        debug("  -- DP5125D")
     elseif eChipType == hwEnum.CHIP_FM6124 or eChipType == hwEnum.CHIP_UNK_LAT_END_ENCL
         if eChipType == hwEnum.CHIP_FM6124
             debug("  -- FM6124")
-    elseif eChipType == hwEnum.CHIP_ICN2037 or eChipType == hwEnum.CHIP_ICN2037_B or eChipType == hwEnum.CHIP_UNK_LAT_END_ENCL_SLO_CLK
+    elseif eChipType == hwEnum.CHIP_ICN2037 or eChipType == hwEnum.CHIP_ICN2038S or eChipType == hwEnum.CHIP_UNK_LAT_END_ENCL_SLO_CLK
         if eChipType == hwEnum.CHIP_ICN2037
             debug("  -- ICN2037")
-        elseif eChipType == hwEnum.CHIP_ICN2037_B
-            debug("  -- ICN2037-B")
+        elseif eChipType == hwEnum.CHIP_ICN2038S
+            debug("  -- ICN2038S")
     panelCt := hub75Bffrs.maxPanels(chainIndex)
     heightInPanels := hub75Bffrs.panelsPerColumn(chainIndex)
     widthInPanels := hub75Bffrs.panelsPerRow(chainIndex)
@@ -259,7 +276,7 @@ PUB start(nID, nChainIdx) : ok | tmpVar, panelCt, tmpConstant, widthInPanels, he
     '   before attempting to use the panel
     if bInitPanel
         setupPins()
-        if eChipType == hwEnum.CHIP_MBI5124_8S
+        if eChipType == hwEnum.CHIP_MBI5124GP
             resetPanelMBI5124()
         elseif eChipType == hwEnum.CHIP_FM6126A
             resetPanelFM6126()
@@ -287,16 +304,19 @@ PUB start(nID, nChainIdx) : ok | tmpVar, panelCt, tmpConstant, widthInPanels, he
         if hub75Bffrs.addressLines(chainIndex) == hwEnum.ADDR_ABCDE
             maskAllPins := %00000000_00000000_00111111_11111111         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
             maskAddr    := %00000000_00000000_00000000_11111000     ' pins at 00-15 A/B-pins
+            unusedAddr  := %00000000_00000000_00000000_00000000                 ' no unused addr bits
             addrValueMax := $0000_00F8                              ' 31 but in upper 5-bits of byte
             rowCtrMax   := 32
         elseif hub75Bffrs.addressLines(chainIndex) == hwEnum.ADDR_ABCD
             maskAllPins := %00000000_00000000_00111111_01111111         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
             maskAddr    := %00000000_00000000_00000000_01111000     ' pins at 00-15 A/B-pins
+            unusedAddr  := %00000000_00000000_00000000_10000000                 ' E is unused addr bits
             addrValueMax := $0000_0078                              ' 15 but in upper 5-bits of byte
             rowCtrMax   := 16
         else  '  == hwEnum.ADDR_ABC
             maskAllPins := %00000000_00000000_00111111_00111111         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
             maskAddr    := %00000000_00000000_00000000_00111000     ' pins at 00-15 A/B-pins
+            unusedAddr  := %00000000_00000000_00000000_11000000                 ' E, D are unused addr bits
             addrValueMax := $0000_0038                              ' 7 but in upper 5-bits of byte
             rowCtrMax   := 8
         maskRgb12   := %00000000_00000000_00111111_00000000         ' rgb2rgb1 now grounded to lsbit - pins at 00-15 A/B-pins
@@ -306,23 +326,28 @@ PUB start(nID, nChainIdx) : ok | tmpVar, panelCt, tmpConstant, widthInPanels, he
         if hub75Bffrs.addressLines(chainIndex) == hwEnum.ADDR_ABCDE
             maskAllPins := %00111111_11111111_00000000_00000000         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
             maskAddr    := %00000000_11111000_00000000_00000000     ' pins at 16-31 A/B-pins
+            unusedAddr  := %00000000_00000000_00000000_00000000                 ' no unused addr bits
             addrValueMax := $00F8_0000                              ' 31 but in upper 5-bits of byte
             rowCtrMax   := 32
         elseif hub75Bffrs.addressLines(chainIndex) == hwEnum.ADDR_ABCD
             maskAllPins := %00111111_01111111_00000000_00000000         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
             maskAddr    := %00000000_01111000_00000000_00000000     ' pins at 16-31 A/B-pins
+            unusedAddr  := %00000000_10000000_00000000_00000000                 ' E is unused addr bits
             addrValueMax := $0078_0000                              ' 15 but in upper 5-bits of byte
             rowCtrMax   := 16
         else  '  == hwEnum.ADDR_ABC
             maskAllPins := %00111111_00111111_00000000_00000000         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
             maskAddr    := %00000000_00111000_00000000_00000000     ' pins at 16-31 A/B-pins
+            unusedAddr  := %00000000_11000000_00000000_00000000                 ' E, D are unused addr bits
             addrValueMax := $0038_0000                              ' 7 but in upper 5-bits of byte
             rowCtrMax   := 8
         maskRgb12   := %00111111_00000000_00000000_00000000         ' rgb2rgb1 now grounded to lsbit - pins at 16-31 A/B-pins
         addrValue1  := $0008_0000                                   ' 1 but in upper 5-bits of byte
         modeDatRotLeft := FALSE
-    debug("RG3:  -- ", ubin_long(bSetLowPins))
-    debug("RG3:  -- ", ubin_long(modeUsePortA))
+    debug("RG3:  -- ", ubin_long(maskAllPins))
+    debug("RG3:  --    ", ubin_long(maskAddr))
+    debug("RG3:  --    ", ubin_long(maskRgb12))
+    debug("RG3:  -- ", sdec_long(bSetLowPins, modeUsePortA))
 
     ' set width of one row
     colCtrMax := hub75Bffrs.maxDisplayColumns(chainIndex)
@@ -334,7 +359,7 @@ PUB start(nID, nChainIdx) : ok | tmpVar, panelCt, tmpConstant, widthInPanels, he
     debug("RG3:  ", udec(rowCtrMax), udec(colCtrMax), udec(colCtrMaxLngs))
     tmpConstant := MAX_COG_BUFFER_SIZE_IN_LONGS
     tmpVar := hub75Bffrs.pwmFrameSizeInLongs(chainIndex)
-    debug("RG3:  MAX_PWM_FRAME_SIZE_IN_LONGS=", udec_(tmpVar), ", MAX_COG_BUFFER_SIZE_IN_LONGS=", udec_(tmpConstant))
+    debug("RG3:  MAX_PWM_FRAME_SIZE_IN_BYTES=", udec_(tmpVar*4), ", MAX_COG_BUFFER_SIZE_IN_BYTES=", udec_(tmpConstant*4))
     tmpConstant := pwmSubPageCount
     tmpVar := pwmSubPageSizeInLongs
     debug("RG3:  MAX_SUBPAGE_SIZE_IN_LONGS=", udec_(tmpVar), ", MAX_PWM_SUBPAGES=", udec_(tmpConstant))
@@ -712,6 +737,7 @@ drive_matrix
                     rdlong  pCommmand, ptra[0]
                     rdlong  pArgument, ptra[1]
 
+                    ' LA INSTRUMENTATION
                     drvl    pinGrpLAXT
 
                     ' init buffer display counters
@@ -722,11 +748,13 @@ drive_matrix
                     ' configure our output & dir instructions to use A or B set of pins
                     '  (if modeUsePortA is FALSE...)
                     or      modeUsePortA, modeUsePortA  wz
-    if_nz           setd    dirInst1of1, #DIRA
+    if_nz           setd    dirInst1of2, #DIRA
+    if_nz           setd    dirInst2of2, #DIRA
     if_nz           setd    outInst1of3, #OUTA
     if_nz           setd    outInst2of3, #OUTA
     if_nz           setd    outInst3of3, #OUTA
-    if_z            setd    dirInst1of1, #DIRB
+    if_z            setd    dirInst1of2, #DIRB
+    if_z            setd    dirInst2of2, #DIRB
     if_z            setd    outInst1of3, #OUTB
     if_z            setd    outInst2of3, #OUTB
     if_z            setd    outInst3of3, #OUTB
@@ -747,7 +775,10 @@ drive_matrix
 '    if_z            SETD    waitInst1of1,##0           'make into NOP instruction
 
 ' configure all pins
-dirInst1of1         or      DIRA, maskAllPins   ' set all of our pins to OUTPUT!  for this COG
+dirInst1of2         or      DIRA, maskAllPins   ' set all of our pins to OUTPUT!  for this COG
+
+                    or      unusedAddr, unusedAddr  wc      ' Q: do we have any unused addr bits?
+dirInst2of2  if_c       or      DIRA, unusedAddr   ' set all of our pins to OUTPUT!  for this COG
 
 ' default to NOT using PWM
                     xor     pwmFrameCt, pwmFrameCt      ' initial setup: NOT doing PWM
@@ -774,32 +805,33 @@ getCommand
     if_z            jmp     #chkShow
                     ' process NEW command
                     'debug("* cmd=", udec_(nxtCommand), ", arg=", uhex_long_(nxtArgument))
+                    ' LA INSTRUMENTATION
                     outnot    pinLAXT_08    ' start NEW command
                     outnot    pinLAXT_08
                     mov     priorCommand, nxtCommand
 chkShow
                     cmp     nxtCommand, #CMD_SHOW_BUFFER    wz
     if_nz           jmp     #chkShowPwm
-                    call    #loadPWMsubpage
+                    call    #cmdDsplyNoPwmFrame
                     'debug(" - load done")
                     jmp     #markCmdComplete            ' redraw current buffer
 chkShowPwm
                     cmp     nxtCommand, #CMD_SHOW_PWM_BUFFER    wz
     if_nz           jmp     #chkFill
-                    call    #displayPwmFrames
+                    call    #cmdDsplyFrameSet
                     'debug(" - PWM frame done")
                     jmp     #getCommand                         ' check for next command (or same still there)
 chkFill
                     cmp     nxtCommand, #CMD_FILL_COLOR wz
     if_nz           jmp     #chksDone                           ' redraw current buffer
-                    call    #fillCogBufferWithColor
+                    call    #cmdFillCogBfrWColor
                     wrlong  #CMD_DONE, pCommmand                ' signal command completed
                     'debug(" - fill done")
                     jmp     #displayCogBffrFullFrame            ' redraw current buffer
 '
-' displayPwmFrames(nxtArgument=hubAddressOfPWMFrameSet)
+' cmdDsplyFrameSet(nxtArgument=hubAddressOfPWMFrameSet)
 '
-displayPwmFrames
+cmdDsplyFrameSet
                     outnot  pinLAXT_09    ' start of PWM FrameSet
                     outnot  pinLAXT_09
                     mov     pwmBffrStart, nxtArgument           ' preserve our new start address
@@ -809,6 +841,7 @@ displayPwmFrames
                     mov     pwmFrameSetCt, maxCtPerFrame        ' set initial count: 4 for 3 bit, 8 for 4 bit, 16 for 5bit, etc.
                     mov     pwmFrameCt, maxPwmBuffers  ' set loop to PWM N frames then stop to see what to do next
 nextSamePwmFrame
+                    ' LA INSTRUMENTATION
                     outnot  pinLAXT_10    ' start of single PWM Frame
                     outnot  pinLAXT_10
                     mov     pwmSameFrameCt, pwmFrameSetCt
@@ -827,6 +860,7 @@ nextPwmFrame
 ' display1PwmFrame(nxtArgument=hubAddressOfFrame)
 '
 display1PwmFrame
+                    ' LA INSTRUMENTATION
                     outnot  pinLAXT_11    ' start of single PWM Frame
                     outnot  pinLAXT_11
                     ' PWM frames are broken in cogBuffer sized subpages
@@ -836,12 +870,12 @@ display1PwmFrame
                     ' interate over PWM Frame subpages
                     mov     pwmSubPgCt, maxPwmSubPages    ' set loop to PWM N frames then stop to see what to do next
 showPwmSubpage
-                    call    #loadPWMsubpage                         ' load the current pwm frame subpage into display buffer
+                    call    #cmdDsplyNoPwmFrame                         ' load the current pwm frame subpage into display buffer
                     jmp     #wrCogBuffer                            ' display subpage
 
                     ' following called from dispatcher, above
 nextPwmSubpage
-                    add     nxtArgument,maxPwmSubPgSzLongs          ' point to next subpage o PWM frame
+                    add     nxtArgument,maxPwmSubPgSzLongs          ' point to next subpage of PWM frame
                     djnz    pwmSubPgCt, #showPwmSubpage             ' have another of subpage of the PWM frame to show?
                     ret                                             ' loop again to see if we should do another PWM set
 '
@@ -860,17 +894,17 @@ nextFill
                     djnz    fillSubPgCt, #showFill                  ' have another of subpage of the PWM frame to show?
                     ret                                             ' loop again to see if we should do another PWM set
 '
-' loadPWMsubpage(nxtArgument=hubAddressOfFrameSubPage)
+' cmdDsplyNoPwmFrame(nxtArgument=hubAddressOfFrameSubPage)
 '
-loadPWMsubpage
+cmdDsplyNoPwmFrame
                     ' copy HUB buffer (set earlier)
                     '  into MAX_SUBPAGE_SIZE_IN_LONGS cogBuffer
                     setq    maxPwmSubPgSzLngsM1
             _ret_   rdlong  cogBuffer, ptra++ ' when done, return to caller
 '00
-' fillCogBufferWithColor(nxtArgument=colorvalue3bit)
+' cmdFillCogBfrWColor(nxtArgument=colorvalue3bit)
 '
-fillCogBufferWithColor      ' fill COG buffer with desired 3-bit color
+cmdFillCogBfrWColor      ' fill COG buffer with desired 3-bit color
                     ' first, build our color...
                     and     nxtArgument, #$07
                     mov     fillLong, nxtArgument
@@ -925,7 +959,7 @@ wrCogBuffer
                     ' repeat the following to end of COG buffer
                     mov     row_ctr, rowCtrMax          ' 32|16|8 -> 0 so we can use djnz
                     xor     reg_offset, reg_offset      ' start of [0-1023] buffer
-                    drvl    pinLedOE
+                    drvl    pinLedOE                    ' enable output
 
                     ' following instru is modified by startup to #wrLatchAtEnd or #wrLineLatchOvlp
                     ' it either jumps or is a NOP when the driver is running
@@ -954,7 +988,7 @@ noDbgOvly           ror     reg_value, #8                   ' shift next most si
 
 ' time to begin latch?
                     cmp     col_addr, colCtrLatchCt     wz  ' at last three columns?
-    if_z            drvh    pinLedOE
+    if_z            drvh    pinLedOE                        ' disable output
     if_z            drvh    pinLedLATCH
 
                     ' toggle clock
@@ -1091,7 +1125,7 @@ maxCtPerFrame       long    0       ' initial count for compiled bit-depth
 maskAddr            long    %00000000_01111000_00000000_00000000   ' pins at 16-31 A/B-pins
 maskRgb12           long    %00111111_00000000_00000000_00000000   ' rgb2rgb1 now grounded to lsbit - pins at 16-31 A/B-pins
 maskAllPins         long    %00111111_01111111_00000000_00000000   ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
-
+unusedAddr          long    %00000000_10000000_00000000_00000000   ' pins at 16-31 A/B-pins
                     ' PINS A 00-15  USE $0000_0008
                     ' PINS A 16-31  USE $0008_0000
                     ' PINS B 32-47  USE $0000_0008
@@ -1112,10 +1146,10 @@ pCogBffrIncr        long    cogBuffer + $200                            ' pointe
 
 ' need following new vars
 pinGrpLAXT          LONG    0   ' MTX_LA_XT_P08_11 pinGroup
-pinLAXT_08          LONG    0   ' MTX_LA_XT_P08 pin
-pinLAXT_09          LONG    0   ' MTX_LA_XT_P09 pin
-pinLAXT_10          LONG    0   ' MTX_LA_XT_P10 pin
-pinLAXT_11          LONG    0   ' MTX_LA_XT_P11 pin
+pinLAXT_08          LONG    0   ' MTX_LA_XT_P08 pin - Start of Command Indication
+pinLAXT_09          LONG    0   ' MTX_LA_XT_P09 pin - Start of PWM Frame-set (soPWM)
+pinLAXT_10          LONG    0   ' MTX_LA_XT_P10 pin - Start of ea PWM Frame
+pinLAXT_11          LONG    0   ' MTX_LA_XT_P11 pin -
 pinLedOE            LONG    0   ' MTX_LED_PIN_OE
 pinLedLATCH         LONG    0   ' MTX_LED_PIN_LATCH
 pinLedCLK           LONG    0   ' MTX_LED_PIN_CLK
@@ -1177,7 +1211,7 @@ CON { license }
  -------------------------------------------------------------------------------------------------
   MIT License
 
-  Copyright (c) 2020 Iron Sheep Productions, LLC
+  Copyright (c) 2024 Iron Sheep Productions, LLC
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal

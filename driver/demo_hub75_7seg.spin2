@@ -42,16 +42,19 @@ OBJ
     display             :   "isp_hub75_display"
     pixels              :   "isp_hub75_screenUtils"
     digit[MAX_DIGITS]   :   "isp_hub75_7seg"
-    hub75Bffrs          :   "isp_hub75_hwBuffers"
-    user                :   "isp_hub75_hwGeometry"  ' hardware config common to all demos
+    hub75Bffrs          :   "isp_hub75_hwBufferAccess"
+    user                :   "isp_hub75_hwPanelConfig"   ' hardware config common to all demos
+    scrnBuffers :   "isp_hub75_hwBuffers"               ' the large buffers storing pixel data
 
 PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, builtPtr, color3bit, color24bit, pPixColor, colorOffset, byteOffset, hours24
     '' Start underlying drivers and run demo
 
     'debug("`term temp size 82 50 textsize 10")
-    hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.ADAPTER_BASE_PIN, user.PANEL_DRIVER_CHIP, user.PANEL_ADDR_LINES)
+    hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
     chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
+    ' startup our backend COG(s)
+    display.setBufferPointers(chainIndex, scrnBuffers.chain0Ptrs())
     ok := cog := display.start(chainIndex)   ' send buffer to driver
     if ok == -1
         debug("- DEMO: underlying drivers failed!")

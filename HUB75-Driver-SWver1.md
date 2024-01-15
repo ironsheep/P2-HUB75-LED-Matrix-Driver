@@ -34,7 +34,8 @@ The chip types are collections of the above settings which make it easier to get
 | CHIP\_MBI5124_8S = | <PRE>CHIP\_MANUAL\_SPEC, CHIP\_UNK\_LAT\_END\_ENCL, SCAN\_4, INIT\_PANEL\_REQUIRED</PRE>
 | CHIP_FM6124 = |<PRE>CHIP\_MANUAL\_SPEC</PRE>
 | CHIP_ICN2037 = |<PRE>CHIP\_MANUAL\_SPEC, CLK\_WIDE\_PULSE, RB_SWAP</PRE>
-| CHIP\_ICN2037_B = | <PRE>CHIP\_MANUAL\_SPEC, CLK\_WIDE\_PULSE, SCAN_4</PRE>
+| CHIP_ICN2038S = | <PRE>CHIP\_MANUAL\_SPEC, CLK\_WIDE\_PULSE, SCAN_4</PRE>
+| CHIP_DP5125D = | <PRE>CHIP\_MANUAL\_SPEC, LAT\_POSN\_OVERLAP, LAT\_STYLE\_OFFSET, SCAN_4</PRE>
 
 When trying to identify what needed for an as-of-yet unidentified chip then you will likely want to find the closest chip that sort of works then convert to the expanded set and tweak the selections 1 by 1 to see if a better mix of drive styles will work.
 
@@ -138,7 +139,7 @@ Signal Timings - 64x64 panel - for driver v1.x (and later):
 **NOTE** *the orange indicates a frame-rate less than 60Hz so you may see some flicker.*
 
 ---
-### Driver Chip: ICN2037_B (UNKNOWN)
+### Driver Chip: ICN2038S (UNKNOWN)
 
 (Added in v2.0.0 of the driver)
 

@@ -1,0 +1,455 @@
+'' =================================================================================================
+''
+''   File....... isp_hub75_hwPanelConfig.spin2
+''   Purpose.... User Configuration for up to 3 hub75 adapters attached to a single propeller2
+''   Authors.... Stephen M Moraco
+''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... Jan 2024
+''   Updated.... 12 Jan 2024
+''
+'' =================================================================================================
+
+OBJ
+
+    hwEnum   : "isp_hub75_hwEnums"  ' hub75 attachment, set up constants
+
+CON { User Panel Connection and Configuration }
+
+' Reference: addr width for known chips:
+'
+'       DP5125D                 ABC
+'       MBI5124GP               ABC
+'
+'       FM6124                  ABCD
+'       FM6126A                 ABCD
+'       GS6238S                 ABCD
+'
+'       ICN2037                 ABCDE
+'       ICN2038S                ABCDE
+
+''  User customized section describing the memory allocated to our matrix panel displays
+
+' -------------------------------------------------------------------
+' panel set on 1st HUB75 adapter board - DISP0_* constants
+' -------------------------------------------------------------------
+
+    ' /-------------------------------------------
+    ' |  User configure
+
+    ' (1) describe the panel connections, addressing and chips
+    DISP0_ADAPTER_BASE_PIN = hwEnum.PINS_P16_P31
+    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
+    DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
+
+    ' (2) describe the single panel physical size
+    DISP0_MAX_PANEL_COLUMNS = 64
+    DISP0_MAX_PANEL_ROWS = 64
+
+    ' the organization of the panels: visual layout
+    '   [1]      1 row of 1 panel
+    '
+    DISP0_MAX_PANELS_PER_ROW = 1
+    DISP0_MAX_PANELS_PER_COLUMN = 1
+
+    ' (3) describe the color depth you want to support [3-8] bits per LED
+    '    NOTE full 24bit color is hwEnum.DEPTH_8BIT
+    '    NOTE: 3-5 bit depth is 2 bytes per pixel, while 6-8 bit depth is 3 bytes per pixel
+    DISP0_COLOR_DEPTH = hwEnum.DEPTH_6BIT
+
+    ' (4) Apply desired rotation to entire display
+    DISP0_ROTATION = hwEnum.ROT_NONE
+
+    ' |  End User configure
+    ' \-------------------------------------------
+
+    DISP0_MAX_DISPLAY_ROWS = DISP0_MAX_PANELS_PER_COLUMN * DISP0_MAX_PANEL_ROWS
+    DISP0_MAX_DISPLAY_COLUMNS = DISP0_MAX_PANELS_PER_ROW * DISP0_MAX_PANEL_COLUMNS
+
+    ' (8 bits per byte)
+    DISP0_BITS_PER_COLOR = DISP0_COLOR_DEPTH * 3
+    DISP0_BYTES_PER_COLOR = (DISP0_BITS_PER_COLOR + 7) / 8
+
+    DISP0_SCRN_SIZE_IN_BYTES = (((DISP0_MAX_DISPLAY_COLUMNS * DISP0_MAX_DISPLAY_ROWS * DISP0_BYTES_PER_COLOR) + 3) / 4) * 4
+    DISP0_SCRN_SIZE_IN_LONGS = (DISP0_SCRN_SIZE_IN_BYTES / 4)
+
+    DISP0_MAX_PANELS = DISP0_MAX_PANELS_PER_ROW * DISP0_MAX_PANELS_PER_COLUMN
+
+    ' what is our PWM frame size
+    ' PWM Frames are 4 bits per pixel full display count of pixels
+    DISP0_PWM_FRAME_SIZE_IN_BYTES = (DISP0_MAX_DISPLAY_COLUMNS * DISP0_MAX_DISPLAY_ROWS) / 2
+    DISP0_PWM_FRAME_SIZE_IN_LONGS = (DISP0_PWM_FRAME_SIZE_IN_BYTES + 3) / 4
+
+    DISP0_FRAMESET_SIZE_IN_LONGS = DISP0_COLOR_DEPTH * DISP0_PWM_FRAME_SIZE_IN_LONGS
+
+' -------------------------------------------------------------------
+' panel set on 2nd HUB75 adapter board - DISP1_* constants
+' -------------------------------------------------------------------
+
+    ' /-------------------------------------------
+    ' |  User configure
+
+    ' (1) describe the panel connections, addressing and chips
+    DISP1_ADAPTER_BASE_PIN = hwEnum.PINS_P16_P31
+    DISP1_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
+    DISP1_PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
+
+    ' (2) describe the single panel physical size
+    DISP1_MAX_PANEL_COLUMNS = 64
+    DISP1_MAX_PANEL_ROWS = 64
+
+    ' the organization of the panels: visual layout
+    '   [1]      1 row of 1 panel
+    '
+    DISP1_MAX_PANELS_PER_ROW = 1
+    DISP1_MAX_PANELS_PER_COLUMN = 1
+
+    ' (3) describe the color depth you want to support [3-8] bits per LED
+    '    NOTE full 24bit color is hwEnum.DEPTH_8BIT
+    '    NOTE: 3-5 bit depth is 2 bytes per pixel, while 6-8 bit depth is 3 bytes per pixel
+    DISP1_COLOR_DEPTH = hwEnum.DEPTH_6BIT
+
+    ' (4) Apply desired rotation to entire display
+    DISP1_ROTATION = hwEnum.ROT_NONE
+
+    ' |  End User configure
+    ' \-------------------------------------------
+
+    DISP1_MAX_DISPLAY_ROWS = DISP1_MAX_PANELS_PER_COLUMN * DISP1_MAX_PANEL_ROWS
+    DISP1_MAX_DISPLAY_COLUMNS = DISP1_MAX_PANELS_PER_ROW * DISP1_MAX_PANEL_COLUMNS
+
+    ' (8 bits per byte)
+    DISP1_BITS_PER_COLOR = DISP1_COLOR_DEPTH * 3
+    DISP1_BYTES_PER_COLOR = (DISP1_BITS_PER_COLOR + 7) / 8
+
+    DISP1_SCRN_SIZE_IN_BYTES = (((DISP1_MAX_DISPLAY_COLUMNS * DISP1_MAX_DISPLAY_ROWS * DISP1_BYTES_PER_COLOR) + 3) / 4) * 4
+    DISP1_SCRN_SIZE_IN_LONGS = (DISP1_SCRN_SIZE_IN_BYTES / 4)
+
+    DISP1_MAX_PANELS = DISP1_MAX_PANELS_PER_ROW * DISP1_MAX_PANELS_PER_COLUMN
+
+    ' what is our PWM frame size
+    ' PWM Frames are 4 bits per pixel full display count of pixels
+    DISP1_PWM_FRAME_SIZE_IN_BYTES = (DISP1_MAX_DISPLAY_COLUMNS * DISP1_MAX_DISPLAY_ROWS) / 2
+    DISP1_PWM_FRAME_SIZE_IN_LONGS = (DISP1_PWM_FRAME_SIZE_IN_BYTES + 3) / 4
+
+    DISP1_FRAMESET_SIZE_IN_LONGS = DISP1_COLOR_DEPTH * DISP1_PWM_FRAME_SIZE_IN_LONGS
+
+' -------------------------------------------------------------------
+' panel set on 3rd HUB75 adapter board - DISP2_* constants
+' -------------------------------------------------------------------
+
+    ' /-------------------------------------------
+    ' |  User configure
+
+    ' (1) describe the panel connections, addressing and chips
+    DISP2_ADAPTER_BASE_PIN = hwEnum.PINS_P16_P31
+    DISP2_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
+    DISP2_PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
+
+    ' (2) describe the single panel physical size
+    DISP2_MAX_PANEL_COLUMNS = 64
+    DISP2_MAX_PANEL_ROWS = 64
+
+    ' the organization of the panels: visual layout
+    '   [1]      1 row of 1 panel
+    '
+    DISP2_MAX_PANELS_PER_ROW = 6
+    DISP2_MAX_PANELS_PER_COLUMN = 1
+
+    ' (3) describe the color depth you want to support [3-8] bits per LED
+    '    NOTE full 24bit color is hwEnum.DEPTH_8BIT
+    '    NOTE: 3-5 bit depth is 2 bytes per pixel, while 6-8 bit depth is 3 bytes per pixel
+    DISP2_COLOR_DEPTH = hwEnum.DEPTH_5BIT
+
+    ' (4) Apply desired rotation to entire display
+    DISP2_ROTATION = hwEnum.ROT_NONE
+
+    ' |  End User configure
+    ' \-------------------------------------------
+
+    DISP2_MAX_DISPLAY_ROWS = DISP2_MAX_PANELS_PER_COLUMN * DISP2_MAX_PANEL_ROWS
+    DISP2_MAX_DISPLAY_COLUMNS = DISP2_MAX_PANELS_PER_ROW * DISP2_MAX_PANEL_COLUMNS
+
+    ' (8 bits per byte)
+    DISP2_BITS_PER_COLOR = DISP2_COLOR_DEPTH * 3
+    DISP2_BYTES_PER_COLOR = (DISP2_BITS_PER_COLOR + 7) / 8
+
+    DISP2_SCRN_SIZE_IN_BYTES = (((DISP2_MAX_DISPLAY_COLUMNS * DISP2_MAX_DISPLAY_ROWS * DISP2_BYTES_PER_COLOR) + 3) / 4) * 4
+    DISP2_SCRN_SIZE_IN_LONGS = (DISP2_SCRN_SIZE_IN_BYTES / 4)
+
+    DISP2_MAX_PANELS = DISP2_MAX_PANELS_PER_ROW * DISP2_MAX_PANELS_PER_COLUMN
+
+    ' what is our PWM frame size
+    ' PWM Frames are 4 bits per pixel full display count of pixels
+    DISP2_PWM_FRAME_SIZE_IN_BYTES = (DISP2_MAX_DISPLAY_COLUMNS * DISP2_MAX_DISPLAY_ROWS) / 2
+    DISP2_PWM_FRAME_SIZE_IN_LONGS = (DISP2_PWM_FRAME_SIZE_IN_BYTES + 3) / 4
+
+    DISP2_FRAMESET_SIZE_IN_LONGS = DISP2_COLOR_DEPTH * DISP2_PWM_FRAME_SIZE_IN_LONGS
+
+
+PUB null()
+'' This is not a top level object
+
+
+CON { More Hardware Setup Notes }
+
+{
+' -------------------------------------------------------------------------------------------------
+' AUTHORs  1st configuration
+' -------------------------------------------------------------------------------------------------
+' PANEL: ---  P3-6432-121-16s-D1.0  --- (pink labels)
+'   panel theory  3 bits per pixel
+'   64 columns x 32 rows = 2048 pixels
+'   16 lines [0-15]: 64 pixels / line
+'   2 halves: 1024 pixels / half (top and bottom)
+'     EA half: 1024 pixels
+'     top half (lines 0-15) driven by R1,G1,B1 pins
+'     bottom half (lines 16-31) driven by R2,G2,B2 pins
+'  Author's panel uses FM6126A chips
+'    max clock rate of 30MHz - [16.5ns hi/16.5ns lo]   TESTED NEW
+' ----------------------------------------------------------
+
+    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+
+    ' (1) determine what form of signalling the driver should use
+    PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6126A
+    PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
+
+' -------------------------------------------------------------------------------------------------
+' AUTHORs  2nd configuration
+' -------------------------------------------------------------------------------------------------
+' PANEL: ---  P3-6432-121-16s-D1.0  --- (pink labels)
+'   panel theory  3 bits per pixel
+'   64 columns x 32 rows = 2048 pixels
+'   16 lines [0-15]: 64 pixels / line
+'   2 halves: 1024 pixels / half (top and bottom)
+'     EA half: 1024 pixels
+'     top half (lines 0-15) driven by R1,G1,B1 pins
+'     bottom half (lines 16-31) driven by R2,G2,B2 pins
+' ----------------------------------------------------------
+
+    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+
+    ' (1) determine what form of signalling the driver should use
+    PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6126A
+    PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
+
+' -------------------------------------------------------------------------------------------------
+' AUTHORs  3rd configuration
+' -------------------------------------------------------------------------------------------------
+' PANEL: ---  P3-6432-121-16s-D1.0  --- (pink labels)
+'   panel theory  3 bits per pixel
+'   64 columns x 32 rows = 2048 pixels
+'   16 lines [0-15]: 64 pixels / line
+'   2 halves: 1024 pixels / half (top and bottom)
+'     EA half: 1024 pixels
+'     top half (lines 0-15) driven by R1,G1,B1 pins
+'     bottom half (lines 16-31) driven by R2,G2,B2 pins
+' ----------------------------------------------------------
+
+    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+
+    ' (1) determine what form of signalling the driver should use
+    PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6126A
+    PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
+
+' -------------------------------------------------------------------------------------------------
+' AUTHORs  4th configuration
+' -------------------------------------------------------------------------------------------------
+' PANEL: ---  P3-6432-121-16s-D1.0  --- (orange labels)
+'   panel theory  3 bits per pixel
+'   64 columns x 32 rows = 2048 pixels
+'   16 lines [0-15]: 64 pixels / line
+'   2 halves: 1024 pixels / half (top and bottom)
+'     EA half: 1024 pixels
+'     top half (lines 0-15) driven by R1,G1,B1 pins
+'     bottom half (lines 16-31) driven by R2,G2,B2 pins
+'  Author's panel uses FM6124 chips (came in Hackbox)
+'    max clock rate of 30MHz - [16.5ns hi/16.5ns lo]   TESTED NEW
+' ----------------------------------------------------------
+
+    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+
+    ' (1) determine what form of signalling the driver should use
+    PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6124
+    PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
+
+' -------------------------------------------------------------------------------------------------
+' AUTHORs  5th configuration (red/blue swapped!)
+' -------------------------------------------------------------------------------------------------
+' PANEL: ---  P2-2020210240-200  ---
+'   panel theory  3 bits per pixel
+'   64 columns x 64 rows = 4096 pixels
+'   32 lines [0-31]: 64 pixels / line
+'   2 halves: 2048 pixels / half (top and bottom)
+'     EA half: 2048 pixels
+'     top half (lines 0-31) driven by R1,G1,B1 pins
+'     bottom half (lines 32-63) driven by R2,G2,B2 pins
+'  Author's panel uses ICN2037 chips
+'    max clock rate of 20MHz - [25ns hi/25ns lo]
+' ----------------------------------------------------------
+
+    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+
+   ' (1) determine what form of signalling the driver should use
+    PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
+    PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
+
+' -------------------------------------------------------------------------------------------------
+' AUTHORs  6th configuration (red/blue swapped!)
+' -------------------------------------------------------------------------------------------------
+' PANEL: ---  P2-2020210240-200  ---
+'   panel theory  3 bits per pixel
+'   64 columns x 64 rows = 4096 pixels
+'   32 lines [0-31]: 64 pixels / line
+'   2 halves: 2048 pixels / half (top and bottom)
+'     EA half: 2048 pixels
+'     top half (lines 0-31) driven by R1,G1,B1 pins
+'     bottom half (lines 32-63) driven by R2,G2,B2 pins
+'  Author's panel uses ICN2037 chips
+'    max clock rate of 20MHz - [25ns hi/25ns lo]   TESTED NEW
+' ----------------------------------------------------------
+
+    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+
+   ' (1) determine what form of signalling the driver should use
+    PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
+    PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
+
+' -------------------------------------------------------------------------------------------------
+' AUTHORs  7th configuration
+' -------------------------------------------------------------------------------------------------
+' PANEL: ---  P4-1921-8S-vV2.0  --- (green PCBs)
+'   panel theory  3 bits per pixel
+'   64 columns x 32 rows = 4096 pixels 1/8 scan!!!
+'   32 lines [0-31]: 64 pixels / line
+'   2 halves: 2048 pixels / half (top and bottom)
+'     EA half: 2048 pixels
+'     top half (lines 0-31) driven by R1,G1,B1 pins
+'     bottom half (lines 32-63) driven by R2,G2,B2 pins
+'  Author's panel uses MBI5124 chips
+'    max clock rate of 20MHz - [25ns hi/25ns lo]   TESTED NEW
+' ----------------------------------------------------------
+
+    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+
+   ' (1) determine what form of signalling the driver should use
+    PANEL_DRIVER_CHIP = hwEnum.CHIP_MBI5124GP
+    PANEL_ADDR_LINES = hwEnum.ADDR_ABC
+
+' -------------------------------------------------------------------------------------------------
+' AUTHORs  8th configuration
+' -------------------------------------------------------------------------------------------------
+' PANEL: ---  P4-1921-8S-vV2.0  --- (green PCBs)
+'   panel theory  3 bits per pixel
+'   64 columns x 32 rows = 4096 pixels 1/8 scan!!!
+'   32 lines [0-31]: 64 pixels / line
+'   2 halves: 2048 pixels / half (top and bottom)
+'     EA half: 2048 pixels
+'     top half (lines 0-31) driven by R1,G1,B1 pins
+'     bottom half (lines 32-63) driven by R2,G2,B2 pins
+'  Author's panel uses MBI5124 chips
+'    max clock rate of 20MHz - [25ns hi/25ns lo]
+' ----------------------------------------------------------
+
+    ADAPTER_BASE_PIN = hwEnum.PINs_P32_P47
+
+   ' (1) determine what form of signalling the driver should use
+    PANEL_DRIVER_CHIP = hwEnum.CHIP_MBI5124GP
+    PANEL_ADDR_LINES = hwEnum.ADDR_ABC
+
+' -------------------------------------------------------------------------------------------------
+' AUTHORs  9th configuration (green/blue swapped!)
+' -------------------------------------------------------------------------------------------------
+' PANEL: ---  P2.5-16S-V1.0  --- (cyan label)  S210164-M00739
+'   panel theory  3 bits per pixel
+'   64 columns x 32 rows = 2048 pixels
+'   16 lines [0-15]: 64 pixels / line
+'   2 halves: 1024 pixels / half (top and bottom)
+'     EA half: 1024 pixels
+'     top half (lines 0-15) driven by R1,G1,B1 pins
+'     bottom half (lines 16-31) driven by R2,G2,B2 pins
+'  Author's panel uses GS6238S chips
+'    max clock rate of 30MHz - [16.5ns hi/16.5ns lo]   TESTED NEW
+' ----------------------------------------------------------
+
+    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+
+   ' (1) determine what form of signalling the driver should use
+    PANEL_DRIVER_CHIP = hwEnum.CHIP_GS6238S
+    PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
+
+' -------------------------------------------------------------------------------------------------
+' AUTHORs  10th configuration -- P2 P2 Cube FLAT (red/blue swapped!)
+' -------------------------------------------------------------------------------------------------
+' PANEL: ---  P2-2020210240-200  ---
+'   panel theory  3 bits per pixel
+'   64 columns x 64 rows = 4096 pixels
+'   32 lines [0-31]: 64 pixels / line
+'   2 halves: 2048 pixels / half (top and bottom)
+'     EA half: 2048 pixels
+'     top half (lines 0-31) driven by R1,G1,B1 pins
+'     bottom half (lines 32-63) driven by R2,G2,B2 pins
+'  Author's panel uses ICN2037 chips
+'    max clock rate of 20MHz - [25ns hi/25ns lo]   TESTED NEW
+' ----------------------------------------------------------
+
+    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+
+   ' (1) determine what form of signalling the driver should use
+    PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
+    PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
+
+' -------------------------------------------------------------------------------------------------
+' AUTHORs  11th configuration -- My LARGE panels
+' -------------------------------------------------------------------------------------------------
+' PANEL: ---  P2-2020210240-200  ---
+'   panel theory  3 bits per pixel
+'   128 columns x 64 rows = 8192 pixels
+'   64 lines [0-31]: 64 pixels / line
+'   2 halves: 4096 pixels / half (top and bottom)
+'     EA half: 4096 pixels
+'     top half (lines 0-31) driven by R1,G1,B1 pins
+'     bottom half (lines 32-63) driven by R2,G2,B2 pins
+'  Author's panel uses ICN2037 chips
+'    max clock rate of 20MHz - [25ns hi/25ns lo]   TESTED NEW
+' ----------------------------------------------------------
+
+    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+
+   ' (1) determine what form of signalling the driver should use
+    PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
+    PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
+
+'}
+
+CON { license }
+
+{{
+
+ -------------------------------------------------------------------------------------------------
+  MIT License
+
+  Copyright (c) 2024 Iron Sheep Productions, LLC
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+ =================================================================================================
+
+}}
