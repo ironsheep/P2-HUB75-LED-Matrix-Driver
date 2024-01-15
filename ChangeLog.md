@@ -22,7 +22,7 @@ Work to appear in upcoming releases:
 - Add support for panels using **DP5125D** chips
 - Add Chips' 5x7 dithered fonts
 - ICN2037_B was renamed to **ICN2038S** 
-- Rearranged user configurable files in order to improve compilation under Pnut/Propeller Tool - This allows us to support many more total pixles in a display.
+- Rearranged user configurable files in order to improve compilation under Pnut/Propeller Tool - This allows us to support many more total pixels in a display.
 
 ### Known Issues v2.1.0
 

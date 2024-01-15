@@ -116,7 +116,22 @@ PUB null()
 '' This is not a top level object
 
 PUB start(nID, nChainIdx) : ok | tmpVar, panelCt, tmpConstant, widthInPanels, heightInPanels, pwmRowSizeInLongs, pwmRowsInCogBuffer
-    '' Setup the pasm2 driver vars, then start a new cog running the driver
+
+'' Setup the pasm2 driver vars, then start a new cog running the driver
+''
+'' @param nId - debug instance id
+'' @param nChainIdx - index of the desired chain
+'' @returns ok - cogID() of driver cog if successful, -1 if not
+
+' Local Variables:
+' @local tmpVar -
+' @local panelCt -
+' @local tmpConstant -
+' @local widthInPanels -
+' @local heightInPanels -
+' @local pwmRowSizeInLongs -
+' @local pwmRowsInCogBuffer -
+
     chainIndex := nChainIdx
     instanceID := nID
     debug("RG3: #", udec_(instanceID), " -START-")
@@ -220,14 +235,16 @@ PUB start(nID, nChainIdx) : ok | tmpVar, panelCt, tmpConstant, widthInPanels, he
         debug("  -- MBI5124-8S")
     elseif eChipType == hwEnum.CHIP_GS6238S
         debug("  -- GS6238S")
+    elseif eChipType == hwEnum.CHIP_DP5125D
+        debug("  -- DP5125D")
     elseif eChipType == hwEnum.CHIP_FM6124 or eChipType == hwEnum.CHIP_UNK_LAT_END_ENCL
         if eChipType == hwEnum.CHIP_FM6124
             debug("  -- FM6124")
-    elseif eChipType == hwEnum.CHIP_ICN2037 or eChipType == hwEnum.CHIP_ICN2037_B or eChipType == hwEnum.CHIP_UNK_LAT_END_ENCL_SLO_CLK
+    elseif eChipType == hwEnum.CHIP_ICN2037 or eChipType == hwEnum.CHIP_ICN2038S or eChipType == hwEnum.CHIP_UNK_LAT_END_ENCL_SLO_CLK
         if eChipType == hwEnum.CHIP_ICN2037
             debug("  -- ICN2037")
-        elseif eChipType == hwEnum.CHIP_ICN2037_B
-            debug("  -- ICN2037-B")
+        elseif eChipType == hwEnum.CHIP_ICN2038S
+            debug("  -- ICN2038S")
     panelCt := hub75Bffrs.maxPanels(chainIndex)
     heightInPanels := hub75Bffrs.panelsPerColumn(chainIndex)
     widthInPanels := hub75Bffrs.panelsPerRow(chainIndex)
@@ -321,8 +338,10 @@ PUB start(nID, nChainIdx) : ok | tmpVar, panelCt, tmpConstant, widthInPanels, he
         maskRgb12   := %00111111_00000000_00000000_00000000         ' rgb2rgb1 now grounded to lsbit - pins at 16-31 A/B-pins
         addrValue1  := $0008_0000                                   ' 1 but in upper 5-bits of byte
         modeDatRotLeft := FALSE
-    debug("RG3:  -- ", ubin_long(bSetLowPins))
-    debug("RG3:  -- ", ubin_long(modeUsePortA))
+    debug("RG3:  -- ", ubin_long(maskAllPins))
+    debug("RG3:  --    ", ubin_long(maskAddr))
+    debug("RG3:  --    ", ubin_long(maskRgb12))
+    debug("RG3:  -- ", sdec_long(bSetLowPins, modeUsePortA))
 
     ' set width of one row
     colCtrMax := hub75Bffrs.maxDisplayColumns(chainIndex)
@@ -334,7 +353,7 @@ PUB start(nID, nChainIdx) : ok | tmpVar, panelCt, tmpConstant, widthInPanels, he
     debug("RG3:  ", udec(rowCtrMax), udec(colCtrMax), udec(colCtrMaxLngs))
     tmpConstant := MAX_COG_BUFFER_SIZE_IN_LONGS
     tmpVar := hub75Bffrs.pwmFrameSizeInLongs(chainIndex)
-    debug("RG3:  MAX_PWM_FRAME_SIZE_IN_LONGS=", udec_(tmpVar), ", MAX_COG_BUFFER_SIZE_IN_LONGS=", udec_(tmpConstant))
+    debug("RG3:  MAX_PWM_FRAME_SIZE_IN_BYTES=", udec_(tmpVar*4), ", MAX_COG_BUFFER_SIZE_IN_BYTES=", udec_(tmpConstant*4))
     tmpConstant := pwmSubPageCount
     tmpVar := pwmSubPageSizeInLongs
     debug("RG3:  MAX_SUBPAGE_SIZE_IN_LONGS=", udec_(tmpVar), ", MAX_PWM_SUBPAGES=", udec_(tmpConstant))

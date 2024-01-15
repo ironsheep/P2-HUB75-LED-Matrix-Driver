@@ -339,16 +339,18 @@ PUB getDriverFlags(nChainIdx) : desiredFlags, eChipType
     if eChipType == hwEnum.CHIP_FM6126A
         desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.LAT_POSN_OVERLAP | hwEnum.LAT_STYLE_OFFSET | hwEnum.INIT_PANEL_REQUIRED
     elseif eChipType == hwEnum.CHIP_GS6238S
-        desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.LAT_POSN_OVERLAP | hwEnum.LAT_STYLE_OFFSET | hwEnum.GB_SWAP '| hwEnum.INIT_PANEL_REQUIRED
+        desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.LAT_POSN_OVERLAP | hwEnum.LAT_STYLE_OFFSET | hwEnum.GB_SWAP
+    elseif eChipType == hwEnum.CHIP_DP5125D
+        desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.LAT_POSN_OVERLAP | hwEnum.LAT_STYLE_OFFSET | hwEnum.SCAN_4
     elseif eChipType == hwEnum.CHIP_MBI5124_8S
         desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.CHIP_UNK_LAT_END_ENCL | hwEnum.SCAN_4 | hwEnum.INIT_PANEL_REQUIRED
     elseif eChipType == hwEnum.CHIP_FM6124 or eChipType == hwEnum.CHIP_UNK_LAT_END_ENCL
         if eChipType == hwEnum.CHIP_FM6124
             desiredFlags := hwEnum.CHIP_MANUAL_SPEC
-    elseif eChipType == hwEnum.CHIP_ICN2037 or eChipType == hwEnum.CHIP_ICN2037_B or eChipType == hwEnum.CHIP_UNK_LAT_END_ENCL_SLO_CLK
+    elseif eChipType == hwEnum.CHIP_ICN2037 or eChipType == hwEnum.CHIP_ICN2038S or eChipType == hwEnum.CHIP_UNK_LAT_END_ENCL_SLO_CLK
         if eChipType == hwEnum.CHIP_ICN2037
             desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.CLK_WIDE_PULSE | hwEnum.RB_SWAP
-        elseif eChipType == hwEnum.CHIP_ICN2037_B
+        elseif eChipType == hwEnum.CHIP_ICN2038S
             desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.CLK_WIDE_PULSE | hwEnum.SCAN_4
     elseif eChipType & $ff <> hwEnum.CHIP_MANUAL_SPEC
         ' report ERROR and exit
