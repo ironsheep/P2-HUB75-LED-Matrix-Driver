@@ -17,7 +17,7 @@ CON
 
 OBJ
 
-    hub75Bffrs  :   "isp_hub75_hwBuffers"
+    hub75Bffrs  :   "isp_hub75_hwBufferAccess"
 
 DAT { driver controls for testing }
 

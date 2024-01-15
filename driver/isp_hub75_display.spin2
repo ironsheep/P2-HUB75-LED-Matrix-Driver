@@ -45,7 +45,7 @@ MAX_SCROLLING_REGIONS = 4
 
 OBJ { Objects Used by this Object }
 
-    hub75Bffrs  :   "isp_hub75_hwBuffers"
+    hub75Bffrs  :   "isp_hub75_hwBufferAccess"
     pixels      :   "isp_hub75_screenUtils"
     panelSet    :   "isp_hub75_panel"
     fonts       :   "isp_hub75_fonts"
@@ -130,6 +130,17 @@ PUB stop()
     if cog
         panelSet.stop()
         cog := 0
+
+PUB setBufferPointers(nChainIdx, pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2)
+
+'' forward the buffer pointers to the underlying buffer access routines
+''
+'' @param nChainIdx - the index of the desired chain
+'' @param pScrnBuffer - address of screen Buffer (2-3 bytes per pixel)
+'' @param pPwmFrameSet1 - address of PWM Frame-Set 1 (4 bits per pixel * color depth)
+'' @param pPwmFrameSet2 - address of PWM Frame-Set 2 (4 bits per pixel * color depth)
+
+    hub75Bffrs.setBufferPointers(nChainIdx, pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2)
 
 PUB clearScreen()
     '' Clear the panel to BLACK

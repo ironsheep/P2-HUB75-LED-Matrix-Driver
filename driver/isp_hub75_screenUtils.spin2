@@ -18,7 +18,7 @@ OBJ { Objects Used by this Object }
 
     color       :   "isp_hub75_color"
     colorUtils  :   "isp_hub75_colorUtils"
-    hub75Bffrs  :   "isp_hub75_hwBuffers"
+    hub75Bffrs  :   "isp_hub75_hwBufferAccess"
 
 PUB null()
     '' This is not a top level object

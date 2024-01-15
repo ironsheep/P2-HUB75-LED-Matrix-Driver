@@ -21,7 +21,7 @@ CON { public control values }
 
 OBJ
 
-    hub75Bffrs      :   "isp_hub75_hwBuffers"
+    hub75Bffrs      :   "isp_hub75_hwBufferAccess"
     segments[7]     :   "isp_hub75_segment"
 
 DAT { initialized data }

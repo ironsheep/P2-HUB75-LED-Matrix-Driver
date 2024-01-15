@@ -19,7 +19,7 @@ CON { I/O PINs }
 
 OBJ { Objects Needed }
 
-    hub75Bffrs  :   "isp_hub75_hwBuffers"
+    hub75Bffrs  :   "isp_hub75_hwBufferAccess"
     matrix      :   "isp_hub75_rgb3bit"
 
 VAR { driver instance variables }

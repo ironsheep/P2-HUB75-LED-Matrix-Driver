@@ -14,7 +14,7 @@
 
 OBJ { Objects Used by this Object }
 
-    hub75Bffrs  :   "isp_hub75_hwBuffers"
+    hub75Bffrs  :   "isp_hub75_hwBufferAccess"
     pixels      :   "isp_hub75_screenUtils"
     colorUtils  :   "isp_hub75_colorUtils"
 
