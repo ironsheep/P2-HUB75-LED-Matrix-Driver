@@ -15,7 +15,7 @@ Work to appear in upcoming releases:
 - Morphing digits Matrix displays can be found at [P2 LED-Matrix Morphing Digits](https://github.com/ironsheep/P2-LED-Matrix-Morphing-Digits) Repository.
 
 
-## [2.1.0] 10 Jan 2024
+## [3.0.1] 15 Jan 2024
 
 ### New chip support and new fonts
 
@@ -25,7 +25,7 @@ Work to appear in upcoming releases:
 - MBI5124_8S was renamed to **MBI5124GP**
 - Rearranged user configurable files in order to improve compilation under Pnut/Propeller Tool - This allows us to support many more total pixels (now 64k) in a display.
 
-### Known Issues v2.1.0
+### Known Issues v3.0.1
 
 - Multi-panel support for the MBI5124 driver chips is not yet working!
 - The driver is now fast enough now that there are slight display issues with panels using the MBI5124 chips. We're looking into this.
