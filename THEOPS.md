@@ -82,26 +82,21 @@ To this driver the panels look like the following:
 
 In the above image you see panels describe in terms of rows and columns, and you also see the overall display described in rows and columns but comprised of multiple panels in some arrangement.  The configuration settings following are intended to describe the geometry of your display to the driver.  The organization you describe in these settings causes the underlying driver to allocate buffer space tailored to your display and conditions the hub75 signalling to work correctly for your display. Additionally, if your panels use certain chips the signalling will be changed to conform to what those chips need to work.
 
-Once you haave the driver source files added to your project you will first need to configure the driver by modifying the following values in the file **demo\_hub75_hwGeometry.spin2**:
+Once you haave the driver source files added to your project you will first need to configure the driver by modifying the following values in the file **isp\_hub75_hwPanelConfig.spin2** for each HUB75 adapter that you will be activating in your project:
 
 | Name            | Default | Description |
 |-----------------|-------------|-------------|
-| `ADAPTER_BASE_PIN` | PINS\_P16_P31 |  Identify which pin-group your HUB75 board is connected |
-| `PANEL_DRIVER_CHIP` | CHIP_UNKNOWN | in most cases UNKNOWN will work. Some specialized panels need a specific driver chip (e.g., those using the FM6126A) |
-| `PANEL_ADDR_LINES` | {none} | The number of Address lines driving your panels (ADDR\_ABC, ADDR\_ABCD, or ADDR\_ABCDE) |
+| `DISPx_ADAPTER_BASE_PIN` | PINS\_P16_P31 |  Identify which pin-group your HUB75 board is connected |
+| `DISPx_PANEL_DRIVER_CHIP` | CHIP_UNKNOWN | in most cases UNKNOWN will work. Some specialized panels need a specific driver chip (e.g., those using the FM6126A) |
+| `DISPx_PANEL_ADDR_LINES` | {none} | The number of Address lines driving your panels (ADDR\_ABC, ADDR\_ABCD, or ADDR\_ABCDE) See the table of [Chips Supported](https://github.com/ironsheep/P2-HUB75-LED-Matrix-Driver/README.md#chips-supported) for the suggested value for your panels|
+| `DISPx_MAX_PANEL_COLUMNS` | {none} | The number of LEDs in each row of your panel ( # pixels-wide) |
+| `DISPx_MAX_PANEL_ROWS` | {none} | The number of LEDs in each column of your panel ( # pixels-high) |
+| `DISPx_MAX_DISPLAY_COLUMNS` | {none} | The number of LEDs in each ROW of your multi-panel display |
+| `DISPx_MAX_DISPLAY_ROWS` | {none} | The number of LEDs in each COLUMN of your multi-panel display |
+| `DISPx_COLOR_DEPTH` | {none} | The color depth you wish to display on your panels (compile-time selectable from 3-bit to 8-bit) |
+| `DISPx_ROTATION` | {none} | The color depth you wish to display on your panels (compile-time selectable from 3-bit to 8-bit) |
 
-And by modifying the following values in the file **isp\_hub75_hwBuffers.spin2**:
-
-| Name            | Default | Description |
-|-----------------|-------------|-------------|
-| `MAX_PANEL_COLUMNS` | {none} | The number of LEDs in each row of your panel ( # pixels-wide) |
-| `MAX_PANEL_ROWS` | {none} | The number of LEDs in each column of your panel ( # pixels-high) |
-| `MAX_DISPLAY_COLUMNS` | {none} | The number of LEDs in each ROW of your multi-panel display |
-| `MAX_DISPLAY_ROWS` | {none} | The number of LEDs in each COLUMN of your multi-panel display |
-| `COLOR_DEPTH` | {none} | The color depth you wish to display on your panels (compile-time selectable from 3-bit to 8-bit) |
-| `Roataion` | {none} | The color depth you wish to display on your panels (compile-time selectable from 3-bit to 8-bit) |
-
-**NOTE:** there will be a copy of the above constants for each HUB75 adapter card you wish to activate!
+**NOTE**: the DISPx_ is a place holder for DISP0\_\*, DISP1\_\* and DISP2\_\* constants indicating the 1st, 2nd, and 3rd HUB75 cards.
 
 ## Notes on driver internals
 
@@ -163,7 +158,7 @@ One of my upcoming efforts is to review in detail how the driver uses RAM. I'll 
 - using the EDGE on board RAM 
 - fine tuning how the driver allocates RAM
 
-My hope would be that I'll find that using one or more of these approaches will reduce our RAM usage.
+My hope would be that I'll find that using one or more of these approaches will reduce our RAM usage even further.
 
 ## Notes on HUB75 pins used by driver
 
@@ -194,6 +189,6 @@ Iron Sheep Productions, LLC.
 
 ---
 
-Last Updated: 02 Dec 2020, 00:58 MST
+Last Updated: 15 Jan 2024 15:45 MST
 
 [maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep.biz-blue.svg?style=for-the-badge

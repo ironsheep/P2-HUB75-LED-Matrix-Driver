@@ -6,27 +6,29 @@
 
 **In the v2.x driver** you have the **isp\_hub75_hwGeometry.spin2** file which you have to configure. And there was a 2nd file **isp\_hub75_hwBuffers.spin2** which contained the remaining settings. This 2nd file is named hwBuffers because this driver supports multiple HUB75 cards so buffer space (which must be compile-time allocated) has to be set up for each of the HUB75 cards you wish to support. Your work in this file had you selecting constant values once again but you also potentially had to uncomment some of the table entry and buffer allocations as well.
 
-**In the v3.x driver** the file **isp\_hub75_hwGeometry.spin2** has gone away but the content is now found in **isp\_hub75_hwPanelConfig.spin2**.
+**In the v3.x driver** the file **isp\_hub75_hwGeometry.spin2** has gone away but the content is now found in the new file **isp\_hub75_hwPanelConfig.spin2**.  This is now where most of the user configuration occurs.
 
-The file **isp\_hub75_hwBuffers.spin2** has been split into three files with some of the content moving into **isp\_hub75_hwBufferAccess.spin2** and also into **isp\_hub75_hwPanelConfig.spin2**.
+The file **isp\_hub75_hwBuffers.spin2** has been split into three files with most of the content moving into **isp\_hub75_hwBufferAccess.spin2** and the CONSTANTs moving into **isp\_hub75_hwPanelConfig.spin2**.
 
-This also simplifies what you have to modify. You adjust constant values in **isp\_hub75_hwPanelConfig.spin2** for each of your HUB75 adapters you'll be using. In the remaining two files **isp\_hub75_hwBufferAccess.spin2** and **isp\_hub75_hwBuffers.spin2**, you simply comment-out or uncomment the code assiciated with each of the HUB75 adapters you'll be using. One is uncommented in both files by default. If you are only using one adapter then there is nothing for you to do with these files! If you are using two or three then you need to uncomment code for those adapters to be compiled-in.  The for the following at the top of each of these two files:
+This also simplifies what you have to modify. You adjust constant values in **isp\_hub75_hwPanelConfig.spin2** for each of your HUB75 adapters you'll be using. In the remaining two files **isp\_hub75_hwBufferAccess.spin2** and **isp\_hub75_hwBuffers.spin2**, you simply comment-out or uncomment the code assiciated with each of the HUB75 adapters you'll be using. One adapter is uncommented in both files by default. If you are only using one adapter then there is nothing for you to do with these files! If you are using two or three adapters  then you need to uncomment/comment code for those adapters to be compiled-in.  Then look for the following at the top of each of these two files:
 
 ```python
 ' -----------------
 ' User Setup Notes:
 ' -----------------
-'   There are three areas in this file that need adjustment to the number of HUB75 
+'   There are two areas in this file that need adjustment to the number of HUB75 
 '    adapter boards you are using.
 '
 '   This file has ONE adapter board enabled by default.  If you are using more than one 
-'    adapter board, you will need to uncomment  sections for each additional adapter board 
-'    you wish to use.
+'    adapter board, you will need to comment/uncomment  sections for each additional adapter
+'    board you wish to use.
 '
 '   The lines containing the text "2nd HUB75 adapter board" are lines which set up the
 '    2nd adapter board.
 '   The lines containing the text "3rd HUB75 adapter board" are lines which set up the
 '    3rd adapter board.
+'
+'  ...
 ```
 
 Let's look at making these changes and also the making the small adjustment we need wheb starting up the new v3.x driver.

@@ -22,11 +22,11 @@ Work to appear in upcoming releases:
 - Add support for panels using **DP5125D** chips
 - Add Chips' 5x7 dithered fonts
 - ICN2037_B was renamed to **ICN2038S** 
-- Rearranged user configurable files in order to improve compilation under Pnut/Propeller Tool - This allows us to support many more total pixels in a display.
+- Rearranged user configurable files in order to improve compilation under Pnut/Propeller Tool - This allows us to support many more total pixels (now 64k) in a display.
 
 ### Known Issues v2.1.0
 
-- Multi-panel support for the FM6126A and MBI5124 driver chips is not yet working!
+- Multi-panel support for the MBI5124 driver chips is not yet working!
 - The driver is now fast enough now that there are slight display issues with panels using the MBI5124 chips. We're looking into this.
 
 ## [2.0.0] 10 Nov 2022
