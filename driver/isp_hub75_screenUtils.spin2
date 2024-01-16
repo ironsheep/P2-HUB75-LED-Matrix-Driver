@@ -38,8 +38,7 @@ PUB drawPixelAtRC(nChainIdx, row, column, rgbColor) | xlatedColor, fHue
 
 PUB drawPixelAtRCwithRGB(nChainIdx, row, column, red, green, blue) | maxRows, maxColumns, bytesPerColor, rowIndex, columnIndex, colorOffset, pColor, pScreen
     '' Place r,g,b color pixel at r,c
-    maxRows := hub75Bffrs.maxDisplayRows(nChainIdx)
-    maxColumns := hub75Bffrs.maxDisplayColumns(nChainIdx)
+    maxRows, maxColumns := hub75Bffrs.displaySizeInPixels(nChainIdx)
     bytesPerColor := hub75Bffrs.bytesPerColor(nChainIdx)
     rowIndex := 0 #> row <# maxRows - 1
     columnIndex :=  0 #> column <# maxColumns - 1

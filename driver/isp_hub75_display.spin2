@@ -118,12 +118,9 @@ PUB startWithId(nId, nChainIdx) : ok | scrollerIndex, dvrConfig, eChipType
         abort
 
     ' now that we know our chainIndex for this instance, we can record geometry info
-    maxDisplayRows := hub75Bffrs.maxDisplayRows(chainIndex)
-    maxDisplayColumns := hub75Bffrs.maxDisplayColumns(chainIndex)
+    maxDisplayRows, maxDisplayColumns := hub75Bffrs.displaySizeInPixels(chainIndex)
     maxPanels := hub75Bffrs.maxPanels(chainIndex)
-    columnsPerPanel := hub75Bffrs.columnsPerPanel(chainIndex)
-    rowsPerPanel := hub75Bffrs.rowsPerPanel(chainIndex)
-
+    rowsPerPanel, columnsPerPanel := hub75Bffrs.panelSizeInPixels(chainIndex)
 
     debug("DSP: BFFR screen[", udec_long_(hub75Bffrs.displaySizeInLongs(chainIndex)), "] 0x", uhex_long_(hub75Bffrs.displayBufferAddress(chainIndex)))
 
@@ -170,8 +167,8 @@ PUB clearScreenBuffer()
 
 PUB fillScreen(rgbColor) | row, column
     '' Fill the display with 24-bit color value
-    repeat row from 0 to maxDisplayRows - 1
-        repeat column from 0 to maxDisplayColumns - 1
+    repeat maxDisplayRows with row
+        repeat maxDisplayColumns with column
             pixels.drawPixelAtRC(chainIndex, row, column, rgbColor)
 
 PUB fillPanel(panelIndex, rgbColor) | row, column, columnOffsetToPanel

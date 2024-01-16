@@ -88,7 +88,7 @@ VAR
     long    bSwapRB
     long    bInitPanel
     long    bScan_1_4
-
+    long    maxDisplayColumns
     long    pwmBufferCount
     long    pwmSubPageCount
     long    pwmSubPageSizeInLongs
@@ -138,7 +138,9 @@ PUB start(nID, nChainIdx) : ok | tmpVar, panelCt, tmpConstant, widthInPanels, he
     stop()
     pwmBufferCount := hub75Bffrs.colorDepth(chainIndex)
 
-    pwmRowSizeInLongs := (hub75Bffrs.maxDisplayColumns(chainIndex) + 3) / 4
+    maxDisplayColumns := hub75Bffrs.maxDisplayColumns(chainIndex)
+    ' 2 pixels per byte, 4 bytes per long
+    pwmRowSizeInLongs := ((maxDisplayColumns / 2) + 3) / 4
     pwmRowsInCogBuffer := MAX_COG_BUFFER_SIZE_IN_LONGS / pwmRowSizeInLongs
     pwmSubPageSizeInLongs := pwmRowsInCogBuffer * pwmRowSizeInLongs
     pwmSubPageCount := hub75Bffrs.pwmFrameSizeInLongs(chainIndex) / pwmSubPageSizeInLongs
@@ -222,7 +224,7 @@ PUB start(nID, nChainIdx) : ok | tmpVar, panelCt, tmpConstant, widthInPanels, he
     tmpConstant := hub75Bffrs.colorDepth(chainIndex)
     debug("RG3:  CONFIG ColorDepth = ", udec_long_(tmpConstant))
 
-    ' initialize our max count for initial frame of frameSet
+    ' initialize our max repetition count for initial frame of frameSet
     maxCtPerFrame := (hub75Bffrs.pwmFrameCount(chainIndex) + 1) >> 1
     debug("RG3:  CONFIG 1st bit ", udec_long(maxCtPerFrame))
 
@@ -246,8 +248,7 @@ PUB start(nID, nChainIdx) : ok | tmpVar, panelCt, tmpConstant, widthInPanels, he
         elseif eChipType == hwEnum.CHIP_ICN2038S
             debug("  -- ICN2038S")
     panelCt := hub75Bffrs.maxPanels(chainIndex)
-    heightInPanels := hub75Bffrs.panelsPerColumn(chainIndex)
-    widthInPanels := hub75Bffrs.panelsPerRow(chainIndex)
+    heightInPanels, widthInPanels := hub75Bffrs.displaySizeInPanels(chainIndex)
     debug("  -- ", udec_(panelCt), " panel(s), wh=(", udec_(widthInPanels), "x", udec_(heightInPanels), ")")
 
     debug("RG3:  BFFR CogBuffer[256]=0x", uhex_long_(@@CogBuffer))
@@ -350,13 +351,13 @@ PUB start(nID, nChainIdx) : ok | tmpVar, panelCt, tmpConstant, widthInPanels, he
     debug("RG3:  -- ", sdec_long(bSetLowPins, modeUsePortA))
 
     ' set width of one row
-    colCtrMax := hub75Bffrs.maxDisplayColumns(chainIndex)
+    colCtrMax := maxDisplayColumns
     if bScan_1_4
-        colCtrMax := hub75Bffrs.maxDisplayColumns(chainIndex) * 2
+        colCtrMax := maxDisplayColumns * 2
     colCtrMaxLngs := colCtrMax / 4
     ' set following in case we are driving an FM6126A panel
     colCtrLatchCt := (modeOverlapDAT) ? colCtrMax - 3 : colCtrMax ' for the setup form of the driver we latch during last three columns
-    debug("RG3:  ", udec(rowCtrMax), udec(colCtrMax), udec(colCtrMaxLngs))
+    debug("RG3:  ", udec(rowCtrMax, colCtrMax, colCtrMaxLngs))
     tmpConstant := MAX_COG_BUFFER_SIZE_IN_LONGS
     tmpVar := hub75Bffrs.pwmFrameSizeInLongs(chainIndex)
     debug("RG3:  MAX_PWM_FRAME_SIZE_IN_BYTES=", udec_(tmpVar*4), ", MAX_COG_BUFFER_SIZE_IN_BYTES=", udec_(tmpConstant*4))
@@ -464,7 +465,7 @@ PRI setupPins()
 
 ' --------------------------------------------------------------------------------------------------
 
-PRI resetPanelOld() | columnIdx, bitIdx, panelIdx
+PRI resetPanelOld() | columnIdx, bitIdx, panelIdx, maxColumns
     debug("* Driver FM6126A Init")
     ' write the required init sequence to our panel drivers
 
@@ -576,12 +577,13 @@ PRI resetPanelOld() | columnIdx, bitIdx, panelIdx
     ' for register 11 we set bit0 to low, rest of bits high indicating panel should be at 100% brightness
     ' for register 12, we set bit9 to high indicating panel should be enabled
     '
+    maxColumns := maxDisplayColumns
     PINHIGH(pnlLedPinOE)
     PINLOW(pnlLedPinLATCH)
     PINLOW(pnlLedPinCLK)
 
     ' TRY #1 1 seq accross both boards
-    repeat columnIdx from 0 to hub75Bffrs.maxDisplayColumns(chainIndex) - 1
+    repeat columnIdx from 0 to maxColumns - 1
         bitIdx := columnIdx // 16
         if bitIdx == 0
             PINLOW(pnlColorPins)
@@ -589,7 +591,7 @@ PRI resetPanelOld() | columnIdx, bitIdx, panelIdx
             PINHIGH(pnlColorPins)
 
         ' mark the data: drive latch during last 11 columns
-        if columnIdx > (hub75Bffrs.maxDisplayColumns(chainIndex) - (11+1))
+        if columnIdx > (maxColumns - (11+1))
             PINHIGH(pnlLedPinLATCH)
         else
             PINLOW(pnlLedPinLATCH)
@@ -603,7 +605,7 @@ PRI resetPanelOld() | columnIdx, bitIdx, panelIdx
     'waitms(1)
 
     ' send data to Control Register 12
-    repeat columnIdx from 0 to hub75Bffrs.maxDisplayColumns(chainIndex) - 1
+    repeat columnIdx from 0 to maxColumns - 1
         bitIdx := columnIdx // 16
         'if bitIdx <> 9
         'if bitIdx <> 9 and bitIdx <> 6
@@ -613,7 +615,7 @@ PRI resetPanelOld() | columnIdx, bitIdx, panelIdx
             PINHIGH(pnlColorPins)
 
         ' mark the data: drive latch during last 12 columns
-        if columnIdx > (hub75Bffrs.maxDisplayColumns(chainIndex) - (12+1))
+        if columnIdx > (maxColumns - (12+1))
             PINHIGH(pnlLedPinLATCH)
         else
             PINLOW(pnlLedPinLATCH)
@@ -638,7 +640,7 @@ PRI resetPanelFM6126() | maxPhysicalCols, last11Cols, last12Cols, lPinOE, lPinLA
 '  --> 9/16 used
     debug("* Driver FM6126A Init")
 
-    maxPhysicalCols := hub75Bffrs.maxDisplayColumns(chainIndex)
+    maxPhysicalCols := maxDisplayColumns
     last11Cols      := maxPhysicalCols - (11+1)
     last12Cols      := maxPhysicalCols - (12+1)
     lPinOE          := pnlLedPinOE

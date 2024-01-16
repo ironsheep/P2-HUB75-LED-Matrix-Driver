@@ -63,6 +63,7 @@ VAR { globals - instance variables }
     LONG    startTime
 
     LONG    maxTextColumns      ' specs from display object
+    LONG    maxDisplayColumns   ' specs from buffer chain table
     BYTE    charWidthInPix
     BYTE    charHeightInPix
     BYTE    leadingGapInPix
@@ -96,7 +97,9 @@ PUB initialize(nChainIdx)
     scrollNbrTimes := 0
     instanceID := ++instanceNumber
     remainingPixToScroll := 0
+    maxDisplayColumns := hub75Bffrs.maxDisplayColumns(chainIndex)
     isSetup := TRUE ' yes, now we are!
+
     'debug("stx:initialize() ", udec(instanceID))
 
 PUB setFontInfo(nbrTextColumns, charWidth, charHeight, leadingGap, horizontalGap, hBitmapOffset, textFont)
@@ -456,13 +459,12 @@ PRI placeBitmapFrontAtRCWithColor(row, column, bitInset, nbrFieldBits, pChrBitma
     'debug("stx:pBMf() ", udec(instanceID), udec(row), udec(column), udec(bitInset), udec(nbrCharBits), udec(endColumn))
     'showDuration(startTime, string("stx:pbF"))
 
-PRI placeBitmapBackAtRCWithColor(row, column, bitInset, nbrCharBits, pChrBitmap, rgbColor) : endColumn | cBitIdx, cByteIdx, cRowBits, pixColor, colOffset, pixColumn, pixRow, cBitOffset, maxCols, pixVal, ditheredRGBColor
+PRI placeBitmapBackAtRCWithColor(row, column, bitInset, nbrCharBits, pChrBitmap, rgbColor) : endColumn | cBitIdx, cByteIdx, cRowBits, pixColor, colOffset, pixColumn, pixRow, cBitOffset, pixVal, ditheredRGBColor
     ' Write cChar to display R,C using rgbColor using given bitmap
     'startTime := getct()
     'debug("stx:pbB ", udec(column), udec(bitInset), udec(nbrCharBits), uhex_long(pChrBitmap))
     'rgbColor := $ffff00 ' TESTING color our trailing char yellow
     endColumn := column + nbrCharBits
-    maxCols := hub75Bffrs.maxDisplayColumns(chainIndex)
     if nbrCharBits > 0
         if bFontIsDithered
             ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, 36)      ' 50% brightness
@@ -479,7 +481,7 @@ PRI placeBitmapBackAtRCWithColor(row, column, bitInset, nbrCharBits, pChrBitmap,
                         pixColor := (pixVal == 1) ? ditheredRGBColor : $000000
                     pixColumn := column + (nbrCharBits - 1) - colOffset
                     ' dont paint off edge of matrix
-                    if pixColumn < maxCols
+                    if pixColumn < maxDisplayColumns
                         pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
                     colOffset--
         else
@@ -493,7 +495,7 @@ PRI placeBitmapBackAtRCWithColor(row, column, bitInset, nbrCharBits, pChrBitmap,
                 pixColor := cRowBits & (1 << cBitOffset) > 0 ? rgbColor : $000000
                 pixColumn := column + (nbrCharBits - 1) - colOffset
                 ' dont paint off edge of matrix
-                if pixColumn < maxCols
+                if pixColumn < maxDisplayColumns
                     pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
                 colOffset--
 
@@ -502,12 +504,11 @@ PRI placeBitmapBackAtRCWithColor(row, column, bitInset, nbrCharBits, pChrBitmap,
 'DAT { test debug data }
 '    debugCount  BYTE    42
 
-PRI placeColrBitmapVtOffsetAtRC(row, column, vtPxOffset, pChrBitmap, rgbColor) : endColumn | cBitIdx, rowIdx, cByteIdx, cRowBits, pixColor, pixRow, cBitOffset, colOffset, pixColumn, maxCols, pixVal, ditheredRGBColor
+PRI placeColrBitmapVtOffsetAtRC(row, column, vtPxOffset, pChrBitmap, rgbColor) : endColumn | cBitIdx, rowIdx, cByteIdx, cRowBits, pixColor, pixRow, cBitOffset, colOffset, pixColumn, pixVal, ditheredRGBColor
 ' special NOTE: show bitmap vertically offset by {vtPxOffset}
 '   BUT!!!   vtPxOffset is 0-charHeight (meaning 1 more than rows of pixels)
 '   for this extra row of pixels we paint black!
     endColumn := column + charWidthInPix
-    maxCols := hub75Bffrs.maxDisplayColumns(chainIndex)
     if bFontIsDithered
         ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, 36)      ' 50% brightness
         repeat rowIdx from 0 to charHeightInPix - 1
@@ -531,7 +532,7 @@ PRI placeColrBitmapVtOffsetAtRC(row, column, vtPxOffset, pChrBitmap, rgbColor) :
                     pixColor := (pixVal == 1) ? ditheredRGBColor : $000000
                 pixColumn := column + (charWidthInPix - 1) - colOffset
                 ' dont paint off edge of matrix
-                if pixColumn < maxCols
+                if pixColumn < maxDisplayColumns
                     pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
                 colOffset--
     else
@@ -553,7 +554,7 @@ PRI placeColrBitmapVtOffsetAtRC(row, column, vtPxOffset, pChrBitmap, rgbColor) :
             pixColor := cRowBits & (1 << cBitOffset) > 0 ? rgbColor : $000000
             pixColumn := column + (charWidthInPix - 1) - colOffset
             ' dont paint off edge of matrix
-            if pixColumn < maxCols
+            if pixColumn < maxDisplayColumns
                 pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
             colOffset--
 

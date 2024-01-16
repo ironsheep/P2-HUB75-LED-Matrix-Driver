@@ -114,7 +114,7 @@ CON { PRIVATE internal constants }
 
 ' offsets to each entry in our chain descriptor table
 #0,  ENTR_SCRN_BUFFER_ADDR_OFST, ENTR_FRM1_BUFFER_ADDR_OFST, ENTR_FRM2_BUFFER_ADDR_OFST, ...
-     ENTR_MAX_COLUMNS_OFST, ENTR_MAX_ROWS_OFST, ENTR_COLOR_DEPTH, ENTR_BYTES_PER_COLOR_OFST, ...
+     ENTR_MAX_DISP_COLUMNS_OFST, ENTR_MAX_DISP_ROWS_OFST, ENTR_COLOR_DEPTH, ENTR_BYTES_PER_COLOR_OFST, ...
      ENTR_SCRN_SIZE_IN_LONGS_OFST, ENTR_FRM_SIZE_IN_BYTES_OFST, ENTR_ROTATION_OFST, ...
      ENTR_PANEL_COLUMNS_OFST, ENTR_PANEL_ROWS_OFST, ENTR_PANELS_PER_COLUMN_OFST, ENTR_PANELS_PER_ROW_OFST, ...
      ENTR_CHIP_TYPE_OFST, ENTR_HUB75_PIN_BASE_OFST, ENTR_HPANEL_ADDR_LINES_OFST
@@ -173,14 +173,47 @@ PUB setBufferPointers(nChainIdx, pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2) | pE
 
 
 PUB maxDisplayColumns(nChainIdx) : nMaxColumns | pEntry
-'' Return the number of pixels in a display row for the nChainIdx HUB75 adapter
-    pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
-    nMaxColumns := LONG[pEntry][ENTR_MAX_COLUMNS_OFST]
+'' Return the number of pixels in a horizontal display row for the nChainIdx HUB75 adapter
+''
+'' @param nChainIdx - the index of the desired chain
+'' @returns nMaxColumns - the number of pixels horizontally in display
 
-PUB maxDisplayRows(nChainIdx) : nMaxRows | pEntry
-'' Return the number of pixels in a display column for the nChainIdx HUB75 adapter
+' Local Variables:
+' @local pEntry - temp var pointing to table entry for chain
+
     pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
-    nMaxRows := LONG[pEntry][ENTR_MAX_ROWS_OFST]
+    nMaxColumns := LONG[pEntry][ENTR_MAX_DISP_COLUMNS_OFST]
+
+
+PUB displaySizeInPixels(nChainIdx) : nMaxRows, nMaxColumns | pEntry
+'' Return the number of pixels in a display row and column for the nChainIdx HUB75 adapter
+''
+'' @param nChainIdx - the index of the desired chain
+'' @returns nMaxRows - the number of pixels vertically in display
+'' @returns nMaxColumns - the number of pixels horizontally in display
+
+' Local Variables:
+' @local pEntry - temp var pointing to table entry for chain
+
+    pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
+    nMaxRows := LONG[pEntry][ENTR_MAX_DISP_ROWS_OFST]
+    nMaxColumns := LONG[pEntry][ENTR_MAX_DISP_COLUMNS_OFST]
+
+
+PUB displaySizeInPanels(nChainIdx) : nPanelsPerColumn, nPanelsPerRow  | pEntry
+
+'' Return the number of panels in each row and column for the nChainIdx HUB75 adapter
+''
+'' @param nChainIdx - the index of the desired chain
+'' @returns nPanelsPerColumn - the number of panels vertically in display
+'' @returns nPanelsPerRow - the number of panels horizontally in display
+
+' Local Variables:
+' @local pEntry - temp var pointing to table entry for chain
+
+    pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
+    nPanelsPerColumn := LONG[pEntry][ENTR_PANELS_PER_COLUMN_OFST]
+    nPanelsPerRow := LONG[pEntry][ENTR_PANELS_PER_ROW_OFST]
 
 PUB colorDepth(nChainIdx) : nDepthInBits | pEntry
 '' Return the number of bits for a color (red, green, or blue) [3-8 bits] for the nChainIdx HUB75 adapter
@@ -212,25 +245,11 @@ PUB panelRotation(nChainIdx) : ePanelRotation | pEntry
     pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
     ePanelRotation := LONG[pEntry][ENTR_ROTATION_OFST]
 
-PUB columnsPerPanel(nChainIdx) : nPanelColumns | pEntry
-'' Return the number of pixels in a single panel row for the nChainIdx HUB75 adapter
+PUB panelSizeInPixels(nChainIdx) : nPanelRows, nPanelColumns | pEntry
+'' Return the number of pixels in a single panel row of pixels for the nChainIdx HUB75 adapter
     pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
     nPanelColumns := LONG[pEntry][ENTR_PANEL_COLUMNS_OFST]
-
-PUB rowsPerPanel(nChainIdx) : nPanelRows | pEntry
-'' Return the number of pixels in a single panel column for the nChainIdx HUB75 adapter
-    pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
     nPanelRows := LONG[pEntry][ENTR_PANEL_ROWS_OFST]
-
-PUB panelsPerColumn(nChainIdx) : nColumnPanels | pEntry
-'' Return the number of panels in each column for the nChainIdx HUB75 adapter
-    pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
-    nColumnPanels := LONG[pEntry][ENTR_PANELS_PER_COLUMN_OFST]
-
-PUB panelsPerRow(nChainIdx) : nRowPanels | pEntry
-'' Return the number of panels in each row for the nChainIdx HUB75 adapter
-    pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
-    nRowPanels := LONG[pEntry][ENTR_PANELS_PER_ROW_OFST]
 
 PUB displayBufferAddress(nChainIdx) : pDisplayBuffer | pEntry
 '' Return the address of the memory buffer associated with the nChainIdx HUB75 adapter
@@ -262,9 +281,19 @@ PUB addressLines(nChainIdx) : nAddrLines | pEntry
     pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
     nAddrLines := LONG[pEntry][ENTR_HPANEL_ADDR_LINES_OFST]
 
-PUB maxPanels(nChainIdx) : nMaxPanels | pEntry
+PUB maxPanels(nChainIdx) : nMaxPanels | pEntry, panelsInRow, panelsInColumn
 '' Return the total number of panels connected to the nChainIdx HUB75 adapter
-    nMaxPanels := panelsPerColumn(nChainIdx) * panelsPerRow(nChainIdx)
+''
+'' @param nChainIdx - the index of the desired chain
+'' @returns nMaxPanels - total number of panels connected to the nChainIdx HUB75 adapter
+
+' Local Variables:
+' @local pEntry - temp var pointing to table entry for chain
+' @local panelsInRow - temp var for number of panels in a row
+' @local panelsInColumn - temp var for number of panels in a column
+
+    panelsInColumn, panelsInRow := displaySizeInPanels(nChainIdx)
+    nMaxPanels := panelsInRow * panelsInColumn
 
 PUB zeroFillBuffer(nChainIdx) | pBffr, nBffrLen
 '' Zero fill the display buffer associated with the nChainIdx HUB75 adapter
@@ -310,10 +339,8 @@ PUB offsetToPanel(nChainIdx, nPanelIndex) : offsetPixelRows, offsetPixelColumns 
 '' Return x,y offset to specified panel from top-left corner of display
     offsetPixelRows := offsetPixelColumns := 0
     nMaxPanels := maxPanels(nChainIdx)
-    rowsPerPnl := rowsPerPanel(nChainIdx)
-    colsPerPnl := columnsPerPanel(nChainIdx)
-    pnlsPerRow := panelsPerRow(nChainIdx)
-    pnlsPerCol := panelsPerColumn(nChainIdx)
+    rowsPerPnl, colsPerPnl := panelSizeInPixels(nChainIdx)
+    pnlsPerCol, pnlsPerRow := displaySizeInPanels(nChainIdx)
     if nMaxPanels > 0
         panelIndex :=  0 #> nPanelIndex <# nMaxPanels - 1
         if nPanelIndex <> panelIndex

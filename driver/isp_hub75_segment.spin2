@@ -41,17 +41,18 @@ OBJ
     colorUtils  :   "isp_hub75_colorUtils"
 
 VAR
-    long    chainIndex
-    long    segOrientation
-    long    currentState
-    long    nextState
-    long    segHeight
-    long    segWidth
-    long    segStartX
-    long    segStartY
-    long    segRgbColor    ' TODO add next color for when ea. digit value can be a diff color
-    long    desiredEndState
-
+  long  chainIndex
+  long  segOrientation
+  long  currentState
+  long  nextState
+  long  segHeight
+  long  segWidth
+  long  segStartX
+  long  segStartY
+  long  segRgbColor    ' TODO add next color for when ea. digit value can be a diff color
+  long  desiredEndState
+  long  maxRows
+  long  maxColumns
 
 PUB null()
     '' This is NOT a top level object
@@ -61,9 +62,11 @@ PUB placeSegment(nChainIdx, row, column, orientation, initialState, rgbColor)
     'debug("seg:placeSegment rc=(", udec_(row), ",", udec_(column), "), orient=(", udec_(orientation), "), state=(", udec_(initialState), "), RGB=(", uhex_long_(rgbColor),")")
     '' Locate a desired segment on our screen  Draw initial segement if state is NOT off
     ' record settings choices we are given extrapolating some
+    maxRows, maxColumns := hub75Bffrs.displaySizeInPixels(nChainIdx)
+
     desiredEndState := currentState := nextState := STATE_OFF
-    segStartX :=  0 #> column <# hub75Bffrs.maxDisplayColumns(chainIndex) - 1
-    segStartY :=  0 #> row <# hub75Bffrs.maxDisplayRows(chainIndex) - 1
+    segStartX :=  0 #> column <# maxColumns - 1
+    segStartY :=  0 #> row <# maxRows - 1
     segOrientation := orientation
     segRgbColor := rgbColor
     case orientation
@@ -306,10 +309,10 @@ PRI updateMiddleSegment(newState) | pixInset, rowIndex
 
 PRI drawLine(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column
     'debug("seg:drwLn fmRC=(", udec_(fmRow), ",", udec_(fmColumn), "), toRC=(", udec_(toRow), ",", udec_(toColumn), "), RGB=(", uhex_long(rgbColor), ")")
-    fmRow :=  0 #> fmRow <# hub75Bffrs.maxDisplayRows(chainIndex) - 1
-    fmColumn :=  0 #> fmColumn <# hub75Bffrs.maxDisplayColumns(chainIndex) - 1
-    toRow :=  0 #> toRow <# hub75Bffrs.maxDisplayRows(chainIndex) - 1
-    toColumn :=  0 #> toColumn <# hub75Bffrs.maxDisplayColumns(chainIndex) - 1
+    fmRow :=  0 #> fmRow <# maxRows - 1
+    fmColumn :=  0 #> fmColumn <# maxColumns - 1
+    toRow :=  0 #> toRow <# maxRows - 1
+    toColumn :=  0 #> toColumn <# maxColumns - 1
     if fmRow == toRow
         ' draw Horizontal Line
         repeat column from fmColumn to toColumn

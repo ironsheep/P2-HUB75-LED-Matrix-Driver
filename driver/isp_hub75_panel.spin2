@@ -27,6 +27,8 @@ VAR { driver instance variables }
     LONG    cog
     LONG    bus           ' ram/flash
     LONG    chainIndex
+    LONG    nHeightInPixels
+    LONG    nWidthInPixels
     LONG    nDumpPassNbr
     LONG    nPwmFrameSizeInLongs
     BYTE    usePwmFrameset1
@@ -51,14 +53,14 @@ PUB start(nID, nChainIdx) : ok
     instanceID := nID
     pPwmFrame1 := hub75Bffrs.pwmFrame1BufferAddress(chainIndex)
     pPwmFrame2 := hub75Bffrs.pwmFrame2BufferAddress(chainIndex)
-
+    nHeightInPixels, nWidthInPixels := hub75Bffrs.displaySizeInPixels(chainIndex)
     debug("- PNL: #", udec_(instanceID), " Start clk=", udec_long(clkfreq))
 
     bDumpOnce := FALSE
     nPassCt := 0
 
     nPwmFrameSizeInLongs := hub75Bffrs.pwmFrameSizeInLongs(chainIndex)
-    debug("- PNL: PHYScols=", udec_long_(hub75Bffrs.maxDisplayColumns(chainIndex)), " PHYSrows=", udec_long_(hub75Bffrs.maxDisplayRows(chainIndex)))
+    debug("- PNL: PHYScols=", udec_long_(nWidthInPixels), " PHYSrows=", udec_long_(nHeightInPixels))
     debug("- PNL: maxPwmBuffers=", udec_long_(hub75Bffrs.colorDepth(chainIndex)), " PwmBufferSizeInLongs=", udec_long_(nPwmFrameSizeInLongs))
     debug("- PNL: BFFR pwm[1][", udec_long_(nPwmFrameSizeInLongs), "] 0x", uhex_long_(pPwmFrame1))
     debug("- PNL: BFFR pwm[2][", udec_long_(nPwmFrameSizeInLongs), "] 0x", uhex_long_(pPwmFrame2))
@@ -146,8 +148,8 @@ PUB convertScreen2PWM_14(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet, pPwmFra
     markStart()
     ' init ptrs/variables
     pPwmFrameSet            := getActivePwmBuffer()
-    lPhyRows                := hub75Bffrs.maxDisplayRows(chainIndex)
-    lPysColumns             := hub75Bffrs.maxDisplayColumns(chainIndex)
+    lPhyRows                := nHeightInPixels
+    lPysColumns             := nWidthInPixels
     lOne4thLineCt           := lPhyRows / 4
     lOneHalfLineCt          := lPhyRows / 2
     lThree4thsLineCt        := (lPhyRows / 4) * 3
@@ -369,8 +371,8 @@ PUB convertScreen2PWM(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet, lPhyRows, 
     pScreenInMemory := p24bitScreen
   ' clear 8x 3-bit frames
     pPwmFrameSet            := getActivePwmBuffer()  ' clear PWM frames  and get pointer to buffer
-    lPhyRows                := hub75Bffrs.maxDisplayRows(chainIndex)
-    lPysColumns             := hub75Bffrs.maxDisplayColumns(chainIndex)
+    lPhyRows                := nHeightInPixels
+    lPysColumns             := nWidthInPixels
     lPwmFrameSizeInBytes    := hub75Bffrs.pwmFrameSizeInBytes(chainIndex)
     lMaxPwmBuffers          := hub75Bffrs.colorDepth(chainIndex)
     lDisplayBytesPerColor   := hub75Bffrs.bytesPerColor(chainIndex)
@@ -586,8 +588,8 @@ VAR { buffer addresses }
 
 PRI setPanelColorBitsForRC(pPwmFrame, nPanelRow, nPanelCol, rBit, gBit, bBit) | nBffrR, nBffrC, isRGB2, byteIdx, maskBitsBGR, bitsBGR, currPwmColorBits, showDebug
     '  write color bits to a PWM frame at frame[r][c]    UNUSED FOR NOW
-    nBffrR := 0 #> nPanelRow <# hub75Bffrs.maxDisplayRows(chainIndex) - 1
-    nBffrC := 0 #> nPanelCol <# hub75Bffrs.maxDisplayColumns(chainIndex) - 1
+    nBffrR := 0 #> nPanelRow <# nHeightInPixels - 1
+    nBffrC := 0 #> nPanelCol <# nWidthInPixels - 1
     isRGB2 := (nBffrR > 15) ? TRUE : FALSE
     nBffrR //= 16
 
@@ -599,7 +601,7 @@ PRI setPanelColorBitsForRC(pPwmFrame, nPanelRow, nPanelCol, rBit, gBit, bBit) | 
         maskBitsBGR <<= 3
     ' FIXME: UNDONE WAS PANEL_COLUMNS ??
     ' FIXME: missing offset to panel and using panel_colums
-    byteIdx := (nBffrR * hub75Bffrs.maxDisplayColumns(chainIndex)) + nBffrC
+    byteIdx := (nBffrR * nWidthInPixels) + nBffrC
 
     currPwmColorBits := BYTE[pPwmFrame][byteIdx] & !maskBitsBGR
     if byteIdx > 1023
