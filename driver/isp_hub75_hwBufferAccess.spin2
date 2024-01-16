@@ -52,16 +52,6 @@ OBJ
     hwEnum      : "isp_hub75_hwEnums"                   ' hub75 attachment, set up constants
     user        : "isp_hub75_hwPanelConfig"             ' user's panels configuration constants
 
-CON { internal constants }
-' -------------------------------------------------------------------
-' common to all HUB75 adapter boards
-' -------------------------------------------------------------------
-
-    PLACEHOLDER_CHIP_TYPE = 0
-    PLACEHOLDER_PIN_BASE = 0
-    PLACEHOLDER_ADDR_LINES = 0
-    PLACEHOLDER_ADDRESS = $0DF0ADDE
-
 DAT { Buffers and configuration values for each HUB75 adapter/chain of panels }
 
 screenTableEnt0         ' The start of the 1st HUB75 chain descriptor table
@@ -116,6 +106,11 @@ bFirstTime          LONG    TRUE                ' for debug/testing use
 CON { PRIVATE internal constants }
 
     NOT_INITIALIZED = -1
+    PLACEHOLDER_CHIP_TYPE = 0
+    PLACEHOLDER_PIN_BASE = 0
+    PLACEHOLDER_ADDR_LINES = 0
+    PLACEHOLDER_ADDRESS = $0DF0ADDE
+
 
 ' offsets to each entry in our chain descriptor table
 #0,  ENTR_SCRN_BUFFER_ADDR_OFST, ENTR_FRM1_BUFFER_ADDR_OFST, ENTR_FRM2_BUFFER_ADDR_OFST, ...
@@ -157,7 +152,7 @@ PUB configure(eHub75Chain, ePinBase, eChipType, eAddrLines) | pEntry, nChainIdx,
         debug("HUB75: configure() idx=", udec_(nChainIdx), udec(nChainIdx), udec(ePinBase), udec(eAddrLines))
 
 
-PUB setBufferPointers(nChainIdx, pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2) | pEntry
+PUB setBufferPointers(nChainIdx, pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2) | pEntry, longsInEntry
 
 '' forward the buffer pointers to the underlying buffer access routines
 ''
@@ -172,7 +167,9 @@ PUB setBufferPointers(nChainIdx, pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2) | pE
     LONG[pEntry][ENTR_FRM1_BUFFER_ADDR_OFST] := pPwmFrameSet1
     LONG[pEntry][ENTR_FRM2_BUFFER_ADDR_OFST] := pPwmFrameSet2
     debug("HUB75: setBufferPointers() idx[", udec_(nChainIdx), "] ", uhex_long(pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2))
-    debug("HUB75: chain table size=", udec_(tableSizeInBytes), " entries", uhex_long_array(@screenTableEnt0, tableSizeInBytes / 4))
+    longsInEntry := tableSizeInBytes / 4
+    debug("HUB75: chain table size=", udec_(tableSizeInBytes), " entries [0-2]", uhex_long_array(@screenTableEnt0, 3))
+    debug("HUB75: chain table values[3-13]: ", udec_long_array(@LONG[@screenTableEnt0][3], longsInEntry - 3 ))
 
 
 PUB maxDisplayColumns(nChainIdx) : nMaxColumns | pEntry
@@ -309,27 +306,33 @@ PUB pwmFrameCount(nChainIdx) : nbrPwmFrames | nColorDepth
         other:
             nbrPwmFrames := 15  ' default to DEPTH_4BIT if set badly
 
-PUB offsetToPanel(nChainIdx, nPanelIndex) : offsetPixelRows, offsetPixelColumns | gridRow, gridColumn, nMaxPanels, panelIndex
+PUB offsetToPanel(nChainIdx, nPanelIndex) : offsetPixelRows, offsetPixelColumns | gridRow, gridColumn, nMaxPanels, panelIndex, rowsPerPnl, colsPerPnl, pnlsPerRow, pnlsPerCol
 '' Return x,y offset to specified panel from top-left corner of display
     offsetPixelRows := offsetPixelColumns := 0
     nMaxPanels := maxPanels(nChainIdx)
+    rowsPerPnl := rowsPerPanel(nChainIdx)
+    colsPerPnl := columnsPerPanel(nChainIdx)
+    pnlsPerRow := panelsPerRow(nChainIdx)
+    pnlsPerCol := panelsPerColumn(nChainIdx)
     if nMaxPanels > 0
         panelIndex :=  0 #> nPanelIndex <# nMaxPanels - 1
         if nPanelIndex <> panelIndex
             debug("* Warning invalid nPanelIndex (", udec_(nPanelIndex), ") for display! of ", udec_(nMaxPanels), " panels")
 
-        if panelsPerRow(nChainIdx) == 1
+        if pnlsPerRow == 1 and pnlsPerCol == 1
+            ' we have a one panel, no offset
+        elseif pnlsPerRow == 1
             ' we have a column of panels
-            offsetPixelRows := panelIndex * rowsPerPanel(nChainIdx)
-        elseif panelsPerColumn(nChainIdx) == 1
+            offsetPixelRows := panelIndex * rowsPerPnl
+        elseif pnlsPerCol == 1
             ' we have a row of panels
-            offsetPixelColumns := panelIndex * columnsPerPanel(nChainIdx)
+            offsetPixelColumns := panelIndex * colsPerPnl
         else
             ' we have a grid of panels: MAX_PANELS_PER_ROW x MAX_PANELS_PER_COLUMN
-            gridRow := panelIndex / panelsPerRow(nChainIdx)
-            gridColumn := panelIndex // panelsPerRow(nChainIdx)
-            offsetPixelRows := gridRow * rowsPerPanel(nChainIdx)
-            offsetPixelColumns := gridColumn * columnsPerPanel(nChainIdx)
+            gridRow := panelIndex / pnlsPerRow
+            gridColumn := panelIndex // pnlsPerRow
+            offsetPixelRows := gridRow * rowsPerPnl
+            offsetPixelColumns := gridColumn * colsPerPnl
 
     return offsetPixelRows, offsetPixelColumns
 

@@ -36,29 +36,32 @@ PUB drawPixelAtRC(nChainIdx, row, column, rgbColor) | xlatedColor, fHue
 
     drawPixelAtRCwithRGB(nChainIdx, row, column, colorUtils.rgbForCValue(xlatedColor))
 
-PUB drawPixelAtRCwithRGB(nChainIdx, row, column, red, green, blue) | rowIndex, columnIndex, colorOffset, pColor, pScreen
+PUB drawPixelAtRCwithRGB(nChainIdx, row, column, red, green, blue) | maxRows, maxColumns, bytesPerColor, rowIndex, columnIndex, colorOffset, pColor, pScreen
     '' Place r,g,b color pixel at r,c
-    rowIndex := 0 #> row <# hub75Bffrs.maxDisplayRows(nChainIdx) - 1
-    columnIndex :=  0 #> column <# hub75Bffrs.maxDisplayColumns(nChainIdx) - 1
+    maxRows := hub75Bffrs.maxDisplayRows(nChainIdx)
+    maxColumns := hub75Bffrs.maxDisplayColumns(nChainIdx)
+    bytesPerColor := hub75Bffrs.bytesPerColor(nChainIdx)
+    rowIndex := 0 #> row <# maxRows - 1
+    columnIndex :=  0 #> column <# maxColumns - 1
     case hub75Bffrs.panelRotation(nChainIdx)
         hub75Bffrs.ROT_LEFT_90:
             pScreen := rowIndex
             rowIndex := columnIndex
             columnIndex := pScreen
-            rowIndex := (hub75Bffrs.maxDisplayColumns(nChainIdx) - 1) - rowIndex
-            colorOffset := ((rowIndex * hub75Bffrs.maxDisplayRows(nChainIdx)) + columnIndex) * hub75Bffrs.bytesPerColor(nChainIdx)
+            rowIndex := (maxColumns - 1) - rowIndex
+            colorOffset := ((rowIndex * maxRows) + columnIndex) * bytesPerColor
         hub75Bffrs.ROT_RIGHT_90:
             pScreen := rowIndex
             rowIndex := columnIndex
             columnIndex := pScreen
-            columnIndex := (hub75Bffrs.maxDisplayRows(nChainIdx) - 1) - columnIndex
-            colorOffset := ((rowIndex * hub75Bffrs.maxDisplayRows(nChainIdx)) + columnIndex) * hub75Bffrs.bytesPerColor(nChainIdx)
+            columnIndex := (maxRows - 1) - columnIndex
+            colorOffset := ((rowIndex * maxRows) + columnIndex) * bytesPerColor
         hub75Bffrs.ROT_180:
-            columnIndex := (hub75Bffrs.maxDisplayColumns(nChainIdx) - 1) - columnIndex
-            rowIndex := (hub75Bffrs.maxDisplayRows(nChainIdx) - 1) - rowIndex
-            colorOffset := ((rowIndex * hub75Bffrs.maxDisplayColumns(nChainIdx)) + columnIndex) * hub75Bffrs.bytesPerColor(nChainIdx)
+            columnIndex := (maxColumns - 1) - columnIndex
+            rowIndex := (maxRows - 1) - rowIndex
+            colorOffset := ((rowIndex * maxColumns) + columnIndex) * bytesPerColor
        other:
-            colorOffset := ((rowIndex * hub75Bffrs.maxDisplayColumns(nChainIdx)) + columnIndex) * hub75Bffrs.bytesPerColor(nChainIdx)
+            colorOffset := ((rowIndex * maxColumns) + columnIndex) * bytesPerColor
 
     pScreen := hub75Bffrs.displayBufferAddress(nChainIdx)
     pColor := @byte[pScreen][colorOffset]

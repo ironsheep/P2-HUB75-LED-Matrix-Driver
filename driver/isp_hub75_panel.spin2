@@ -620,7 +620,7 @@ PRI markEnd(message) | elapsed
     'elapsed := elapsed +/ (clkfreq/1000) ' convert to milliseconds
     elapsed := elapsed +/ (clkfreq/1000000) ' convert to useconds
     'elapsed := elapsed +/ (clkfreq/1000) ' convert to useconds
-    'debug("- runtime ", zstr_(message), ": ", udec_long(elapsed), " uS")
+    debug("- runtime ", zstr_(message), ": ", udec_long(elapsed), " uS")
 
 PRI isDebugLocn(nRow, nCol) : status
     status := FALSE
