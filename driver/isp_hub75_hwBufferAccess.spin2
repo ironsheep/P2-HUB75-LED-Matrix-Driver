@@ -335,8 +335,46 @@ PUB pwmFrameCount(nChainIdx) : nbrPwmFrames | nColorDepth
         other:
             nbrPwmFrames := 15  ' default to DEPTH_4BIT if set badly
 
+PUB indexToPanel(nChainIdx, nPanelRow, nPanelCol) : nPanelIndex | nBffrR, nBffrC, rowsPerPnl, colsPerPnl, panelsPerRow, panelsPerColumn
+'' Return the index of the panel within entire display at the specified panel-row and panel-column
+''
+'' @param nChainIdx - the index of the desired chain
+'' @param nPanelRow - index of specified panel in row
+'' @param nPanelCol - index of specified panel in column
+'' @returns nPanelIndex - index of panel within entire display
+
+' Local Variables:
+' @local nBffrR -
+' @local nBffrC -
+' @local rowsPerPnl -
+' @local colsPerPnl -
+' @local panelsPerRow -
+' @local panelsPerColumn -
+
+    rowsPerPnl, colsPerPnl := panelSizeInPixels(nChainIdx)
+    panelsPerRow, panelsPerColumn := displaySizeInPanels(nChainIdx)
+    nBffrR := 0 #> nPanelRow <# rowsPerPnl - 1
+    nBffrC := 0 #> nPanelCol <# colsPerPnl - 1
+    nPanelIndex := (nBffrR * panelsPerRow) + nBffrC
+
 PUB offsetToPanel(nChainIdx, nPanelIndex) : offsetPixelRows, offsetPixelColumns | gridRow, gridColumn, nMaxPanels, panelIndex, rowsPerPnl, colsPerPnl, pnlsPerRow, pnlsPerCol
 '' Return x,y offset to specified panel from top-left corner of display
+''
+'' @param nChainIdx - the index of the desired chain
+'' @param nPanelIndex - index of panel within entire display
+'' @returns offsetPixelRows - vertical offset to top-left pixel of specified panel from top-left corner of display
+'' @returns offsetPixelColumns - horizontal offset to top-left pixel of specified panel from top-left corner of display
+
+' Local Variables:
+' @local gridRow -
+' @local gridColumn -
+' @local nMaxPanels -
+' @local panelIndex -
+' @local rowsPerPnl -
+' @local colsPerPnl -
+' @local pnlsPerRow -
+' @local pnlsPerCol -
+
     offsetPixelRows := offsetPixelColumns := 0
     nMaxPanels := maxPanels(nChainIdx)
     rowsPerPnl, colsPerPnl := panelSizeInPixels(nChainIdx)

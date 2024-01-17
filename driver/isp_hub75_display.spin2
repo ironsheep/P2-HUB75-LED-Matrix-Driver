@@ -165,6 +165,14 @@ PUB clearScreenBuffer()
     '' Clear the panel to BLACK
     hub75Bffrs.zeroFillBuffer(chainIndex)
 
+PUB setBrightness(newBrightness)
+    '' Set the global brightness value
+    colorUtils.setBrightness(newBrightness)
+
+PUB getBrightness() : brightness
+    '' Return the global brightness value
+    brightness := colorUtils.getBrightness()
+
 PUB fillScreen(rgbColor) | row, column
     '' Fill the display with 24-bit color value
     repeat maxDisplayRows with row
@@ -648,7 +656,7 @@ PUB drawLineOfColor(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column, d
     fmColumn :=  0 #> fmColumn <# maxDisplayColumns - 1
     toRow :=  0 #> toRow <# maxDisplayRows - 1
     toColumn :=  0 #> toColumn <# maxDisplayColumns - 1
-    debug("seg:drwLn fmRC=(", udec_(fmRow), ",", udec_(fmColumn), "), toRC=(", udec_(toRow), ",", udec_(toColumn), "), RGB=(", uhex_long(rgbColor), ")")
+    'debug("seg:drwLn fmRC=(", udec_(fmRow), ",", udec_(fmColumn), "), toRC=(", udec_(toRow), ",", udec_(toColumn), "), RGB=(", uhex_long(rgbColor), ")")
     if fmRow == toRow
         ' draw Horizontal Line
         repeat column from fmColumn to toColumn

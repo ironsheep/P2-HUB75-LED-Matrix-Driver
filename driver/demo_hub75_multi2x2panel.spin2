@@ -74,6 +74,14 @@ PUB main() : ok | demoIndex, bDidDemo, pnlIdx
         debug("- DEMO: underlying driver failed!")
         abort
 
+    display.clearScreenBuffer()
+    'display.fillScreenNoPWM(color.BASE_RED)
+    'display.fillScreenNoPWM(color.BASE_GREEN)
+    'display.fillScreenNoPWM(color.BASE_BLUE)
+    display.fillScreenNoPWM(color.BASE_WHITE)
+    display.commitScreenToPanelSet()
+    waitSec(120)
+
     'placeClock()  ' broken
     display.clearScreenBuffer()
     display.setTextColor(color.cRed)
