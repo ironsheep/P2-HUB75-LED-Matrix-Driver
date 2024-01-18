@@ -27,7 +27,7 @@ CON { I/O PINs }
     #0[16], PINS_P0_P15, PINS_P16_P31, PINS_P32_P47, PINS_P48_P63
 
     ' the user-selected location: one of 0, 16, 32, and 48
-    MTX_LED_BASE_PIN = PINS_P48_P63
+    MTX_LED_BASE_PIN = PINs_P16_P31
 
     MTX_LED_SPARE_2 = MTX_LED_BASE_PIN + 15
     MTX_LED_SPARE_1 = MTX_LED_BASE_PIN + 14
@@ -83,16 +83,20 @@ PUB start() : ok | addr, rgb1, rgb2, ctl, ctr
         ' burst our control signals
         repeat ctl from 0 to 7
             pinwrite(MTX_CTL_PINS, ctl)
+        pinfloat(MTX_CTL_PINS)
 
         ' step thru addresses
         repeat addr from 0 to 31
             pinwrite(MTX_ROW_ADDR_PINS, addr)
+        pinfloat(MTX_ROW_ADDR_PINS)
 
         ' step thru colors
         repeat rgb1 from 0 to 7
             rgb2 := 7 - rgb1
             pinwrite(MTX_COLOR_RGB1_PINS, rgb1)
             pinwrite(MTX_COLOR_RGB2_PINS, rgb2)
+        pinfloat(MTX_COLOR_RGB1_PINS)
+        pinfloat(MTX_COLOR_RGB2_PINS)
 
         waitms(3)  ' 3/1000 seconds
 

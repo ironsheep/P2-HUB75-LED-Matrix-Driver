@@ -851,7 +851,7 @@ cmdDsplyFrameSet
                     mov     pwmFrameCt, maxPwmBuffers  ' set loop to PWM N frames then stop to see what to do next
 nextSamePwmFrame
                     ' LA INSTRUMENTATION
-                    outnot  pinLAXT_10    ' start of single PWM Frame
+                    outnot  pinLAXT_10    ' start of SAME single PWM Frame
                     outnot  pinLAXT_10
                     mov     pwmSameFrameCt, pwmFrameSetCt
 nextPwmFrame
@@ -870,7 +870,7 @@ nextPwmFrame
 '
 display1PwmFrame
                     ' LA INSTRUMENTATION
-                    outnot  pinLAXT_11    ' start of single PWM Frame
+                    outnot  pinLAXT_11    ' start of NEW single PWM Frame
                     outnot  pinLAXT_11
                     ' PWM frames are broken in cogBuffer sized subpages
                     ' iterate over subpages to complete the 1 pwm frame
@@ -1059,11 +1059,11 @@ outInst2of3         setbyte OUTA, colorByte, #3         ' modded to byte 1 or by
                     nop     ' new extend clock pulse x2
 eobytes
                     waitx   #2                          ' is this doing anything?
-                    drvl    pinLedCLK            ' falling edge - reset clock after end of loop
+                    drvl    pinLedCLK                   ' falling edge - reset clock after end of loop
 
-                    drvh    pinLedOE             ' disable output (in prep for latch)
+                    drvh    pinLedOE                    ' disable output (in prep for latch)
                     ' write address
-                    add     row_addr, addrValue1       ' incr address by 1
+                    add     row_addr, addrValue1        ' incr address by 1
                     call    #emitAddr
 
                     drvh    pinLedLATCH
@@ -1071,9 +1071,9 @@ eobytes
                     ' LATCH DATA complete...
                     or      modeLatchEnclosed, modeLatchEnclosed      wz
     if_z            drvl    pinLedOE
-    if_z            drvl    pinLedLATCH          ' end latch data
+    if_z            drvl    pinLedLATCH                 ' end latch data
 '    if_z            waitx   #3  ' 2 + 3 x clk           ' let LATCH settle
-    if_nz           drvl    pinLedLATCH          ' end latch data
+    if_nz           drvl    pinLedLATCH                 ' end latch data
     if_nz           waitx   #3  ' 2 + 3 x clk           ' let LATCH settle
     if_nz           drvl    pinLedOE
                     waitx   #3  ' 2 + 3 x clk           ' let LATCH settle
@@ -1082,7 +1082,6 @@ eobytes
                     '
                     cmp      byteOffset, maxPwmSubPgSzBytes wc
     if_c            jmp     #wrLineLatchAtEnd
-                    drvh    pinLedOE
                     '
                     ' ---  inter-subframe gap  ---
                     '

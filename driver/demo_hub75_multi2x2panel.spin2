@@ -74,31 +74,44 @@ PUB main() : ok | demoIndex, bDidDemo, pnlIdx
         debug("- DEMO: underlying driver failed!")
         abort
 
-    display.clearScreenBuffer()
+    'display.clearScreenBuffer()
     'display.fillScreenNoPWM(color.BASE_RED)
     'display.fillScreenNoPWM(color.BASE_GREEN)
     'display.fillScreenNoPWM(color.BASE_BLUE)
-    display.fillScreenNoPWM(color.BASE_WHITE)
+    'display.fillScreenNoPWM(color.BASE_WHITE)
+    'display.commitScreenToPanelSet()
+    'waitSec(120)
+
+    display.clearScreenBuffer()
+    display.setBrightness(80) ' 80% brightness
+    display.fillScreen(color.cCyan)
     display.commitScreenToPanelSet()
-    waitSec(120)
+    waitSec(240)
 
     'placeClock()  ' broken
     display.clearScreenBuffer()
+
     display.setTextColor(color.cRed)
+
     display.drawCircle(30,30,15)
     display.setTextColor(color.cYellow)
-    display.drawPanelBox(0, 4, 4, 30, 30, FALSE)
-    display.setCursorOnPanel(6, 1, 0)
+    pnlIdx := 0
+    display.drawPanelBox(pnlIdx, 4, 4, 30, 30, FALSE)
+    display.setCursorOnPanel(6, 1, pnlIdx)
     display.setTextAtCursor(@lblZro)
-    display.drawPanelBox(1, 4, 4, 30, 30, FALSE)
-    display.setCursorOnPanel(6, 1, 1)
+    pnlIdx++
+    display.drawPanelBox(pnlIdx, 4, 4, 30, 30, FALSE)
+    display.setCursorOnPanel(6, 1, pnlIdx)
     display.setTextAtCursor(@lblOne)
-    display.drawPanelBox(2, 4, 4, 30, 30, FALSE)
-    display.setCursorOnPanel(6, 1, 2)
+    pnlIdx++
+    display.drawPanelBox(pnlIdx, 4, 4, 30, 30, FALSE)
+    display.setCursorOnPanel(6, 1, pnlIdx)
     display.setTextAtCursor(@lblTwo)
-    display.drawPanelBox(3, 4, 4, 30, 30, FALSE)
-    display.setCursorOnPanel(6, 1, 3)
+    pnlIdx++
+    display.drawPanelBox(pnlIdx, 4, 4, 30, 30, FALSE)
+    display.setCursorOnPanel(6, 1, pnlIdx)
     display.setTextAtCursor(@lblThr)
+
     display.commitScreenToPanelSet()
 
     waitSec(120)

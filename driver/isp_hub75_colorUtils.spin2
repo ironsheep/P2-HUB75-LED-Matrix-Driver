@@ -31,16 +31,26 @@ PUB init()
     ' this allows our color conversion routines to be faster as there is less runtime code
 
 PUB setBrightness(newBrightness)
-    '' Set the global brightness value
+'' Set the global brightness value
+''  - where 256 is NO brightness adjustment
+''  - where 0 is OFF, 205 = 80%, etc.
+''
+'' @param newBrightness - the desired brightness value [0-255,256]
+
     defaultBrightness := newBrightness
+
+PUB getBrightness() : brightness
+'' Return the global brightness value
+''
+'' @returns brightness - the current brightness value [0-255,256]
+''  - where 256 is NO brightness adjustment
+''  - where 0 is OFF, 205 = 80%, etc.
+
+    brightness := defaultBrightness
 
 PUB isGammaEnabled() : bIsEnabled
     '' Return T/F where T means gamma is compiled in
     bIsEnabled := bGammaEnable
-
-PUB getBrightness() : brightness
-    '' Return the global brightness value
-    brightness := defaultBrightness
 
 PUB correctedColor(nChainIdx, color) : adjustedColor
     '' Correct a color using generic gamma

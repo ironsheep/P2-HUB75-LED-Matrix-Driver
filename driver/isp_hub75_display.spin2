@@ -166,11 +166,21 @@ PUB clearScreenBuffer()
     hub75Bffrs.zeroFillBuffer(chainIndex)
 
 PUB setBrightness(newBrightness)
-    '' Set the global brightness value
+'' Set the global brightness value
+''  - where 256 is NO brightness adjustment
+''  - where 0 is OFF, 205 = 80%, etc.
+''
+'' @param newBrightness - the desired brightness value [0-255,256]
+
     colorUtils.setBrightness(newBrightness)
 
 PUB getBrightness() : brightness
-    '' Return the global brightness value
+'' Return the global brightness value
+''
+'' @returns brightness - the current brightness value [0-255,256]
+''  - where 256 is NO brightness adjustment
+''  - where 0 is OFF, 205 = 80%, etc.
+
     brightness := colorUtils.getBrightness()
 
 PUB fillScreen(rgbColor) | row, column

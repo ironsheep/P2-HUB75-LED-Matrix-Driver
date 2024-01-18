@@ -44,22 +44,23 @@ CON { User Panel Connection and Configuration }
     DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 
     ' (2) describe the single panel physical size
-    DISP0_MAX_PANEL_COLUMNS = 64
+    DISP0_MAX_PANEL_COLUMNS = 128
     DISP0_MAX_PANEL_ROWS = 64
 
     ' the organization of the panels: visual layout
-    '   [1]      1 row of 1 panel
+    '   [2]      2 row of 2 panels
+    ' . [2]
     '
-    DISP0_MAX_PANELS_PER_ROW = 1
+    DISP0_MAX_PANELS_PER_ROW = 4
     DISP0_MAX_PANELS_PER_COLUMN = 1
 
     ' (3) describe the color depth you want to support [3-8] bits per LED
     '    NOTE full 24bit color is hwEnum.DEPTH_8BIT
     '    NOTE: 3-5 bit depth is 2 bytes per pixel, while 6-8 bit depth is 3 bytes per pixel
-    DISP0_COLOR_DEPTH = hwEnum.DEPTH_6BIT
+    DISP0_COLOR_DEPTH = hwEnum.DEPTH_4BIT
 
     ' (4) Apply desired rotation to entire display
-    DISP0_ROTATION = hwEnum.ROT_NONE
+    DISP0_ROTATION = hwEnum.ROT_180
 
     ' |  End User configure
     ' \-------------------------------------------
@@ -160,7 +161,7 @@ CON { User Panel Connection and Configuration }
     ' (3) describe the color depth you want to support [3-8] bits per LED
     '    NOTE full 24bit color is hwEnum.DEPTH_8BIT
     '    NOTE: 3-5 bit depth is 2 bytes per pixel, while 6-8 bit depth is 3 bytes per pixel
-    DISP2_COLOR_DEPTH = hwEnum.DEPTH_5BIT
+    DISP2_COLOR_DEPTH = hwEnum.DEPTH_4BIT
 
     ' (4) Apply desired rotation to entire display
     DISP2_ROTATION = hwEnum.ROT_NONE
