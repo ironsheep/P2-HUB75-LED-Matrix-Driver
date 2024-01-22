@@ -20,9 +20,10 @@ CON { I/O PINs }
 
 ' New P2 Eval Board HUB75 Adapter:
     ' the user-selected location: one of 0, 16, 32, and 48
-{
+
+' Special unused P2 pins used for send signals to Logic Analyzer
+'{
     MTX_LA_XTRA_PINS_BASE =  8
-    MTX_LA_XTRA_PINS =  MTX_LA_XTRA_PINS_BASE ADDPINS 3 ' 4 extra pins
     MTX_LA_XT_P08 =  MTX_LA_XTRA_PINS_BASE + 0
     MTX_LA_XT_P09 =  MTX_LA_XTRA_PINS_BASE + 1
     MTX_LA_XT_P10 =  MTX_LA_XTRA_PINS_BASE + 2
@@ -33,8 +34,10 @@ CON { I/O PINs }
 CON { Data }
 
     PIN_GROUP_P0_P15 = hwEnum.PINS_P0_P15
+    PIN_GROUP_P8_P23 = hwEnum.PINS_P8_P23
     PIN_GROUP_P16_P31 = hwEnum.PINS_P16_P31
     PIN_GROUP_P32_P47 = hwEnum.PINS_P32_P47
+    PIN_GROUP_P40_P55 = hwEnum.PINS_P40_P55
     PIN_GROUP_P48_P63 = 48
 
     ' driver COG internal buffer size
@@ -189,19 +192,10 @@ PUB start(nID, nChainIdx) : ok | tmpVar, panelCt, tmpConstant, widthInPanels, he
     pnlColorPins    := pnlLedPinR1 ADDPINS 5
     pnlControlPins  := pnlLedPinCLK ADDPINS 2
 
-{
-    MTX_LA_XTRA_PINS_BASE =  8
-    MTX_LA_XTRA_PINS =  MTX_LA_XTRA_PINS_BASE ADDPINS 3 ' 4 extra pins
-    MTX_LA_XT_P08 =  MTX_LA_XTRA_PINS_BASE + 0
-    MTX_LA_XT_P09 =  MTX_LA_XTRA_PINS_BASE + 1
-    MTX_LA_XT_P10 =  MTX_LA_XTRA_PINS_BASE + 2
-    MTX_LA_XT_P11 =  MTX_LA_XTRA_PINS_BASE+  3
-'}
-
-    pnlLedLA_08     := basePin + 8 + 0
-    pnlLedLA_09     := basePin + 8 + 1
-    pnlLedLA_10     := basePin + 8 + 2
-    pnlLedLA_11     := basePin + 8 + 3
+    pnlLedLA_08     := MTX_LA_XT_P08
+    pnlLedLA_09     := MTX_LA_XT_P09
+    pnlLedLA_10     := MTX_LA_XT_P10
+    pnlLedLA_11     := MTX_LA_XT_P11
     pnlLAPins       := pnlLedLA_08 ADDPINS 3
 
     ' tell our backend driver
@@ -295,6 +289,10 @@ PUB start(nID, nChainIdx) : ok | tmpVar, panelCt, tmpConstant, widthInPanels, he
             debug("- I/O P00 - P15")
             bSetLowPins := TRUE
             modeUsePortA  := TRUE
+        PIN_GROUP_P8_P23:
+            debug("RG3: - I/O P8 - P23")
+            bSetMidPins := TRUE
+            modeUsePortA  := TRUE
         PIN_GROUP_P16_P31:
             debug("RG3: - I/O P16 - P31")
             bSetLowPins := FALSE
@@ -303,6 +301,10 @@ PUB start(nID, nChainIdx) : ok | tmpVar, panelCt, tmpConstant, widthInPanels, he
             debug("RG3: - I/O P32 - P47")
             bSetLowPins := TRUE
             modeUsePortA  := FALSE
+        PIN_GROUP_P40_P55:
+            debug("RG3: - I/O P40 - P55")
+            bSetMidPins := TRUE
+            modeUsePortA  := FALSE
         PIN_GROUP_P48_P63:
             debug("RG3: - I/O P48 - P63")
             bSetLowPins := FALSE
@@ -310,43 +312,65 @@ PUB start(nID, nChainIdx) : ok | tmpVar, panelCt, tmpConstant, widthInPanels, he
 
     if bSetLowPins
         if hub75Bffrs.addressLines(chainIndex) == hwEnum.ADDR_ABCDE
-            maskAllPins := %00000000_00000000_00111111_11111111         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
+            maskAllPins := %00000000_00000000_00111111_11111111     ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
             maskAddr    := %00000000_00000000_00000000_11111000     ' pins at 00-15 A/B-pins
-            unusedAddr  := %00000000_00000000_00000000_00000000                 ' no unused addr bits
+            unusedAddr  := %00000000_00000000_00000000_00000000     ' no unused addr bits
             addrValueMax := $0000_00F8                              ' 31 but in upper 5-bits of byte
             rowCtrMax   := 32
         elseif hub75Bffrs.addressLines(chainIndex) == hwEnum.ADDR_ABCD
-            maskAllPins := %00000000_00000000_00111111_01111111         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
+            maskAllPins := %00000000_00000000_00111111_01111111     ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
             maskAddr    := %00000000_00000000_00000000_01111000     ' pins at 00-15 A/B-pins
-            unusedAddr  := %00000000_00000000_00000000_10000000                 ' E is unused addr bits
+            unusedAddr  := %00000000_00000000_00000000_10000000     ' E is unused addr bits
             addrValueMax := $0000_0078                              ' 15 but in upper 5-bits of byte
             rowCtrMax   := 16
         else  '  == hwEnum.ADDR_ABC
-            maskAllPins := %00000000_00000000_00111111_00111111         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
+            maskAllPins := %00000000_00000000_00111111_00111111     ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
             maskAddr    := %00000000_00000000_00000000_00111000     ' pins at 00-15 A/B-pins
-            unusedAddr  := %00000000_00000000_00000000_11000000                 ' E, D are unused addr bits
+            unusedAddr  := %00000000_00000000_00000000_11000000     ' E, D are unused addr bits
             addrValueMax := $0000_0038                              ' 7 but in upper 5-bits of byte
             rowCtrMax   := 8
         maskRgb12   := %00000000_00000000_00111111_00000000         ' rgb2rgb1 now grounded to lsbit - pins at 00-15 A/B-pins
         addrValue1  := $0000_0008                                   ' 1 but in upper 5-bits of byte
         modeDatRotLeft := TRUE
+    elseif bSetMidPins
+        if hub75Bffrs.addressLines(chainIndex) == hwEnum.ADDR_ABCDE
+            maskAllPins := %00000000_00111111_11111111_00000000     ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
+            maskAddr    := %00000000_00000000_11111000_00000000     ' pins at 00-15 A/B-pins
+            unusedAddr  := %00000000_00000000_00000000_00000000     ' no unused addr bits
+            addrValueMax := $0000_00F8                              ' 31 but in upper 5-bits of byte
+            rowCtrMax   := 32
+        elseif hub75Bffrs.addressLines(chainIndex) == hwEnum.ADDR_ABCD
+            maskAllPins := %00000000_00111111_01111111_00000000     ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
+            maskAddr    := %00000000_00000000_01111000_00000000     ' pins at 00-15 A/B-pins
+            unusedAddr  := %00000000_00000000_10000000_00000000     ' E is unused addr bits
+            addrValueMax := $0000_0078                              ' 15 but in upper 5-bits of byte
+            rowCtrMax   := 16
+        else  '  == hwEnum.ADDR_ABC
+            maskAllPins := %00000000_00111111_00111111_00000000     ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
+            maskAddr    := %00000000_00000000_00111000_00000000     ' pins at 00-15 A/B-pins
+            unusedAddr  := %00000000_00000000_11000000_00000000     ' E, D are unused addr bits
+            addrValueMax := $0000_0038                              ' 7 but in upper 5-bits of byte
+            rowCtrMax   := 8
+        maskRgb12   := %00000000_00111111_00000000_00000000         ' rgb2rgb1 now grounded to lsbit - pins at 00-15 A/B-pins
+        addrValue1  := $0000_0008                                   ' 1 but in upper 5-bits of byte
+        modeDatRotLeft := TRUE                    ' i've no IDEA but leaving it TRUE for now
     else
         if hub75Bffrs.addressLines(chainIndex) == hwEnum.ADDR_ABCDE
-            maskAllPins := %00111111_11111111_00000000_00000000         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
+            maskAllPins := %00111111_11111111_00000000_00000000     ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
             maskAddr    := %00000000_11111000_00000000_00000000     ' pins at 16-31 A/B-pins
-            unusedAddr  := %00000000_00000000_00000000_00000000                 ' no unused addr bits
+            unusedAddr  := %00000000_00000000_00000000_00000000     ' no unused addr bits
             addrValueMax := $00F8_0000                              ' 31 but in upper 5-bits of byte
             rowCtrMax   := 32
         elseif hub75Bffrs.addressLines(chainIndex) == hwEnum.ADDR_ABCD
-            maskAllPins := %00111111_01111111_00000000_00000000         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
+            maskAllPins := %00111111_01111111_00000000_00000000     ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
             maskAddr    := %00000000_01111000_00000000_00000000     ' pins at 16-31 A/B-pins
-            unusedAddr  := %00000000_10000000_00000000_00000000                 ' E is unused addr bits
+            unusedAddr  := %00000000_10000000_00000000_00000000     ' E is unused addr bits
             addrValueMax := $0078_0000                              ' 15 but in upper 5-bits of byte
             rowCtrMax   := 16
         else  '  == hwEnum.ADDR_ABC
-            maskAllPins := %00111111_00111111_00000000_00000000         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
+            maskAllPins := %00111111_00111111_00000000_00000000     ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
             maskAddr    := %00000000_00111000_00000000_00000000     ' pins at 16-31 A/B-pins
-            unusedAddr  := %00000000_11000000_00000000_00000000                 ' E, D are unused addr bits
+            unusedAddr  := %00000000_11000000_00000000_00000000     ' E, D are unused addr bits
             addrValueMax := $0038_0000                              ' 7 but in upper 5-bits of byte
             rowCtrMax   := 8
         maskRgb12   := %00111111_00000000_00000000_00000000         ' rgb2rgb1 now grounded to lsbit - pins at 16-31 A/B-pins
@@ -732,6 +756,7 @@ bitIdx              long    0
 ' --------------------------------------------------------------------------------------------------
 '
 DAT     { driver assembly code }
+'-------+-----+---------+-------+---------------+-------+-----------------------+
                     org     0       ' COG code
 
 ' DRAFT matrix driver - best speed
@@ -747,7 +772,20 @@ drive_matrix
                     rdlong  pArgument, ptra[1]
 
                     ' LA INSTRUMENTATION
+                    'wrpin   ##P_LOW_FLOAT, pinGrpLAXT ' set these to float LOW for better Analyzer capture RING
+                    'wrpin   ##P_LOW_10UA, pinGrpLAXT ' set these to float LOW for better Analyzer capture LESS RING
+                    'wrpin   ##P_LOW_100UA, pinGrpLAXT ' set these to float LOW for better Analyzer capture EVEN LESS RING
+                    wrpin   ##P_LOW_1MA, pinGrpLAXT ' set these to P_LOW_1MA for best Analyzer capture no noise at 1.7v threshold
                     drvl    pinGrpLAXT
+
+                    ' condition address lines
+                    'wrpin   ##P_LOW_15K, maskAddr ' set low strength pulldown
+                    'wrpin   ##P_HIGH_15K, maskAddr ' set low strength pullup
+                    'wrpin   ##P_LOW_FLOAT, maskAddr ' set these to float LOW for better Analyzer capture
+                    wrpin   ##P_LOW_1MA, maskAddr ' set these to float LOW for better Analyzer capture
+                    fltl   maskAddr             ' reset any smart pin mode
+                    fltl   maskRgb12            ' reset any smart pin mode
+                    'wrpin   ##P_LOW_15K, maskRgb12 ' set low-strength pulldown
 
                     ' init buffer display counters
                     mov     pwmFrameCt, ##0
@@ -767,9 +805,11 @@ drive_matrix
     if_z            setd    outInst1of3, #OUTB
     if_z            setd    outInst2of3, #OUTB
     if_z            setd    outInst3of3, #OUTB
-                    or      bSetLowPins, bSetLowPins  wz
-    if_nz           SETR    outInst2of3, #%1000110_01       ' setbyte #1
-    if_z            SETR    outInst2of3, #%1000110_11       ' setbyte #3
+                    or      bSetLowPins, bSetLowPins  wz    ' Q: using low 16 bits?
+    if_nz           SETR    outInst2of3, #%1000110_01       ' setbyte #1   no, using high 16 bits
+    if_z            SETR    outInst2of3, #%1000110_11       ' setbyte #3   yes, using low 16 bits
+                    or      bSetMidPins, bSetMidPins  wz    ' Q: using middle 16 bits?
+    if_nz           SETR    outInst2of3, #%1000110_10       ' setbyte #2   yes, using middle 16 bits
 
                     or      modeDatRotLeft, modeDatRotLeft   wz
     if_nz           SETR    rotInstr1of2,#%0000001_00   'make into ROR instruction
@@ -1116,6 +1156,7 @@ isr3
 '
 ' Driver Config Values
 bSetLowPins         long    FALSE   ' T/F where T means we are using high word of 32bits vs. low word
+bSetMidPins         long    FALSE   ' T/F where T means we are using middle word of 32bits vs. low/high word
 modeUsePortA        long    FALSE   ' T/F where T means we are using portA vs. portB
 modeOverlapDAT      long    FALSE   ' T/F where T means LATCH_OVERLAPPED, F means LATCH_AFTER
 modeLatchEnclosed   long    FALSE   ' T/F where T means LATCH_ENCLOSED, F means LATCH_OFFSET

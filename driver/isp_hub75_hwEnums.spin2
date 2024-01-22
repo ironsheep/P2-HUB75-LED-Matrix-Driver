@@ -17,9 +17,10 @@ CON { Hardware Interface Constants }
 
 ' =================================================================================================
 '  (1) here the P2 EVAL HUB75 Adapter is plugged in
-'   NOTE: the board does NOT run in PINS_P48_P63 (DO NOT USE THIS VALUE - Validation will FAIL!)
+'   NOTE: The board does NOT run in PINS_P48_P63 (DO NOT USE THIS VALUE - Validation will FAIL!)
+'   NOTE2: We don't provide PINS_P24_P39 value this would span the upper and lower 32 pin groups
 ' =================================================================================================
-#0[16], PINS_P0_P15, PINS_P16_P31, PINS_P32_P47, PINS_P48_P63
+#0[8], PINS_P0_P15, PINS_P8_P23, PINS_P16_P31, PINS_P24_P39, PINS_P32_P47, PINS_P40_P55, PINS_P48_P63
 
 ' =================================================================================================
 '  (2) how many HUB75 boards are you connecting?

@@ -130,16 +130,15 @@ PUB configure(eHub75Chain, ePinBase, eChipType, eAddrLines) | pEntry, nChainIdx,
     bValidPins := TRUE
     case ePinBase
         hwEnum.PINS_P0_P15:
+        hwEnum.PINS_P8_P23:
         hwEnum.PINS_P16_P31:
         hwEnum.PINS_P32_P47:
-        hwEnum.PINS_P48_P63:
-            bValidPins := FALSE ' hub75 board can't work here
-            debug("HUB75: configure() Can't use PINS 48-63: [isp_hub75_hwBufferAccess.spin2] Aborted!")
+        hwEnum.PINS_P40_P55:
         other:
-            bValidPins := FALSE ' this is not a ligit base number
-            debug("HUB75: configure() Invalid PinBase/PinGroup specfied: [isp_hub75_hwBufferAccess.spin2] Aborted!")
+            bValidPins := FALSE ' this is not a ligit base number PINS_P24_P39
 
     if not bValidPins
+        debug("HUB75: configure() Invalid PinBase/PinGroup specfied: [isp_hub75_hwBufferAccess.spin2] Aborted!")
         abort   ' we can't continue given this error
     else
         LONG[pEntry][ENTR_CHIP_TYPE_OFST] := eChipType

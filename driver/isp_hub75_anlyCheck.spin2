@@ -24,7 +24,9 @@ CON { DEBUG PINs }
 CON { I/O PINs }
 
 ' New P2 Eval Board HUB75 Adapter:
-    #0[16], PINS_P0_P15, PINS_P16_P31, PINS_P32_P47, PINS_P48_P63
+'   NOTE: The board does NOT run in PINS_P48_P63 (DO NOT USE THIS VALUE - Validation will FAIL!)
+'   NOTE2: We don't provide PINS_P24_P39 value this would span the upper and lower 32 pin groups
+#0[8], PINS_P0_P15, PINS_P8_P23, PINS_P16_P31, PINS_P24_P39, PINS_P32_P47, PINS_P40_P55, PINS_P48_P63
 
     ' the user-selected location: one of 0, 16, 32, and 48
     MTX_LED_BASE_PIN = PINs_P16_P31
