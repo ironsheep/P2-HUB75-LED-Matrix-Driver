@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Nov 2020
-''   Updated.... 5 Nov 2022
+''   Updated.... 26 Mar 2024
 ''
 '' =================================================================================================
 
@@ -65,9 +65,9 @@ PUB drawPixelAtRCwithRGB(nChainIdx, row, column, red, green, blue) | rowIndex, c
     'if isDebugLocn(rowIndex, columnIndex)
     'if column // 16 == 0
         'debug("- Screen RC=(", udec_(rowIndex), ", ", udec_(columnIndex), "), ofs=", udec_(colorOffset), ", RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
-    byte[pColor][0] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_RED, red)
-    byte[pColor][1] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_GREEN, green)
-    byte[pColor][2] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_BLUE, blue)
+    byte[pColor][0] := hub75Bffrs.correctedSingleColor(nChainIdx, colorUtils.LED_RED, red)
+    byte[pColor][1] := hub75Bffrs.correctedSingleColor(nChainIdx, colorUtils.LED_GREEN, green)
+    byte[pColor][2] := hub75Bffrs.correctedSingleColor(nChainIdx, colorUtils.LED_BLUE, blue)
 
 CON { license }
 

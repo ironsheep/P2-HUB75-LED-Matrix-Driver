@@ -44,7 +44,7 @@ OBJ
     digit[MAX_DIGITS]   :   "isp_hub75_7seg"
     hub75Bffrs          :   "isp_hub75_hwBufferAccess"
     user                :   "isp_hub75_hwPanelConfig"   ' hardware config common to all demos
-    scrnBuffers :   "isp_hub75_hwBuffers"               ' the large buffers storing pixel data
+    scrnBuffers         :   "isp_hub75_hwBuffers"       ' the large buffers storing pixel data
 
 PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, builtPtr, color3bit, color24bit, pPixColor, colorOffset, byteOffset, hours24
     '' Start underlying drivers and run demo

@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Nov 2022
-''   Updated.... 15 Jan 2024
+''   Updated.... 26 Mar 2024
 ''
 '' =================================================================================================
 '
@@ -51,6 +51,7 @@ OBJ
 
     hwEnum      : "isp_hub75_hwEnums"                   ' hub75 attachment, set up constants
     user        : "isp_hub75_hwPanelConfig"             ' user's panels configuration constants
+    colorUtils  : "isp_hub75_colorUtils"                ' color utilities
 
 CON { internal constants }
 ' -------------------------------------------------------------------
@@ -356,6 +357,55 @@ PUB getDriverFlags(nChainIdx) : desiredFlags, eChipType
         ' report ERROR and exit
         debug("- have unknown CHIP ", ubin_word(desiredFlags))
         abort
+
+PUB correctedColor(nChainIdx, color) : adjustedColor
+    '' Correct a color using generic gamma
+    adjustedColor := color
+    'return
+    'adjustedColor := byte[@gamma][adjustedColor]
+    'adjustedColor := ((adjustedColor * defaultBrightness) >> 8) & $ff
+    adjustedColor := colorAtDesiredBitWidth(nChainIdx, adjustedColor)
+
+PUB correctedSingleColor(nChainIdx, led, colorValue) : adjustedColor | pGammaTable
+    '' Correct the color for a specific LED (R, G, or B)
+    adjustedColor := ((colorValue * colorUtils.getBrightness()) >> 8) & $ff
+    if colorUtils.isGammaEnabled()
+        adjustedColor := colorUtils.gammaCorrectedSingleColor(led, colorValue)
+    adjustedColor := colorAtDesiredBitWidth(nChainIdx, adjustedColor)
+
+PUB colorAtDesiredBitWidth(nChainIdx, hex8bit) : pwmBits | shiftLtValue, nbrPwmFrames
+    '' CALCULATE: proper duty cycle for intensity of 0-255
+    shiftLtValue := 8 - colorDepth(nChainIdx)
+    nbrPwmFrames := pwmFrameCount(nChainIdx)
+    'debug("- color CFG: ", udec_long(shiftLtValue), udec_long(nbrPwmFrames))
+    '
+    '  (map 8-bit color depth to {compiled}-bit color depth)
+    '  map 0-255 to compiled color depth 0-7,15,31,63,127,255
+    '
+    '  REF: https://www.arduino.cc/reference/en/language/functions/math/map
+    '
+    '  Re-maps a number from one range to another. That is, a value of fromLow would get mapped to toLow,
+    '   a value of fromHigh to toHigh, values in-between to values in-between, etc.
+    '
+    '    y = map(x, 1, 50, 50, 1);
+    '
+    '  PRI map(inValue,  inMin,  inMax,  outMin,  outMax) : outValue
+    '  outValue := (inValue - inMin) * (outMax - outMin) / (inMax - inMin) + outMin
+    '  outValue := (inValue - 0) * (outMax - 0) / (inMax - 0) + 0
+    '  outValue := inValue * outMax / inMax
+    '
+    '               shiftLtValue           5,         4,         3,        2,         1,         0
+    '  map(hex8bit, 0, 255, 0, 7)    7=3-bit,  15=4-bit,  31=5-bit, 63=6-bit, 127=7-bit, 255=8-bit
+    '  outValue := (hex8bit - 0) * (7 - 0) / (255 - 0) + 0
+    '  outValue := hex8bit * 7 / 255
+
+    pwmBits := (hex8bit * nbrPwmFrames) / 255   ' map our value
+    pwmBits <<= shiftLtValue                    ' shift value into our upper COLOR_DEPTH bits
+{
+    if not didShow[hex8bit]
+        debug("clr:dcyc ", uhex_byte(hex8bit), uhex_byte(pwmBits))
+        didShow[hex8bit] := TRUE
+'}
 
 PUB dbgMemDump(pMessage, pBytes, lenBytes) | bytBffr, colIdx, rowIdx, maxCol, maxRow, dispLen
 '' Dump bytes in hex format to debug() terminal
