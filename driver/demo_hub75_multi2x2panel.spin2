@@ -83,7 +83,7 @@ PUB main() : ok | demoIndex, bDidDemo, pnlIdx
     'waitSec(120)
 
     display.clearScreenBuffer()
-    display.setBrightness(80) ' 80% brightness
+    display.setBrightness(128) ' 80% brightness
     display.fillScreen(color.cCyan)
     display.commitScreenToPanelSet()
     waitSec(240)

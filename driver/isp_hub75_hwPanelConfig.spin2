@@ -57,7 +57,7 @@ CON { User Panel Connection and Configuration }
     ' (3) describe the color depth you want to support [3-8] bits per LED
     '    NOTE full 24bit color is hwEnum.DEPTH_8BIT
     '    NOTE: 3-5 bit depth is 2 bytes per pixel, while 6-8 bit depth is 3 bytes per pixel
-    DISP0_COLOR_DEPTH = hwEnum.DEPTH_4BIT
+    DISP0_COLOR_DEPTH = hwEnum.DEPTH_8BIT
 
     ' (4) Apply desired rotation to entire display
     DISP0_ROTATION = hwEnum.ROT_180
@@ -266,7 +266,7 @@ CON { More Hardware Setup Notes }
 '     EA half: 1024 pixels
 '     top half (lines 0-15) driven by R1,G1,B1 pins
 '     bottom half (lines 16-31) driven by R2,G2,B2 pins
-'  Author's panel uses FM6124 chips (came in Hackbox)
+'  Author's panel uses FM6124 chips (came in Hackerbox)
 '    max clock rate of 30MHz - [16.5ns hi/16.5ns lo]   TESTED NEW
 ' ----------------------------------------------------------
 
