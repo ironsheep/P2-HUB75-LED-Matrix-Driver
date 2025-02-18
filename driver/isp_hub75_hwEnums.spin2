@@ -25,12 +25,18 @@ CON { Hardware Interface Constants }
 ' =================================================================================================
 '  (2) how many HUB75 boards are you connecting?
 ' =================================================================================================
+    HUB75_ADAPTER_STEP = 10
 #10[10], HUB75_ADAPTER_1, HUB75_ADAPTER_2, HUB75_ADAPTER_3
+    HUB75_ADAPTER_BASE = HUB75_ADAPTER_1
 
 ' =================================================================================================
 '  (3) panel content rotation
 ' =================================================================================================
-#15[5], ROT_UNKNOWN, ROT_NONE, ROT_LEFT_90, ROT_RIGHT_90, ROT_180
+#$20, ROT_UNKNOWN, ROT_0, ROT_90, ROT_180, ROT_270
+    ' couple more aliases for convenience
+    ROT_NONE = ROT_0
+    ROT_LEFT_90 = ROT_270
+    ROT_RIGHT_90 = ROT_90
 
 ' =================================================================================================
 '  (4) The Driver Chip on your panels

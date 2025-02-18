@@ -65,17 +65,27 @@ PUB main() : ok | demoIndex
 
     ' startup our backend COG(s)
     display.setBufferPointers(chainIndex, scrnBuffers.chain0Ptrs())
+
     ok := cog := display.start(chainIndex)   ' send buffer to driver
     if ok == -1
         debug("- DEMO: underlying driver failed!")
         abort
 
     'demoPanelColors()
+    debug("Demo: Panel Colors... START")
     display.clearScreenBuffer()
+
+     ' draw on top-left panel of display
+     '   it maps to 3rd panel in wire order
+     ' 20,20 of display maps to 20,20 of display panel 0
+     ' which maps to 20,20 of display wire panel 3
     display.drawPixelAtRC(20, 20, color.cRed)  ' disp 0, row 20, col 20, wired 2
+
     display.drawPixelAtRC(148, 50, color.cWhite)  ' disp 1, row 20, col 20, wired 3
-    display.drawPixelAtRC(50, 20, color.cGreen)  ' disp 2, row 20, col 20, wired 0
-    display.drawPixelAtRC(238, 108, color.cBlue)  ' disp 3, row 20, col 20, wired 0
+
+    display.drawPixelAtRC(50, 84, color.cGreen)  ' disp 2, row 20, col 20, wired 0
+
+    'display.drawPixelAtRC(238, 108, color.cBlue)  ' disp 3, row 20, col 20, wired 0
 
     display.commitScreenToPanelSet()
     debug("Demo: Panel Colors... HALT")

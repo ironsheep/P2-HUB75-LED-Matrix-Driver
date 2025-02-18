@@ -41,7 +41,7 @@ DAT { Large Buffers for each HUB75 adapter/chain of panels }
 ' allocating one or more screens of pixels of 24bit color
 ' our screen bitmap of RGB colors (pwm bit lengths ;-)
 sigFront                LONG    $0DF0ADDE
-hub75Buffer0            LONG    0[user.DISP0_SCRN_SIZE_IN_LONGS]
+hub75Buffer0            LONG    0[user.DISP0_SCRN_SIZE_IN_LONGS] ' fixed at 24bits/pixel for now
 pwmFrames0_1            LONG    0[user.DISP0_FRAMESET_SIZE_IN_LONGS]
 pwmFrames0_2            LONG    0[user.DISP0_FRAMESET_SIZE_IN_LONGS]
 sigBack                 LONG    $0DF1ADDE
@@ -54,7 +54,7 @@ screenTable0End
 sigBack1                 LONG    $0DF2ADDE
 
 {   COMMENT-OUT THIS LINE (place tic in front of this line) if you using the 2nd HUB75 adapter board
-hub75Buffer1            LONG    0[user.DISP1_SCRN_SIZE_IN_LONGS]
+hub75Buffer1            LONG    0[user.DISP1_SCRN_SIZE_IN_LONGS] ' fixed at 24bits/pixel for now
 pwmFrames1_1            LONG    0[user.DISP1_FRAMESET_SIZE_IN_LONGS]
 pwmFrames1_2            LONG    0[user.DISP1_FRAMESET_SIZE_IN_LONGS]
 
@@ -65,7 +65,7 @@ screenTable1End
 '}
 
 {   COMMENT-OUT THIS LINE (place tic in front of this line) if you using the 3rd HUB75 adapter board
-hub75Buffer2            LONG    0[user.DISP2_SCRN_SIZE_IN_LONGS]
+hub75Buffer2            LONG    0[user.DISP2_SCRN_SIZE_IN_LONGS] ' fixed at 24bits/pixel for now
 pwmFrames2_1            LONG    0[user.DISP2_FRAMESET_SIZE_IN_LONGS]
 pwmFrames2_2            LONG    0[user.DISP2_FRAMESET_SIZE_IN_LONGS]
 

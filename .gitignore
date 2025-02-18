@@ -62,3 +62,4 @@ dkms.conf
 driver/get
 Docs/ICN2037/ICN2037-EN-f1.pdf
 driver/isp_dummy_flash.spin2
+*.diff
