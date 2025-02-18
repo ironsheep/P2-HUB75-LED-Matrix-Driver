@@ -1,0 +1,260 @@
+'' =================================================================================================
+''
+''   File....... demo_hub75_quadPanel.spin2
+''   Purpose.... Top-level Demonstration - showing off our HUB75 morganization of a quad-panel display
+''   Authors.... Stephen M Moraco
+''               -- Copyright (c) 2025 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... Feb 2025
+''   Updated.... 8 Feb 2025
+''
+'' =================================================================================================
+
+
+CON { timing }
+
+  CLK_FREQ = 335_000_000                                        ' system freq as a constant 2.985 nSec
+  'CLK_FREQ = 250_000_000                                        ' system freq as a constant 2.985 nSec
+  _clkfreq = CLK_FREQ                                           ' set system clock
+
+CON { DEBUG PINs }
+
+'DEBUG_PIN = 0
+DEBUG_COGS = %11111111
+DEBUG_BAUD = 2_000_000
+
+VAR
+
+    long    cog
+    long    chainIndex
+    long    demoPausePeriod
+    long    scrollPeriod
+    long    textSize
+
+OBJ
+
+    color       :   "isp_hub75_color"
+    colorUtils  :   "isp_hub75_colorUtils"
+    pixels      :   "isp_hub75_screenUtils"
+    hub75Bffrs  :   "isp_hub75_hwBufferAccess"
+    display     :   "isp_hub75_display"
+    user        :   "isp_hub75_hwPanelConfig"           ' hardware config common to all demos
+    scrnBuffers :   "isp_hub75_hwBuffers"               ' the large buffers storing pixel data
+
+CON { DEMO info }
+
+' 11 enables .bmp file display
+DEMO_COUNT = 3
+
+#0, PNL_TOPLEFT, PNL_TOPRIGHT, PNL_BOTLEFT, PNL_BOTRIGHT
+
+DAT
+
+panelIdMessage  byte    "Pn",0
+
+PUB main() : ok | demoIndex
+    '' start underlying drivers and run demo
+
+    'repeat
+    debug("Demo: HUB75 Quad Panel Demo")
+
+    'debug(`term temp size 82 50 textsize 10)
+    hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
+    chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
+
+    ' startup our backend COG(s)
+    display.setBufferPointers(chainIndex, scrnBuffers.chain0Ptrs())
+    ok := cog := display.start(chainIndex)   ' send buffer to driver
+    if ok == -1
+        debug("- DEMO: underlying driver failed!")
+        abort
+
+    'demoPanelColors()
+    display.clearScreenBuffer()
+    display.drawPixelAtRC(20, 20, color.cRed)  ' disp 0, row 20, col 20, wired 2
+    display.drawPixelAtRC(148, 50, color.cWhite)  ' disp 1, row 20, col 20, wired 3
+    display.drawPixelAtRC(50, 20, color.cGreen)  ' disp 2, row 20, col 20, wired 0
+    display.drawPixelAtRC(238, 108, color.cBlue)  ' disp 3, row 20, col 20, wired 0
+
+    display.commitScreenToPanelSet()
+    debug("Demo: Panel Colors... HALT")
+    repeat
+
+    stop()
+
+PRI stop()
+    ' Stop the driver
+    if cog
+        display.stop()
+        cog := 0
+
+PRI waitSec(countSeconds)
+    repeat countSeconds
+        waitms(1000)
+
+PRI wait1000thSecs(count)
+    '' wait for N 110ths of a second
+    repeat count
+        waitms(1)  ' 1/100 seconds
+
+PRI demoPanelFillColors()
+    display.clearScreenBuffer()
+    repeat 4
+        display.fillScreenNoPWM(color.BASE_RED)    ' full single color panel NO pwm
+        waitSec(2)
+        display.fillScreenNoPWM(color.BASE_GREEN)    ' full single color panel NO pwm
+        waitSec(2)
+        display.fillScreenNoPWM(color.BASE_BLUE)    ' full single color panel NO pwm
+        waitSec(2)
+        display.fillScreenNoPWM(color.BASE_WHITE)    ' full single color panel NO pwm
+        waitSec(4)
+
+
+PRI demoRandomPanelColors() | panelIndex, panelHue, panelColor
+
+    display.clearScreenBuffer()
+    repeat 20
+        repeat panelIndex from 0 to hub75Bffrs.maxPanels(chainIndex) - 1
+            panelHue := (getrnd() +// 254) + 1
+            panelColor := colorUtils.rgbColorFromDegrees(panelHue)
+            display.fillPanel(panelIndex, panelColor)
+        ' update our screen
+        display.commitScreenToPanelSet()
+        'wait1000thSecs(10)
+
+DAT { panel messages }
+
+lblTopLt      byte    "TopLt", 0
+lblTopRt      byte    "TopRt", 0
+lblBotLt      byte    "BotLt", 0
+lblBotRt      byte    "BotRt", 0
+
+PRI demoQuadLocations() | scrollerID, startTime
+
+    textSize := display.TEXT_FONT_8x8A
+    'textSize := display.TEXT_FONT_8x8B
+    display.setTextFont(textSize)    ' font size
+    display.setTextColor(color.cBlueViolet)
+
+    ' start with blank screen on which to draw
+    display.clearScreenBuffer()
+
+    display.fillPanel(PNL_TOPLEFT, color.cGreen)
+    display.setCursorOnPanel(4, 3, PNL_TOPLEFT)
+    display.setTextAtCursor(@lblTopLt)
+
+    display.fillPanel(PNL_TOPRIGHT, color.cYellow)
+    display.setCursorOnPanel(7, 1, PNL_TOPRIGHT)
+    display.setTextAtCursor(@lblTopRt)
+
+    display.fillPanel(PNL_BOTLEFT, color.cCyan)
+    display.setCursorOnPanel(7, 1, PNL_BOTLEFT)
+    display.setTextAtCursor(@lblBotLt)
+
+    display.fillPanel(PNL_BOTRIGHT, color.cOrange)
+    display.setCursorOnPanel(7, 2, PNL_BOTRIGHT)
+    display.setTextAtCursor(@lblBotRt)
+
+    ' update our screen
+    display.commitScreenToPanelSet()
+
+    ' delay to first movement
+    'wait1000thSecs(scrollPeriod)
+
+    ' loop while scrolling finishes
+    repeat while NOT display.isScrollingComplete()
+        ' move the text
+        'startTime := getct()
+        display.animateScroll()
+        'showDuration(startTime, string("top:ANI"))
+        ' commit to screen
+        'startTime := getct()
+        display.commitScreenToPanelSet()
+        'showDuration(startTime, string("top:ANI-wr"))
+
+        ' delay to next movement
+        'wait1000thSecs(scrollPeriod)
+
+
+PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, boxColor, hueIndex, displayRows, displayColumns
+
+    panelHueWidth := 256 / hub75Bffrs.maxPanels(chainIndex)
+
+    ' set up text subsystem
+    'textSize := display.TEXT_FONT_5x7
+    textSize := display.TEXT_FONT_8x8A
+    'textSize := display.TEXT_FONT_8x8B
+    display.setTextFont(textSize)    ' font size
+    display.setTextColor(color.cBlueViolet)
+    display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
+
+    ' start with blank screen on which to draw
+    display.clearScreenBuffer()
+
+    panelIndex := 0
+
+    ' color individual panels
+    repeat panelIndex from 0 to hub75Bffrs.maxPanels(chainIndex) - 1
+        ' color the panel
+        hueIndex := panelIndex + 1
+        if hueIndex > hub75Bffrs.maxPanels(chainIndex) - 1
+            hueIndex -= hub75Bffrs.maxPanels(chainIndex)
+        panelColor := colorUtils.rgbColorFromDegrees(panelHueWidth * hueIndex)
+        display.fillPanel(panelIndex, panelColor)
+        ' number the panel
+        display.setCursorOnPanel(1,1, panelIndex)
+        byte [@panelIdMessage][1] := panelIndex + $30
+        display.setTextAtCursor(@panelIdMessage)
+        ' draw a colored box in panel (don't use panel color)
+        hueIndex := panelIndex + 3
+        if hueIndex > hub75Bffrs.maxPanels(chainIndex) - 1
+            hueIndex -= hub75Bffrs.maxPanels(chainIndex)
+        boxColor := colorUtils.rgbColorFromDegrees(panelHueWidth * hueIndex)
+        display.drawPanelBoxOfColor(panelIndex, 17, 10, 40, 34, TRUE, boxColor)
+
+    ' place objects at panel intersections
+    displayRows, displayColumns := hub75Bffrs.displaySizeInPixels(chainIndex)
+
+    ' draw filled object spanning top-left and bottom-left
+    display.drawBoxOfColor(34, 44, 60, 40, true, color.cGreen)
+    ' draw filled object spanning top-left and top-right
+    display.drawBoxOfColor(108, 12, 60, 40, true, color.cBlueViolet)
+
+    display.commitScreenToPanelSet()
+
+PRI showDuration(startTimeValue, pFuncTitle) | duration, converted
+    duration := getct() - startTimeValue
+    converted := muldiv64(duration, 1_000_000, clkfreq)
+    debug("- elapsed ", zstr_(pFuncTitle), ": ", udec_(converted), " uSec")
+
+
+CON { license }
+
+{{
+
+
+ -------------------------------------------------------------------------------------------------
+  MIT License
+
+  Copyright (c) 2025 Iron Sheep Productions, LLC
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+ =================================================================================================
+}}

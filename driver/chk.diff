@@ -1,0 +1,216 @@
+
+
+diff /Users/stephen/Dropbox/PropV2-Shared/Projects/P2-LED-Matrix-Driver-SW/isp_hub75_display.spin2 isp_hub75_display.spin2
+784d783
+< PUB drawPixelAtRC(row, column, rgbColor)
+786,787d784
+<     pixels.drawPixelAtRC(chainIndex, column, row, rgbColor)
+< 
+
+diff /Users/stephen/Dropbox/PropV2-Shared/Projects/P2-LED-Matrix-Driver-SW/isp_hub75_hwBufferAccess.spin2 isp_hub75_hwBufferAccess.spin2
+46d45
+<     ROT_0 = hwEnum.ROT_0
+50,51d48
+<     ROT_270 = hwEnum.ROT_270
+<     ROT_90 = hwEnum.ROT_90
+69,73c66
+<         LONG  PLACEHOLDER_CHIP_TYPE, PLACEHOLDER_PIN_BASE, PLACEHOLDER_ADDR_LINES, PLACEHOLDER_PANEL_CT
+<         ' panel arrangement based on wiring
+<         LONG 2, 3, 0, 1
+<         ' panel rotation based on wiring
+<         LONG ROT_NONE, ROT_NONE, ROT_NONE, ROT_NONE
+---
+>         LONG  PLACEHOLDER_CHIP_TYPE, PLACEHOLDER_PIN_BASE, PLACEHOLDER_ADDR_LINES
+85,89c78
+<         LONG    PLACEHOLDER_CHIP_TYPE, PLACEHOLDER_PIN_BASE, PLACEHOLDER_ADDR_LINES, PLACEHOLDER_PANEL_CT
+<         ' panel arrangement based on wiring
+<         LONG 2, 3, 0, 1
+<         ' panel rotation based on wiring
+<         LONG ROT_NONE, ROT_NONE, ROT_NONE, ROT_NONE
+---
+>         LONG    PLACEHOLDER_CHIP_TYPE, PLACEHOLDER_PIN_BASE, PLACEHOLDER_ADDR_LINES
+100,104c89
+<         LONG    PLACEHOLDER_CHIP_TYPE, PLACEHOLDER_PIN_BASE, PLACEHOLDER_ADDR_LINES, PLACEHOLDER_PANEL_CT
+<         ' panel arrangement based on wiring
+<         LONG 2, 3, 0, 1
+<         ' panel rotation based on wiring
+<         LONG ROT_NONE, ROT_NONE, ROT_NONE, ROT_NONE
+---
+>         LONG    PLACEHOLDER_CHIP_TYPE, PLACEHOLDER_PIN_BASE, PLACEHOLDER_ADDR_LINES
+127d111
+<     PLACEHOLDER_PANEL_CT = 0
+136,138c120
+<      ENTR_CHIP_TYPE_OFST, ENTR_HUB75_PIN_BASE_OFST, ENTR_HPANEL_ADDR_LINES_OFST, ENTR_PANEL_COUNT_OFST, ...
+<      ENTR_PANEL_MAP_0_OFST, ENTR_PANEL_MAP_1_OFST, ENTR_PANEL_MAP_2_OFST, ENTR_PANEL_MAP_3_OFST, ...
+<      ENTR_PANEL_ROT_0_OFST, ENTR_PANEL_ROT_1_OFST, ENTR_PANEL_ROT_2_OFST, ENTR_PANEL_ROT_3_OFST
+---
+>      ENTR_CHIP_TYPE_OFST, ENTR_HUB75_PIN_BASE_OFST, ENTR_HPANEL_ADDR_LINES_OFST
+165,167d146
+<         ' calculate the following once...
+<         LONG[pEntry][ENTR_PANEL_COUNT_OFST] := maxPanels(nChainIdx)
+<         ' do debug, if enabled, only once
+263c242
+< PUB displayRotation(nChainIdx) : eDisplayRotation | pEntry
+---
+> PUB panelRotation(nChainIdx) : ePanelRotation | pEntry
+266,281c245
+<     eDisplayRotation := LONG[pEntry][ENTR_ROTATION_OFST]
+< 
+< PUB panelRotation(panelIdx, nChainIdx) : ePanelRotation | pEntry, pRotTable, panelsInRow, panelsInColumn, nbrPanels, validPanelIdx
+< '' Return the enum indicating desired rotation for specified panel
+<     pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
+<     nbrPanels := LONG[pEntry][ENTR_PANEL_COUNT_OFST]
+<     pRotTable := @LONG[pEntry][ENTR_PANEL_ROT_0_OFST]
+<     validPanelIdx := 0 #> panelIdx <# nbrPanels - 1
+<     ePanelRotation := LONG[pRotTable][validPanelIdx]
+< 
+< PUB wiredPanelIndex(panelIdx, nChainIdx) : wiredPanelIdx | pEntry, pMapTable, nbrPanels, validPanelIdx
+<     pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
+<     nbrPanels := LONG[pEntry][ENTR_PANEL_COUNT_OFST]
+<     pMapTable := @LONG[pEntry][ENTR_PANEL_MAP_0_OFST]
+<     validPanelIdx := 0 #> panelIdx <# nbrPanels - 1
+<     wiredPanelIdx := LONG[pMapTable][validPanelIdx]
+---
+>     ePanelRotation := LONG[pEntry][ENTR_ROTATION_OFST]
+339,374d302
+< PUB displayToPanelCoords(nChainIdx, column, row) : nPanelRow, nPanelCol, nPanelIdx | maxDspRows, maxDspColumns, maxPnlRows, maxPnlColumns, validX, validY, colIdx, rowIdx, panelsPerRow
+< '' Return the panel-row and panel-column and panelIdx for a given display column,row pixel
+< ''
+< '' @param column - the column display pixel coordinate
+< '' @param row - the row display pixel coordinate
+< '' @returns nPanelRow -
+< '' @returns nPanelCol -
+< '' @returns nPanelIdx -
+< ''
+<     ' esure X,Y are within display bounds
+<     maxDspRows, maxDspColumns := displaySizeInPixels(nChainIdx)
+<     validX := 0 #> nPanelRow <# maxDspRows - 1
+<     validY := 0 #> nPanelCol <# maxDspColumns - 1
+<     ' return r,c offset into panel (top left of panel is 0,0)
+<     maxPnlRows, maxPnlColumns := panelSizeInPixels(nChainIdx)
+<     nPanelCol := column +// maxPnlColumns
+<     nPanelRow := row +// maxPnlRows
+<     ' return index of panel (0-maxPanels) within display (top left panel is 0, panels in row are next)
+<     colIdx := column / maxPnlColumns
+<     rowIdx := row / maxPnlRows
+<     _, panelsPerRow := displaySizeInPanels(nChainIdx)
+<     nPanelIdx := rowIdx * panelsPerRow + colIdx
+< 
+< PUB panelToDisplayCoords(nChainIdx, pnlIdx, rotColumn, rotRow) : dspRow, dspColumn | wiredPnlIdx, panelsPerRow, rowIdx, columnIdx, maxPnlRows, maxPnlColumns, columnOffset, rowOffset
+< '' Return the display column,row pixel for a given panel-row and panel-column BUT this is in wired ORDER
+< ''
+<     _, panelsPerRow := displaySizeInPanels(nChainIdx)
+<     maxPnlRows, maxPnlColumns := panelSizeInPixels(nChainIdx)
+<     wiredPnlIdx := wiredPanelIndex(pnlIdx, nChainIdx)
+<     columnIdx := wiredPnlIdx +// panelsPerRow
+<     rowIdx := wiredPnlIdx / panelsPerRow
+<     columnOffset := columnIdx * maxPnlColumns
+<     rowOffset := rowIdx * maxPnlRows
+<     dspRow := rowOffset  + rotRow
+<     dspColumn := columnOffset + rotColumn
+< 
+432c360
+< '' Return column,row offset to specified panel from top-left corner of display
+---
+> '' Return x,y offset to specified panel from top-left corner of display
+501d428
+< {
+530d456
+<     '}
+
+diff /Users/stephen/Dropbox/PropV2-Shared/Projects/P2-LED-Matrix-Driver-SW/isp_hub75_hwEnums.spin2 isp_hub75_hwEnums.spin2
+33,37c33
+< #15[5], ROT_UNKNOWN, ROT_0, ROT_90, ROT_180, ROT_270
+<     ' couple more aliases for convenience
+<     ROT_NONE = ROT_0
+<     ROT_LEFT_90 = ROT_270
+<     ROT_RIGHT_90 = ROT_90
+---
+> #15[5], ROT_UNKNOWN, ROT_NONE, ROT_LEFT_90, ROT_RIGHT_90, ROT_180
+
+diff /Users/stephen/Dropbox/PropV2-Shared/Projects/P2-LED-Matrix-Driver-SW/isp_hub75_hwPanelConfig.spin2 isp_hub75_hwPanelConfig.spin2
+60c60
+<     DISP0_COLOR_DEPTH = hwEnum.DEPTH_6BIT
+---
+>     DISP0_COLOR_DEPTH = hwEnum.DEPTH_8BIT
+
+diff /Users/stephen/Dropbox/PropV2-Shared/Projects/P2-LED-Matrix-Driver-SW/isp_hub75_screenUtils.spin2 isp_hub75_screenUtils.spin2
+39c39
+< PUB drawPixelAtRCwithRGB(nChainIdx, row, column, red, green, blue) | maxRows, maxColumns, bytesPerColor, validRow, validColumn, rotRow, rotColumn, mapRow, mapColumn, colorOffset, pColor, pScreen
+---
+> PUB drawPixelAtRCwithRGB(nChainIdx, row, column, red, green, blue) | maxRows, maxColumns, bytesPerColor, rowIndex, columnIndex, colorOffset, pColor, pScreen
+41,42d40
+<     ' ensure location is on screen
+<     debug("drawPixelAtRCwithRGB: ", udec_(row), ", ", udec_(column), ", ", udec_(red), ", ", udec_(green), ", ", udec_(blue))
+44,53d41
+<     validRow := 0 #> row <# maxRows - 1
+<     validColumn :=  0 #> column <# maxColumns - 1
+<     ' rotate the location on display if needed
+<     rotRow, rotColumn := rotateWithinDisplay(row, column, nChainIdx)
+< 
+<     ' now individual panels are not in display order
+<     ' so we need to map column,roy to the correct panel as the panels are actually wired
+<     ' id panel and column,roy offset into panel, rotate column,row within panel and then move to proper panel in wire order
+<     mapRow, mapColumn := mapLocationToWireOrder(nChainIdx, rotRow, rotColumn)
+< 
+55c43,63
+<     colorOffset := ((mapRow * maxColumns) + mapColumn) * bytesPerColor
+---
+>     rowIndex := 0 #> row <# maxRows - 1
+>     columnIndex :=  0 #> column <# maxColumns - 1
+>     case hub75Bffrs.panelRotation(nChainIdx)
+>         hub75Bffrs.ROT_LEFT_90:
+>             pScreen := rowIndex
+>             rowIndex := columnIndex
+>             columnIndex := pScreen
+>             rowIndex := (maxColumns - 1) - rowIndex
+>             colorOffset := ((rowIndex * maxRows) + columnIndex) * bytesPerColor
+>         hub75Bffrs.ROT_RIGHT_90:
+>             pScreen := rowIndex
+>             rowIndex := columnIndex
+>             columnIndex := pScreen
+>             columnIndex := (maxRows - 1) - columnIndex
+>             colorOffset := ((rowIndex * maxRows) + columnIndex) * bytesPerColor
+>         hub75Bffrs.ROT_180:
+>             columnIndex := (maxColumns - 1) - columnIndex
+>             rowIndex := (maxRows - 1) - rowIndex
+>             colorOffset := ((rowIndex * maxColumns) + columnIndex) * bytesPerColor
+>        other:
+>             colorOffset := ((rowIndex * maxColumns) + columnIndex) * bytesPerColor
+66,101d73
+< PRI mapLocationToWireOrder(nChainIdx, row, column) : mapRow, mapColumn | pnlRow, pnlColumn, pnlIdx, rotRow, rotColumn, rowOffset, columnOffset
+<     '' Map row, column to panel row, column, panel index
+<     ' id panel and column,row offset into panel
+<     ' id panel and column,row offset into panel, rotate column,row within panel and then move to proper panel in wire order
+<     pnlRow, pnlColumn, pnlIdx := hub75Bffrs.displayToPanelCoords(nChainIdx, column, row)
+<     rotRow, rotColumn := rotateWithinPanel(nChainIdx, pnlIdx, pnlRow, pnlColumn)
+<     mapRow, mapColumn := hub75Bffrs.panelToDisplayCoords(nChainIdx, pnlIdx, rotColumn, rotRow)
+< 
+< PRI rotateWithinDisplay(nChainIdx, row, column) : rotColumn, rotRow | maxRows, maxColumns, rotation
+<     '' Rotate column,row within display
+<     maxRows, maxColumns := hub75Bffrs.displaySizeInPixels(nChainIdx)
+<     rotation := hub75Bffrs.displayRotation(nChainIdx)
+< 
+<     rotRow, rotColumn := rotateCoords(rotation, row, column, maxRows, maxColumns)
+< 
+< PRI rotateWithinPanel(nChainIdx, panelIdx, row, column) : rotColumn, rotRow | maxRows, maxColumns, rotation
+<     '' Rotate column,row within display
+<     maxRows, maxColumns := hub75Bffrs.panelSizeInPixels(nChainIdx)
+<     rotation := hub75Bffrs.panelRotation(panelIdx, nChainIdx)
+< 
+<     rotRow, rotColumn := rotateCoords(rotation, row, column, maxRows, maxColumns)
+< 
+< PRI rotateCoords(rotation, row, column, maxRows, maxColumns) : rotRow, rotColumn | validRow, validColumn
+<     rotColumn := column ' ROT_NONE or ROT_0
+<     rotRow := row
+<     case rotation
+<         hub75Bffrs.ROT_90:
+<             rotColumn := row                    ' new column is the original row
+<             rotRow := (maxRows - 1) - column    ' new row is the maximum row index minus the original column
+<         hub75Bffrs.ROT_180:
+<             rotColumn := (maxColumns - 1) - row ' new column is the maximum column index minus the original row
+<             rotRow := (maxRows - 1) - column    ' new row is the maximum row index minus the original column
+<         hub75Bffrs.ROT_270:
+<             rotRow := column                    ' new row is the original column
+<             rotColumn := (maxColumns - 1) - row ' new column is the maximum column index minus the original row
+< 
