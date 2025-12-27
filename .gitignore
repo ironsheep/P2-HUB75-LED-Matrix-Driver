@@ -63,3 +63,11 @@ driver/get
 Docs/ICN2037/ICN2037-EN-f1.pdf
 driver/isp_dummy_flash.spin2
 *.diff
+
+# Reference code (not part of project)
+REF-23MB/
+/tasks
+.claude/settings.local.json
+CLAUDE.md
+*.bin
+*.diff
