@@ -386,11 +386,33 @@ This creates:
 - Memory usage: ~196 KB at 8-bit color
 - Wire panels: 0→1→2→3 in Z-pattern
 
+## Chip Multi-Panel Support
+
+**IMPORTANT:** Not all driver chips have been tested in multi-panel configurations.
+
+| Chip | Color Label | Multi-Panel Support | Notes |
+|------|-------------|---------------------|-------|
+| **FM6126A** | Pink | ✅ Tested | Tested in chains |
+| **ICN2037** | - | ✅ Full support | Tested in chains and 2D grids |
+| **ICN2038S** | - | ⚠️ Expected | Similar to ICN2037 |
+| FM6124 | Orange | ⚠️ Untested | Similar to FM6126A |
+| MBI5124GP | Green | ⚠️ Untested | 1/8 scan |
+| GS6238S | Cyan | ⚠️ Untested | |
+| DP5125D | - | ⚠️ Untested | May work |
+
+For multi-panel displays, verified chips are **FM6126A (Pink)** and **ICN2037**.
+
 ## Troubleshooting
+
+### Display is flashing or unstable
+- Verify `MAX_PANELS_PER_ROW` × `MAX_PANELS_PER_COLUMN` = actual panel count
+- Check that chip type matches your panels (ICN2037 for multi-panel)
+- Ensure panel dimensions match physical panels (columns × rows)
 
 ### Pixels appear on wrong panel
 - Verify wire order matches Z-pattern (row-major)
 - Check `MAX_PANELS_PER_ROW` and `MAX_PANELS_PER_COLUMN` values
+- Try adjusting `disp0WireOrder` in `isp_hub75_hwBufferAccess.spin2`
 
 ### Colors are wrong
 - Some chips swap R/B or G/B - check chip documentation
@@ -399,11 +421,18 @@ This creates:
 ### Display is upside down or mirrored
 - Use `DISP0_ROTATION` to rotate the entire display
 - `ROT_180` flips both horizontally and vertically
+- For per-panel rotation, use `disp0PanelRots` in `isp_hub75_hwBufferAccess.spin2`
 
 ### Out of memory errors
 - Reduce color depth (8-bit → 5-bit saves ~40%)
 - Reduce panel count
 - Check total pixel count against memory limits
+
+### Panel dimensions: Columns vs Rows
+- `MAX_PANEL_COLUMNS` = horizontal pixel count (width)
+- `MAX_PANEL_ROWS` = vertical pixel count (height)
+- Common sizes: 64×32, 64×64, 128×64
+- A 128×64 panel is 128 pixels wide and 64 pixels tall (landscape)
 
 ## API Usage
 

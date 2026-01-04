@@ -71,3 +71,7 @@ REF-23MB/
 CLAUDE.md
 *.bin
 *.diff
+/driver/logs
+/driver/tests
+driver/pnut-term-settings.json
+driver/performance.log
