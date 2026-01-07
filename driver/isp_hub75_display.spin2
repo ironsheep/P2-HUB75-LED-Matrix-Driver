@@ -185,9 +185,10 @@ PUB getBrightness() : brightness
 
 PUB fillScreen(rgbColor) | row, column
     '' Fill the display with 24-bit color value
+    '' Uses display coordinates (applies panel column swap if needed)
     repeat maxDisplayRows with row
         repeat maxDisplayColumns with column
-            pixels.drawPixelAtRC(chainIndex, row, column, rgbColor)
+            drawDisplayPixel(row, column, rgbColor)
 
 PUB fillPanel(panelIndex, rgbColor) | row, column, offsetPixelRows, offsetPixelColumns
     '' Fill the specified panel (of panelSet) with 24-bit color value
@@ -660,63 +661,74 @@ PUB drawPanelBoxOfColor(panelIndex, topRow, leftColumn, width, height, filled, r
     bottomRow += offsetPixelRows
     leftColumn += offsetPixelColumns
     rightColumn += offsetPixelColumns
+    ' Use FALSE for bUseDisplayCoords - panel routines use wire-order coordinates
     if filled == TRUE
         repeat rowIndex from 0 to height - 1
-            drawLineOfColor(topRow + rowIndex, leftColumn, topRow + rowIndex, rightColumn, rgbColor)    ' horiz row
+            drawLineInternal(topRow + rowIndex, leftColumn, topRow + rowIndex, rightColumn, rgbColor, FALSE)    ' horiz row
     else
-        drawLineOfColor(topRow, leftColumn, topRow, rightColumn, rgbColor)    ' horiz top
-        drawLineOfColor(topRow, rightColumn, bottomRow, rightColumn, rgbColor)    ' vert right
-        drawLineOfColor(bottomRow, leftColumn, bottomRow, rightColumn, rgbColor)    ' horiz bottom
-        drawLineOfColor(topRow, leftColumn, bottomRow, leftColumn, rgbColor)    ' vert left
+        drawLineInternal(topRow, leftColumn, topRow, rightColumn, rgbColor, FALSE)    ' horiz top
+        drawLineInternal(topRow, rightColumn, bottomRow, rightColumn, rgbColor, FALSE)    ' vert right
+        drawLineInternal(bottomRow, leftColumn, bottomRow, rightColumn, rgbColor, FALSE)    ' horiz bottom
+        drawLineInternal(topRow, leftColumn, bottomRow, leftColumn, rgbColor, FALSE)    ' vert left
 
 PUB drawLine(fmRow, fmColumn, toRow, toColumn)
     '' Draw line fromRC -> toRC using current text color (currently limited to horizontal/vertical lines)
     drawLineOfColor(fmRow, fmColumn, toRow, toColumn, currTextColor)
 
-PUB drawLineOfColor(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column, dx, dy, ctr, incr, intD
-    '' Draw line fromRC -> toRC using rgbColor (currently limited to horizontal/vertical lines)
-    fmRow :=  0 #> fmRow <# maxDisplayRows - 1
-    fmColumn :=  0 #> fmColumn <# maxDisplayColumns - 1
-    toRow :=  0 #> toRow <# maxDisplayRows - 1
-    toColumn :=  0 #> toColumn <# maxDisplayColumns - 1
-    'debug("seg:drwLn fmRC=(", udec_(fmRow), ",", udec_(fmColumn), "), toRC=(", udec_(toRow), ",", udec_(toColumn), "), RGB=(", uhex_long(rgbColor), ")")
-    if fmRow == toRow
-        ' draw Horizontal Line
-        repeat column from fmColumn to toColumn
-            pixels.drawPixelAtRC(chainIndex, fmRow, column, rgbColor)
-    elseif fmColumn == toColumn
-        ' draw Vertical Line
-        repeat row from fmRow to toRow
-            pixels.drawPixelAtRC(chainIndex, row, fmColumn, rgbColor)
-    else
-        if abs(toRow - fmRow) < abs(toColumn - fmColumn)
-            if fmColumn > toColumn
-                plotLineLow(toColumn, toRow, fmColumn, fmRow, rgbColor)
-            else
-                plotLineLow(fmColumn, fmRow, toColumn, toRow, rgbColor)
-        else
-            if fmRow > toRow
-                plotLineHigh(toColumn, toRow, fmColumn, fmRow, rgbColor)
-            else
-                plotLineHigh(fmColumn, fmRow, toColumn, toRow, rgbColor)
+PUB drawLineOfColor(fmRow, fmColumn, toRow, toColumn, rgbColor)
+    '' Draw line fromRC -> toRC using rgbColor
+    '' Uses display coordinates (applies panel column swap if needed)
+    drawLineInternal(fmRow, fmColumn, toRow, toColumn, rgbColor, TRUE)
 
 PUB drawPanelLine(panelIndex, fmRow, fmColumn, toRow, toColumn)
     '' Draw line fromRC -> toRC using current text color (currently limited to horizontal/vertical lines)
     drawPanelLineOfColor(panelIndex, fmRow, fmColumn, toRow, toColumn, currTextColor)
 
-PUB drawPanelLineOfColor(panelIndex, fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column, dx, dy, ctr, incr, intD, desiredPanelIndex, offsetPixelRows, offsetPixelColumns
-    '' Draw line fromRC -> toRC using rgbColor (currently limited to horizontal/vertical lines)
+PUB drawPanelLineOfColor(panelIndex, fmRow, fmColumn, toRow, toColumn, rgbColor) | desiredPanelIndex, offsetPixelRows, offsetPixelColumns
+    '' Draw line fromRC -> toRC using rgbColor within a specific panel
+    '' Uses panel coordinates (no panel column swap - direct wire-order drawing)
     fmRow :=  0 #> fmRow <# rowsPerPanel - 1
     fmColumn :=  0 #> fmColumn <# columnsPerPanel - 1
     toRow :=  0 #> toRow <# rowsPerPanel - 1
     toColumn :=  0 #> toColumn <# columnsPerPanel - 1
     desiredPanelIndex :=  0 #> panelIndex <# maxPanels - 1
     offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, panelIndex)
-    'debug("seg:drwLn fmRC=(", udec_(fmRow), ",", udec_(fmColumn), "), toRC=(", udec_(toRow), ",", udec_(toColumn), "), RGB=(", uhex_long(rgbColor), ")")
-    drawLineOfColor(fmRow + offsetPixelRows, fmColumn + offsetPixelColumns, toRow + offsetPixelRows, toColumn + offsetPixelColumns, rgbColor)
+    ' Use FALSE for bUseDisplayCoords - panel routines use wire-order coordinates
+    drawLineInternal(fmRow + offsetPixelRows, fmColumn + offsetPixelColumns, toRow + offsetPixelRows, toColumn + offsetPixelColumns, rgbColor, FALSE)
 
 
-PRI plotLineLow(x0, y0, x1, y1, rgbColor) | row, column, dy, dx, D, yi
+PRI drawLineInternal(fmRow, fmColumn, toRow, toColumn, rgbColor, bUseDisplayCoords) | row, column
+    '' Internal line drawing with control over coordinate system
+    '' @param bUseDisplayCoords - TRUE for display routines (applies panel column swap)
+    ''                          - FALSE for panel routines (direct wire-order drawing)
+    fmRow :=  0 #> fmRow <# maxDisplayRows - 1
+    fmColumn :=  0 #> fmColumn <# maxDisplayColumns - 1
+    toRow :=  0 #> toRow <# maxDisplayRows - 1
+    toColumn :=  0 #> toColumn <# maxDisplayColumns - 1
+
+    if fmRow == toRow
+        ' draw Horizontal Line
+        repeat column from fmColumn to toColumn
+            drawPixelInternal(fmRow, column, rgbColor, bUseDisplayCoords)
+    elseif fmColumn == toColumn
+        ' draw Vertical Line
+        repeat row from fmRow to toRow
+            drawPixelInternal(row, fmColumn, rgbColor, bUseDisplayCoords)
+    else
+        if abs(toRow - fmRow) < abs(toColumn - fmColumn)
+            if fmColumn > toColumn
+                plotLineLowInternal(toColumn, toRow, fmColumn, fmRow, rgbColor, bUseDisplayCoords)
+            else
+                plotLineLowInternal(fmColumn, fmRow, toColumn, toRow, rgbColor, bUseDisplayCoords)
+        else
+            if fmRow > toRow
+                plotLineHighInternal(toColumn, toRow, fmColumn, fmRow, rgbColor, bUseDisplayCoords)
+            else
+                plotLineHighInternal(fmColumn, fmRow, toColumn, toRow, rgbColor, bUseDisplayCoords)
+
+
+PRI plotLineLowInternal(x0, y0, x1, y1, rgbColor, bUseDisplayCoords) | row, column, dy, dx, D, yi
+    '' Bresenham line algorithm for shallow slopes
     dx := x1 - x0
     dy := y1 - y0
     yi := 1
@@ -727,14 +739,16 @@ PRI plotLineLow(x0, y0, x1, y1, rgbColor) | row, column, dy, dx, D, yi
     row := y0
 
     repeat column from x0 to x1
-        pixels.drawPixelAtRC(chainIndex, row, column, rgbColor)
+        drawPixelInternal(row, column, rgbColor, bUseDisplayCoords)
         if D > 0
             row := row + yi
             D := D + (2 * (dy - dx))
         else
             D := D + 2 * dy
 
-PRI plotLineHigh(x0, y0, x1, y1, rgbColor) | row, column, dy, dx, D, xi
+
+PRI plotLineHighInternal(x0, y0, x1, y1, rgbColor, bUseDisplayCoords) | row, column, dy, dx, D, xi
+    '' Bresenham line algorithm for steep slopes
     dx := x1 - x0
     dy := y1 - y0
     xi := 1
@@ -745,12 +759,22 @@ PRI plotLineHigh(x0, y0, x1, y1, rgbColor) | row, column, dy, dx, D, xi
     column := x0
 
     repeat row from y0 to y1
-        pixels.drawPixelAtRC(chainIndex, row, column, rgbColor)
+        drawPixelInternal(row, column, rgbColor, bUseDisplayCoords)
         if D > 0
             column := column + xi
             D := D + (2 * (dx - dy))
         else
             D := D + 2*dx
+
+
+PRI drawPixelInternal(row, column, rgbColor, bUseDisplayCoords)
+    '' Draw a single pixel with coordinate system control
+    '' @param bUseDisplayCoords - TRUE applies panel column swap (for display routines)
+    ''                          - FALSE uses direct wire-order (for panel routines)
+    if bUseDisplayCoords
+        drawDisplayPixel(row, column, rgbColor)
+    else
+        pixels.drawPixelAtRC(chainIndex, row, column, rgbColor)
 
 PUB drawCircle(row, column, radius)
 '' Draw circle centered at R,C of radius using current text color
@@ -798,14 +822,32 @@ PUB drawCircleOfColor(ctrRow, ctrColumn, radius, rgbColor) | column, row, decisi
 PRI drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor)
     ' for each pixel we will
     ' draw all eight pixels
-    pixels.drawPixelAtRC(chainIndex, ctrColumn+column, ctrRow+row, rgbColor)
-    pixels.drawPixelAtRC(chainIndex, ctrColumn-column, ctrRow+row, rgbColor)
-    pixels.drawPixelAtRC(chainIndex, ctrColumn+column, ctrRow-row, rgbColor)
-    pixels.drawPixelAtRC(chainIndex, ctrColumn-column, ctrRow-row, rgbColor)
-    pixels.drawPixelAtRC(chainIndex, ctrColumn+row, ctrRow+column, rgbColor)
-    pixels.drawPixelAtRC(chainIndex, ctrColumn-row, ctrRow+column, rgbColor)
-    pixels.drawPixelAtRC(chainIndex, ctrColumn+row, ctrRow-column, rgbColor)
-    pixels.drawPixelAtRC(chainIndex, ctrColumn-row, ctrRow-column, rgbColor)
+    ' NOTE: row/column here are offsets from center, not absolute coordinates
+    '       The drawPixelAtRC signature is (chainIdx, row, column, color)
+    drawDisplayPixel(ctrRow+row, ctrColumn+column, rgbColor)
+    drawDisplayPixel(ctrRow+row, ctrColumn-column, rgbColor)
+    drawDisplayPixel(ctrRow-row, ctrColumn+column, rgbColor)
+    drawDisplayPixel(ctrRow-row, ctrColumn-column, rgbColor)
+    drawDisplayPixel(ctrRow+column, ctrColumn+row, rgbColor)
+    drawDisplayPixel(ctrRow+column, ctrColumn-row, rgbColor)
+    drawDisplayPixel(ctrRow-column, ctrColumn+row, rgbColor)
+    drawDisplayPixel(ctrRow-column, ctrColumn-row, rgbColor)
+
+
+PRI drawDisplayPixel(row, column, rgbColor) | panelCols, pnlsPerCol, pnlsPerRow, panelColIdx, localColInPanel, swappedColumn
+    '' Draw pixel at display coordinates, applying panel column swap if needed
+    '' This is used by display-level routines only (not panel routines)
+    swappedColumn := column
+    if hub75Bffrs.needsPanelColumnSwap(chainIndex)
+        panelCols := columnsPerPanel
+        pnlsPerCol, pnlsPerRow := hub75Bffrs.displaySizeInPanels(chainIndex)
+        if pnlsPerRow > 1
+            ' Swap panel columns while preserving local position within panel
+            panelColIdx := column / panelCols
+            localColInPanel := column // panelCols
+            panelColIdx := (pnlsPerRow - 1) - panelColIdx
+            swappedColumn := panelColIdx * panelCols + localColInPanel
+    pixels.drawPixelAtRC(chainIndex, row, swappedColumn, rgbColor)
 
 
 CON { license }

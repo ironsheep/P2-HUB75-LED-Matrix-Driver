@@ -426,6 +426,28 @@ PUB wireStart(nChainIdx) : eWireStart | pEntry
     pEntry := ptrTableEntry(nChainIdx)
     eWireStart := LONG[pEntry][ENTR_WIRE_START_OFST]
 
+PUB needsPanelColumnSwap(nChainIdx) : bNeedsSwap | eEntry, eTraverse
+'' Determine if display coordinates need horizontal panel column swap
+'' This compensates for physical wire routing that swaps left/right panel columns
+''
+'' For WIRE_ROWS_FIRST (Z-pattern), columns are swapped when wire enters from:
+''   - WIRE_ENTERS_BOT_LEFT: chain goes BL→BR→TL→TR, so top panels are wire 1=TL, 0=TR (swapped)
+''   - WIRE_ENTERS_BOT_RIGHT: chain goes BR→BL→TR→TL, so top panels are wire 1=TR, 0=TL (swapped)
+''
+'' @param nChainIdx - the index of the desired chain
+'' @returns bNeedsSwap - TRUE if panel columns need to be swapped
+
+    bNeedsSwap := FALSE
+    eEntry := wireStart(nChainIdx)
+    eTraverse := wireTraverse(nChainIdx)
+
+    ' Only apply to Z-pattern (rows first) traversal
+    if eTraverse == hwEnum.WIRE_ROWS_FIRST
+        ' When wire enters from bottom, the Z-pattern returns across the top,
+        ' causing the wire order to be opposite from display panel order
+        if eEntry == hwEnum.WIRE_ENTERS_BOT_LEFT or eEntry == hwEnum.WIRE_ENTERS_BOT_RIGHT
+            bNeedsSwap := TRUE
+
 PUB wireTraverse(nChainIdx) : eWireTraverse | pEntry
 '' Return the wire traversal pattern enum for the nChainIdx HUB75 adapter
     pEntry := ptrTableEntry(nChainIdx)
