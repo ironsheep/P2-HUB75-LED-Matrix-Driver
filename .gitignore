@@ -75,3 +75,4 @@ CLAUDE.md
 /driver/tests
 driver/pnut-term-settings.json
 driver/performance.log
+*.lst

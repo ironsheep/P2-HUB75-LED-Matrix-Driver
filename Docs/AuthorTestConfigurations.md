@@ -315,4 +315,81 @@ To change configuration:
 
 ---
 
-*Last Updated: December 2024*
+## Logic Analyzer Test Setup
+
+The author's logic analyzer configuration for debugging HUB75 signals.
+
+### Channel Mapping (16-channel LA)
+
+| LA Channel | P2 Pin | Signal | Description |
+|------------|--------|--------|-------------|
+| 15 | P24 | R1 | Red data, upper half |
+| 14 | P25 | G1 | Green data, upper half |
+| 13 | P27 | R2 | Red data, lower half |
+| 12 | P28 | G2 | Green data, lower half |
+| 11 | P11 | LA_NEW | Instrumentation: Start of NEW single PWM Frame |
+| 10 | P10 | LA_SAME | Instrumentation: Start of SAME PWM Frame (BCM repeat) |
+| 9 | P9 | LA_FRMSET | Instrumentation: Start of PWM FrameSet |
+| 8 | P8 | LA_CMD | Instrumentation: Start of NEW Command |
+| 7 | P19 | A | Address bit 0 (LSB) |
+| 6 | P20 | B | Address bit 1 |
+| 5 | P21 | C | Address bit 2 |
+| 4 | P22 | D | Address bit 3 |
+| 3 | P23 | E | Address bit 4 (MSB) |
+| 2 | P16 | CLK | Pixel clock |
+| 1 | P18 | LATCH | Row latch |
+| 0 | P17 | OE | Output enable (directly active) |
+
+### Notes
+
+- Blue pins (B1, B2) are not monitored - R/G sufficient for color debugging
+- LA instrumentation pins (P8-P11) are directly on P2, not on HUB75 connector
+- HUB75 signals assume `BASE_PIN = 16` (P16-P31 adapter)
+- Expected CLK frequency: ~20 MHz (max for ICN2037 chips)
+- Observed CLK during debugging: ~833 kHz (indicating timing issues)
+
+### Pin Identification Test
+
+Use `test_hub75_pin_identify.spin2` to verify LA channel-to-pin mapping. This test outputs a 20-bit binary counter, with each bit assigned to a specific pin. Measure the frequency of each LA channel to identify which P2 pin it's connected to.
+
+**Test Configuration:** `BASE_PIN = 16`, `BASE_FREQ_HZ = 100_000`
+
+#### Frequency-to-Pin Reference Table
+
+| Frequency | Bit | P2 Pin | Signal | Description |
+|-----------|-----|--------|--------|-------------|
+| 100.0 kHz | 0 | P8 | LA_CMD | Instrumentation |
+| 50.0 kHz | 1 | P9 | LA_FRMSET | Instrumentation |
+| 25.0 kHz | 2 | P10 | LA_SAME | Instrumentation |
+| 12.5 kHz | 3 | P11 | LA_NEW | Instrumentation |
+| 6.25 kHz | 4 | P16 | CLK | Pixel clock |
+| 3.125 kHz | 5 | P17 | OE | Output enable |
+| 1.563 kHz | 6 | P18 | LATCH | Row latch |
+| 781 Hz | 7 | P19 | A | Address bit 0 |
+| 391 Hz | 8 | P20 | B | Address bit 1 |
+| 195 Hz | 9 | P21 | C | Address bit 2 |
+| 98 Hz | 10 | P22 | D | Address bit 3 |
+| 49 Hz | 11 | P23 | E | Address bit 4 |
+| 24 Hz | 12 | P24 | R1 | Red, upper half |
+| 12 Hz | 13 | P25 | G1 | Green, upper half |
+| 6 Hz | 14 | P26 | B1 | Blue, upper half |
+| 3 Hz | 15 | P27 | R2 | Red, lower half |
+| ~1.5 Hz | 16 | P28 | G2 | Green, lower half |
+| ~0.76 Hz | 17 | P29 | B2 | Blue, lower half |
+| ~0.38 Hz | 18 | P30 | SPARE1 | Unused |
+| ~0.19 Hz | 19 | P31 | SPARE2 | Unused |
+
+#### Hardware Verification
+
+Running this test also verifies:
+
+- **No stuck pins:** All 20 outputs toggle at their expected frequencies
+- **No cross-talk:** Square waves are clean with no coupling between adjacent signals
+- **P2 output integrity:** Logic analyzer inputs receive valid data from P2
+- **LA input integrity:** All 16 LA channels functioning correctly
+
+If any channel shows an unexpected frequency or no activity, check wiring and connections.
+
+---
+
+*Last Updated: January 2025*
