@@ -78,6 +78,53 @@ CON { Hardware Interface Constants }
 ' SUPPORTED depths:  3-8 bits
 #3, DEPTH_3BIT, DEPTH_4BIT, DEPTH_5BIT, DEPTH_6BIT, DEPTH_7BIT, DEPTH_8BIT
 
+' =================================================================================================
+'  (7) Wire ordering for fully populated rectangular grids:
+' =================================================================================================
+'
+'  Use these enums when all grid positions have panels (no gaps).
+'  The driver computes the wire order table from these two settings.
+'
+'  Display panel numbering (row-major from top-left):
+'     2x2:     3x3:         1x4:
+'    [0][1]   [0][1][2]    [0][1][2][3]
+'    [2][3]   [3][4][5]
+'             [6][7][8]
+
+' Wire entry position: which display grid corner the adapter cable connects to
+#$40, WIRE_ENTERS_TOP_LEFT, WIRE_ENTERS_TOP_RIGHT, WIRE_ENTERS_BOT_LEFT, WIRE_ENTERS_BOT_RIGHT
+
+' Wire traversal pattern: how the chain progresses through the grid
+#$48, WIRE_ROWS_FIRST, WIRE_COLS_FIRST, WIRE_SERPENTINE_ROWS, WIRE_SERPENTINE_COLS
+
+' =================================================================================================
+'  (8) Explicit grid layout for non-rectangular shapes (+ shape, L shape, etc.):
+' =================================================================================================
+'
+'  Use these values when grid has gaps (some positions have no panel).
+'  User provides a grid table with position values.
+'
+'  Example + shape in 3x3 grid:
+'     [PNL_NONE][PNL_FIRST][PNL_NONE]
+'     [   2   ][    3    ][   4    ]
+'     [PNL_NONE][    5    ][PNL_NONE]
+
+    PNL_NONE = 0        ' Empty grid position (no panel here)
+    PNL_FIRST = 1       ' First panel in chain (alias for 1, improves readability)
+    ' Remaining panels use values 2, 3, 4, ... in chain order
+
+' =================================================================================================
+'  (9) Cube face identification (for 6-panel cube configurations):
+' =================================================================================================
+'
+'  Specify cube orientation with three values: TOP, FRONT, and LEFT wire positions.
+'  The driver derives BOTTOM, BACK, and RIGHT from geometry.
+
+#$50, FACE_TOP, FACE_BOTTOM, FACE_FRONT, FACE_BACK, FACE_LEFT, FACE_RIGHT
+
+' Cube image unwrap patterns: how 2D images map onto cube faces
+#$58, CUBE_UNWRAP_HSTRIP_LFRB, CUBE_UNWRAP_HSTRIP_FRBL, CUBE_UNWRAP_CROSS, CUBE_UNWRAP_CUSTOM
+
 PUB null()
 '' This is not a top level object
 

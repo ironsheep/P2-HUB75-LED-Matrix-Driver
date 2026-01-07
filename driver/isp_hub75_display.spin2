@@ -189,19 +189,18 @@ PUB fillScreen(rgbColor) | row, column
         repeat maxDisplayColumns with column
             pixels.drawPixelAtRC(chainIndex, row, column, rgbColor)
 
-PUB fillPanel(panelIndex, rgbColor) | row, column, columnOffsetToPanel
+PUB fillPanel(panelIndex, rgbColor) | row, column, offsetPixelRows, offsetPixelColumns
     '' Fill the specified panel (of panelSet) with 24-bit color value
-    ' panels are numbered from n-1 head of the chain (where signal enters the panel-set) to 0 at the end
-    debug("fillPanel(", udec_(panelIndex), ") ", udec_(columnsPerPanel), "x", udec_(rowsPerPanel), " @ ", udec_(hub75Bffrs.offsetToPanel(chainIndex, panelIndex)))
-    columnOffsetToPanel := panelIndex * columnsPerPanel
+    '' For 2D grids, panelIndex uses row-major order from top-left:
+    ''   2x2 grid: [0][1]    3x3 grid: [0][1][2]
+    ''             [2][3]              [3][4][5]
+    ''                                 [6][7][8]
+    offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, panelIndex)
+    debug("fillPanel(", udec_(panelIndex), ") ", udec_(columnsPerPanel), "x", udec_(rowsPerPanel), " @ row=", udec_(offsetPixelRows), " col=", udec_(offsetPixelColumns))
 
     repeat rowsPerPanel with row
         repeat columnsPerPanel with column
-            'if row == 0 and (column < 4 or column > columnsPerPanel - 4)
-                'if not bDidShowOnce
-                '    debug("- fillPanel row=0 col=", udec_(column), ", ", udec(columnOffsetToPanel))
-            pixels.drawPixelAtRC(chainIndex, row, column + columnOffsetToPanel, rgbColor)
-    'bDidShowOnce := TRUE
+            pixels.drawPixelAtRC(chainIndex, row + offsetPixelRows, column + offsetPixelColumns, rgbColor)
 
 PUB fillScreenNoPWM(threeBitColor)
     '' Fill screen but without PWM (for testing underlying driver)
@@ -230,16 +229,30 @@ PUB homeCursor()
     '' Return the cursor to top left corner of our display
     setCursor(0, 0)
 
-PUB setCursorOnPanel(line, column, panelIndex) | boundedPanelIndex, panelOffsetInChars, boundedColumn, tmpCharOffsetInPix, desiredCharOffsetInPix, fixUpInPix
-    '' Position the text cursor to row, column of the selected panel
+PUB setCursorOnPanel(line, column, panelIndex) | boundedPanelIndex, boundedLine, boundedColumn, panelGridRow, panelGridCol, panelsPerRow, panelsPerCol
+    '' Position the text cursor to line, column within the selected panel
+    '' Translates panel-local text coordinates to display-wide coordinates
+    '' For 2D grids, panelIndex uses row-major order from top-left:
+    ''   2x2 grid: [0][1]    3x3 grid: [0][1][2]
+    ''             [2][3]              [3][4][5]
+    ''                                 [6][7][8]
     boundedPanelIndex := 0 #> panelIndex <# maxPanels - 1
+    boundedLine := 0 #> line <# maxPanelTextLines - 1
     boundedColumn := 0 #> column <# maxPanelTextColumns - 1
-    cursorLine := 0 #> line <# maxPanelTextLines - 1
-    panelOffsetInChars := (boundedPanelIndex * maxPanelTextColumns) + boundedColumn
-    cursorColumn := panelOffsetInChars
-    tmpCharOffsetInPix := leftOffsetInPix + (cursorColumn * (charWidthInPix + horizontalGapInPix))
-    desiredCharOffsetInPix := leftOffsetInPix + (columnsPerPanel * boundedPanelIndex) + (boundedColumn * (charWidthInPix + horizontalGapInPix))
-    panelFixupOffetInPix := (tmpCharOffsetInPix < desiredCharOffsetInPix) ? desiredCharOffsetInPix - tmpCharOffsetInPix: 0
+
+    ' Get panel grid dimensions (panelsPerCol = rows of panels, panelsPerRow = columns of panels)
+    panelsPerCol, panelsPerRow := hub75Bffrs.displaySizeInPanels(chainIndex)
+
+    ' Calculate panel position in grid (row-major order)
+    panelGridRow := boundedPanelIndex / panelsPerRow
+    panelGridCol := boundedPanelIndex // panelsPerRow
+
+    ' Translate panel-local coordinates to display-wide text coordinates
+    cursorLine := boundedLine + (panelGridRow * maxPanelTextLines)
+    cursorColumn := boundedColumn + (panelGridCol * maxPanelTextColumns)
+
+    ' Reset pixel fixup (no longer needed with proper 2D calculation)
+    panelFixupOffetInPix := 0
 
 PUB homeCursorOnPanel(panelIndex)
     '' Return the cursor to top left corner of the selected panel

@@ -48,11 +48,11 @@ CON { User Panel Connection and Configuration }
     DISP0_MAX_PANEL_ROWS = 64
 
     ' the organization of the panels: visual layout
-    '   [2]      2 row of 2 panels
-    ' . [2]
+    '   [0][1]      2x2 grid of panels
+    '   [2][3]
     '
-    DISP0_MAX_PANELS_PER_ROW = 4
-    DISP0_MAX_PANELS_PER_COLUMN = 1
+    DISP0_MAX_PANELS_PER_ROW = 2
+    DISP0_MAX_PANELS_PER_COLUMN = 2
 
     ' (3) describe the color depth you want to support [3-8] bits per LED
     '    NOTE full 24bit color is hwEnum.DEPTH_8BIT
@@ -60,7 +60,28 @@ CON { User Panel Connection and Configuration }
     DISP0_COLOR_DEPTH = hwEnum.DEPTH_8BIT
 
     ' (4) Apply desired rotation to entire display
-    DISP0_ROTATION = hwEnum.ROT_180
+    ' NOTE: Use ROT_NONE first to verify panel orientation, then adjust if needed
+    DISP0_ROTATION = hwEnum.ROT_NONE
+    'DISP0_ROTATION = hwEnum.ROT_180  ' uncomment if display is upside-down
+
+    ' (5) Describe the wire chain order through your panels
+    '
+    '  Cable chain: Adapter -> BL -> BR -> TL -> TR (Z-pattern)
+    '     [TL][TR]   Looking at display front
+    '     [BL][BR]   Adapter connects at BL, chain ends at TR
+    '
+    DISP0_WIRE_ENTRY = hwEnum.WIRE_ENTERS_BOT_LEFT
+    DISP0_WIRE_TRAVERSE = hwEnum.WIRE_ROWS_FIRST
+
+    ' (6) Per-panel physical rotation
+    '  Use when individual panels are physically rotated differently
+    '  Panel indices: [0=TL][1=TR]
+    '                 [2=BL][3=BR]
+    '
+    DISP0_PANEL0_ROT = hwEnum.ROT_180     ' Panel 0
+    DISP0_PANEL1_ROT = hwEnum.ROT_180     ' Panel 1
+    DISP0_PANEL2_ROT = hwEnum.ROT_180     ' Panel 2
+    DISP0_PANEL3_ROT = hwEnum.ROT_180     ' Panel 3
 
     ' |  End User configure
     ' \-------------------------------------------
@@ -114,6 +135,10 @@ CON { User Panel Connection and Configuration }
     ' (4) Apply desired rotation to entire display
     DISP1_ROTATION = hwEnum.ROT_NONE
 
+    ' (5) Describe the wire chain order (default: Z-pattern from top-left)
+    DISP1_WIRE_ENTRY = hwEnum.WIRE_ENTERS_TOP_LEFT
+    DISP1_WIRE_TRAVERSE = hwEnum.WIRE_ROWS_FIRST
+
     ' |  End User configure
     ' \-------------------------------------------
 
@@ -165,6 +190,10 @@ CON { User Panel Connection and Configuration }
 
     ' (4) Apply desired rotation to entire display
     DISP2_ROTATION = hwEnum.ROT_NONE
+
+    ' (5) Describe the wire chain order (default: Z-pattern from top-left)
+    DISP2_WIRE_ENTRY = hwEnum.WIRE_ENTERS_TOP_LEFT
+    DISP2_WIRE_TRAVERSE = hwEnum.WIRE_ROWS_FIRST
 
     ' |  End User configure
     ' \-------------------------------------------

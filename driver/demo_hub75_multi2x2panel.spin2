@@ -61,10 +61,8 @@ panelIdMessage  byte    "Pn",0
 PUB main() : ok | demoIndex, bDidDemo, pnlIdx
     '' start underlying drivers and run demo
 
-    'repeat
-
-    'debug("`term temp size 82 50 textsize 10")
     hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
+    hub75Bffrs.setWireConfig(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_WIRE_ENTRY, user.DISP0_WIRE_TRAVERSE)
     chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
     ' startup our backend COG(s)
@@ -74,21 +72,140 @@ PUB main() : ok | demoIndex, bDidDemo, pnlIdx
         debug("- DEMO: underlying driver failed!")
         abort
 
-    'display.clearScreenBuffer()
-    'display.fillScreenNoPWM(color.BASE_RED)
-    'display.fillScreenNoPWM(color.BASE_GREEN)
-    'display.fillScreenNoPWM(color.BASE_BLUE)
-    'display.fillScreenNoPWM(color.BASE_WHITE)
-    'display.commitScreenToPanelSet()
-    'waitSec(120)
+    ' ============================================
+    ' PANEL ORIENTATION TEST
+    ' 2x2 grid of 128x64 panels = 256x128 total
+    ' Center at (128, 64) where all 4 panels meet
+    ' ============================================
+    testPanelOrientation()
+
+    stop()
+
+PRI testPanelOrientation() | pnlIdx, centerRow, centerCol, circleRadius
+    '' Test pattern using BOTH coordinate systems:
+    ''
+    '' PANEL-SPECIFIC drawing (panel-local coordinates + panelIndex):
+    ''   - fillPanel() - fills entire panel with color
+    ''   - setCursorOnPanel() - text at panel-local line/column
+    ''   - drawPanelBox() - box at panel-local row/column
+    ''
+    '' DISPLAY-WIDE drawing (absolute display coordinates):
+    ''   - drawCircleOfColor() - circle at display row/column
+    ''   - drawLineOfColor() - line at display coordinates
+    ''   - setCursor() / setColoredTextAtLnCol() - text at display line/column
+    ''
+    '' For 2x2 grid of 128x64 panels:
+    ''   Display size: 256 columns x 128 rows
+    ''   Panel layout: [0=Blue][1=Green]   (top row, rows 0-63)
+    ''                 [2=Red][3=Magenta]  (bottom row, rows 64-127)
 
     display.clearScreenBuffer()
-    display.setBrightness(128) ' 80% brightness
+    display.setBrightness(128)
+
+    ' Set up text
+    textSize := display.TEXT_FONT_8x8A
+    display.setTextFont(textSize)
+
+    ' ========================================
+    ' PANEL-SPECIFIC DRAWING (panel-local coordinates)
+    ' ========================================
+
+    ' Panel 0 (display top-left): Blue background
+    display.fillPanel(0, color.cBlue)
+    display.setTextColor(color.cWhite)
+    display.setCursorOnPanel(3, 7, 0)    ' Panel-local: line 3, col 7
+    display.setTextAtCursor(@lblArrow)
+    display.setCursorOnPanel(4, 7, 0)    ' Panel-local: line 4, col 7
+    display.setTextAtCursor(@lbl0)
+    ' Small yellow box in top-left corner of panel 0 (panel-local coords)
+    display.drawPanelBoxOfColor(0, 2, 2, 10, 10, TRUE, color.cYellow)
+
+    ' Panel 1 (display top-right): Green background
+    display.fillPanel(1, color.cGreen)
+    display.setTextColor(color.cWhite)
+    display.setCursorOnPanel(3, 7, 1)
+    display.setTextAtCursor(@lblArrow)
+    display.setCursorOnPanel(4, 7, 1)
+    display.setTextAtCursor(@lbl1)
+    ' Small yellow box in top-left corner of panel 1
+    display.drawPanelBoxOfColor(1, 2, 2, 10, 10, TRUE, color.cYellow)
+
+    ' Panel 2 (display bottom-left): Red background
+    display.fillPanel(2, color.cRed)
+    display.setTextColor(color.cWhite)
+    display.setCursorOnPanel(3, 7, 2)
+    display.setTextAtCursor(@lblArrow)
+    display.setCursorOnPanel(4, 7, 2)
+    display.setTextAtCursor(@lbl2)
+    ' Small yellow box in top-left corner of panel 2
+    display.drawPanelBoxOfColor(2, 2, 2, 10, 10, TRUE, color.cYellow)
+
+    ' Panel 3 (display bottom-right): Magenta background
+    display.fillPanel(3, color.cMagenta)
+    display.setTextColor(color.cWhite)
+    display.setCursorOnPanel(3, 7, 3)
+    display.setTextAtCursor(@lblArrow)
+    display.setCursorOnPanel(4, 7, 3)
+    display.setTextAtCursor(@lbl3)
+    ' Small yellow box in top-left corner of panel 3
+    display.drawPanelBoxOfColor(3, 2, 2, 10, 10, TRUE, color.cYellow)
+
+    ' ========================================
+    ' DISPLAY-WIDE DRAWING (absolute coordinates)
+    ' ========================================
+
+    ' White circle at display center (where all 4 panels meet)
+    ' Display center: row=64, col=128
+    centerRow := 64
+    centerCol := 128
+    circleRadius := 32
+    display.drawCircleOfColor(centerRow, centerCol, circleRadius, color.cWhite)
+
+    ' Cyan crosshairs through the display center (display coordinates)
+    ' Horizontal line: row 64, from col 0 to col 255
+    display.drawLineOfColor(64, 0, 64, 255, color.cCyan)
+    ' Vertical line: col 128, from row 0 to row 127
+    display.drawLineOfColor(0, 128, 127, 128, color.cCyan)
+
+    ' Orange corner markers using display coordinates
+    ' Top-left corner of display (0,0)
+    display.drawBoxOfColor(0, 0, 8, 8, TRUE, color.cOrange)
+    ' Top-right corner of display (0, 248)
+    display.drawBoxOfColor(0, 248, 8, 8, TRUE, color.cOrange)
+    ' Bottom-left corner of display (120, 0)
+    display.drawBoxOfColor(120, 0, 8, 8, TRUE, color.cOrange)
+    ' Bottom-right corner of display (120, 248)
+    display.drawBoxOfColor(120, 248, 8, 8, TRUE, color.cOrange)
+
+    display.commitScreenToPanelSet()
+    debug("=== PANEL-SPECIFIC DRAWING ===")
+    debug("  Colored backgrounds: 0=Blue(TL), 1=Green(TR), 2=Red(BL), 3=Magenta(BR)")
+    debug("  Yellow boxes: panel-local (2,2) on each panel")
+    debug("  Text ^/0-3: panel-local lines 3-4, col 7")
+    debug("=== DISPLAY-WIDE DRAWING ===")
+    debug("  White circle: display center (64,128) r=32")
+    debug("  Cyan crosshairs: row 64, col 128")
+    debug("  Orange corners: display (0,0), (0,248), (120,0), (120,248)")
+    waitSec(120)
+
+{   ORIGINAL DEMO CODE - COMMENTED OUT
+PUB main_original() : ok | demoIndex, bDidDemo, pnlIdx
+
+    hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
+    chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
+
+    display.setBufferPointers(chainIndex, scrnBuffers.chain0Ptrs())
+    ok := cog := display.start(chainIndex)
+    if ok == -1
+        debug("- DEMO: underlying driver failed!")
+        abort
+
+    display.clearScreenBuffer()
+    display.setBrightness(128)
     display.fillScreen(color.cCyan)
     display.commitScreenToPanelSet()
     waitSec(240)
 
-    'placeClock()  ' broken
     display.clearScreenBuffer()
 
     display.setTextColor(color.cRed)
@@ -116,6 +233,7 @@ PUB main() : ok | demoIndex, bDidDemo, pnlIdx
 
     waitSec(120)
     stop()
+'}
 
 {x
     demoPausePeriod := 3   ' seconds
@@ -224,6 +342,13 @@ lblZro      byte    "(0)", 0
 lblOne      byte    "(1)", 0
 lblTwo      byte    "(2)", 0
 lblThr      byte    "(3)", 0
+
+' Panel orientation test labels
+lbl0          byte    "0", 0
+lbl1          byte    "1", 0
+lbl2          byte    "2", 0
+lbl3          byte    "3", 0
+lblArrow      byte    "^", 0
 
 PRI demoColorPanels()
     ' start with blank screen on which to draw

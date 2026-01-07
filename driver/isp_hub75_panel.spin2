@@ -31,6 +31,10 @@ VAR { driver instance variables }
     LONG    maxChainColumns
     LONG    nPanelRows
     LONG    nPanelColumns
+    LONG    nPanelsPerRow
+    LONG    nPanelsPerColumn
+    LONG    nDisplayRows
+    LONG    nDisplayColumns
     LONG    nColorDepth
     LONG    nBytesPerColor
     LONG    nDumpPassNbr
@@ -52,7 +56,7 @@ VAR { driver instance variables }
 PUB null()
 '' This is not a top level object
 
-PUB start(nID, nChainIdx) : ok | panelCt
+PUB start(nID, nChainIdx) : ok | panelCt, wireIdx
     '' Start the backend pasm2 driver for the matrix
     chainIndex := nChainIdx
     instanceID := nID
@@ -63,9 +67,17 @@ PUB start(nID, nChainIdx) : ok | panelCt
     pPwmFrame2 := hub75Bffrs.pwmFrame2BufferAddress(chainIndex)
     panelCt := hub75Bffrs.maxPanels(chainIndex)
     nPanelRows, nPanelColumns := hub75Bffrs.panelSizeInPixels(chainIndex)
+    nPanelsPerColumn, nPanelsPerRow := hub75Bffrs.displaySizeInPanels(chainIndex)
+    nDisplayRows, nDisplayColumns := hub75Bffrs.displaySizeInPixels(chainIndex)
     maxChainRows := nPanelRows
     maxChainColumns := panelCt * nPanelColumns
+
+    ' Build inverse wire order lookup table (wire position -> display panel index)
+    repeat wireIdx from 0 to panelCt - 1
+        wireToDisplayPanel[wireIdx] := hub75Bffrs.displayPanelForWire(chainIndex, wireIdx)
     debug("- PNL: #", udec_(instanceID), " Start clk=", udec_long(clkfreq))
+    debug("- PNL: Grid ", udec_(nPanelsPerRow), "x", udec_(nPanelsPerColumn), " panels, Display ", udec_(nDisplayColumns), "x", udec_(nDisplayRows))
+    debug("- PNL: Wire order: W0->D", udec_(wireToDisplayPanel[0]), " W1->D", udec_(wireToDisplayPanel[1]), " W2->D", udec_(wireToDisplayPanel[2]), " W3->D", udec_(wireToDisplayPanel[3]))
 
     bDumpOnce := FALSE
     nPassCt := 0
@@ -373,40 +385,43 @@ doneS8
 
 ' -----------------------------------------------------------------------------
 
-PUB convertScreen2PWM(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet, lPhyRows, lPysColumns, lDisplayBytesPerColor, lPwmFrameSizeInBytes, lMaxPwmBuffers, lPixelCtr, l24bitColorTop, l24bitColorBot
+PUB convertScreen2PWM(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet, lChainCols, lPanelCols, lHalfPanelRows, lPanelPixels, lDisplayBytesPerColor, lPwmFrameSizeInBytes, lMaxPwmBuffers
 ' NOTE: 16 longs total avail to inline pasm: params + return + local
-'  --> 12/16 used
-    '' Load a 24-bit image into PWM frame buffers at 16s, 32s (2 scan-lines at a time) [SPIN]
-    ' XYZZYpnl debug("- PNL: loading screen at @", uhex_long_(p24bitScreen), uhex_long(bSwapRB), uhex_long(bSwapGB))
-    ' FACT: dual 64x64 panel yields 205.035 Hz (full PWM fps)
+'  --> 11/16 used
+    '' Load a 24-bit image into PWM frame buffers at 16s, 32s (2 scan-lines at a time) [PASM]
+    '' Screen buffer is in wire-panel-major order (pixels stored sequentially per wire panel)
+    '' This reads directly by chain position - no wire→display mapping needed
     ' save address of 24bit screen for use by called routines
     pScreenInMemory := p24bitScreen
 
     markStart()
 
-  ' clear 8x 3-bit frames
-    pPwmFrameSet            := getActivePwmBuffer()  ' clear PWM frames  and get pointer to buffer
-    lPhyRows                := maxChainRows
-    lPysColumns             := maxChainColumns
+    ' Get PWM buffer and setup parameters
+    pPwmFrameSet            := getActivePwmBuffer()
+    lChainCols              := maxChainColumns          ' Total columns in physical chain (e.g., 512 for 4×128)
+    lPanelCols              := nPanelColumns            ' Columns per panel (e.g., 128)
+    lHalfPanelRows          := nPanelRows / 2           ' Half panel height for RGB1/RGB2 split (e.g., 32)
+    lPanelPixels            := nPanelRows * nPanelColumns   ' Pixels per panel (e.g., 8192 for 128x64)
     lPwmFrameSizeInBytes    := nPwmFrameSizeInBytes
     lMaxPwmBuffers          := nColorDepth
     lDisplayBytesPerColor   := nBytesPerColor
-    lPixelCtr               := (lPhyRows * lPysColumns) / 2
-    l24bitColorTop          := (((lPhyRows * lPysColumns) / 2) - 1) * lDisplayBytesPerColor
-    l24bitColorBot          := ((lPhyRows * lPysColumns) / 2) * lDisplayBytesPerColor
 
-   ' fill PWM_FRAMES from 24-bit-screen
+   ' Fill PWM_FRAMES from 24-bit-screen
+   ' Screen buffer is in wire-panel-major order:
+   '   Wire panel 0: bytes 0 to (panelPixels * bytesPerColor - 1)
+   '   Wire panel 1: bytes (panelPixels * bytesPerColor) to (2 * panelPixels * bytesPerColor - 1)
+   '   etc.
+   ' We read directly by wire position - no coordinate mapping needed!
                     org
                     jmp     #start16s
 
-' the following initialized values are simply copied into PASM area before routine is run
+' Initialized values copied into PASM area
 redBitTopValue      LONG    $01
 greenBitTopValue    LONG    $02
 blueBitTopValue     LONG    $04
 redBitBotValue      LONG    $08
 greenBitBotValue    LONG    $10
 blueBitBotValue     LONG    $20
-midDisplayRow       LONG    0
 redPwmBitsTop       LONG    0
 greenPwmBitsTop     LONG    0
 bluePwmBitsTop      LONG    0
@@ -414,92 +429,135 @@ redPwmBitsBot       LONG    0
 greenPwmBitsBot     LONG    0
 bluePwmBitsBot      LONG    0
 pPwmFrameByt        LONG    0
-p24bitColorTop      LONG    0
-p24bitColorBot      LONG    0
+pTopPixelAddr       LONG    0
+pBotPixelAddr       LONG    0
 colorValue24bit     LONG    0
-colorValueTop       LONG    0
-colorValueBot       LONG    0
-colorMask           LONG    0
 bitCount            LONG    0
 currMaskBitIdx      LONG    0
 currPwmBffrIdx      LONG    0
 panelBGR            LONG    0
-rowIndexHalfPanel   LONG    0
 pwmByteIndex        LONG    0
-currPwmColorBits    LONG    0
-currPwmBits         LONG    0
-tempByte            LONG    0
-allOnes             LONG    $ffffffff
+' Loop control
+scanRowCtr          LONG    0
+chainColCtr         LONG    0
+scanRow             LONG    0
+chainCol            LONG    0
+' Panel-based offset calculation
+wirePanel           LONG    0
+localCol            LONG    0
+wirePanelBase       LONG    0
+topPixelOffset      LONG    0
+botPixelOffset      LONG    0
+tempDiv             LONG    0
 
 start16s
-                    ' for each pixels in half screen
-                    mov     p24bitColorTop, l24bitColorTop
-                    mov     p24bitColorBot, l24bitColorBot
-                    add     p24bitColorTop, p24bitScreen                        ' convert to address of last pixel in top half
-                    add     p24bitColorBot, p24bitColorTop                      ' convert to address of last pixel in bottom half
-                    ' init variables
+                    ' Initialize color bit values
                     mov     redBitTopValue, #$01
                     mov     greenBitTopValue, #$02
                     mov     blueBitTopValue, #$04
                     mov     redBitBotValue, #$08
                     mov     greenBitBotValue, #$10
                     mov     blueBitBotValue, #$20
-                    ' setup for red/blue flip if needed
-                    or      bSwapRB, bSwapRB   wz       ' T/F where: T=nz, F=z
-    if_nz           mov     redBitTopValue, #$04        ' redT gets blue
-    if_nz           mov     blueBitTopValue, #$01       ' blueT gets red
-    if_nz           mov     redBitBotValue, #$20        ' redB gets blue
-    if_nz           mov     blueBitBotValue, #$08       ' blueB gets red
-                    ' alternatively, setup for green/blue flip if needed
-                    or      bSwapGB, bSwapGB   wz   ' T/F where: T=nz, F=z
-    if_nz           mov     greenBitTopValue, #$04      ' greenT gets blue
-    if_nz           mov     blueBitTopValue, #$02      ' blueT gets green
-    if_nz           mov     greenBitBotValue, #$20      ' greenB gets blue
-    if_nz           mov     blueBitBotValue, #$10       ' blueB gets green
-nextPixel
-                    ' load our 2 pixels color/pwm data (top and bottom half of panel)
-                    rdlong  colorValue24bit, p24bitColorTop
-                    ' red := BYTE[p24bitScreen][p24bitColor][0]
-                    getbyte redPwmBitsTop, colorValue24bit,#0
-                    ' green := BYTE[p24bitScreen][p24bitColor][1]
-                    getbyte greenPwmBitsTop, colorValue24bit,#1
-                    ' blue := BYTE[p24bitScreen][p24bitColor][2]
-                    getbyte bluePwmBitsTop, colorValue24bit,#2
+                    ' Setup for red/blue swap if needed
+                    or      bSwapRB, bSwapRB   wz
+    if_nz           mov     redBitTopValue, #$04
+    if_nz           mov     blueBitTopValue, #$01
+    if_nz           mov     redBitBotValue, #$20
+    if_nz           mov     blueBitBotValue, #$08
+                    ' Setup for green/blue swap if needed
+                    or      bSwapGB, bSwapGB   wz
+    if_nz           mov     greenBitTopValue, #$04
+    if_nz           mov     blueBitTopValue, #$02
+    if_nz           mov     greenBitBotValue, #$20
+    if_nz           mov     blueBitBotValue, #$10
 
-                    rdlong  colorValue24bit, p24bitColorBot
-                    ' red := BYTE[p24bitScreen][p24bitColor][0]
-                    getbyte redPwmBitsBot, colorValue24bit,#0
-                    ' green := BYTE[p24bitScreen][p24bitColor][1]
-                    getbyte greenPwmBitsBot, colorValue24bit,#1
-                    ' blue := BYTE[p24bitScreen][p24bitColor][2]
-                    getbyte bluePwmBitsBot, colorValue24bit,#2
+                    ' Initialize PWM byte index
+                    xor     pwmByteIndex, pwmByteIndex
+                    ' Outer loop: scan rows 0 to halfPanelRows-1 (e.g., 0-31)
+                    xor     scanRow, scanRow
+                    mov     scanRowCtr, lHalfPanelRows
+nextScanRow
+                    ' Inner loop: chain columns 0 to chainCols-1 (e.g., 0-511)
+                    xor     chainCol, chainCol
+                    mov     chainColCtr, lChainCols
+nextChainCol
+                    ' Calculate wire panel index: wirePanel = chainCol / panelCols
+                    ' Use repeated CMPSUB for efficient division
+                    mov     wirePanel, #0
+                    mov     tempDiv, chainCol
+                    cmpsub  tempDiv, lPanelCols   wc
+    if_c            add     wirePanel, #1
+                    cmpsub  tempDiv, lPanelCols   wc
+    if_c            add     wirePanel, #1
+                    cmpsub  tempDiv, lPanelCols   wc
+    if_c            add     wirePanel, #1
+                    cmpsub  tempDiv, lPanelCols   wc
+    if_c            add     wirePanel, #1
+                    cmpsub  tempDiv, lPanelCols   wc
+    if_c            add     wirePanel, #1
+                    cmpsub  tempDiv, lPanelCols   wc
+    if_c            add     wirePanel, #1
+                    cmpsub  tempDiv, lPanelCols   wc
+    if_c            add     wirePanel, #1
+                    cmpsub  tempDiv, lPanelCols   wc
+    if_c            add     wirePanel, #1
+                    ' tempDiv = localCol = chainCol % panelCols
+                    mov     localCol, tempDiv
 
-                    ' FYI GAMMA correction, brightness are adjusted as the BYTE is placed into our source screen buffer!!
+                    ' Calculate wire panel base offset in screen buffer
+                    ' wirePanelBase = wirePanel * panelPixels * bytesPerColor
+                    mov     wirePanelBase, wirePanel
+                    mul     wirePanelBase, lPanelPixels
+                    mul     wirePanelBase, lDisplayBytesPerColor
 
-                    ' write color information to our PWM buffers
-                    ' expand 24-bit pixel into N pwm frames of 3-bit pixel
-                    ' for ea. bit do...
-                    xor     currPwmBffrIdx, currPwmBffrIdx          ' start with buffer[0] of [0-MAX_PWM_BUFFERS - 1]
-                    mov     bitCount, lMaxPwmBuffers       ' MAX PWM FRAME bits to scan in LONG
-                    ' NOTE: PWM def'n bits are org'd at MSBit and are COLOR_DEPTH in width (3-8 bits depth)
-                    '  3=$E0, 4=$F0, 5=$F8, 6=$FC, 7=$FE, 8=$FF
-                    mov     currMaskBitIdx, #7                      ' start bitmask is always msBit of BYTE
+                    ' Calculate pixel offsets within wire panel
+                    ' Screen buffer layout per panel: row-major within each panel
+                    ' topPixelOffset = wirePanelBase + (scanRow * panelCols + localCol) * bytesPerColor
+                    ' botPixelOffset = wirePanelBase + ((scanRow + halfPanelRows) * panelCols + localCol) * bytesPerColor
+                    mov     topPixelOffset, scanRow
+                    mul     topPixelOffset, lPanelCols
+                    add     topPixelOffset, localCol
+                    mul     topPixelOffset, lDisplayBytesPerColor
+                    add     topPixelOffset, wirePanelBase
+
+                    mov     botPixelOffset, scanRow
+                    add     botPixelOffset, lHalfPanelRows
+                    mul     botPixelOffset, lPanelCols
+                    add     botPixelOffset, localCol
+                    mul     botPixelOffset, lDisplayBytesPerColor
+                    add     botPixelOffset, wirePanelBase
+
+                    ' Calculate pixel addresses
+                    mov     pTopPixelAddr, p24bitScreen
+                    add     pTopPixelAddr, topPixelOffset
+                    mov     pBotPixelAddr, p24bitScreen
+                    add     pBotPixelAddr, botPixelOffset
+
+                    ' Load top pixel color (RGB1)
+                    rdlong  colorValue24bit, pTopPixelAddr
+                    getbyte redPwmBitsTop, colorValue24bit, #0
+                    getbyte greenPwmBitsTop, colorValue24bit, #1
+                    getbyte bluePwmBitsTop, colorValue24bit, #2
+
+                    ' Load bottom pixel color (RGB2)
+                    rdlong  colorValue24bit, pBotPixelAddr
+                    getbyte redPwmBitsBot, colorValue24bit, #0
+                    getbyte greenPwmBitsBot, colorValue24bit, #1
+                    getbyte bluePwmBitsBot, colorValue24bit, #2
+
+                    ' Write to PWM buffers for each bit plane
+                    xor     currPwmBffrIdx, currPwmBffrIdx
+                    mov     bitCount, lMaxPwmBuffers
+                    mov     currMaskBitIdx, #7
 nextBit
-                    ' calculate offset to frame for this bit #
-                    '   frameIdx := 0 #> nBitNumber <# screen.MAX_PWM_BUFFERS - 1    ' MAX N pwm frames so limit our index
-                    '   nFrameOffset := frameIdx * nPwmFrameSizeInLongs ' 256 longs in each frame
-                    '   pPwmFrameByt := @LONG[getActivePwmBuffer()][nFrameOffset]
+                    ' Calculate PWM frame byte address
                     mov     pPwmFrameByt, currPwmBffrIdx
                     mul     pPwmFrameByt, lPwmFrameSizeInBytes
-                    ' calculate pointer to frame for this bit #
-                    add     pPwmFrameByt, pPwmFrameSet     ' add base of frame buffer
-                    add     pPwmFrameByt, lPixelCtr        ' add-in offset to current BYTE
-                    sub     pPwmFrameByt, #1               ' make relative to 0
-                    ' build RGB1 and RGB2 bits to be stored in PWM panel BYTE
-                    '   rBit := red & (1 << currMaskBitIdx) > 0 ? 1 : 0
-                    '   gBit := green & (1 << currMaskBitIdx) > 0 ? 1 : 0
-                    '   bBit := blue & (1 << currMaskBitIdx) > 0 ? 1 : 0
-                    xor     panelBGR, panelBGR                      ' clear color value
+                    add     pPwmFrameByt, pPwmFrameSet
+                    add     pPwmFrameByt, pwmByteIndex
+
+                    ' Build RGB1 and RGB2 bits
+                    xor     panelBGR, panelBGR
                     testb   redPwmBitsTop, currMaskBitIdx     wc
         if_c        or      panelBGR, redBitTopValue
                     testb   greenPwmBitsTop, currMaskBitIdx   wc
@@ -513,19 +571,21 @@ nextBit
                     testb   bluePwmBitsBot, currMaskBitIdx    wc
         if_c        or      panelBGR, blueBitBotValue
 
-                    ' write our new BYTE value
-                    '    BYTE[pPwmFrameByt][pwmByteIndex] := panelBGR
+                    ' Write PWM byte
                     wrbyte  panelBGR, pPwmFrameByt
-                    ' this one done, if not all 8 bits done, go do next
+                    ' Next bit plane
                     add     currPwmBffrIdx, #1
                     sub     currMaskBitIdx, #1
                     djnz    bitCount, #nextBit
 
-                    ' point to prior pixel RGB spec in top and bottom halves
-                    sub    p24bitColorTop, lDisplayBytesPerColor
-                    sub    p24bitColorBot, lDisplayBytesPerColor
-                    ' count this pixel done, go do next pixel if not yet done
-                    djnz    lPixelCtr, #nextPixel
+                    ' Advance to next chain column
+                    add     pwmByteIndex, #1
+                    add     chainCol, #1
+                    djnz    chainColCtr, #nextChainCol
+
+                    ' Advance to next scan row
+                    add     scanRow, #1
+                    djnz    scanRowCtr, #nextScanRow
 done16s
                     end
 
@@ -600,6 +660,7 @@ VAR { buffer addresses }
     LONG    dvrConfig
     LONG    driverConfigRaw
     LONG    pScreenInMemory
+    LONG    wireToDisplayPanel[16]      ' Inverse lookup: wire position -> display panel index
     LONG    panelsPerRow
     LONG    panelsPerColumn
 
