@@ -16,6 +16,18 @@ CON { timing }
 
 ' clock is setup in top-level file
 
+    ' Target panel clock frequency (Hz) - independent of sysclk
+    ' ICN2037 datasheet specifies max 20 MHz clock
+    TARGET_PANEL_HZ = 20_000_000
+
+    ' Base loop cycle count (with WAITX D=0)
+    ' 7 instructions × 2 cycles = 14 cycles minimum
+    BASE_LOOP_CYCLES = 14
+
+    ' Minimum system clock = BASE_LOOP_CYCLES × TARGET_PANEL_HZ
+    ' = 14 × 20 MHz = 280 MHz minimum for 20 MHz panel clock
+    MIN_SYSCLK_HZ = BASE_LOOP_CYCLES * TARGET_PANEL_HZ
+
 CON { I/O PINs }
 
 ' New P2 Eval Board HUB75 Adapter:
@@ -214,6 +226,21 @@ PUB start(nID, nChainIdx) : ok | tmpVar, panelCt, tmpConstant, widthInPanels, he
     maxPwmSubPgSzLongs  := pwmSubPageSizeInLongs
     maxPwmSubPgSzLngsM1 := pwmSubPageSizeInLongs - 1
     maxPwmSubPgSzBytes  := pwmSubPageSizeInLongs * 4
+
+    ' Calculate clock-frequency-independent timing
+    ' This ensures panel receives consistent ~20 MHz clock regardless of sysclk
+    tmpVar := clkfreq / TARGET_PANEL_HZ      ' cycles per panel clock bit
+    if tmpVar < BASE_LOOP_CYCLES
+        ' System clock too slow for target panel frequency
+        ' Use minimum timing (fastest panel clock possible at this sysclk)
+        debug("RG3: WARNING: sysclk too slow! Panel clock will be < ", udec_(TARGET_PANEL_HZ / 1_000_000), " MHz")
+        waitCyclesLow := 0
+        waitCyclesHigh := 0
+    else
+        tmpConstant := tmpVar - BASE_LOOP_CYCLES   ' extra cycles to distribute
+        waitCyclesLow := tmpConstant / 2           ' data setup extension
+        waitCyclesHigh := tmpConstant - waitCyclesLow  ' clock high extension
+    debug("RG3:  TIMING cycles/bit=", udec_(tmpVar), " waitLo=", udec_(waitCyclesLow), " waitHi=", udec_(waitCyclesHigh))
 
     ' post time constants to driver
     'msec_001 := CLKFREQ / 1_000                                   ' ticks in 1ms
@@ -1076,27 +1103,26 @@ noDbgOvly           ror     reg_value, #8                   ' shift next most si
 wrLatchAtEnd
                     mov     byteOffset, #0
 wrLineLatchAtEnd
-'   for bit 0 to 63
-'     toggle clock (15-18MHz)
+'   for each column in row:
+'     toggle clock (fixed ~20MHz, independent of sysclk)
                 ' this tracks when we need to toggle latch at right-edge of row
 '                    mov     col_lng_ctr, colCtrMaxLngs          ' this is physical display width wide!
 
                 ' in buffer: RGB1 is byte-bits[0-2], RGB2 is byte-bits[3-5]
 '                    ' the following instru is either a ROR or ROL as configured by setup code
 clkNONextByte
+                    ' Inner loop: 7 instructions = 14 base cycles (with WAITX D=0)
+                    ' + waitCyclesLow + waitCyclesHigh = cycles for target panel freq
+                    ' At 335 MHz → 20 MHz: 16 cycles (waitLo=1, waitHi=1)
                     rep     @eobytes, colCtrMax         ' this is physical row in px (or 2x if 1/8 scan panel)
                     ' write our 6 color bits
-                    altgb   byteOffset, pCogBffrIncr
-                    getbyte colorByte, 0-0, #0-0
-                    drvl    pinLedCLK            ' falling edge in prep for rising...
-outInst2of3         setbyte OUTA, colorByte, #3         ' modded to byte 1 or byte 3
-                    nop
-'                    nop     ' 2nd nop is new... clock was too fast
-'                    nop     ' 2nd nop is new... clock was too fast
-'                    waitx   #4  ' this any better? (3 no diff)
-                    drvh    pinLedCLK            ' rising edge - 15nSec pulse at 335 MHz
-                    nop     ' new extend clock pulse x1
-                    nop     ' new extend clock pulse x2
+                    altgb   byteOffset, pCogBffrIncr    ' 2 cycles: setup byte fetch
+                    getbyte colorByte, 0-0, #0-0        ' 2 cycles: get color byte
+                    drvl    pinLedCLK                   ' 2 cycles: CLK low (prep for rising edge)
+outInst2of3         setbyte OUTA, colorByte, #3         ' 2 cycles: output RGB data
+                    waitx   waitCyclesLow               ' 2+N cycles: data setup time
+                    drvh    pinLedCLK                   ' 2 cycles: CLK high (rising edge latches data)
+                    waitx   waitCyclesHigh              ' 2+M cycles: clock high time
 eobytes
                     waitx   #2                          ' is this doing anything?
                     drvl    pinLedCLK                   ' falling edge - reset clock after end of loop
@@ -1122,6 +1148,7 @@ eobytes
                     '
                     cmp      byteOffset, maxPwmSubPgSzBytes wc
     if_c            jmp     #wrLineLatchAtEnd
+                    drvh    pinLedOE                    ' blank outputs before subframe gap
                     '
                     ' ---  inter-subframe gap  ---
                     '
@@ -1162,6 +1189,10 @@ modeOverlapDAT      long    FALSE   ' T/F where T means LATCH_OVERLAPPED, F mean
 modeLatchEnclosed   long    FALSE   ' T/F where T means LATCH_ENCLOSED, F means LATCH_OFFSET
 modeDatRotLeft      long    FALSE   ' T/F where T means ROR, F means ROL
 modeSlowCLK         long    FALSE   ' T/F where T means add waitx to slow clock, F means no use of waitx
+
+' Clock-frequency-independent timing values (calculated at init)
+waitCyclesLow       long    0       ' extra cycles for CLK low phase (data setup)
+waitCyclesHigh      long    0       ' extra cycles for CLK high phase (clock pulse)
 
 'msec_001            long    0                                   ' ticks in 1ms
 'usec_001            long    0                               ' ticks in 1us
