@@ -96,7 +96,10 @@ PUB correctedSingleColor(nChainIdx, led, colorValue) : adjustedColor | pGammaTab
         other:
             abort
 
-    adjustedColor := ((adjustedColor * defaultBrightness) >> 8) & $ff
+    ' Apply brightness with proper rounding (add 128 before >>8 for round-to-nearest)
+    ' This ensures brightness=128 gives max color=128 (bit 7 set) instead of 127 (bit 7 clear)
+    ' which prevents Frame 0 (MSB frame) from being black at 50% brightness
+    adjustedColor := ((adjustedColor * defaultBrightness + 128) >> 8) & $ff
     if bGammaEnable
         adjustedColor := byte[pGammaTable][adjustedColor]
     adjustedColor := colorAtDesiredBitWidth(nChainIdx, adjustedColor)

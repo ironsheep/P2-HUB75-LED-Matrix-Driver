@@ -56,8 +56,8 @@ CON { User Panel Connection and Configuration }
 
     ' (3) describe the color depth you want to support [3-8] bits per LED
     '    NOTE full 24bit color is hwEnum.DEPTH_8BIT
-    '    NOTE: 3-5 bit depth is 2 bytes per pixel, while 6-8 bit depth is 3 bytes per pixel
-    DISP0_COLOR_DEPTH = hwEnum.DEPTH_8BIT
+    '    NOTE: Screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
+    DISP0_COLOR_DEPTH = hwEnum.DEPTH_5BIT
 
     ' (4) Apply desired rotation to entire display
     ' NOTE: Use ROT_NONE first to verify panel orientation, then adjust if needed
@@ -89,9 +89,10 @@ CON { User Panel Connection and Configuration }
     DISP0_MAX_DISPLAY_ROWS = DISP0_MAX_PANELS_PER_COLUMN * DISP0_MAX_PANEL_ROWS
     DISP0_MAX_DISPLAY_COLUMNS = DISP0_MAX_PANELS_PER_ROW * DISP0_MAX_PANEL_COLUMNS
 
-    ' (8 bits per byte)
+    ' Screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
+    ' Color depth only affects which bits are significant in BCM conversion
     DISP0_BITS_PER_COLOR = DISP0_COLOR_DEPTH * 3
-    DISP0_BYTES_PER_COLOR = (DISP0_BITS_PER_COLOR + 7) / 8
+    DISP0_BYTES_PER_COLOR = 3
 
     DISP0_SCRN_SIZE_IN_BYTES = (((DISP0_MAX_DISPLAY_COLUMNS * DISP0_MAX_DISPLAY_ROWS * DISP0_BYTES_PER_COLOR) + 3) / 4) * 4
     DISP0_SCRN_SIZE_IN_LONGS = (DISP0_SCRN_SIZE_IN_BYTES / 4)
@@ -129,7 +130,7 @@ CON { User Panel Connection and Configuration }
 
     ' (3) describe the color depth you want to support [3-8] bits per LED
     '    NOTE full 24bit color is hwEnum.DEPTH_8BIT
-    '    NOTE: 3-5 bit depth is 2 bytes per pixel, while 6-8 bit depth is 3 bytes per pixel
+    '    NOTE: Screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
     DISP1_COLOR_DEPTH = hwEnum.DEPTH_6BIT
 
     ' (4) Apply desired rotation to entire display
@@ -145,9 +146,9 @@ CON { User Panel Connection and Configuration }
     DISP1_MAX_DISPLAY_ROWS = DISP1_MAX_PANELS_PER_COLUMN * DISP1_MAX_PANEL_ROWS
     DISP1_MAX_DISPLAY_COLUMNS = DISP1_MAX_PANELS_PER_ROW * DISP1_MAX_PANEL_COLUMNS
 
-    ' (8 bits per byte)
+    ' Screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
     DISP1_BITS_PER_COLOR = DISP1_COLOR_DEPTH * 3
-    DISP1_BYTES_PER_COLOR = (DISP1_BITS_PER_COLOR + 7) / 8
+    DISP1_BYTES_PER_COLOR = 3
 
     DISP1_SCRN_SIZE_IN_BYTES = (((DISP1_MAX_DISPLAY_COLUMNS * DISP1_MAX_DISPLAY_ROWS * DISP1_BYTES_PER_COLOR) + 3) / 4) * 4
     DISP1_SCRN_SIZE_IN_LONGS = (DISP1_SCRN_SIZE_IN_BYTES / 4)
@@ -185,7 +186,7 @@ CON { User Panel Connection and Configuration }
 
     ' (3) describe the color depth you want to support [3-8] bits per LED
     '    NOTE full 24bit color is hwEnum.DEPTH_8BIT
-    '    NOTE: 3-5 bit depth is 2 bytes per pixel, while 6-8 bit depth is 3 bytes per pixel
+    '    NOTE: Screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
     DISP2_COLOR_DEPTH = hwEnum.DEPTH_4BIT
 
     ' (4) Apply desired rotation to entire display
@@ -201,9 +202,9 @@ CON { User Panel Connection and Configuration }
     DISP2_MAX_DISPLAY_ROWS = DISP2_MAX_PANELS_PER_COLUMN * DISP2_MAX_PANEL_ROWS
     DISP2_MAX_DISPLAY_COLUMNS = DISP2_MAX_PANELS_PER_ROW * DISP2_MAX_PANEL_COLUMNS
 
-    ' (8 bits per byte)
+    ' Screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
     DISP2_BITS_PER_COLOR = DISP2_COLOR_DEPTH * 3
-    DISP2_BYTES_PER_COLOR = (DISP2_BITS_PER_COLOR + 7) / 8
+    DISP2_BYTES_PER_COLOR = 3
 
     DISP2_SCRN_SIZE_IN_BYTES = (((DISP2_MAX_DISPLAY_COLUMNS * DISP2_MAX_DISPLAY_ROWS * DISP2_BYTES_PER_COLOR) + 3) / 4) * 4
     DISP2_SCRN_SIZE_IN_LONGS = (DISP2_SCRN_SIZE_IN_BYTES / 4)

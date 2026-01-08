@@ -590,12 +590,17 @@ done16s
                     end
 
     markEnd(string("pasm 16S"))
-    {
+
+{   ' Debug code for Frame 0 MSB issue investigation
     nPassCt++
-    if not bDumpOnce && nPassCt == 5
+    if not bDumpOnce && nPassCt == 2
         bDumpOnce := TRUE
+        debug("--- DEBUG: Frame 0 vs Frame 1 data ---")
         dumpBufferHeads(pScreenInMemory, pPwmFrameSet)
-    '}
+        hub75Bffrs.dbgMemDump(@frame0Msg, pPwmFrameSet, 32)
+        hub75Bffrs.dbgMemDump(@frame1Msg, pPwmFrameSet + nPwmFrameSizeInBytes, 32)
+}
+
     matrix.cmdWritePwmBuffer(pPwmFrameSet)
 
 ' -----------------------------------------------------------------------------
@@ -722,6 +727,8 @@ DAT { .bmp fiile work area }
 
     bufferMsg       BYTE    "SCREEN",0
     frameMsg        BYTE    "PWM[0]",0
+    frame0Msg       BYTE    "Frame0",0
+    frame1Msg       BYTE    "Frame1",0
 
 CON { license }
 

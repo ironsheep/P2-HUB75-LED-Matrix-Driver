@@ -154,38 +154,38 @@ PRI testPanelOrientation() | pnlIdx, centerRow, centerCol, circleRadius
     ' DISPLAY-WIDE DRAWING (absolute coordinates)
     ' ========================================
 
-    ' White circle at display center (where all 4 panels meet)
+    ' Cyan circle at display center (where all 4 panels meet)
     ' Display center: row=64, col=128
     centerRow := 64
     centerCol := 128
     circleRadius := 32
-    display.drawCircleOfColor(centerRow, centerCol, circleRadius, color.cWhite)
+    display.drawCircleOfColor(centerRow, centerCol, circleRadius, color.cCyan)
 
-    ' Cyan crosshairs through the display center (display coordinates)
+    ' White crosshairs through the display center (display coordinates)
     ' Horizontal line: row 64, from col 0 to col 255
-    display.drawLineOfColor(64, 0, 64, 255, color.cCyan)
+    display.drawLineOfColor(64, 0, 64, 255, color.cWhite)
     ' Vertical line: col 128, from row 0 to row 127
-    display.drawLineOfColor(0, 128, 127, 128, color.cCyan)
+    display.drawLineOfColor(0, 128, 127, 128, color.cWhite)
 
-    ' Orange corner markers using display coordinates
+    ' Navy corner markers using display coordinates (dark, contrasts with yellow panel boxes)
     ' Top-left corner of display (0,0)
-    display.drawBoxOfColor(0, 0, 8, 8, TRUE, color.cOrange)
+    display.drawBoxOfColor(0, 0, 8, 8, TRUE, color.cNavy)
     ' Top-right corner of display (0, 248)
-    display.drawBoxOfColor(0, 248, 8, 8, TRUE, color.cOrange)
+    display.drawBoxOfColor(0, 248, 8, 8, TRUE, color.cNavy)
     ' Bottom-left corner of display (120, 0)
-    display.drawBoxOfColor(120, 0, 8, 8, TRUE, color.cOrange)
+    display.drawBoxOfColor(120, 0, 8, 8, TRUE, color.cNavy)
     ' Bottom-right corner of display (120, 248)
-    display.drawBoxOfColor(120, 248, 8, 8, TRUE, color.cOrange)
+    display.drawBoxOfColor(120, 248, 8, 8, TRUE, color.cNavy)
 
     display.commitScreenToPanelSet()
     debug("=== PANEL-SPECIFIC DRAWING ===")
     debug("  Colored backgrounds: 0=Blue(TL), 1=Green(TR), 2=Red(BL), 3=Magenta(BR)")
     debug("  Yellow boxes: panel-local (2,2) on each panel")
-    debug("  Text ^/0-3: panel-local lines 3-4, col 7")
+    debug("  White text ^/0-3: panel-local lines 3-4, col 7")
     debug("=== DISPLAY-WIDE DRAWING ===")
-    debug("  White circle: display center (64,128) r=32")
-    debug("  Cyan crosshairs: row 64, col 128")
-    debug("  Orange corners: display (0,0), (0,248), (120,0), (120,248)")
+    debug("  Cyan circle: display center (64,128) r=32")
+    debug("  White crosshairs: row 64, col 128")
+    debug("  Navy corners: display (0,0), (0,248), (120,0), (120,248)")
     waitSec(120)
 
 {   ORIGINAL DEMO CODE - COMMENTED OUT
