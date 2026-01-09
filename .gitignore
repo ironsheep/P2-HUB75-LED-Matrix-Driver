@@ -76,3 +76,4 @@ CLAUDE.md
 driver/pnut-term-settings.json
 driver/performance.log
 *.lst
+/.todo-mcp
