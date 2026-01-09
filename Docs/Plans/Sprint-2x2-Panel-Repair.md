@@ -3084,7 +3084,16 @@ Fix Clock Speed -> Test Polarity -> Fix Other Issues
 - Chain order is CORRECT (panel 0 receives wire 0 data, etc.)
 - This confirms wire order and basic drawing work
 
-**Status:** NOT STARTED
+**Status:** ✅ COMPLETED (2025-01-07)
+
+**Completion Notes:**
+- Wire order identity mapping [0,1,2,3] verified working
+- Physical wiring confirmed: Wire 0→TR, Wire 1→TL, Wire 2→BR, Wire 3→BL
+- Panel-level drawing routines all working correctly
+- Display-level drawing routines fixed (commit 21166f7):
+  - Added `needsPanelColumnSwap()` for wire-routing compensation
+  - Added `drawDisplayPixel()` helper for display coordinate transformation
+  - Fixed circle drawing bug (row/column swap in octants)
 
 ---
 
@@ -3092,15 +3101,20 @@ Fix Clock Speed -> Test Polarity -> Fix Other Issues
 **Goal:** Confirm per-panel rotation works correctly
 
 **Actions:**
-- [ ] Set each panel rotation to ROT_180
-- [ ] Keep display rotation at ROT_0
+- [x] Set each panel rotation to ROT_180
+- [x] Keep display rotation at ROT_0
 
 **Expected Result:**
 - Everything flips RIGHT-SIDE UP
 - Chain numbers, arrows, text all readable and correct
 - Panel positions unchanged (still in correct chain order)
 
-**Status:** NOT STARTED
+**Status:** ✅ COMPLETED (2025-01-07)
+
+**Completion Notes:**
+- Per-panel rotation infrastructure added: DISP0_PANEL0_ROT through DISP0_PANEL3_ROT
+- All panels set to ROT_180 - content displays right-side up
+- Panel text, arrows, and boxes all render correctly
 
 ---
 
@@ -3108,18 +3122,39 @@ Fix Clock Speed -> Test Polarity -> Fix Other Issues
 **Goal:** Eliminate flashing caused by black MSB frame
 
 **Actions:**
-- [ ] Investigate why 2^7 PWM frame has no color data
-- [ ] Check PWM buffer generation in isp_hub75_panel.spin2
-- [ ] Check frame indexing in isp_hub75_rgb3bit.spin2
-- [ ] Verify double-buffering handoff is working
-- [ ] Fix the root cause
+- [x] Investigate why 2^7 PWM frame has no color data
+- [x] Check PWM buffer generation in isp_hub75_panel.spin2
+- [x] Check frame indexing in isp_hub75_rgb3bit.spin2
+- [x] Verify double-buffering handoff is working
+- [x] Fix the root cause
 
 **Expected Result:**
 - Flashing stops
 - Full brightness restored
 - All 8 PWM frames have correct color data
 
-**Status:** NOT STARTED
+**Status:** ✅ COMPLETED (2026-01-08)
+
+**Root Causes Found and Fixed:**
+
+1. **BYTES_PER_COLOR Calculation Bug (isp_hub75_hwPanelConfig.spin2)**
+   - Old formula: `BYTES_PER_COLOR = (COLOR_DEPTH * 3 + 7) / 8` gave 2 bytes for 5-bit color
+   - But screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
+   - This caused pixel offset calculations to use 2-byte stride while code wrote 3 bytes
+   - Result: Pixel data overlap - byte 2 of pixel N overwrote byte 0 of pixel N+1
+   - Fix: Set `BYTES_PER_COLOR = 3` for all display configurations
+
+2. **Brightness Rounding Error (isp_hub75_colorUtils.spin2)**
+   - Old: `((colorValue * brightness) >> 8)` - truncates fractional bits
+   - At brightness=128, max value 255 became 127 (bit 7 clear)
+   - This meant MSB frame (Frame 0) was always empty at 50% brightness
+   - Fix: `((colorValue * brightness + 128) >> 8)` - rounds to nearest
+   - Now brightness=128 gives max value=128 (bit 7 set), MSB frame populated
+
+**Performance Research (Sprint-Performance-Upgrade.md):**
+- Analyzed refresh rate vs color depth tradeoffs
+- 5-bit color enables ~40 Hz base refresh (vs ~5 Hz at 8-bit)
+- Documented multi-COG architecture options for future optimization
 
 ---
 
@@ -3153,9 +3188,9 @@ Fix Clock Speed -> Test Polarity -> Fix Other Issues
 
 | Phase | Status | Date Started | Date Completed | Notes |
 |-------|--------|--------------|----------------|-------|
-| 5.1 Baseline | NOT STARTED | - | - | - |
-| 5.2 Panel Rotation | NOT STARTED | - | - | - |
-| 5.3 MSB Black Fix | NOT STARTED | - | - | - |
+| 5.1 Baseline | COMPLETED | 2025-01-07 | 2025-01-07 | Display-level drawing works |
+| 5.2 Panel Rotation | COMPLETED | 2025-01-07 | 2025-01-07 | Per-panel ROT_180 working |
+| 5.3 MSB Black Fix | COMPLETED | 2025-01-07 | 2026-01-08 | Fixed BYTES_PER_COLOR + rounding |
 | 5.4 Code Audit | NOT STARTED | - | - | - |
 
 ---
@@ -3329,3 +3364,36 @@ FILES TO INVESTIGATE:
 - isp_hub75_hwBufferAccess.spin2: displayToPanelCoords()
 - isp_hub75_hwPanelConfig.spin2: DISP0_ROTATION setting
 ```
+
+---
+
+**2026-01-08 Session - Phase 5.3 Completed:**
+
+### MSB Black Frame Issue - RESOLVED
+
+**Root Causes Found:**
+
+1. **BYTES_PER_COLOR Bug:**
+   - Formula `(COLOR_DEPTH * 3 + 7) / 8` gave 2 bytes for 5-bit color
+   - Screen buffer always uses 3 bytes per pixel (one byte per R/G/B)
+   - Caused pixel data overlap - corrupting adjacent pixels
+   - Fix: Set BYTES_PER_COLOR = 3 for all configurations
+
+2. **Brightness Rounding:**  
+   - `((value * brightness) >> 8)` truncates, giving 127 instead of 128 at 50%
+   - MSB frame (bit 7) was never set at typical brightness
+   - Fix: Add rounding `((value * brightness + 128) >> 8)`
+
+**Demo Updated:**
+- Changed to primary colors (Blue, Green, Red, Magenta) for better 5-bit visibility
+- White text on all panels
+- Yellow panel corner boxes, Navy display corners
+- White crosshairs, Cyan circle
+
+**Performance Research:**
+- Created Sprint-Performance-Upgrade.md with refresh rate analysis
+- 5-bit color: ~40 Hz base refresh (vs ~5 Hz at 8-bit)
+- Documented multi-COG architecture options
+
+**Remaining in Sprint:**
+- Phase 5.4: Code Audit Review (NOT STARTED)
