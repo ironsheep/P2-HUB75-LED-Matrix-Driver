@@ -36,14 +36,12 @@ OBJ
     user        :   "isp_hub75_hwPanelConfig"           ' hardware config common to all demos
     scrnBuffers :   "isp_hub75_hwBuffers"               ' the large buffers storing pixel data
 
-PUB main() : ok | bitCount, newMask, vertPixelCount
+PUB main() : ok | vertPixelCount
 '' Run demo displaying the full 5x7 font character set on the HUB75 LED matrix.
 ''
 '' @returns ok - cog ID of the display driver or -1 on failure
 
 ' Local Variables:
-' @local bitCount - unused
-' @local newMask - unused
 ' @local vertPixelCount - vertical pixel count of the display
 
     hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
@@ -64,7 +62,7 @@ PUB main() : ok | bitCount, newMask, vertPixelCount
     else
         demoFont64x32()
 
-    waitSec(60)    ' 5 seconds
+    waitSec(60)    ' 60 seconds
 
     ' shutdown our backend COG(s)
     if ok <> -1

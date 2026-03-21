@@ -1,7 +1,7 @@
 '' =================================================================================================
 ''
 ''   File....... demo_hub75_scroll.spin2
-''   Purpose.... Top-level Demonstration - showing off our HUB75 matrix scolling capability
+''   Purpose.... Top-level Demonstration - showing off our HUB75 matrix scrolling capability
 ''   Authors.... Stephen M Moraco
 ''               -- Copyright (c) 2022 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
@@ -36,14 +36,10 @@ OBJ
     user        :   "isp_hub75_hwPanelConfig"           ' hardware config common to all demos
     scrnBuffers :   "isp_hub75_hwBuffers"               ' the large buffers storing pixel data
 
-PUB main() : ok | bitCount, newMask
+PUB main() : ok
 '' Run the scrolling text demo on the HUB75 LED matrix.
 ''
 '' @returns ok - cog ID of the started display driver or -1 on failure
-
-' Local Variables:
-' @local bitCount - bit count scratch variable
-' @local newMask - mask scratch variable
 
     hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
     chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)

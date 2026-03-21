@@ -1,7 +1,7 @@
 '' =================================================================================================
 ''
-''   File....... isp_hub75_demoText.spin2
-''   Purpose.... Top-level Demonstration - showing off our HUB75 matrix and waterery  binary clock
+''   File....... demo_hub75_text.spin2
+''   Purpose.... Top-level Demonstration - showing off our HUB75 matrix text and scrolling features
 ''   Authors.... Stephen M Moraco
 ''               -- Copyright (c) 2020 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
@@ -36,14 +36,10 @@ OBJ
     user        :   "isp_hub75_hwPanelConfig"           ' hardware config common to all demos
     scrnBuffers :   "isp_hub75_hwBuffers"               ' the large buffers storing pixel data
 
-PUB main() : ok | bitCount, newMask
+PUB main() : ok
 '' Run demo displaying text and graphics in various ways.
 ''
 '' @returns ok - cog ID of display driver or -1 on failure
-
-' Local Variables:
-' @local bitCount - unused
-' @local newMask - unused
 
     hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
     chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)

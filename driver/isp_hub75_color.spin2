@@ -27,7 +27,7 @@ CON ' test colorset
     cOlive = $808000
     cGreen = $008000
     cPurple = $800080
-    cTeal = $08080
+    cTeal = $008080
     cNavy = $000080
     cDarkGreen = $006400
     cOrange = $FFA500

@@ -46,27 +46,12 @@ OBJ
     user                :   "isp_hub75_hwPanelConfig"   ' hardware config common to all demos
     scrnBuffers         :   "isp_hub75_hwBuffers"       ' the large buffers storing pixel data
 
-PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, builtPtr, color3bit, color24bit, pPixColor, colorOffset, byteOffset, hours24
+PUB start() : ok | hours24
 '' Start underlying drivers and run the seven-segment clock demo.
 ''
 '' @returns ok - cog ID of the display driver or -1 on failure
 
 ' Local Variables:
-' @local blockX - horizontal block position
-' @local blockY - vertical block position
-' @local subrow - sub-row index within block
-' @local subcol - sub-column index within block
-' @local row - display row coordinate
-' @local col - display column coordinate
-' @local red - red color component
-' @local green - green color component
-' @local blue - blue color component
-' @local builtPtr - constructed pointer value
-' @local color3bit - 3-bit color value
-' @local color24bit - 24-bit RGB color value
-' @local pPixColor - pointer to pixel color
-' @local colorOffset - offset into color table
-' @local byteOffset - byte offset into buffer
 ' @local hours24 - hours value in 24-hour format
 
     'debug("`term temp size 82 50 textsize 10")
