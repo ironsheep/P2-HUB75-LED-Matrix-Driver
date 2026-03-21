@@ -24,7 +24,7 @@
 '     E   C
 '       D
 
-CON { segment states, names, orientations and such }
+CON ' segment states, names, orientations and such
 
 #0, SEG_UNKNOWN, SEG_LEFT_E, SEG_LEFT_F, SEG_RIGHT_B, SEG_RIGHT_C, SEG_TOP, SEG_MIDDLE, SEG_BOTTOM
 #0, STATE_UNKNOWN, STATE_OFF, STATE_3RD_ON, STATE_6TH_ON, STATE_ON, STATE_3RD_OFF ,STATE_6TH_OFF
@@ -54,12 +54,21 @@ VAR
 
 
 PUB null()
-    '' This is NOT a top level object
+'' This is NOT a top level object.
+''
 
 PUB placeSegment(nChainIdx, row, column, orientation, initialState, rgbColor)
+'' Locate a segment on the screen and draw it if the initial state is not off.
+''
+'' @param nChainIdx - the panel chain index to use
+'' @param row - top row for the segment placement
+'' @param column - left column for the segment placement
+'' @param orientation - segment orientation (SEG_TOP, SEG_LEFT_E, etc.)
+'' @param initialState - initial display state (STATE_ON, STATE_OFF, etc.)
+'' @param rgbColor - 24-bit RGB color for the segment
+
     chainIndex := nChainIdx
     'debug("seg:placeSegment rc=(", udec_(row), ",", udec_(column), "), orient=(", udec_(orientation), "), state=(", udec_(initialState), "), RGB=(", uhex_long_(rgbColor),")")
-    '' Locate a desired segment on our screen  Draw initial segement if state is NOT off
     ' record settings choices we are given extrapolating some
     desiredEndState := currentState := nextState := STATE_OFF
     segStartX :=  0 #> column <# hub75Bffrs.maxDisplayColumns(chainIndex) - 1
@@ -81,29 +90,41 @@ PUB placeSegment(nChainIdx, row, column, orientation, initialState, rgbColor)
         updateSegmentToState(initialState)
 
 PUB hideSegment()
-    '' Start the segment moving to _OFF if not already off
+'' Start the segment moving to STATE_OFF if not already off.
+''
+
     if isMovementComplete()
         if currentState <> STATE_OFF
             moveSegmentToState(STATE_OFF)
 
 PUB showSegment()
+'' Start the segment moving to STATE_ON if not already on.
+''
+
     'debug("seg:show orient=(", udec_(segOrientation), ")")
-    '' Start the segment moving to _ON if not already on
     if isMovementComplete()
         if currentState <> STATE_ON
             moveSegmentToState(STATE_ON)
 
 PUB isMovementComplete() : status
-    '' Return T/F where T means that all movement for this segment is complete
+'' Return T/F where T means that all movement for this segment is complete.
+''
+'' @returns status - TRUE if the segment has reached its desired end state
+
     status := (desiredEndState == currentState)
 
 PUB animateStep()
-    '' Do one animation step, if one is pending
+'' Perform one animation step if a movement is pending.
+''
+
     if not isMovementComplete()
         updateSegmentToState(nextState)
 
 PUB moveSegmentToState(newEndState)
-    '' Start sequence of segment updates to desired state (on/off)
+'' Start the animated transition sequence to move the segment to the desired end state.
+''
+'' @param newEndState - target state (STATE_ON or STATE_OFF)
+
     'debug("seg:id(segT", udec_(segOrientation), "), moveTo (st", udec_(desiredEndState), ") -> (st", udec_(newEndState), ")")
     ' if we are asking to be in a different state then...
     if desiredEndState <> newEndState
@@ -124,8 +145,11 @@ PUB moveSegmentToState(newEndState)
         debug("  -- already in desiredEndState?")
 
 PRI updateSegmentToState(newState)
+' Draw the segment at a specific animation state and mark it as the current state.
+'
+' @param newState - the animation state to draw (STATE_3RD_ON, STATE_ON, etc.)
+
     'debug("seg:updSegToSt(segT", udec_(segOrientation), ", st", udec_(currentState), " -> st", udec_(newState), " , end-st", udec_(desiredEndState), ")")
-    ' Draw segment of specific state (marking the new state as current when done)
     case segOrientation
         SEG_TOP:
             updateHorizontalSegment(newState)
@@ -141,6 +165,13 @@ PRI updateSegmentToState(newState)
 
 
 PRI updateVerticalSegment(newState) | pixInset, columnIndex
+' Draw a vertical segment (left or right) at the given animation state.
+'
+' @param newState - the animation state to draw
+'
+' @local pixInset - pixel inset from segment edge for tapered drawing
+' @local columnIndex - current column being drawn
+
     'debug("seg:updVertSeg()")
     ' row,col points to upper-left of WIDTH columns by LENGTH rows
     if segOrientation == SEG_LEFT_E || segOrientation == SEG_LEFT_F
@@ -209,6 +240,13 @@ PRI updateVerticalSegment(newState) | pixInset, columnIndex
                 debug("STATE(vrtR) not yet implemented (", udec_(newstate), ")")
 
 PRI updateHorizontalSegment(newState) | pixInset, rowIndex
+' Draw a horizontal segment (top or bottom) at the given animation state.
+'
+' @param newState - the animation state to draw
+'
+' @local pixInset - pixel inset from segment edge for tapered drawing
+' @local rowIndex - current row being drawn
+
     'debug("seg:updHorizSeg()")
     ' row,col points to upper-left of LENGTH columns by WIDTH rows
     if segOrientation == SEG_TOP
@@ -275,6 +313,13 @@ PRI updateHorizontalSegment(newState) | pixInset, rowIndex
                 debug("STATE(hrzB) not yet implemented (", udec_(newstate), ")")
 
 PRI updateMiddleSegment(newState) | pixInset, rowIndex
+' Draw the middle segment at the given animation state.
+'
+' @param newState - the animation state to draw
+'
+' @local pixInset - pixel inset from segment edge for tapered drawing
+' @local rowIndex - current row being drawn
+
     'debug("seg:updMidSeg()")
     ' row,col points to upper-left of LENGTH columns by WIDTH rows
     if newState <> STATE_ON
@@ -305,6 +350,17 @@ PRI updateMiddleSegment(newState) | pixInset, rowIndex
 
 
 PRI drawLine(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column
+' Draw a horizontal or vertical line between two points with the given color.
+'
+' @param fmRow - starting row of the line
+' @param fmColumn - starting column of the line
+' @param toRow - ending row of the line
+' @param toColumn - ending column of the line
+' @param rgbColor - 24-bit RGB color for the line
+'
+' @local row - current row being drawn
+' @local column - current column being drawn
+
     'debug("seg:drwLn fmRC=(", udec_(fmRow), ",", udec_(fmColumn), "), toRC=(", udec_(toRow), ",", udec_(toColumn), "), RGB=(", uhex_long(rgbColor), ")")
     fmRow :=  0 #> fmRow <# hub75Bffrs.maxDisplayRows(chainIndex) - 1
     fmColumn :=  0 #> fmColumn <# hub75Bffrs.maxDisplayColumns(chainIndex) - 1
@@ -324,14 +380,19 @@ PRI drawLine(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column
 
 
 PRI isDebugLocn(nRow, nCol) : status
-    ' return T/F where T means we should show debug for this RC
+' Return TRUE if the given row and column is a location where debug output should be shown.
+'
+' @param nRow - panel row to check
+' @param nCol - panel column to check
+' @returns status - TRUE if this is a debug location
+
     status := FALSE
     'if (nRow == 31 && nCol < 4) || (nRow < 2 && nCol < 3) || (nRow == 31 && nCol > 61) || (nRow < 2 && nCol > 61)
     if (nRow  > 29)
         status := TRUE ' FALSE  ' turn off debug
 
 
-CON { license }
+CON ' license
 
 {{
 

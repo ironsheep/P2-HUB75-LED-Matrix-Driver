@@ -12,12 +12,12 @@
 '' =================================================================================================
 
 
-CON { timing }
+CON ' timing
 
   CLK_FREQ = 335_000_000                                        ' system freq as a constant 2.985 nSec
   _clkfreq = CLK_FREQ                                           ' set system clock
 
-CON { DEBUG PINs }
+CON ' DEBUG PINs
 
 'DEBUG_PIN = 0
 DEBUG_COGS = %11111111
@@ -44,14 +44,19 @@ OBJ
     user        :   "isp_hub75_hwPanelConfig"           ' hardware config common to all demos
     scrnBuffers :   "isp_hub75_hwBuffers"               ' the large buffers storing pixel data
 
-CON { DEMO info }
+CON ' DEMO info
 
 ' 11 enables .bmp file display
 DEMO_COUNT = 11
 
 
 PUB main() : ok | demoIndex
-    '' Start underlying drivers and run demo
+'' Start underlying drivers and run demo.
+''
+'' @returns ok - cog ID or -1 on failure
+
+' Local Variables:
+' @local demoIndex - current demo sequence index
 
     'repeat
 
@@ -174,12 +179,18 @@ PUB main() : ok | demoIndex
     stop()
 
 PRI stop()
-    ' Stop the driver
+' Stop the display driver and release the cog.
+'
+
     if cog
         display.stop()
         cog := 0
 
 PRI waitSec(countSeconds)
+' Wait for the specified number of seconds.
+'
+' @param countSeconds - number of seconds to wait
+
     repeat countSeconds
         waitms(1000)
 
@@ -188,6 +199,15 @@ PRI waitSec(countSeconds)
 ' ------------------------------------------------------------------------------
 
 PRI demoParallax() | rtCol, ltCol, topRow, botRow
+' Display Parallax Propeller2 branding with colored border.
+'
+
+' Local Variables:
+' @local rtCol - rightmost column index
+' @local ltCol - leftmost column index
+' @local topRow - top row index
+' @local botRow - bottom row index
+
     display.setTextFont(display.TEXT_FONT_5x7)    ' font size
     display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
 
@@ -206,6 +226,9 @@ PRI demoParallax() | rtCol, ltCol, topRow, botRow
     display.commitScreenToPanelSet()
 
 PRI demoAlignmentText()
+' Display text alignment test pattern.
+'
+
     display.setTextFont(display.TEXT_FONT_5x7)    ' font size
     display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
     display.setColoredTextAtLnCol(0, 0, string("Line 1"), color.cBlue)
@@ -214,14 +237,20 @@ PRI demoAlignmentText()
     display.setColoredTextAtLnCol(3, 0, string("Line 4"), color.cBlue)
     display.commitScreenToPanelSet()
 
-DAT { string data }
+DAT ' string data
 
 pwmMsg  byte    "XXXfrm pwm",0
 bitMsg  byte    "-RGB "
 bitCt   byte    "nbit-",0
 
 PRI demoText() | frameCount
-    ' draw some text!
+' Draw demo text showing driver info on the LED matrix.
+'
+
+' Local Variables:
+' @local frameCount - number of PWM frames for current config
+
+
     display.setTextFont(display.TEXT_FONT_5x7)    ' font size
     display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
     display.setColoredTextAtLnCol(0,0, string("iron sheep"), color.cMaroon)
@@ -248,7 +277,10 @@ PRI demoText() | frameCount
     display.commitScreenToPanelSet()
 
 PRI show18scanColorCheck()
-    ' test pattern used while debugging 1/8 scan capability
+' Display test pattern for debugging 1/8 scan capability.
+'
+
+
     display.drawBoxOfColor(0, 1, 62, 4, TRUE, color.cRed)
     display.drawBoxOfColor(4, 1, 62, 4, FALSE, color.cYellow)
     display.drawBoxOfColor(8, 1, 62, 4, TRUE, color.cWhite)
@@ -264,7 +296,9 @@ PRI show18scanColorCheck()
     display.commitScreenToPanelSet()
 
 PRI show18scanColorCheck2()
-    ' test pattern used while debugging 1/8 scan capability
+' Display second test pattern for debugging 1/8 scan capability.
+'
+
     ' TOP
     display.drawBoxOfColor(0, 1, 31, 4, TRUE, color.cRed)
     display.drawBoxOfColor(4, 1, 31, 4, TRUE, color.cWhite)
@@ -305,10 +339,16 @@ PRI show18scanColorCheck2()
     display.commitScreenToPanelSet()
 
 PRI show18scanColorCheck3()
+' Display third test pattern filling screen with rainbow.
+'
+
     display.drawBoxOfColor(0, 0, 64, 32, TRUE, color.cRainbow)
     display.commitScreenToPanelSet()
 
 PRI show18scanColorCheck4()
+' Display fourth test pattern with colored quadrants.
+'
+
     display.drawBoxOfColor(0, 0, 32, 16, TRUE, color.cRed)
     display.drawBoxOfColor(0, 32, 32, 16, TRUE, color.cBlue)
     display.drawBoxOfColor(16, 0, 32, 16, TRUE, color.cWhite)
@@ -319,6 +359,9 @@ PRI show18scanColorCheck4()
     display.commitScreenToPanelSet()
 
 PRI show18scanColorCheck5()
+' Display fifth test pattern with numbered colored rows.
+'
+
     display.drawBoxOfColor(0, 1, 62, 3, TRUE, color.cRed)
     display.drawBoxOfColor(3, 1, 62, 3, TRUE, color.cPurple)
     display.drawBoxOfColor(6, 1, 62, 3, TRUE, color.cWhite)
@@ -339,6 +382,17 @@ PRI show18scanColorCheck5()
     display.commitScreenToPanelSet()
 
 PRI numberTheRows() | rowId, idCol, idOnes, idTens, tensColor, onesColor
+' Draw row number indicators as pixel dots alongside each row.
+'
+
+' Local Variables:
+' @local rowId - current row number being labeled
+' @local idCol - column offset for drawing digit dots
+' @local idOnes - ones digit of current row number
+' @local idTens - tens digit of current row number
+' @local tensColor - color for tens digit dots
+' @local onesColor - color for ones digit dots
+
     tensColor := color.cCyan
     onesColor := color.cCyan
     repeat rowId from 1 to pnlRowCount
@@ -352,6 +406,21 @@ PRI numberTheRows() | rowId, idCol, idOnes, idTens, tensColor, onesColor
                 pixels.drawPixelAtRC(chainIndex, rowId - 1, idCol + 10, onesColor)
 
 PRI demoTestGammaTuneBrightness() | red, green, blue, row, col, rowOffset, colorGroup, bUseRed, bUseGreen, bUseBlue, colorValue
+' Display gamma tuning brightness swatches for three color groups.
+'
+
+' Local Variables:
+' @local red - red component value
+' @local green - green component value
+' @local blue - blue component value
+' @local row - current pixel row
+' @local col - current pixel column
+' @local rowOffset - vertical offset within color group
+' @local colorGroup - current color group index (0-2)
+' @local bUseRed - flag indicating red channel is active
+' @local bUseGreen - flag indicating green channel is active
+' @local bUseBlue - flag indicating blue channel is active
+' @local colorValue - current brightness level
 
     repeat colorGroup from 0 to 2
         bUseRed := bUseGreen := bUseBlue := FALSE
@@ -383,6 +452,24 @@ PRI demoTestGammaTuneBrightness() | red, green, blue, row, col, rowOffset, color
     display.commitScreenToPanelSet()
 
 PRI drawGammaTuneSwatch(width, row, col, red, green, blue) | ltCol, midCol, rtCol, colOffset, ltClr, midClr, rtClr
+' Draw a three-segment gamma tune swatch at the given position.
+'
+' @param width - pixel width of each swatch segment
+' @param row - starting row for the swatch
+' @param col - starting column for the swatch
+' @param red - red component value
+' @param green - green component value
+' @param blue - blue component value
+
+' Local Variables:
+' @local ltCol - left segment starting column
+' @local midCol - middle segment starting column
+' @local rtCol - right segment starting column
+' @local colOffset - column offset within a segment
+' @local ltClr - color for left segment
+' @local midClr - color for middle segment
+' @local rtClr - color for right segment
+
     ltCol := col
     midCol := col + width
     rtCol := col + (width * 2)
@@ -409,6 +496,25 @@ PRI drawGammaTuneSwatch(width, row, col, red, green, blue) | ltCol, midCol, rtCo
 
 
 PRI demoTest12x9ColorBrightness() | red, green, blue, row, col, rowCtr, colCtr, clrLow, clrMed, clrHigh, clrBW, bThirdClr, swatchWidth, swatchHt
+' Display a 12x9 grid of color brightness swatches.
+'
+
+' Local Variables:
+' @local red - red component value
+' @local green - green component value
+' @local blue - blue component value
+' @local row - current swatch row position
+' @local col - current swatch column position
+' @local rowCtr - row counter for brightness levels
+' @local colCtr - column counter for hue variations
+' @local clrLow - low brightness gamma-corrected value
+' @local clrMed - medium brightness gamma-corrected value
+' @local clrHigh - high brightness gamma-corrected value
+' @local clrBW - black/white gamma-corrected value
+' @local bThirdClr - unused third color flag
+' @local swatchWidth - pixel width of each swatch
+' @local swatchHt - pixel height of each swatch
+
     'swatchWidth := pnlColCount > 64 ? 10 : 5
     'swatchHt := pnlRowCount > 32 ? 6 : 3
 
@@ -529,11 +635,35 @@ PRI demoTest12x9ColorBrightness() | red, green, blue, row, col, rowCtr, colCtr, 
     display.commitScreenToPanelSet()
 
 PRI drawSwatch(width, height, row, col, rgbColor) | rowOffset, colOffset
+' Draw a filled rectangular color swatch at the given position.
+'
+' @param width - pixel width of the swatch
+' @param height - pixel height of the swatch
+' @param row - starting row for the swatch
+' @param col - starting column for the swatch
+' @param rgbColor - 24-bit RGB color value
+
+' Local Variables:
+' @local rowOffset - vertical offset within swatch
+' @local colOffset - horizontal offset within swatch
+
     repeat rowOffset from 0 to height - 1
         repeat colOffset from 0 to width - 1
             pixels.drawPixelAtRC(chainIndex, row + rowOffset, col + colOffset, rgbColor)
 
 PRI demoTest360ColorBrightness() | red, green, blue, row, col, rowCtr, degrees, colorValue
+' Display all 360 hue degrees as individual pixels across the panel.
+'
+
+' Local Variables:
+' @local red - red component value
+' @local green - green component value
+' @local blue - blue component value
+' @local row - current pixel row
+' @local col - current pixel column
+' @local rowCtr - row counter within each hue
+' @local degrees - current hue angle in degrees
+' @local colorValue - computed RGB color for current degree
 
     row := col := 0
     repeat degrees from 0 to 359
@@ -548,6 +678,23 @@ PRI demoTest360ColorBrightness() | red, green, blue, row, col, rowCtr, degrees, 
 
 
 PRI demoTest16ColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex, useRed, useBlue, useGreen, colorValue, colorHue
+' Display 16 hue bands as horizontal color strips.
+'
+
+' Local Variables:
+' @local red - red component value
+' @local green - green component value
+' @local blue - blue component value
+' @local row - current pixel row
+' @local col - current pixel column
+' @local rowCtr - row counter within each band
+' @local colorIndex - unused color index
+' @local useRed - unused red flag
+' @local useBlue - unused blue flag
+' @local useGreen - unused green flag
+' @local colorValue - computed RGB color for current hue
+' @local colorHue - current hue value (0-255 step 16)
+
     row := 0
 
     repeat colorHue from 0 to 255 step 16
@@ -560,6 +707,21 @@ PRI demoTest16ColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex
 
 
 PRI demoTest32ColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex, useRed, useBlue, useGreen, colorValue
+' Display 32-step brightness ramps for seven color channels.
+'
+
+' Local Variables:
+' @local red - red component value
+' @local green - green component value
+' @local blue - blue component value
+' @local row - current pixel row
+' @local col - current pixel column
+' @local rowCtr - row counter within each color band
+' @local colorIndex - current color channel index (0-6)
+' @local useRed - flag indicating red channel is active
+' @local useBlue - flag indicating blue channel is active
+' @local useGreen - flag indicating green channel is active
+' @local colorValue - current brightness step value
 
     row := 0
 
@@ -600,6 +762,21 @@ PRI demoTest32ColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex
     display.commitScreenToPanelSet()
 
 PRI demoTest256ColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex, useRed, useBlue, useGreen, colorValue
+' Display 256-step brightness ramps for eight color channels.
+'
+
+' Local Variables:
+' @local red - red component value
+' @local green - green component value
+' @local blue - blue component value
+' @local row - current pixel row
+' @local col - current pixel column
+' @local rowCtr - row counter within each color band
+' @local colorIndex - current color channel index (0-7)
+' @local useRed - flag indicating red channel is active
+' @local useBlue - flag indicating blue channel is active
+' @local useGreen - flag indicating green channel is active
+' @local colorValue - current brightness step value
 
     row := 0
 
@@ -640,6 +817,20 @@ PRI demoTest256ColorBrightness() | red, green, blue, row, col, rowCtr, colorInde
 
     'repeat  ' hold here!
 PRI demoColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex, useRed, useBlue, useGreen
+' Display continuous brightness gradients for eight color channels.
+'
+
+' Local Variables:
+' @local red - red component value
+' @local green - green component value
+' @local blue - blue component value
+' @local row - current pixel row
+' @local col - current pixel column
+' @local rowCtr - row counter within each color band
+' @local colorIndex - current color channel index (0-7)
+' @local useRed - flag indicating red channel is active
+' @local useBlue - flag indicating blue channel is active
+' @local useGreen - flag indicating green channel is active
 
     row := 0
 
@@ -682,7 +873,16 @@ CON
    COL_START_OFFSET = 2
 
 PRI demoHueLines() | row, col, colorOffset, startOffset
-    ' COLOR PANEL using hue  - all in one line
+' Draw hue spectrum as continuous lines across the panel.
+'
+
+' Local Variables:
+' @local row - current pixel row
+' @local col - current pixel column
+' @local colorOffset - current hue degree offset (0-359)
+' @local startOffset - column start offset based on panel width
+
+
     startOffset := (pnlColCount > 64) ? COL_START_OFFSET * 2 : COL_START_OFFSET
     col := startOffset
     repeat row from 0 to pnlRowCount - 1
@@ -694,7 +894,15 @@ PRI demoHueLines() | row, col, colorOffset, startOffset
     display.commitScreenToPanelSet()
 
 PRI demoHueLinesToo() | row, col, colorOffset
-    ' COLOR PANEL using hue  - all in one line
+' Draw hue spectrum as continuous lines on a 64x32 panel.
+'
+
+' Local Variables:
+' @local row - current pixel row
+' @local col - current pixel column
+' @local colorOffset - current hue degree offset (0-350)
+
+
     col := 0
     repeat row from 0 to 31
         repeat colorOffset from 0 to 350 step 6
@@ -706,7 +914,17 @@ PRI demoHueLinesToo() | row, col, colorOffset
 
 
 PRI demoHueGroups() | row, col, green, panelNumber, colorOffset
-    ' COLOR PANEL using hue  6 groups
+' Draw hue spectrum in six 60-degree color groups.
+'
+
+' Local Variables:
+' @local row - current pixel row
+' @local col - current pixel column
+' @local green - computed hue degree for current pixel
+' @local panelNumber - starting hue degree for current group
+' @local colorOffset - row offset within current group
+
+
     row := 0
     repeat panelNumber from 0 to 359 step 60
         repeat colorOffset from 0 to ((pnlRowCount - 1) / 6) - 1
@@ -717,7 +935,14 @@ PRI demoHueGroups() | row, col, green, panelNumber, colorOffset
     display.commitScreenToPanelSet()
 
 PRI demoColorPalette12Panels() | red, panelNumber
-    ' 10x10x10 COLOR PANELs + BW panel
+' Display twelve mini panels showing 10x10x10 color palette plus grayscale.
+'
+
+' Local Variables:
+' @local red - red component stepping value (0-255 step 25)
+' @local panelNumber - current mini panel index (0-11)
+
+
     panelNumber := 0
     repeat red from 0 to 255 step 25
         generateGreenBluePanelAgainst(panelNumber, red)
@@ -725,7 +950,7 @@ PRI demoColorPalette12Panels() | red, panelNumber
     generateBWPanel(11)
     display.commitScreenToPanelSet()
 
-CON { tiny panel constants }
+CON ' tiny panel constants
 
     ' these adjust panel spacing only
 
@@ -740,6 +965,11 @@ CON { tiny panel constants }
     'kCOL_WIDTH_IN_PIX = 32
 
 PRI offsetForPanel() : rowHeight, colWidth
+' Calculate row height and column width for mini panel layout.
+'
+' @returns rowHeight - pixel height per mini panel row
+' @returns colWidth - pixel width per mini panel column
+
     rowHeight := 11
     if pnlRowCount > 32
         rowHeight := 22
@@ -748,6 +978,22 @@ PRI offsetForPanel() : rowHeight, colWidth
         colWidth := 32
 
 PRI generateGreenBluePanelAgainst(panelNumber, red) | panelRow, panelCol, row, col, green, blue, startCol, rowHt, colWdth
+' Generate a green-blue color grid for a given red level in a mini panel.
+'
+' @param panelNumber - mini panel index (0-10)
+' @param red - fixed red component value for this panel
+
+' Local Variables:
+' @local panelRow - panel grid row position
+' @local panelCol - panel grid column position
+' @local row - current pixel row
+' @local col - current pixel column
+' @local green - green component stepping value
+' @local blue - blue component stepping value
+' @local startCol - starting column for this panel
+' @local rowHt - row height per mini panel
+' @local colWdth - column width per mini panel
+
     rowHt, colWdth := offsetForPanel()
     panelRow := panelNumber / 4
     panelCol := panelNumber // 4
@@ -762,6 +1008,24 @@ PRI generateGreenBluePanelAgainst(panelNumber, red) | panelRow, panelCol, row, c
         col := startCol
 
 PRI generateBWPanel(panelNumber) | panelRow, panelCol, row, col, red, green, blue, startCol, colCtr, startRow, rowHt, colWdth
+' Generate a grayscale gradient in a mini panel position.
+'
+' @param panelNumber - mini panel index for placement
+
+' Local Variables:
+' @local panelRow - panel grid row position
+' @local panelCol - panel grid column position
+' @local row - current pixel row
+' @local col - current pixel column
+' @local red - red component value
+' @local green - green component stepping value (0-255)
+' @local blue - blue component value
+' @local startCol - starting column for this panel
+' @local colCtr - column counter within current row
+' @local startRow - first row of the panel area
+' @local rowHt - row height per mini panel
+' @local colWdth - column width per mini panel
+
     rowHt, colWdth := offsetForPanel()
     panelRow := panelNumber / 4
     panelCol := panelNumber // 4
@@ -783,7 +1047,20 @@ PRI generateBWPanel(panelNumber) | panelRow, panelCol, row, col, red, green, blu
             'debug("bw panelNbr=(", udec_(panelNumber), "),startRC=(", udec_(row), ",", udec_(col), ")")
 
 PRI showFullColorSweep() | row, col, red, green, blue, rowsPerSweep, rowsPerSweepRow, rowOffset
-    ' basic bands - full color sweep
+' Display full 256-step color sweeps for seven color channels.
+'
+
+' Local Variables:
+' @local row - current pixel row
+' @local col - current pixel column
+' @local red - red component value
+' @local green - green component value
+' @local blue - blue component value
+' @local rowsPerSweep - number of pixel rows per sweep pass
+' @local rowsPerSweepRow - number of pixel rows per sweep row
+' @local rowOffset - vertical offset within current sweep row
+
+
     rowsPerSweep := 256 / pnlColCount
     rowsPerSweepRow := pnlRowCount / (rowsPerSweep * 8)
 
@@ -860,6 +1137,12 @@ PRI showFullColorSweep() | row, col, red, green, blue, rowsPerSweep, rowsPerSwee
 
 
 PRI demoScreenBlast() | color3bit
+' Cycle through all eight 3-bit colors filling the screen without PWM.
+'
+
+' Local Variables:
+' @local color3bit - current 3-bit color value (0-7)
+
     repeat 5
         repeat color3bit from 0 to 7
             display.fillScreenNoPWM(color3bit)
@@ -867,7 +1150,23 @@ PRI demoScreenBlast() | color3bit
 
 
 PRI colorBlast() | row, col, red, green, blue, blockX, blockY, subrow, subcol, tileWidth, tileHeight
-    ' color blast
+' Fill the panel with computed color gradients in a 4x2 tile grid.
+'
+
+' Local Variables:
+' @local row - current pixel row
+' @local col - current pixel column
+' @local red - red component value
+' @local green - green component value
+' @local blue - blue component value
+' @local blockX - horizontal tile index (0-3)
+' @local blockY - vertical tile index (0-1)
+' @local subrow - row offset within current tile
+' @local subcol - column offset within current tile
+' @local tileWidth - pixel width of each tile
+' @local tileHeight - pixel height of each tile
+
+
     'debug("- DEMO: draw colored pixels")
     tileWidth := pnlColCount / 4
     tileHeight := pnlRowCount / 2
@@ -886,14 +1185,28 @@ PRI colorBlast() | row, col, red, green, blue, blockX, blockY, subrow, subcol, t
 
 
 PRI demoScreenBlastRed() | color3bit
+' Fill the entire screen with solid red using 3-bit color mode.
+'
+
+' Local Variables:
+' @local color3bit - 3-bit color value for red
+
     color3bit := 1
     display.fillScreenNoPWM(color3bit)
 
 PRI demoScreenBlastWhite() | color3bit
+' Fill the entire screen with solid white using 3-bit color mode.
+'
+
+' Local Variables:
+' @local color3bit - 3-bit color value for white
+
     color3bit := 7
     display.fillScreenNoPWM(color3bit)
 
 PRI demoBmpFileLoad()
+' Load and display a BMP image file on the LED matrix.
+'
 
     bmpHandler.fillScreenFromBMP(chainIndex, @bmpFile1)
     display.commitScreenToPanelSet()
@@ -903,7 +1216,7 @@ DAT
 'bmpFile1    FILE    "TstBGCol.bmp"
 bmpFile1    FILE    "TstBG-Up.bmp"
 
-CON { license }
+CON ' license
 
 {{
 

@@ -13,16 +13,16 @@
 '' =================================================================================================
 
 
-CON { I/O PINs }
+CON ' I/O PINs
 
 ' None
 
-OBJ { Objects Needed }
+OBJ ' Objects Needed
 
     hub75Bffrs  :   "isp_hub75_hwBufferAccess"
     matrix      :   "isp_hub75_rgb3bit"
 
-VAR { driver instance variables }
+VAR ' driver instance variables
     LONG    instanceID
     LONG    cog
     LONG    bus           ' ram/flash
@@ -43,10 +43,16 @@ VAR { driver instance variables }
 ' ----------------------------------------------------------
 
 PUB null()
-'' This is not a top level object
+'' Placeholder to prevent this object from being used as a top-level file.
+''
 
 PUB start(nID, nChainIdx) : ok
-    '' Start the backend pasm2 driver for the matrix
+'' Start the backend PASM2 driver for the matrix.
+''
+'' @param nID - panel instance identifier
+'' @param nChainIdx - index of this panel in the daisy-chain
+'' @returns ok - cog ID on success or -1 on failure
+
     chainIndex := nChainIdx
     instanceID := nID
     pPwmFrame1 := hub75Bffrs.pwmFrame1BufferAddress(chainIndex)
@@ -77,20 +83,42 @@ PUB start(nID, nChainIdx) : ok
     waitms(1)   ' allow cog-start debug messages to finish...
 
 PUB stop()
-    '' Stop the pasm2 backend driver
+'' Stop the PASM2 backend driver and release the cog.
+''
+
     if cog
         matrix.stop()
         cog := 0
 
 PUB fillScreenNoPWM(threeBitColor)
-    '' Fill screen but without PWM (for testing underlying driver)
+'' Fill screen with a solid 3-bit color without PWM (for testing the underlying driver).
+''
+'' @param threeBitColor - 3-bit RGB color value to fill
+
     matrix.fillScreenNoPWM(threeBitColor)
 
 PUB convertScreen2PWM_14(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet, pPwmFrame, lOne4thLineCt, lOneHalfLineCt, lThree4thsLineCt, lMmaskModHalfScreen, lPhyRows, lPysColumns, lDisplayBytesPerColor, lMaxPwmBuffers, lPwmFrameSizeInBytes
+'' Load a 24-bit-color image into PWM frame buffers for 1/8 scan panels (4 scan-lines at a time) using inline PASM.
+''
+'' @param p24bitScreen - pointer to 24-bit screen buffer
+'' @param bSwapRB - TRUE to swap red and blue channels
+'' @param bSwapGB - TRUE to swap green and blue channels
+
+' Local Variables:
+' @local pPwmFrameSet - pointer to active PWM frame set
+' @local pPwmFrame - pointer to current PWM frame
+' @local lOne4thLineCt - one quarter of the physical row count
+' @local lOneHalfLineCt - one half of the physical row count
+' @local lThree4thsLineCt - three quarters of the physical row count
+' @local lMmaskModHalfScreen - bitmask for half-screen modulus
+' @local lPhyRows - physical display row count
+' @local lPysColumns - physical display column count
+' @local lDisplayBytesPerColor - bytes per color in the display buffer
+' @local lMaxPwmBuffers - number of PWM buffers (color depth)
+' @local lPwmFrameSizeInBytes - size of one PWM frame in bytes
+
 ' NOTE: 16 longs total avail to inline pasm: params + return + local
 '  --> 14/16 used
-
-    '' Load a 24-bit-color image into PWM frame buffers at 8s (4 scan-lines at a time) [PASM]
     ' scan memory, write PWM bytes twice, sigh...
     'debug("- PNL:cs2pwm(): scn ", uhex_long(p24bitScreen), uhex_long(bSwapRB), uhex_long(bSwapGB))
 
@@ -358,9 +386,25 @@ doneS8
 ' -----------------------------------------------------------------------------
 
 PUB convertScreen2PWM(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet, lPhyRows, lPysColumns, lDisplayBytesPerColor, lPwmFrameSizeInBytes, lMaxPwmBuffers, lPixelCtr, l24bitColorTop, l24bitColorBot
+'' Load a 24-bit image into PWM frame buffers for 1/16 and 1/32 scan panels (2 scan-lines at a time) using inline PASM.
+''
+'' @param p24bitScreen - pointer to 24-bit screen buffer
+'' @param bSwapRB - TRUE to swap red and blue channels
+'' @param bSwapGB - TRUE to swap green and blue channels
+
+' Local Variables:
+' @local pPwmFrameSet - pointer to active PWM frame set
+' @local lPhyRows - physical display row count
+' @local lPysColumns - physical display column count
+' @local lDisplayBytesPerColor - bytes per color in the display buffer
+' @local lPwmFrameSizeInBytes - size of one PWM frame in bytes
+' @local lMaxPwmBuffers - number of PWM buffers (color depth)
+' @local lPixelCtr - pixel counter for half-screen iteration
+' @local l24bitColorTop - byte offset to last pixel in top half
+' @local l24bitColorBot - byte offset to last pixel in bottom half
+
 ' NOTE: 16 longs total avail to inline pasm: params + return + local
 '  --> 12/16 used
-    '' Load a 24-bit image into PWM frame buffers at 16s, 32s (2 scan-lines at a time) [SPIN]
     ' XYZZYpnl debug("- PNL: loading screen at @", uhex_long_(p24bitScreen), uhex_long(bSwapRB), uhex_long(bSwapGB))
     ' FACT: dual 64x64 panel yields 205.035 Hz (full PWM fps)
     ' save address of 24bit screen for use by called routines
@@ -526,20 +570,49 @@ done16s
 CON ' ------------- PRIVATE (Utility) Methods -------------
 
 PRI dumpBufferHeads(pSCreenBuffer,pPwmBuffer)
+' Dump the first 48 bytes of the screen and PWM buffers for debug inspection.
+'
+' @param pSCreenBuffer - pointer to screen buffer
+' @param pPwmBuffer - pointer to PWM buffer
+
     hub75Bffrs.dbgMemDump(@bufferMsg, pSCreenBuffer, 48)
     hub75Bffrs.dbgMemDump(@frameMsg, pPwmBuffer, 48)
 
 PRI dumpFrameAddrs(pPwmFrameSet) | pFrameBuffer, frameIndex
+' Display the hub address of each PWM frame in the frame set.
+'
+' @param pPwmFrameSet - pointer to the PWM frame set
+
+' Local Variables:
+' @local pFrameBuffer - computed address of current PWM frame
+' @local frameIndex - loop index over PWM frames
+
         repeat frameIndex from 0 to hub75Bffrs.colorDepth(chainIndex) - 1
             pFrameBuffer := @LONG[pPwmFrameSet][frameIndex * nPwmFrameSizeInLongs]
             debug("PNL: PWM", udec_(frameIndex), ": ", uhex_long_(pFrameBuffer))
 
 PRI dumpFrameSet(pPwmFrameSet) | pFrameBuffer, frameIndex
+' Dump memory contents of all PWM frames in the frame set.
+'
+' @param pPwmFrameSet - pointer to the PWM frame set
+
+' Local Variables:
+' @local pFrameBuffer - computed address of current PWM frame
+' @local frameIndex - loop index over PWM frames
+
         repeat frameIndex from 0 to hub75Bffrs.colorDepth(chainIndex) - 1
             pFrameBuffer := @LONG[pPwmFrameSet][frameIndex * nPwmFrameSizeInLongs]
             dumpFrame(frameIndex, pFrameBuffer)
 
 PRI dumpFrame(frameIdx, pFrameBuffer) | frameASCII
+' Dump one PWM frame with an ASCII label indicating its index.
+'
+' @param frameIdx - zero-based PWM frame index
+' @param pFrameBuffer - pointer to the PWM frame buffer
+
+' Local Variables:
+' @local frameASCII - ASCII character representing the frame index
+
     frameASCII := frameIdx | $30
     if frameIdx > 9
         frameASCII := frameIdx - 10 + $41
@@ -553,6 +626,14 @@ PRI dumpFrame(frameIdx, pFrameBuffer) | frameASCII
     hub75Bffrs.dbgMemDump(@msgPwm, pFrameBuffer, 32)
 
 PRI emptyRgb2(pFrameBuffer) : isEmpty | byteIdx
+' Check whether all RGB2 bits are zero in the first 32 bytes of a PWM frame.
+'
+' @param pFrameBuffer - pointer to the PWM frame buffer
+' @returns isEmpty - TRUE if no RGB2 bits are set, FALSE otherwise
+
+' Local Variables:
+' @local byteIdx - loop index over frame bytes
+
     isEmpty := TRUE
     repeat byteIdx from 0 to 31
         if BYTE[pFrameBuffer][byteIdx] & $38 > 0
@@ -560,24 +641,38 @@ PRI emptyRgb2(pFrameBuffer) : isEmpty | byteIdx
             quit
 
 PRI clearPwmFrameBuffer() : pPwmFrameSet
-    ' clear entire PWM buffer
-    ' implement double buffering by alternating between our two pwm-frame-sets
+' Clear the active PWM frame buffer and toggle to the alternate frame set for double buffering.
+'
+' @returns pPwmFrameSet - pointer to the newly active PWM frame set
+
     usePwmFrameset1 := !usePwmFrameset1
     pPwmFrameSet := getActivePwmBuffer()
     'debug("- active buffer=", uhex_long_(pPwmFrameSet))
     longfill(pPwmFrameSet, 0, nPwmFrameSizeInLongs * hub75Bffrs.colorDepth(chainIndex))
 
 PRI getActivePwmBuffer() : pPwmFrameSet
+' Return the pointer to the currently active PWM frame set.
+'
+' @returns pPwmFrameSet - pointer to the active PWM frame set
+
     pPwmFrameSet := (usePwmFrameset1) ? pPwmFrame1 : pPwmFrame2
 
 PRI getPwmFrameAddressForBit(nBitNumber) : pFrameBuffer | nFrameOfst, frameIdx
-    ' return indexed PWM Frame address
+' Return the hub address of the PWM frame corresponding to the given bit number.
+'
+' @param nBitNumber - bit index selecting the PWM frame
+' @returns pFrameBuffer - pointer to the selected PWM frame
+
+' Local Variables:
+' @local nFrameOfst - long offset into the frame set
+' @local frameIdx - clamped frame index
+
     frameIdx := 0 #> nBitNumber <# hub75Bffrs.colorDepth(chainIndex) - 1    ' limit our index to MAX_PWM_BUFFERS
     nFrameOfst := frameIdx * nPwmFrameSizeInLongs ' N longs in each PWM frame
     pFrameBuffer := @LONG[getActivePwmBuffer()][nFrameOfst]
     'debug("- PWM frame(", udec_(frameIdx), "), ", uhex_long(pFrameBuffer))
 
-VAR { buffer addresses }
+VAR ' buffer addresses
 
     LONG    pBitmapFileInMemory
     LONG    dvrConfig
@@ -585,7 +680,25 @@ VAR { buffer addresses }
     LONG    pScreenInMemory
 
 PRI setPanelColorBitsForRC(pPwmFrame, nPanelRow, nPanelCol, rBit, gBit, bBit) | nBffrR, nBffrC, isRGB2, byteIdx, maskBitsBGR, bitsBGR, currPwmColorBits, showDebug
-    '  write color bits to a PWM frame at frame[r][c]    UNUSED FOR NOW
+' Write RGB color bits to a PWM frame at the given row and column (currently unused).
+'
+' @param pPwmFrame - pointer to the PWM frame buffer
+' @param nPanelRow - panel row index
+' @param nPanelCol - panel column index
+' @param rBit - red bit value (0 or 1)
+' @param gBit - green bit value (0 or 1)
+' @param bBit - blue bit value (0 or 1)
+
+' Local Variables:
+' @local nBffrR - clamped buffer row index
+' @local nBffrC - clamped buffer column index
+' @local isRGB2 - TRUE if addressing the bottom half (RGB2)
+' @local byteIdx - byte offset into the PWM frame
+' @local maskBitsBGR - bitmask for the BGR bit position
+' @local bitsBGR - assembled BGR bits to write
+' @local currPwmColorBits - existing PWM byte with target bits cleared
+' @local showDebug - debug display flag
+
     nBffrR := 0 #> nPanelRow <# hub75Bffrs.maxDisplayRows(chainIndex) - 1
     nBffrC := 0 #> nPanelCol <# hub75Bffrs.maxDisplayColumns(chainIndex) - 1
     isRGB2 := (nBffrR > 15) ? TRUE : FALSE
@@ -608,11 +721,21 @@ PRI setPanelColorBitsForRC(pPwmFrame, nPanelRow, nPanelCol, rBit, gBit, bBit) | 
         BYTE[pPwmFrame][byteIdx] := currPwmColorBits | bitsBGR
 
 PRI markStart()
+' Record the starting timestamp for an interval measurement.
+'
+
     'pinl(46)    ' for timing
     'pinh(47)    ' for timing
     intrvlStart := getct() ' get starting time
 
 PRI markEnd(message) | elapsed
+' Record the ending timestamp and compute elapsed microseconds since markStart().
+'
+' @param message - label string for the debug output
+
+' Local Variables:
+' @local elapsed - computed elapsed time in microseconds
+
     intrvlStop := getct() ' get stoping time
     'pinl(47)    ' for timing
     'pinl(46)    ' for timing
@@ -623,16 +746,26 @@ PRI markEnd(message) | elapsed
     'debug("- runtime ", zstr_(message), ": ", udec_long(elapsed), " uS")
 
 PRI isDebugLocn(nRow, nCol) : status
+' Determine whether the given row and column fall within a debug-output region.
+'
+' @param nRow - panel row index
+' @param nCol - panel column index
+' @returns status - TRUE if the location is a debug region, FALSE otherwise
+
     status := FALSE
     return
     if (nRow == 31 && nCol < 4) || (nRow < 2 && nCol < 3) || (nRow == 31 && nCol > 61) || (nRow < 2 && nCol > 61)
         status := TRUE ' FALSE  ' turn off debug
 
 PRI waitSec(countSeconds)
+' Wait for the specified number of seconds.
+'
+' @param countSeconds - number of seconds to wait
+
     repeat countSeconds
         waitms(1000)
 
-DAT { .bmp fiile work area }
+DAT ' .bmp file work area
 
     testValue       LONG    $87654321
     testValueMsg    BYTE    "Test value",0
@@ -643,7 +776,7 @@ DAT { .bmp fiile work area }
     bufferMsg       BYTE    "SCREEN",0
     frameMsg        BYTE    "PWM[0]",0
 
-CON { license }
+CON ' license
 
 {{
 

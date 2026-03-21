@@ -11,7 +11,7 @@
 ''
 '' =================================================================================================
 
-CON { test colorset }
+CON ' test colorset
 
     cBlack = $000000
     cWhite = $FFFFFF
@@ -52,10 +52,10 @@ CON { test colorset }
     BASE_WHITE   = $07
 
 PUB null()
-    '' This is not a top level object
+'' This is not a top level object
+''
 
-
-CON { license }
+CON ' license
 
 {{
 

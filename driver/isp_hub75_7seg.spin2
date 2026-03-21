@@ -11,7 +11,7 @@
 ''
 '' =================================================================================================
 
-CON { public control values }
+CON ' public control values
 
     DIGIT_NO_VALUE = -2   ' digit value when NOT [0-9]
     DIGIT_HIDDEN = -1     ' digit value when NOT [0-9]
@@ -24,7 +24,7 @@ OBJ
     hub75Bffrs      :   "isp_hub75_hwBufferAccess"
     segments[7]     :   "isp_hub75_segment"
 
-DAT { initialized data }
+DAT ' initialized data
 
 segmentsByDigit
     byte    %0111_1110   ' 0 abcdef-
@@ -38,7 +38,7 @@ segmentsByDigit
     byte    %0111_1111   ' 8 abcdefg
     byte    %0111_1011   ' 9 abcd-fg
 
-VAR { globals }
+VAR ' globals
     long    chainIndex
     long    currValue
     long    currRgbColor
@@ -50,11 +50,19 @@ VAR { globals }
     byte    isSetup
 
 PUB null()
-    '' This is NOT a top level object
+'' This is NOT a top level object.
+''
 
 PUB placeDigit(nChainIdx, row, column, digit, rgbColor)
+'' Locate a desired digit on the screen and draw the initial segment if state is not off.
+''
+'' @param nChainIdx - the panel chain index to use
+'' @param row - top row for the digit placement
+'' @param column - left column for the digit placement
+'' @param digit - digit value to display (0-9 or DIGIT_HIDDEN)
+'' @param rgbColor - 24-bit RGB color for the digit segments
+
     chainIndex := nChainIdx
-    '' Locate a desired digit on our screen  Draw initial segement if state is NOT off
     ' now we can inform segements of their own locations
     'debug("7s:placeDigit rc=(", udec_(row), ",", udec_(column),"), dgt=(", udec_(digit), "), RGB=(", uhex_long_(rgbColor),")")
     isSetup := FALSE
@@ -68,14 +76,22 @@ PUB placeDigit(nChainIdx, row, column, digit, rgbColor)
         reconfigureForDigit(digit)
 
 PUB setValue(digit)
-    '' Configure display to show desired {digit}: [0-9, DIGIT_HIDDEN]
+'' Configure the display to show the desired digit value.
+''
+'' @param digit - digit value to display (0-9 or DIGIT_HIDDEN)
+
     ensureIsSetup()
     if currValue <> digit
         reconfigureForDigit(digit)
 
 PUB incrementValue(shouldWrap) | nextValue
-    '' Increment to the next digit [0->9]
-    ''  if wrap is requested, return to 0 after 9, else just stop at 9
+'' Increment the displayed digit by one, optionally wrapping from 9 back to 0.
+''
+'' @param shouldWrap - WITH_WRAP to wrap from 9 to 0, WITHOUT_WRAP to clamp at 9
+
+' Local Variables:
+' @local nextValue - the computed next digit value
+
     nextValue := currValue + 1
     if nextValue > 9
         if shouldWrap <> WITH_WRAP
@@ -85,7 +101,13 @@ PUB incrementValue(shouldWrap) | nextValue
     setValue(nextValue)
 
 PUB isAnimationComplete() : status | segmentIndex
-    '' Return T/F where T means all segment animations are complete
+'' Return T/F where T means all segment animations are complete.
+''
+'' @returns status - TRUE if all seven segment animations are complete
+
+' Local Variables:
+' @local segmentIndex - loop index over the seven segments
+
     status := TRUE
     repeat segmentIndex from 0 to 6
         if not segments[segmentIndex].isMovementComplete()
@@ -93,19 +115,32 @@ PUB isAnimationComplete() : status | segmentIndex
             quit   ' we have our answer, abort loop
 
 PUB animateStep() | segmentIndex
-    '' Have each sement do 1 animation step, if one is pending
+'' Perform one animation step for each segment that has a pending movement.
+''
+
+' Local Variables:
+' @local segmentIndex - loop index over the seven segments
+
     if not isAnimationComplete()
         repeat segmentIndex from 0 to 6
             if not segments[segmentIndex].isMovementComplete()
                 segments[segmentIndex].animateStep()
 
 PRI ensureIsSetup()
-    ' Do intial setup, if not yet done
+' Perform initial setup if not yet done.
+'
+
     if not isSetup
         initialSetup()
 
 PRI initialSetup() | segIndex, orientation, segRow, segCol
-    ' Perform initial setup
+' Initialize all seven segments with their type, color, and location, set to hidden.
+'
+' @local segIndex - loop index over the seven segments
+' @local orientation - segment orientation constant for the current segment
+' @local segRow - computed row position for the current segment
+' @local segCol - computed column position for the current segment
+
     'debug("7s:initialSetup")
     ' initialize all segments with type, color, location and set to hidden
     repeat segIndex from 0 to 6
@@ -145,6 +180,14 @@ PRI initialSetup() | segIndex, orientation, segRow, segCol
     isSetup := TRUE
 
 PRI reconfigureForDigit(digit) | byte fromSegments, byte toSegments, bitIndex
+' Reconfigure segment visibility to transition from the current digit to the new digit.
+'
+' @param digit - new digit value to display (0-9 or DIGIT_HIDDEN)
+'
+' @local fromSegments - bitmask of segments currently showing
+' @local toSegments - bitmask of segments that should show for the new digit
+' @local bitIndex - loop index over the seven segment bits
+
     'debug("7s:reconfig dgt=(", udec_(digit), ")")
     if currValue <> digit
         if digit <> DIGIT_HIDDEN
@@ -173,7 +216,7 @@ PRI reconfigureForDigit(digit) | byte fromSegments, byte toSegments, bitIndex
             ' going from digit to same digit, nothing to do!
     currValue := digit
 
-CON { license }
+CON ' license
 
 {{
 

@@ -12,16 +12,16 @@
 '' =================================================================================================
 
 
-CON { timing }
+CON ' timing
 
     CLK_FREQ = 320_000_000                                        ' system freq as a constant
     _clkfreq = CLK_FREQ                                           ' set system clock
 
-CON { DEBUG PINs }
+CON ' DEBUG PINs
 
 'DEBUG_PIN = 0
 
-CON { I/O PINs }
+CON ' I/O PINs
 
 ' New P2 Eval Board HUB75 Adapter:
     #0[16], PINS_P0_P15, PINS_P16_P31, PINS_P32_P47, PINS_P48_P63
@@ -61,7 +61,16 @@ CON { I/O PINs }
     MTX_16PINS  = MTX_LED_BASE_PIN ADDPINS 15
 
 PUB start() : ok | addr, rgb1, rgb2, ctl, ctr
-    '' Start underlying drivers and run demo
+'' Exercise all HUB75 adapter pins in groups to verify logic analyzer connections.
+''
+'' @returns ok - completion status
+
+' Local Variables:
+' @local addr - current row address value being output
+' @local rgb1 - current RGB1 color pin value
+' @local rgb2 - current RGB2 color pin value
+' @local ctl - current control pin value
+' @local ctr - 16-bit counter for all-pin passthrough test
 
     'debug("`term temp size 82 50 textsize 10")
     pinclear(MTX_16PINS)
@@ -98,7 +107,7 @@ PUB start() : ok | addr, rgb1, rgb2, ctl, ctr
 
 
 
-CON { license }
+CON ' license
 {{
  -------------------------------------------------------------------------------------------------
   MIT License

@@ -61,3 +61,11 @@ Mkfile.old
 dkms.conf
 driver/get
 Docs/ICN2037/ICN2037-EN-f1.pdf
+.vscode/settings.json
+driver/.vscode/settings.json
+*.bin
+*.lst
+*.GOLD
+/Docs/procedures
+/driver/scripts
+CLAUDE.md

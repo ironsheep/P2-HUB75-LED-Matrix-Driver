@@ -17,7 +17,7 @@
 ''
 '' -------------------------------------------------------------------------------------------------
 
-CON { Hardware Description }
+CON ' Hardware Description
 
 
 ' -------------------------------------------------------------------------------------------------
@@ -323,9 +323,10 @@ OBJ
 
 
 PUB null()
-'' This is not a top level object
+'' Placeholder method indicating this is not a top-level object.
+''
 
-CON { license }
+CON ' license
 
 {{
 

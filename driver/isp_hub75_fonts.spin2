@@ -11,7 +11,7 @@
 ''
 '' =================================================================================================
 
-CON { Object Interface: PUBLIC ENUMs }
+CON ' Object Interface: PUBLIC ENUMs
 
 ' supported fonts:
 #0, TEXT_FONT_DEFAULT, TEXT_FONT_5x7, TEXT_FONT_8x8A, TEXT_FONT_8x8B, TEXT_FONT_5x7_DITH, TEXT_FONT_5x7_DITH_DCNDR
@@ -25,9 +25,16 @@ CON { Object Interface: PUBLIC ENUMs }
     FONT_5x7_DITH_DCNDR_BP_CHAR = 9 * 2
 
 PUB null()
-    '' This is not a top level object
+'' This is not a top level object
+''
 
 PUB getGeometryOfFont(selectdFont) : nWidth, nHeight
+'' Return the character width and height for the specified font.
+''
+'' @param selectdFont - font identifier (TEXT_FONT_xxx)
+'' @returns nWidth - character width in pixels
+'' @returns nHeight - character height in pixels
+
     case selectdFont
         TEXT_FONT_DEFAULT..TEXT_FONT_5x7:
             nWidth := 5
@@ -46,7 +53,12 @@ PUB getGeometryOfFont(selectdFont) : nWidth, nHeight
             nHeight := 9
 
 PUB getCharAddrForFont(selectdFont, cChar) : pCharBitmap
-    '' Return address of char from specified font
+'' Return the address of a character bitmap from the specified font.
+''
+'' @param selectdFont - font identifier (TEXT_FONT_xxx)
+'' @param cChar - ASCII character code
+'' @returns pCharBitmap - pointer to the character bitmap data
+
     case selectdFont
         TEXT_FONT_DEFAULT..TEXT_FONT_5x7:
             pCharBitmap := getAddrFor5x7Char(cChar)
@@ -62,7 +74,11 @@ PUB getCharAddrForFont(selectdFont, cChar) : pCharBitmap
             pCharBitmap := getAddrFor5x7Char(cChar)
 
 PUB isDitheredFont(selectdFont) : bDitheredStatus
-'' Return T/F where T means {} is a two-bits per pixel font
+'' Return T/F where T means the font uses two bits per pixel.
+''
+'' @param selectdFont - font identifier (TEXT_FONT_xxx)
+'' @returns bDitheredStatus - TRUE if the font is dithered
+
     case selectdFont
         TEXT_FONT_5x7_DITH:       ' font4
             bDitheredStatus := TRUE
@@ -72,7 +88,11 @@ PUB isDitheredFont(selectdFont) : bDitheredStatus
             bDitheredStatus := FALSE
 
 PUB getAddrFor5x7DithChar(asciiByte) : p5x7DithCharBitmap
-    '' Return the address of an 8x8 (a) character bitmap
+'' Return the address of a 5x7 dithered character bitmap.
+''
+'' @param asciiByte - ASCII character code ($20-$7F)
+'' @returns p5x7DithCharBitmap - pointer to the character bitmap data
+
     p5x7DithCharBitmap := 0
     if(asciiByte >= $20 && asciiByte <= $7f)
         ' NOTE: add + 1 to skip top blank row of char
@@ -81,32 +101,48 @@ PUB getAddrFor5x7DithChar(asciiByte) : p5x7DithCharBitmap
     '    debug("FONT: ar=", uhex_long_(@font5x7dith), uhex_byte_(asciiByte), " at @", uhex_long_(p5x7DithCharBitmap))
 
 PUB getAddrFor5x7DithDcndrChar(asciiByte) : p8x8CharBitmap
-    '' Return the address of an 8x8 (a) character bitmap
+'' Return the address of a 5x7 dithered descender character bitmap.
+''
+'' @param asciiByte - ASCII character code ($20-$7F)
+'' @returns p8x8CharBitmap - pointer to the character bitmap data
+
     p8x8CharBitmap := 0
     if(asciiByte >= $20 && asciiByte <= $7f)
         ' NOTE: add + 1 to skip top blank row of char
         p8x8CharBitmap := @byte[@font5x7dithDcndr][((asciiByte - $20) * FONT_5x7_DITH_DCNDR_BP_CHAR)]
 
 PUB getAddrFor8x8aChar(asciiByte) : p8x8CharBitmap
-    '' Return the address of an 8x8 (a) character bitmap
+'' Return the address of an 8x8 (a) character bitmap.
+''
+'' @param asciiByte - ASCII character code ($20-$7F)
+'' @returns p8x8CharBitmap - pointer to the character bitmap data
+
     p8x8CharBitmap := 0
     if(asciiByte >= $20 && asciiByte <= $7f)
         ' NOTE: add + 1 to skip top blank row of char
         p8x8CharBitmap := @byte[@font8x8a][((asciiByte - $20) * FONT_8x8A_BYTES_PER_CHAR) + 1]
 
 PUB getAddrFor8x8bChar(asciiByte) : p8x8CharBitmap
-    '' Return the address of an 8x8 (b) character bitmap
+'' Return the address of an 8x8 (b) character bitmap.
+''
+'' @param asciiByte - ASCII character code ($20-$7F)
+'' @returns p8x8CharBitmap - pointer to the character bitmap data
+
     if(asciiByte < $20 || asciiByte > $7f)
         asciiByte := $20
     p8x8CharBitmap := @byte[@font8x8b][asciiByte * FONT_8x8B_BYTES_PER_CHAR]
 
 PUB getAddrFor5x7Char(asciiByte) : p5x7CharBitmap
-    '' Return the address of a 5x7 character bitmap
+'' Return the address of a 5x7 character bitmap.
+''
+'' @param asciiByte - ASCII character code ($20-$7F)
+'' @returns p5x7CharBitmap - pointer to the character bitmap data
+
     p5x7CharBitmap := 0
     if(asciiByte >= $20 && asciiByte <= $7f)
         p5x7CharBitmap := @byte[@font5x7][(asciiByte - $20) * FONT_5x7_BYTES_PER_CHAR]
 
-DAT { Font Bitmaps }
+DAT ' Font Bitmaps
 
  '   font8x8  P2_Font_8x8_AIChip_tweeked.spin2 from cluso99
 '+=============================================================================+
@@ -6014,7 +6050,7 @@ font5x7dithDcndr
 
 '+=============================================================================+
 
-CON { license }
+CON ' license
 
 {{
 

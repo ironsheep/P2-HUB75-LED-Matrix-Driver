@@ -12,13 +12,13 @@
 '' =================================================================================================
 
 
-CON { timing }
+CON ' timing
 
   CLK_FREQ = 335_000_000                                        ' system freq as a constant 2.985 nSec
   'CLK_FREQ = 250_000_000                                        ' system freq as a constant 2.985 nSec
   _clkfreq = CLK_FREQ                                           ' set system clock
 
-CON { DEBUG PINs }
+CON ' DEBUG PINs
 
 'DEBUG_PIN = 0
 DEBUG_COGS = %11111111
@@ -42,7 +42,7 @@ OBJ
     user        :   "isp_hub75_hwPanelConfig"           ' hardware config common to all demos
     scrnBuffers :   "isp_hub75_hwBuffers"               ' the large buffers storing pixel data
 
-CON { DEMO info }
+CON ' DEMO info
 
 ' 11 enables .bmp file display
 DEMO_COUNT = 3
@@ -54,7 +54,12 @@ DAT
 panelIdMessage  byte    "Pn",0
 
 PUB main() : ok | demoIndex
-    '' start underlying drivers and run demo
+'' Start underlying drivers and run the multi-panel demo sequence.
+''
+'' @returns ok - cog ID of the started display driver or -1 on failure
+
+' Local Variables:
+' @local demoIndex - index of the current demo being run
 
     'repeat
 
@@ -93,21 +98,33 @@ PUB main() : ok | demoIndex
     stop()
 
 PRI stop()
-    ' Stop the driver
+' Stop the display driver and release the cog.
+'
+
     if cog
         display.stop()
         cog := 0
 
 PRI waitSec(countSeconds)
+' Wait for the specified number of seconds.
+'
+' @param countSeconds - number of seconds to wait
+
     repeat countSeconds
         waitms(1000)
 
 PRI wait1000thSecs(count)
-    '' wait for N 110ths of a second
+' Wait for N milliseconds.
+'
+' @param count - number of milliseconds to wait
+
     repeat count
         waitms(1)  ' 1/100 seconds
 
 PRI demoPanelFillColors()
+' Fill the screen with solid red, green, blue, and white colors in sequence.
+'
+
     display.clearScreenBuffer()
     repeat 4
         display.fillScreenNoPWM(color.BASE_RED)    ' full single color panel NO pwm
@@ -121,6 +138,13 @@ PRI demoPanelFillColors()
 
 
 PRI demoRandomPanelColors() | panelIndex, panelHue, panelColor
+' Fill each panel with a random hue color.
+'
+
+' Local Variables:
+' @local panelIndex - index of the panel being colored
+' @local panelHue - random hue value for the panel
+' @local panelColor - RGB color derived from the hue
 
     display.clearScreenBuffer()
     repeat 20
@@ -132,7 +156,7 @@ PRI demoRandomPanelColors() | panelIndex, panelHue, panelColor
         display.commitScreenToPanelSet()
         'wait1000thSecs(10)
 
-DAT { panel messages }
+DAT ' panel messages
 
 lblTop      byte    "Top", 0
 lblBot      byte    "Bot", 0
@@ -142,6 +166,12 @@ lblBack     byte    "Back", 0
 lblLeft     byte    "Left", 0
 
 PRI demoTopBottomScroll() | scrollerID, startTime
+' Label each panel face and scroll text across multiple panels.
+'
+
+' Local Variables:
+' @local scrollerID - identifier for the active text scroller
+' @local startTime - timestamp for duration measurement
 
     textSize := display.TEXT_FONT_8x8A
     'textSize := display.TEXT_FONT_8x8B
@@ -202,6 +232,15 @@ PRI demoTopBottomScroll() | scrollerID, startTime
 
 
 PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, boxColor, hueIndex
+' Color each panel with a unique hue, label it, and draw a colored box inside.
+'
+
+' Local Variables:
+' @local panelIndex - index of the panel being drawn
+' @local panelHueWidth - hue step size per panel
+' @local panelColor - RGB color for the panel background
+' @local boxColor - RGB color for the box drawn inside the panel
+' @local hueIndex - computed hue index for color selection
 
     panelHueWidth := 256 / hub75Bffrs.maxPanels(chainIndex)
 
@@ -238,12 +277,21 @@ PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, boxColor, hueInde
     display.commitScreenToPanelSet()
 
 PRI showDuration(startTimeValue, pFuncTitle) | duration, converted
+' Display the elapsed time in microseconds for a named operation.
+'
+' @param startTimeValue - system counter value at the start of the operation
+' @param pFuncTitle - pointer to a zero-terminated string naming the operation
+
+' Local Variables:
+' @local duration - raw elapsed clock ticks
+' @local converted - elapsed time converted to microseconds
+
     duration := getct() - startTimeValue
     converted := muldiv64(duration, 1_000_000, clkfreq)
     debug("- elapsed ", zstr_(pFuncTitle), ": ", udec_(converted), " uSec")
 
 
-CON { license }
+CON ' license
 
 {{
 

@@ -16,31 +16,52 @@ CON
     #0, LED_UNKNOWN, LED_RED, LED_GREEN, LED_BLUE
 
 
-DAT { driver controls for testing }
+DAT ' driver controls for testing
 
 bGammaEnable BYTE   FALSE
 
 PUB null()
-    '' This is not a top level object
+'' This is not a top level object
+''
 
 PUB init()
-    '' Configure color object based on compiled color-depth
+'' Configure color object based on compiled color-depth.
+''
+
     ' this allows our color conversion routines to be faster as there is less runtime code
 
 PUB setBrightness(newBrightness)
-    '' Set the global brightness value
+'' Set the global brightness value.
+''
+'' @param newBrightness - brightness level to apply globally
+
     defaultBrightness := newBrightness
 
 PUB isGammaEnabled() : bIsEnabled
-    '' Return T/F where T means gamma is compiled in
+'' Return T/F where T means gamma correction is compiled in.
+''
+'' @returns bIsEnabled - TRUE if gamma correction is enabled
+
     bIsEnabled := bGammaEnable
 
 PUB getBrightness() : brightness
-    '' Return the global brightness value
+'' Return the global brightness value.
+''
+'' @returns brightness - current global brightness level
+
     brightness := defaultBrightness
 
 PUB gammaPeek(color) : adjustedColor | gammmaIndex, lowColor, highColor
-    '' Return index of nearest matching value in gamma table
+'' Return index of nearest matching value in gamma table.
+''
+'' @param color - raw color value to look up
+'' @returns adjustedColor - gamma-adjusted color value
+
+' Local Variables:
+' @local gammmaIndex - current search index into gamma table
+' @local lowColor - gamma value below the target
+' @local highColor - gamma value above the target
+
     if bGammaEnable
         adjustedColor := byte[@gamma][color]
         repeat gammmaIndex from 0 to 255
@@ -63,7 +84,15 @@ PUB gammaPeek(color) : adjustedColor | gammmaIndex, lowColor, highColor
         adjustedColor := color
 
 PUB gammaCorrectedSingleColor(led, colorValue) : adjustedColor | pGammaTable
-    '' Gamma-Correct the color for a specific LED (R, G, or B)
+'' Gamma-correct the color for a specific LED (R, G, or B).
+''
+'' @param led - LED color channel identifier (LED_RED, LED_GREEN, or LED_BLUE)
+'' @param colorValue - raw color value for the channel (0-255)
+'' @returns adjustedColor - brightness-scaled and gamma-corrected color value
+
+' Local Variables:
+' @local pGammaTable - pointer to the selected gamma lookup table
+
     case led
         LED_RED:
             pGammaTable := @gamma
@@ -78,7 +107,18 @@ PUB gammaCorrectedSingleColor(led, colorValue) : adjustedColor | pGammaTable
         adjustedColor := byte[@gamma][adjustedColor]
 
 PUB rgbColorFromDegrees(degrees) : rcbColor | offset60, fract60, red, green, blue
-    '' CONVERT: 0-355 degrees to color
+'' Convert a hue angle (0-359 degrees) to a combined RGB color value.
+''
+'' @param degrees - hue angle in degrees
+'' @returns rcbColor - combined RGB color value
+
+' Local Variables:
+' @local offset60 - offset within the current 60-degree segment
+' @local fract60 - fractional scaling factor per 60-degree segment
+' @local red - computed red component
+' @local green - computed green component
+' @local blue - computed blue component
+
     degrees := degrees // 360   ' ensure 0-359
     red := green := blue:= 0
     offset60 := degrees // 60   ' 0-59
@@ -106,7 +146,19 @@ PUB rgbColorFromDegrees(degrees) : rcbColor | offset60, fract60, red, green, blu
     'debug("- degrees=", udec_(degrees), ", color=", uhex_long_(rcbColor), " RGB=", udec_(red), ", ", udec_(green), ", ", udec_(blue), ")" )
 
 PUB reducedBrightnessOfCValue(combinedValue, percent): reducedCValue | red, green, blue, adjPercent, fPercent
-    '' CONVERT: return value that is % of brightness
+'' Return a color value reduced to the given percentage of brightness.
+''
+'' @param combinedValue - combined RGB color value
+'' @param percent - brightness percentage (0-100)
+'' @returns reducedCValue - brightness-reduced combined RGB color value
+
+' Local Variables:
+' @local red - extracted red component
+' @local green - extracted green component
+' @local blue - extracted blue component
+' @local adjPercent - clamped percentage value
+' @local fPercent - floating-point percentage divisor
+
     adjPercent := 0 #> percent <# 100
     red, green, blue := rgbForCValue(combinedValue)
     fPercent := float(adjPercent) /. 100.0
@@ -116,23 +168,40 @@ PUB reducedBrightnessOfCValue(combinedValue, percent): reducedCValue | red, gree
     reducedCValue := cValueForRGB(red, green, blue)
 
 PUB rgbForCValue(combinedValue) : red, green, blue
-    '' CONVERT: combined color value to r,g,b
+'' Convert a combined RGB color value to separate red, green, and blue components.
+''
+'' @param combinedValue - combined RGB color value
+'' @returns red - red component (0-255)
+'' @returns green - green component (0-255)
+'' @returns blue - blue component (0-255)
+
     red := (combinedValue & $ff0000) >> 16
     green := (combinedValue & $ff00) >> 8
     blue := (combinedValue & $ff)
 
 PUB cValueForRGB(red, green, blue) : combinedValue
-    '' CONVERT: r,g,b to combined value
+'' Convert separate red, green, and blue components to a combined RGB color value.
+''
+'' @param red - red component (0-255)
+'' @param green - green component (0-255)
+'' @param blue - blue component (0-255)
+'' @returns combinedValue - combined RGB color value
+
     combinedValue := ((red & $ff) << 16) | ((green & $ff) << 8) | (blue & $ff)
 
 PUB gammaPtrs(): pGammaRed, pGammaGreen, pGammaBlue
-    '' Return pointers to the gamma tables we are using
+'' Return pointers to the gamma tables for each color channel.
+''
+'' @returns pGammaRed - pointer to the red gamma lookup table
+'' @returns pGammaGreen - pointer to the green gamma lookup table
+'' @returns pGammaBlue - pointer to the blue gamma lookup table
+
     pGammaRed := @gamma
     pGammaGreen := @gamma
     pGammaBlue := @gamma
 
 
-DAT { tables, default values }
+DAT ' tables, default values
 
 didShow             byte    FALSE[256]
 
@@ -290,7 +359,7 @@ gamma_2_3
         byte 222, 224, 226, 228, 230, 233, 235, 237, 239, 241, 244, 246, 248, 250, 253, 255
 '}
 
-CON { license }
+CON ' license
 
 {{
 

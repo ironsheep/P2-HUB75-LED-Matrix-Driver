@@ -28,7 +28,7 @@
 '     1st line activates or comments out small 17-long tables
 '     2st line activates or comments out a single long pointer to the 17-long table
 
-CON { Interface Constant Forwarding }
+CON ' Interface Constant Forwarding
 
     ' this reduces include complexity for demo's
     HUB75_ADAPTER_1 = hwEnum.HUB75_ADAPTER_1
@@ -53,7 +53,7 @@ OBJ
     user        : "isp_hub75_hwPanelConfig"             ' user's panels configuration constants
     colorUtils  : "isp_hub75_colorUtils"                ' color utilities
 
-CON { internal constants }
+CON ' internal constants
 ' -------------------------------------------------------------------
 ' common to all HUB75 adapter boards
 ' -------------------------------------------------------------------
@@ -63,7 +63,7 @@ CON { internal constants }
     PLACEHOLDER_ADDR_LINES = 0
     PLACEHOLDER_ADDRESS = $0DF0ADDE
 
-DAT { Buffers and configuration values for each HUB75 adapter/chain of panels }
+DAT ' Buffers and configuration values for each HUB75 adapter/chain of panels
 
 screenTableEnt0         ' The start of the 1st HUB75 chain descriptor table
         ' 1st HUB75 chain
@@ -114,7 +114,7 @@ numberScreens       LONG    (@screenTableEnd - @screenTable) >> 2     ' this can
 
 bFirstTime          LONG    TRUE                ' for debug/testing use
 
-CON { PRIVATE internal constants }
+CON ' PRIVATE internal constants
 
     NOT_INITIALIZED = -1
 
@@ -126,10 +126,21 @@ CON { PRIVATE internal constants }
      ENTR_CHIP_TYPE_OFST, ENTR_HUB75_PIN_BASE_OFST, ENTR_HPANEL_ADDR_LINES_OFST
 
 PUB null()
-'' This is not a top level object
+'' Placeholder to prevent this object from being used as a top-level file.
+''
 
 PUB configure(eHub75Chain, ePinBase, eChipType, eAddrLines) | pEntry, nChainIdx, bValidPins
-'' Record the base-pin, chip type, number of address lines for the nChainIdx HUB75 adapter
+'' Record the base-pin, chip type, and number of address lines for a HUB75 adapter.
+''
+'' @param eHub75Chain - the HUB75 adapter chain identifier (10, 20, or 30)
+'' @param ePinBase - the base pin group for this adapter
+'' @param eChipType - the LED driver chip type enum value
+'' @param eAddrLines - the number of address lines enum value
+
+' Local Variables:
+' @local pEntry - pointer to the chain descriptor table entry
+' @local nChainIdx - zero-based index derived from eHub75Chain
+' @local bValidPins - TRUE if the pin group is valid for HUB75
 
     nChainIdx := indexForHub75ChainId(eHub75Chain)    ' 10, 20, 30
     pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
@@ -159,13 +170,15 @@ PUB configure(eHub75Chain, ePinBase, eChipType, eAddrLines) | pEntry, nChainIdx,
 
 
 PUB setBufferPointers(nChainIdx, pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2) | pEntry
-
-'' forward the buffer pointers to the underlying buffer access routines
+'' Forward the buffer pointers to the underlying buffer access routines.
 ''
 '' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @param pScrnBuffer - address of screen Buffer (2-3 bytes per pixel)
 '' @param pPwmFrameSet1 - address of PWM Frame-Set 1 (4 bits per pixel * color depth)
 '' @param pPwmFrameSet2 - address of PWM Frame-Set 2 (4 bits per pixel * color depth)
+
+' Local Variables:
+' @local pEntry - pointer to the chain descriptor table entry
 
     pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
     ' and record the absolute-address of the buffers in HUB RAM
@@ -177,107 +190,251 @@ PUB setBufferPointers(nChainIdx, pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2) | pE
 
 
 PUB maxDisplayColumns(nChainIdx) : nMaxColumns | pEntry
-'' Return the number of pixels in a display row for the nChainIdx HUB75 adapter
+'' Return the number of pixels in a display row for the specified HUB75 adapter.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @returns nMaxColumns - total pixel columns across the full display
+
+' Local Variables:
+' @local pEntry - pointer to the chain descriptor table entry
+
     pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
     nMaxColumns := LONG[pEntry][ENTR_MAX_COLUMNS_OFST]
 
 PUB maxDisplayRows(nChainIdx) : nMaxRows | pEntry
-'' Return the number of pixels in a display column for the nChainIdx HUB75 adapter
+'' Return the number of pixels in a display column for the specified HUB75 adapter.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @returns nMaxRows - total pixel rows across the full display
+
+' Local Variables:
+' @local pEntry - pointer to the chain descriptor table entry
+
     pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
     nMaxRows := LONG[pEntry][ENTR_MAX_ROWS_OFST]
 
 PUB colorDepth(nChainIdx) : nDepthInBits | pEntry
-'' Return the number of bits for a color (red, green, or blue) [3-8 bits] for the nChainIdx HUB75 adapter
+'' Return the number of bits for a color (red, green, or blue) [3-8 bits] for the specified HUB75 adapter.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @returns nDepthInBits - color depth in bits per color channel
+
+' Local Variables:
+' @local pEntry - pointer to the chain descriptor table entry
+
     pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
     nDepthInBits := LONG[pEntry][ENTR_COLOR_DEPTH]
 
 PUB bytesPerColor(nChainIdx) : nBytes | pEntry
-'' Return the number of bytes needed to store a pixel color (r+b+g) for the nChainIdx HUB75 adapter
+'' Return the number of bytes needed to store a pixel color (r+g+b) for the specified HUB75 adapter.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @returns nBytes - bytes per pixel color value
+
+' Local Variables:
+' @local pEntry - pointer to the chain descriptor table entry
+
     pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
     nBytes := LONG[pEntry][ENTR_BYTES_PER_COLOR_OFST]
 
 PUB displaySizeInLongs(nChainIdx) : nLongs | pEntry
-'' Return the number of LONGs needed to store an entire display image for the nChainIdx HUB75 adapter
+'' Return the number of LONGs needed to store an entire display image for the specified HUB75 adapter.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @returns nLongs - display buffer size in LONGs
+
+' Local Variables:
+' @local pEntry - pointer to the chain descriptor table entry
+
     pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
     nLongs := LONG[pEntry][ENTR_SCRN_SIZE_IN_LONGS_OFST]
 
 PUB pwmFrameSizeInBytes(nChainIdx) : nBytes | pEntry
-'' Return the number of LONGs needed to store a single PWM frame of a display image for the nChainIdx HUB75 adapter
+'' Return the number of bytes needed to store a single PWM frame for the specified HUB75 adapter.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @returns nBytes - PWM frame size in bytes
+
+' Local Variables:
+' @local pEntry - pointer to the chain descriptor table entry
+
     pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
     nBytes := LONG[pEntry][ENTR_FRM_SIZE_IN_BYTES_OFST]
 
 PUB pwmFrameSizeInLongs(nChainIdx) : nLongs | nBytes
-'' Return the number of LONGs needed to store a single PWM frame of a display image for the nChainIdx HUB75 adapter
+'' Return the number of LONGs needed to store a single PWM frame for the specified HUB75 adapter.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @returns nLongs - PWM frame size in LONGs
+
+' Local Variables:
+' @local nBytes - intermediate byte count from pwmFrameSizeInBytes
+
     nBytes := pwmFrameSizeInBytes(nChainIdx)   ' count of bytes
     nLongs := (nBytes + 3) / 4
 
 PUB panelRotation(nChainIdx) : ePanelRotation | pEntry
-'' Return the enum indicating desire rotation
+'' Return the enum indicating the desired rotation for the specified HUB75 adapter.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @returns ePanelRotation - rotation enum value (ROT_NONE, ROT_LEFT_90, etc.)
+
+' Local Variables:
+' @local pEntry - pointer to the chain descriptor table entry
+
     pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
     ePanelRotation := LONG[pEntry][ENTR_ROTATION_OFST]
 
 PUB columnsPerPanel(nChainIdx) : nPanelColumns | pEntry
-'' Return the number of pixels in a single panel row for the nChainIdx HUB75 adapter
+'' Return the number of pixels in a single panel row for the specified HUB75 adapter.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @returns nPanelColumns - pixel columns per individual panel
+
+' Local Variables:
+' @local pEntry - pointer to the chain descriptor table entry
+
     pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
     nPanelColumns := LONG[pEntry][ENTR_PANEL_COLUMNS_OFST]
 
 PUB rowsPerPanel(nChainIdx) : nPanelRows | pEntry
-'' Return the number of pixels in a single panel column for the nChainIdx HUB75 adapter
+'' Return the number of pixels in a single panel column for the specified HUB75 adapter.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @returns nPanelRows - pixel rows per individual panel
+
+' Local Variables:
+' @local pEntry - pointer to the chain descriptor table entry
+
     pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
     nPanelRows := LONG[pEntry][ENTR_PANEL_ROWS_OFST]
 
 PUB panelsPerColumn(nChainIdx) : nColumnPanels | pEntry
-'' Return the number of panels in each column for the nChainIdx HUB75 adapter
+'' Return the number of panels in each column for the specified HUB75 adapter.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @returns nColumnPanels - count of panels stacked vertically
+
+' Local Variables:
+' @local pEntry - pointer to the chain descriptor table entry
+
     pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
     nColumnPanels := LONG[pEntry][ENTR_PANELS_PER_COLUMN_OFST]
 
 PUB panelsPerRow(nChainIdx) : nRowPanels | pEntry
-'' Return the number of panels in each row for the nChainIdx HUB75 adapter
+'' Return the number of panels in each row for the specified HUB75 adapter.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @returns nRowPanels - count of panels arranged horizontally
+
+' Local Variables:
+' @local pEntry - pointer to the chain descriptor table entry
+
     pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
     nRowPanels := LONG[pEntry][ENTR_PANELS_PER_ROW_OFST]
 
 PUB displayBufferAddress(nChainIdx) : pDisplayBuffer | pEntry
-'' Return the address of the memory buffer associated with the nChainIdx HUB75 adapter
+'' Return the address of the display memory buffer for the specified HUB75 adapter.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @returns pDisplayBuffer - hub address of the screen pixel buffer
+
+' Local Variables:
+' @local pEntry - pointer to the chain descriptor table entry
+
     pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
     pDisplayBuffer := LONG[pEntry][ENTR_SCRN_BUFFER_ADDR_OFST]
 
 PUB pwmFrame1BufferAddress(nChainIdx) : pPwmFrm1Buffer | pEntry
-'' Return the address of the 1st PWM Frame buffer associated with the nChainIdx HUB75 adapter
+'' Return the address of the 1st PWM Frame buffer for the specified HUB75 adapter.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @returns pPwmFrm1Buffer - hub address of PWM frame-set 1 buffer
+
+' Local Variables:
+' @local pEntry - pointer to the chain descriptor table entry
+
     pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
     pPwmFrm1Buffer := LONG[pEntry][ENTR_FRM1_BUFFER_ADDR_OFST]
 
 PUB pwmFrame2BufferAddress(nChainIdx) : pPwmFrm2Buffer | pEntry
-'' Return the address of the 2nd PWM Frame buffer associated with the nChainIdx HUB75 adapter
+'' Return the address of the 2nd PWM Frame buffer for the specified HUB75 adapter.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @returns pPwmFrm2Buffer - hub address of PWM frame-set 2 buffer
+
+' Local Variables:
+' @local pEntry - pointer to the chain descriptor table entry
+
     pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
     pPwmFrm2Buffer := LONG[pEntry][ENTR_FRM2_BUFFER_ADDR_OFST]
 
 PUB chipType(nChainIdx) : nChipType | pEntry
-'' Return the chip-type for the nChainIdx HUB75 adapter
+'' Return the chip-type for the specified HUB75 adapter.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @returns nChipType - LED driver chip type enum value
+
+' Local Variables:
+' @local pEntry - pointer to the chain descriptor table entry
+
     pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
     nChipType := LONG[pEntry][ENTR_CHIP_TYPE_OFST]
 
 PUB pinBase(nChainIdx) : nPinBase | pEntry
-'' Return the basePin for the nChainIdx HUB75 adapter
+'' Return the base pin for the specified HUB75 adapter.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @returns nPinBase - base pin group enum value
+
+' Local Variables:
+' @local pEntry - pointer to the chain descriptor table entry
+
     pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
     nPinBase := LONG[pEntry][ENTR_HUB75_PIN_BASE_OFST]
 
 PUB addressLines(nChainIdx) : nAddrLines | pEntry
-'' Return the number of HUB75 address lines for the nChainIdx HUB75 adapter
+'' Return the number of HUB75 address lines for the specified HUB75 adapter.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @returns nAddrLines - address line count enum value (ABC, ABCD, ABCDE)
+
+' Local Variables:
+' @local pEntry - pointer to the chain descriptor table entry
+
     pEntry := ptrTableEntry(nChainIdx)   ' get ptr to table entry
     nAddrLines := LONG[pEntry][ENTR_HPANEL_ADDR_LINES_OFST]
 
 PUB maxPanels(nChainIdx) : nMaxPanels | pEntry
-'' Return the total number of panels connected to the nChainIdx HUB75 adapter
+'' Return the total number of panels connected to the specified HUB75 adapter.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @returns nMaxPanels - total panel count (columns * rows)
+
     nMaxPanels := panelsPerColumn(nChainIdx) * panelsPerRow(nChainIdx)
 
 PUB zeroFillBuffer(nChainIdx) | pBffr, nBffrLen
-'' Zero fill the display buffer associated with the nChainIdx HUB75 adapter
+'' Zero fill the display buffer associated with the specified HUB75 adapter.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+
+' Local Variables:
+' @local pBffr - pointer to the display buffer
+' @local nBffrLen - buffer length in LONGs
+
     nBffrLen := displaySizeInLongs(nChainIdx)
     pBffr := displayBufferAddress(nChainIdx)
     longfill(pBffr, 0, nBffrLen)
 
 PUB indexForHub75ChainId(eHub75Chain) : nChainIdx | bValidChain
-'' Return the index into our table for a given HUB75 Adapter
+'' Return the zero-based index into our table for a given HUB75 adapter identifier.
+''
+'' @param eHub75Chain - the HUB75 adapter chain identifier (10, 20, or 30)
+'' @returns nChainIdx - zero-based index (0, 1, or 2)
+
+' Local Variables:
+' @local bValidChain - TRUE if the chain identifier is recognized
+
     nChainIdx := 0  ' default to first or only panel
     bValidChain := TRUE
     case eHub75Chain
@@ -292,7 +449,14 @@ PUB indexForHub75ChainId(eHub75Chain) : nChainIdx | bValidChain
         nChainIdx := (eHub75Chain / 10) - 1  ' 10, 20, 30 -> 1,2,3 -> 0,1,2
 
 PUB pwmFrameCount(nChainIdx) : nbrPwmFrames | nColorDepth
-'' Return the number of pwm frames to display for selected bit depth
+'' Return the number of PWM frames to display for the selected bit depth.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @returns nbrPwmFrames - number of PWM frames for the configured color depth
+
+' Local Variables:
+' @local nColorDepth - color depth in bits per channel
+
     nColorDepth := colorDepth(nChainIdx)
     case nColorDepth
         hwEnum.DEPTH_3BIT:
@@ -311,7 +475,19 @@ PUB pwmFrameCount(nChainIdx) : nbrPwmFrames | nColorDepth
             nbrPwmFrames := 15  ' default to DEPTH_4BIT if set badly
 
 PUB offsetToPanel(nChainIdx, nPanelIndex) : offsetPixelRows, offsetPixelColumns | gridRow, gridColumn, nMaxPanels, panelIndex
-'' Return x,y offset to specified panel from top-left corner of display
+'' Return the pixel row and column offset to a specified panel from the top-left corner of the display.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @param nPanelIndex - zero-based panel index within the chain
+'' @returns offsetPixelRows - pixel row offset to the top of the panel
+'' @returns offsetPixelColumns - pixel column offset to the left edge of the panel
+
+' Local Variables:
+' @local gridRow - row position of the panel in the grid
+' @local gridColumn - column position of the panel in the grid
+' @local nMaxPanels - total number of panels in the chain
+' @local panelIndex - clamped panel index within valid range
+
     offsetPixelRows := offsetPixelColumns := 0
     nMaxPanels := maxPanels(nChainIdx)
     if nMaxPanels > 0
@@ -335,7 +511,12 @@ PUB offsetToPanel(nChainIdx, nPanelIndex) : offsetPixelRows, offsetPixelColumns 
     return offsetPixelRows, offsetPixelColumns
 
 PUB getDriverFlags(nChainIdx) : desiredFlags, eChipType
-'' Return flags describing the compiled driver configuration
+'' Return flags describing the compiled driver configuration for the specified adapter.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @returns desiredFlags - combined driver capability flags for the chip type
+'' @returns eChipType - LED driver chip type enum value
+
     desiredFlags := eChipType := chipType(nChainIdx)
     if eChipType == hwEnum.CHIP_FM6126A
         desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.LAT_POSN_OVERLAP | hwEnum.LAT_STYLE_OFFSET | hwEnum.INIT_PANEL_REQUIRED
@@ -359,7 +540,12 @@ PUB getDriverFlags(nChainIdx) : desiredFlags, eChipType
         abort
 
 PUB correctedColor(nChainIdx, color) : adjustedColor
-    '' Correct a color using generic gamma
+'' Correct a color value using generic gamma and map to the configured bit width.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @param color - 8-bit color intensity value (0-255)
+'' @returns adjustedColor - color value adjusted for the configured color depth
+
     adjustedColor := color
     'return
     'adjustedColor := byte[@gamma][adjustedColor]
@@ -367,14 +553,32 @@ PUB correctedColor(nChainIdx, color) : adjustedColor
     adjustedColor := colorAtDesiredBitWidth(nChainIdx, adjustedColor)
 
 PUB correctedSingleColor(nChainIdx, led, colorValue) : adjustedColor | pGammaTable
-    '' Correct the color for a specific LED (R, G, or B)
+'' Correct the color for a specific LED channel (R, G, or B) applying brightness and gamma.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @param led - which LED color channel (red, green, or blue)
+'' @param colorValue - 8-bit color intensity value (0-255)
+'' @returns adjustedColor - corrected color value at the configured bit width
+
+' Local Variables:
+' @local pGammaTable - pointer to the gamma correction lookup table
+
     adjustedColor := ((colorValue * colorUtils.getBrightness()) >> 8) & $ff
     if colorUtils.isGammaEnabled()
         adjustedColor := colorUtils.gammaCorrectedSingleColor(led, colorValue)
     adjustedColor := colorAtDesiredBitWidth(nChainIdx, adjustedColor)
 
 PUB colorAtDesiredBitWidth(nChainIdx, hex8bit) : pwmBits | shiftLtValue, nbrPwmFrames
-    '' CALCULATE: proper duty cycle for intensity of 0-255
+'' Calculate the proper PWM duty cycle value for an 8-bit color intensity.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @param hex8bit - 8-bit color intensity value (0-255)
+'' @returns pwmBits - PWM duty cycle value mapped to the configured color depth
+
+' Local Variables:
+' @local shiftLtValue - number of bits to left-shift the mapped value
+' @local nbrPwmFrames - maximum PWM frame count for the configured depth
+
     shiftLtValue := 8 - colorDepth(nChainIdx)
     nbrPwmFrames := pwmFrameCount(nChainIdx)
     'debug("- color CFG: ", udec_long(shiftLtValue), udec_long(nbrPwmFrames))
@@ -408,7 +612,20 @@ PUB colorAtDesiredBitWidth(nChainIdx, hex8bit) : pwmBits | shiftLtValue, nbrPwmF
 '}
 
 PUB dbgMemDump(pMessage, pBytes, lenBytes) | bytBffr, colIdx, rowIdx, maxCol, maxRow, dispLen
-'' Dump bytes in hex format to debug() terminal
+'' Dump bytes in hex format to the debug() terminal.
+''
+'' @param pMessage - pointer to a zero-terminated label string
+'' @param pBytes - hub address of the memory region to dump
+'' @param lenBytes - number of bytes to display
+
+' Local Variables:
+' @local bytBffr - current read pointer into the memory region
+' @local colIdx - column index within the current row
+' @local rowIdx - current row number being displayed
+' @local maxCol - maximum column index per row
+' @local maxRow - total number of rows to display
+' @local dispLen - running count of bytes displayed so far
+
     debug("`temp '", zstr_(pMessage), ": bffr=", uhex_long_(pBytes), "(", udec_(lenBytes), ")' 13")
     maxCol := lenBytes >= 16 ? 15 : lenBytes
     maxRow := (lenBytes / 16)
@@ -439,6 +656,12 @@ PUB dbgMemDump(pMessage, pBytes, lenBytes) | bytBffr, colIdx, rowIdx, maxCol, ma
     waitms(2)
 
 PRI ptrTableEntry(nChainIdx) : pEntry | validScreenIdx
+' Return the hub address of the chain descriptor table entry for the given index.
+'
+' @param nChainIdx - zero-based chain index
+' @returns pEntry - pointer to the chain descriptor table entry
+' @local validScreenIdx - clamped index within valid range
+
     'debug("HUB75dbg: ", udec(nChainIdx), udec(numberScreens), udec(tableSizeInBytes), udec(entrySizeInBytes))
     validScreenIdx := 0 #> nChainIdx <# numberScreens - 1
     if nChainIdx <> validScreenIdx
@@ -447,7 +670,7 @@ PRI ptrTableEntry(nChainIdx) : pEntry | validScreenIdx
 
     pEntry := @@LONG[@screenTable][validScreenIdx] ' get ptr to table entry
 
-CON { license }
+CON ' license
 
 {{
 

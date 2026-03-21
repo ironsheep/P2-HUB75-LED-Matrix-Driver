@@ -11,7 +11,7 @@
 ''
 '' =================================================================================================
 
-CON { public control values }
+CON ' public control values
 
 ' scrolling support
 '  enum: scrolling direction
@@ -38,11 +38,11 @@ OBJ
     fonts       :   "isp_hub75_fonts"
     colorUtils  :   "isp_hub75_colorUtils"
 
-DAT { initialized data - class-static variables }
+DAT ' initialized data - class-static variables
 
 instanceNumber BYTE 0
 
-VAR { globals - instance variables }
+VAR ' globals - instance variables
 
     LONG    chainIndex
 ' our scrolling support - currently 1 scrolling region
@@ -84,10 +84,15 @@ VAR { globals - instance variables }
     BYTE    instanceID
 
 PUB null()
-    '' This is NOT a top level object
+'' This is NOT a top level object
+''
+
 
 PUB initialize(nChainIdx)
-    '' Call once before use to init this scroller
+'' Initialize this scroller instance for the given chain index.
+''
+'' @param nChainIdx - the panel chain index to use
+
     chainIndex := nChainIdx
     isSetup := FALSE
     bScrolling := FALSE
@@ -100,7 +105,16 @@ PUB initialize(nChainIdx)
     'debug("stx:initialize() ", udec(instanceID))
 
 PUB setFontInfo(nbrTextColumns, charWidth, charHeight, leadingGap, horizontalGap, hBitmapOffset, textFont)
-    '' Call any time font changes - so we can keep up
+'' Update cached font metrics when the active font changes.
+''
+'' @param nbrTextColumns - maximum number of text columns for this font
+'' @param charWidth - character width in pixels
+'' @param charHeight - character height in pixels
+'' @param leadingGap - leading gap in pixels before first character
+'' @param horizontalGap - horizontal gap in pixels between characters
+'' @param hBitmapOffset - horizontal bitmap offset in pixels
+'' @param textFont - font identifier to select
+
     'debug("stx:setFontInfo() ", udec(instanceID), ", TCol=", udec_(nbrTextColumns), ", fnt=", udec_(textFont), ", wxh=(", udec_(charWidth), ", ", udec_(charHeight), "), ltGap=", udec_(leadingGap), ", hGap=", udec_(horizontalGap))
     maxTextColumns := nbrTextColumns
     charWidthInPix := charWidth
@@ -115,20 +129,36 @@ PUB setFontInfo(nbrTextColumns, charWidth, charHeight, leadingGap, horizontalGap
 '    configureScrollLoopCount(row, column, widthInChars, "hello world", display.DIR_LEFT, rgbColor)
 
 PUB isIdle() : statusValue
-    '' Return T/F where T means this scroller instance is IDLE
+'' Return T/F where T means this scroller instance is idle.
+''
+'' @returns statusValue - TRUE if scroller is idle, FALSE otherwise
+
     statusValue := (ctCharsToScroll == 0) ? TRUE : FALSE
     'debug("stx:isIdle(", udec_(instanceID), ") RET=", sdec_(statusValue))
 
 PUB release()
-    '' Mark this scroller as avail. for reuse
+'' Mark this scroller instance as available for reuse.
+''
+
     ctCharsToScroll := 0
 
 PUB configureScrollLoopMode(loopMode)
-    '' Specify scrolling text duration (forever, once, twice, etc.)
+'' Specify scrolling text duration using a default count of zero.
+''
+'' @param loopMode - scrolling duration mode (SCROLL_FOREVER, SCROLL_ONCE, etc.)
+
     configureScrollLoopCount(loopMode, 0)
 
 PUB configureScrollLoopCount(loopMode, count) | bValidRequest, validCount
-    '' Specify scrolling text duration (forever, once, twice, etc.)
+'' Specify scrolling text duration and repeat count.
+''
+'' @param loopMode - scrolling duration mode (SCROLL_FOREVER, SCROLL_ONCE, etc.)
+'' @param count - number of times to scroll when loopMode is SCROLL_N_TIMES
+
+' Local Variables:
+' @local bValidRequest - TRUE if the requested loopMode is recognized
+' @local validCount - the count value clamped to valid range
+
     debug("cslm() #", udec_(instanceID), " mode=", udec_(loopMode))
     bValidRequest := TRUE
     validCount := 0 #> count <# 10
@@ -166,7 +196,20 @@ PUB configureScrollLoopCount(loopMode, count) | bValidRequest, validCount
 
 
 PUB scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbColor) | nextToAppearIndex, colIndex, charColumn
-    '' Place scrolling text at R,C, of pZString scrolling in direction using rgbColor
+'' Place scrolling text at row, column from a zero-terminated string using the given direction and color.
+''
+'' @param row - top row of the scrolling region
+'' @param column - left column of the scrolling region
+'' @param widthInChars - width of the visible scroll window in characters
+'' @param pZString - pointer to zero-terminated string to scroll
+'' @param direction - scroll direction (DIR_TO_LEFT, DIR_TO_RIGHT, DIR_UP, DIR_DOWN)
+'' @param rgbColor - 24-bit RGB color for the text
+
+' Local Variables:
+' @local nextToAppearIndex - index of next character to appear on screen
+' @local colIndex - column index used during placement
+' @local charColumn - character column tracker
+
     if isIdle()
         debug("stx:starcoc() #", udec_(instanceID), " [", zstr_(pZString), "](", udec_(widthInChars), ")")
         scrollTextColor := rgbColor
@@ -243,7 +286,9 @@ PUB scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbCol
 
 
 PUB animateScroll()
-    '' Do one scroll step, if one is pending
+'' Perform one scroll animation step if scrolling is not yet complete.
+''
+
     if not isScrollingComplete()
         'startTime := getct()
         'debug("stx:AS()")
@@ -298,7 +343,10 @@ PUB animateScroll()
         'showDuration(startTime, string("stx:AS"))
 
 PUB isScrollingComplete() : doneStatus
-    '' Return T/F where T means that all movement for this segment is complete
+'' Return T/F where T means that all scrolling movement is complete.
+''
+'' @returns doneStatus - TRUE if scrolling is complete, FALSE otherwise
+
     'if instanceID == 0
     '    debug("stx:isc(", udec_(instanceID), ") ", udec(remainingPixToScroll))
     doneStatus := (remainingPixToScroll > 0) ? FALSE : TRUE
@@ -327,7 +375,19 @@ VAR
     BYTE    vtInsetInPix
 
 PRI placeColrCharsHzOfstAtRC(row, column, charHzPxOffset, windowWidth, startCharIndex, rgbColor) | actCharIndex, endColumn, pChrBitmap
-    ' write char bitmaps to screen with possible fractional first and last chars
+' Write character bitmaps to screen with possible fractional first and last characters for horizontal scrolling.
+'
+' @param row - top row for character placement
+' @param column - left column for character placement
+' @param charHzPxOffset - horizontal pixel offset into the leading character
+' @param windowWidth - visible window width in pixels
+' @param startCharIndex - index of the first character to display
+' @param rgbColor - 24-bit RGB color for the text
+'
+' @local actCharIndex - actual character index accounting for wrap-around
+' @local endColumn - column position after last placed character
+' @local pChrBitmap - pointer to the current character bitmap
+
     maxCharIndex := (charHzPxOffset > 0) ? maxVisibleChars : maxVisibleChars - 1
     headWidthInPix := charWidthInPix + horizontalGapInPix - charHzPxOffset
     tailWidthInPix := 0
@@ -372,7 +432,17 @@ PRI placeColrCharsHzOfstAtRC(row, column, charHzPxOffset, windowWidth, startChar
             remainWindowPix -= tailWidthInPix
 
 PRI placeColrCharsVtOfstAtRC(row, column, vtPxOffset, windowWidth, rgbColor) | endColumn, pChrBitmap
-    ' write char bitmaps to screen with possible fractional first and last chars
+' Write character bitmaps to screen with vertical pixel offset for vertical scrolling.
+'
+' @param row - top row for character placement
+' @param column - left column for character placement
+' @param vtPxOffset - vertical pixel offset into the character
+' @param windowWidth - visible window width in pixels
+' @param rgbColor - 24-bit RGB color for the text
+'
+' @local endColumn - column position after last placed character
+' @local pChrBitmap - pointer to the current character bitmap
+
     maxCharIndex := maxVisibleChars
     remainWindowPix := windowWidth
     endColumn := column
@@ -392,12 +462,26 @@ PRI placeColrCharsVtOfstAtRC(row, column, vtPxOffset, windowWidth, rgbColor) | e
         endColumn := placeColrBitmapVtOffsetAtRC(row, endColumn, vtPxOffset, pChrBitmap, rgbColor)
 
 PRI min(a, b) : smallerNumber
-    ' return the smaller of two numbers
+' Return the smaller of two numbers.
+'
+' @param a - first value to compare
+' @param b - second value to compare
+' @returns smallerNumber - the lesser of a and b
+
     smallerNumber := (a < b) ? a : b
 
 
 PRI placeSpaceAtRC(row, column, widthInPix) : endColumn | colIndex, rowIndex
-    ' write single column of blank space (between chars)
+' Write blank pixels for inter-character spacing at the given position.
+'
+' @param row - top row for the space
+' @param column - left column for the space
+' @param widthInPix - width of the space in pixels
+' @returns endColumn - column position after the placed space
+'
+' @local colIndex - current column being drawn
+' @local rowIndex - current row being drawn
+
     'if widthInPix <> 1
     'debug("stx:ps ", udec(widthInPix))
     repeat colIndex from column to widthInPix - 1 + column
@@ -407,7 +491,28 @@ PRI placeSpaceAtRC(row, column, widthInPix) : endColumn | colIndex, rowIndex
     endColumn := column + widthInPix
 
 PRI placeBitmapFrontAtRCWithColor(row, column, bitInset, nbrFieldBits, pChrBitmap, rgbColor) : endColumn | cBitIdx, cByteIdx, cRowBits, pixColor, colOffset, pixColumn, pixRow, cBitOffset, nbrCharBits, pixVal, ditheredRGBColor
-    ' Write cChar to display R,C using rgbColor using given bitmap
+' Draw the leading (front) portion of a character bitmap at the given position with color.
+'
+' @param row - top row for bitmap placement
+' @param column - left column for bitmap placement
+' @param bitInset - number of bits to skip from the left edge of the character
+' @param nbrFieldBits - total field width in bits including gap
+' @param pChrBitmap - pointer to the character bitmap data
+' @param rgbColor - 24-bit RGB color for the character
+' @returns endColumn - column position after the placed bitmap
+'
+' @local cBitIdx - current bit index within the character row
+' @local cByteIdx - current byte/row index within the bitmap
+' @local cRowBits - bitmap bits for the current row
+' @local pixColor - resolved pixel color for the current pixel
+' @local colOffset - column offset from the starting column
+' @local pixColumn - absolute column of the current pixel
+' @local pixRow - absolute row of the current pixel
+' @local cBitOffset - computed bit offset for extracting pixel value
+' @local nbrCharBits - number of actual character bits to draw (excluding gap)
+' @local pixVal - extracted pixel value from dithered bitmap
+' @local ditheredRGBColor - reduced brightness color for dithered pixels
+
     'startTime := getct()
     nbrCharBits := (nbrFieldBits > 0) ? nbrFieldBits - horizontalGapInPix : 0
     'debug("stx:pbF ", udec(column), udec(bitInset), udec(nbrFieldBits), udec(nbrCharBits), uhex_long(pChrBitmap))
@@ -457,7 +562,28 @@ PRI placeBitmapFrontAtRCWithColor(row, column, bitInset, nbrFieldBits, pChrBitma
     'showDuration(startTime, string("stx:pbF"))
 
 PRI placeBitmapBackAtRCWithColor(row, column, bitInset, nbrCharBits, pChrBitmap, rgbColor) : endColumn | cBitIdx, cByteIdx, cRowBits, pixColor, colOffset, pixColumn, pixRow, cBitOffset, maxCols, pixVal, ditheredRGBColor
-    ' Write cChar to display R,C using rgbColor using given bitmap
+' Draw the trailing (back) portion of a character bitmap at the given position with color.
+'
+' @param row - top row for bitmap placement
+' @param column - left column for bitmap placement
+' @param bitInset - number of bits to skip from the left edge of the character
+' @param nbrCharBits - number of character bits to draw
+' @param pChrBitmap - pointer to the character bitmap data
+' @param rgbColor - 24-bit RGB color for the character
+' @returns endColumn - column position after the placed bitmap
+'
+' @local cBitIdx - current bit index within the character row
+' @local cByteIdx - current byte/row index within the bitmap
+' @local cRowBits - bitmap bits for the current row
+' @local pixColor - resolved pixel color for the current pixel
+' @local colOffset - column offset from the starting column
+' @local pixColumn - absolute column of the current pixel
+' @local pixRow - absolute row of the current pixel
+' @local cBitOffset - computed bit offset for extracting pixel value
+' @local maxCols - maximum display columns for bounds checking
+' @local pixVal - extracted pixel value from dithered bitmap
+' @local ditheredRGBColor - reduced brightness color for dithered pixels
+
     'startTime := getct()
     'debug("stx:pbB ", udec(column), udec(bitInset), udec(nbrCharBits), uhex_long(pChrBitmap))
     'rgbColor := $ffff00 ' TESTING color our trailing char yellow
@@ -503,9 +629,28 @@ PRI placeBitmapBackAtRCWithColor(row, column, bitInset, nbrCharBits, pChrBitmap,
 '    debugCount  BYTE    42
 
 PRI placeColrBitmapVtOffsetAtRC(row, column, vtPxOffset, pChrBitmap, rgbColor) : endColumn | cBitIdx, rowIdx, cByteIdx, cRowBits, pixColor, pixRow, cBitOffset, colOffset, pixColumn, maxCols, pixVal, ditheredRGBColor
-' special NOTE: show bitmap vertically offset by {vtPxOffset}
-'   BUT!!!   vtPxOffset is 0-charHeight (meaning 1 more than rows of pixels)
-'   for this extra row of pixels we paint black!
+' Draw a character bitmap vertically offset by the given pixel amount, painting black for the extra row.
+'
+' @param row - top row for bitmap placement
+' @param column - left column for bitmap placement
+' @param vtPxOffset - vertical pixel offset (0 to charHeight, where charHeight means a black row)
+' @param pChrBitmap - pointer to the character bitmap data
+' @param rgbColor - 24-bit RGB color for the character
+' @returns endColumn - column position after the placed bitmap
+'
+' @local cBitIdx - current bit index within the character row
+' @local rowIdx - current row index in the drawing loop
+' @local cByteIdx - computed byte index after applying vertical offset
+' @local cRowBits - bitmap bits for the current row
+' @local pixColor - resolved pixel color for the current pixel
+' @local pixRow - absolute row of the current pixel
+' @local cBitOffset - computed bit offset for extracting pixel value
+' @local colOffset - column offset from the starting column
+' @local pixColumn - absolute column of the current pixel
+' @local maxCols - maximum display columns for bounds checking
+' @local pixVal - extracted pixel value from dithered bitmap
+' @local ditheredRGBColor - reduced brightness color for dithered pixels
+
     endColumn := column + charWidthInPix
     maxCols := hub75Bffrs.maxDisplayColumns(chainIndex)
     if bFontIsDithered
@@ -558,11 +703,19 @@ PRI placeColrBitmapVtOffsetAtRC(row, column, vtPxOffset, pChrBitmap, rgbColor) :
             colOffset--
 
 PRI showDuration(startTimeValue, pFuncTitle) | duration, converted
+' Calculate and optionally display elapsed time since a start timestamp.
+'
+' @param startTimeValue - system counter value at the start of the timed section
+' @param pFuncTitle - pointer to zero-terminated function name string for debug output
+'
+' @local duration - raw clock ticks elapsed
+' @local converted - elapsed time converted to microseconds
+
     duration := getct() - startTimeValue
     converted := muldiv64(duration, 1_000_000, clkfreq)
     'debug("stx:- elapsed ", zstr_(pFuncTitle), ": ", udec_(converted), " uSec")
 
-CON { license }
+CON ' license
 
 {{
 

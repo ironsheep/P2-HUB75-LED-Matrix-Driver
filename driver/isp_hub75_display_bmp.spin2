@@ -12,29 +12,43 @@
 ''  This object adds .bmp file loading support
 '' =================================================================================================
 
-OBJ { Objects Used by this Object }
+OBJ ' Objects Used by this Object
 
     hub75Bffrs  :   "isp_hub75_hwBufferAccess"
     pixels      :   "isp_hub75_screenUtils"
     colorUtils  :   "isp_hub75_colorUtils"
 
-VAR { buffer addresses }
+VAR ' buffer addresses
 
     long    pBitmapFileInMemory
     long    chainIndex
 
 PUB null()
-    '' This is NOT a top level object
+'' This is NOT a top level object.
+''
 
 PUB fillScreenFromBMP(nChainIdx, pBmpFile)
+'' Load a 24-bit .bmp file image into the screen buffer (panel sized only).
+''
+'' @param nChainIdx - the panel chain index to use
+'' @param pBmpFile - pointer to the in-memory .bmp file data
+
     chainIndex := nChainIdx
-    '' Load a 24-bit .bmp file image into screen buffer (panel sized, only!)
     loadBitmap(pBmpFile)
 
 PRI loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, haveError, showDebug, bInvalidFileStatus
-    ' Load a 24-bit .bmp file image into screen buffer
-    ' HEADS UP!!!
-    '     this is currently limited to "single panel size" untill we rerite this code
+' Load a validated 24-bit .bmp file image into the screen buffer pixel by pixel.
+'
+' @param pBitmapFile - pointer to the in-memory .bmp file data
+'
+' @local nPanelCol - current panel column being written
+' @local nPanelRow - current panel row being written
+' @local blue - blue channel value of the current pixel
+' @local green - green channel value of the current pixel
+' @local red - red channel value of the current pixel
+' @local haveError - error flag during loading
+' @local showDebug - TRUE if debug output should be shown for this pixel
+' @local bInvalidFileStatus - FALSE if the .bmp file header is invalid
 
     ' save address of 24bit file image for use by called routines
     pBitmapFileInMemory := pBitmapFile
@@ -61,7 +75,16 @@ PRI loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, haveError,
             pixels.drawPixelAtRC(chainIndex, nPanelRow, nPanelCol, colorUtils.cValueForRGB(red, green, blue))
 
 PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader, i, iStart, iEnd, pLastByte
-    ' interpret .BMP header and return pointer to image
+' Parse and validate the .BMP file header, returning TRUE if the file is a supported format.
+'
+' @param pBmpFileImage - pointer to the in-memory .bmp file data
+' @returns bValidStatus - TRUE if the file is a valid uncompressed 24-bit BMP of panel size
+'
+' @local pFileHeader - moving pointer through header fields during parsing
+' @local i - computed palette byte count
+' @local iStart - pointer to start of image data
+' @local iEnd - pointer to end of image data
+' @local pLastByte - pointer to the last byte of bitmap pixel data
 
     ' XYZZYpnl debug("- Studying in-memory file")
     bValidStatus := TRUE
@@ -125,6 +148,16 @@ PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader, i, iStart, iEnd
     'hub75Bffrs.dbgMemDump(@fileEndMsg, iEnd-32-1, 32)
 
 PRI get24BitBMPColorForRC(nRow, nColumn) : red, green, blue | pixColorAddr
+' Return the red, green, and blue channel values for the pixel at the given row and column.
+'
+' @param nRow - panel row of the desired pixel
+' @param nColumn - panel column of the desired pixel
+' @returns red - red channel value (0-255)
+' @returns green - green channel value (0-255)
+' @returns blue - blue channel value (0-255)
+'
+' @local pixColorAddr - hub address of the pixel color bytes in the BMP data
+
 	if(nRow > hub75Bffrs.maxDisplayRows(chainIndex) - 1)
 		debug("- ERROR bad nRow value [", udec_(nRow), " > ", udec_(hub75Bffrs.maxDisplayRows(chainIndex) - 1), "]")
 
@@ -138,6 +171,18 @@ PRI get24BitBMPColorForRC(nRow, nColumn) : red, green, blue | pixColorAddr
     red := byte[pixColorAddr][2]
 
 PRI getPixelAddressForBMPRowColumn(nRow, nColumn) : pixColorAddr | rowIndex, columnIndex, nOffset, fileBitsBase, showDebug
+' Calculate the hub address of the 24-bit color data for the given row and column in the BMP image.
+'
+' @param nRow - panel row of the desired pixel
+' @param nColumn - panel column of the desired pixel
+' @returns pixColorAddr - hub address pointing to the BGR bytes for this pixel
+'
+' @local rowIndex - inverted row index (BMP files store rows bottom-to-top)
+' @local columnIndex - column index in the BMP data
+' @local nOffset - byte offset from the start of image data to this pixel
+' @local fileBitsBase - hub address of the image data start in the BMP file
+' @local showDebug - TRUE if debug output should be shown for this pixel
+
 	' Row is inverted in .BMP file...
 	rowIndex := (hub75Bffrs.maxDisplayRows(chainIndex) - 1) - nRow
 
@@ -159,12 +204,18 @@ PRI getPixelAddressForBMPRowColumn(nRow, nColumn) : pixColorAddr | rowIndex, col
 	    debug("- FileOffset=", udec_(nOffset), ", RC=(", udec_(nRow), ",", udec_(nColumn), ", ofst=", uhex_long_(pixColorAddr), ", base=", uhex_long_(fileBitsBase), ")")
 
 PRI isDebugLocn(nRow, nCol) : status
+' Return TRUE if the given row and column is a location where debug output should be shown.
+'
+' @param nRow - panel row to check
+' @param nCol - panel column to check
+' @returns status - TRUE if this is a debug location
+
     status := FALSE
     return
     'if (nRow == 31 && nCol < 4) || (nRow < 2 && nCol < 3) || (nRow == 31 && nCol > 61) || (nRow < 2 && nCol > 61)
     '    status := TRUE ' FALSE  ' turn off debug
 
-DAT  { .bmp fiile work area }
+DAT ' .bmp file work area
 
 
 fileHeaderMsg       byte    "File Header",0
@@ -198,7 +249,7 @@ biYPelsPerMeter     long 0
 biClrUsed           long 0
 biClrImportant      long 0
 
-CON { license }
+CON ' license
 
 {{
 

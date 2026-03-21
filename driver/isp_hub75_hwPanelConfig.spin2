@@ -15,7 +15,7 @@ OBJ
 
     hwEnum   : "isp_hub75_hwEnums"  ' hub75 attachment, set up constants
 
-CON { User Panel Connection and Configuration }
+CON ' User Panel Connection and Configuration
 
 ' Reference: addr width for known chips:
 '
@@ -189,10 +189,10 @@ CON { User Panel Connection and Configuration }
 
 
 PUB null()
-'' This is not a top level object
+'' Placeholder to prevent this object from being used as a top-level file.
+''
 
-
-CON { More Hardware Setup Notes }
+CON ' More Hardware Setup Notes
 
 {
 ' -------------------------------------------------------------------------------------------------
@@ -424,7 +424,7 @@ CON { More Hardware Setup Notes }
 
 '}
 
-CON { license }
+CON ' license
 
 {{
 

@@ -12,12 +12,12 @@
 '' =================================================================================================
 
 
-CON { timing }
+CON ' timing
 
   CLK_FREQ = 335_000_000                                        ' system freq as a constant
   _clkfreq = CLK_FREQ                                           ' set system clock
 
-CON { DEBUG PINs }
+CON ' DEBUG PINs
 
 'DEBUG_PIN = 0
 
@@ -37,8 +37,15 @@ OBJ
     scrnBuffers :   "isp_hub75_hwBuffers"               ' the large buffers storing pixel data
 
 PUB main() : ok | bitCount, newMask, vertPixelCount
+'' Run demo displaying the full 5x7 font character set on the HUB75 LED matrix.
+''
+'' @returns ok - cog ID of the display driver or -1 on failure
 
-    '' run demo - displaying text/graphics in various ways
+' Local Variables:
+' @local bitCount - unused
+' @local newMask - unused
+' @local vertPixelCount - vertical pixel count of the display
+
     hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
     chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
@@ -76,6 +83,12 @@ DAT
     charSet         BYTE    0[NBR_ROWS_64 * BYTES_PER_ROW]
 
 PRI initCharacterSet() | nBytesFilled
+' Initialize the character set buffer with printable ASCII characters arranged in rows.
+'
+
+' Local Variables:
+' @local nBytesFilled - number of bytes filled so far in current row
+
     bytefill(@charSet, 0, NBR_ROWS_64 * BYTES_PER_ROW)
     ' 1.5 rows
     fillCharSet(0, 0, $20, $2f)    ' special chars (16)
@@ -94,6 +107,18 @@ PRI initCharacterSet() | nBytesFilled
     fillCharSet(9, 0, $61, $7a)    ' LOWER CASE A-Z
 
 PRI demoFont64x32() | textSize, nChar, nRow, nCol, byteIdx, nCharIdx, nScreenRow
+' Display the full 5x7 font character set on a 64x32 panel in multiple screens.
+'
+
+' Local Variables:
+' @local textSize - selected font size constant
+' @local nChar - unused
+' @local nRow - current character row index
+' @local nCol - unused
+' @local byteIdx - unused
+' @local nCharIdx - unused
+' @local nScreenRow - current screen row position for display output
+
     textSize := display.TEXT_FONT_5x7
     'textSize := display.TEXT_FONT_8x8A
     'textSize := display.TEXT_FONT_8x8B
@@ -138,6 +163,18 @@ PRI demoFont64x32() | textSize, nChar, nRow, nCol, byteIdx, nCharIdx, nScreenRow
         waitSec(10)    ' seconds
 
 PRI demoFont64x64() | textSize, nChar, nRow, nCol, byteIdx, nCharIdx, nRows1stScreen
+' Display the full 5x7 font character set on a 64x64 panel in two screens.
+'
+
+' Local Variables:
+' @local textSize - selected font size constant
+' @local nChar - unused
+' @local nRow - current character row index
+' @local nCol - unused
+' @local byteIdx - unused
+' @local nCharIdx - unused
+' @local nRows1stScreen - number of rows displayed on the first screen
+
     textSize := display.TEXT_FONT_5x7
     'textSize := display.TEXT_FONT_8x8A
     'textSize := display.TEXT_FONT_8x8B
@@ -165,6 +202,21 @@ PRI demoFont64x64() | textSize, nChar, nRow, nCol, byteIdx, nCharIdx, nRows1stSc
         waitSec(10)    ' seconds
 
 PRI fillCharSet(startRow, startCol, startHex, stopHex) : nCount | nCharIdx, nChar, nRow, nCol, nIdx
+' Fill the character set buffer with a range of ASCII characters starting at the given row and column.
+'
+' @param startRow - starting row in the character set grid
+' @param startCol - starting column offset within the row
+' @param startHex - first ASCII code to place
+' @param stopHex - last ASCII code to place
+' @returns nCount - number of characters placed
+
+' Local Variables:
+' @local nCharIdx - linear index into the character grid
+' @local nChar - current ASCII character code being placed
+' @local nRow - computed row for current character
+' @local nCol - computed column for current character
+' @local nIdx - byte index into the charSet buffer
+
     nCharIdx := (startRow * CHARS_PER_ROW) + startCol
     nCount := (stopHex + 1) - startHex
     repeat nChar from startHex to stopHex
@@ -175,10 +227,14 @@ PRI fillCharSet(startRow, startCol, startHex, stopHex) : nCount | nCharIdx, nCha
         nCharIdx++
 
 PRI waitSec(countSeconds)
+' Wait for the specified number of seconds.
+'
+' @param countSeconds - number of seconds to wait
+
     repeat countSeconds
         waitms(1000)
 
-CON { license }
+CON ' license
 
 {{
 

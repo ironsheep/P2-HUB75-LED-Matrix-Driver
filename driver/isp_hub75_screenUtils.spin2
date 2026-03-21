@@ -11,20 +11,31 @@
 ''
 '' =================================================================================================
 
-CON { Object Interface: PUBLIC ENUMs }
+CON ' Object Interface: PUBLIC ENUMs
 
 
-OBJ { Objects Used by this Object }
+OBJ ' Objects Used by this Object
 
     color       :   "isp_hub75_color"
     colorUtils  :   "isp_hub75_colorUtils"
     hub75Bffrs  :   "isp_hub75_hwBufferAccess"
 
 PUB null()
-    '' This is not a top level object
+'' This is not a top level object
+''
 
 PUB drawPixelAtRC(nChainIdx, row, column, rgbColor) | xlatedColor, fHue
-    '' Place rgbColor pixel at r,c
+'' Place an rgbColor pixel at the specified row and column.
+''
+'' @param nChainIdx - index of the panel chain
+'' @param row - pixel row on the display
+'' @param column - pixel column on the display
+'' @param rgbColor - combined RGB color value
+
+' Local Variables:
+' @local xlatedColor - translated color after special-color handling
+' @local fHue - unused hue variable
+
     xlatedColor := rgbColor
     if rgbColor == color.cRainbow
         xlatedColor := colorUtils.rgbColorFromDegrees(6 * (column + 1))   ' replace '360 / 64' with 6 [was resulting in 5 vs. 6]
@@ -37,7 +48,22 @@ PUB drawPixelAtRC(nChainIdx, row, column, rgbColor) | xlatedColor, fHue
     drawPixelAtRCwithRGB(nChainIdx, row, column, colorUtils.rgbForCValue(xlatedColor))
 
 PUB drawPixelAtRCwithRGB(nChainIdx, row, column, red, green, blue) | rowIndex, columnIndex, colorOffset, pColor, pScreen
-    '' Place r,g,b color pixel at r,c
+'' Place an RGB color pixel at the specified row and column.
+''
+'' @param nChainIdx - index of the panel chain
+'' @param row - pixel row on the display
+'' @param column - pixel column on the display
+'' @param red - red color component (0-255)
+'' @param green - green color component (0-255)
+'' @param blue - blue color component (0-255)
+
+' Local Variables:
+' @local rowIndex - clamped and possibly rotated row index
+' @local columnIndex - clamped and possibly rotated column index
+' @local colorOffset - byte offset into the display buffer
+' @local pColor - pointer to the color bytes in the buffer
+' @local pScreen - pointer to the display buffer base
+
     rowIndex := 0 #> row <# hub75Bffrs.maxDisplayRows(nChainIdx) - 1
     columnIndex :=  0 #> column <# hub75Bffrs.maxDisplayColumns(nChainIdx) - 1
     case hub75Bffrs.panelRotation(nChainIdx)
@@ -69,7 +95,7 @@ PUB drawPixelAtRCwithRGB(nChainIdx, row, column, red, green, blue) | rowIndex, c
     byte[pColor][1] := hub75Bffrs.correctedSingleColor(nChainIdx, colorUtils.LED_GREEN, green)
     byte[pColor][2] := hub75Bffrs.correctedSingleColor(nChainIdx, colorUtils.LED_BLUE, blue)
 
-CON { license }
+CON ' license
 
 {{
 

@@ -11,7 +11,7 @@
 ''
 '' =================================================================================================
 
-CON { Object Interface: PUBLIC ENUMs }
+CON ' Object Interface: PUBLIC ENUMs
 
   NOT_FOUND = -1
 
@@ -45,7 +45,7 @@ CON { Object Interface: PUBLIC ENUMs }
   ' FIXME: UNDONE make this user configurable
   MAX_SCROLLING_REGIONS = 4
 
-OBJ { Objects Used by this Object }
+OBJ ' Objects Used by this Object
 
     hub75Bffrs  :   "isp_hub75_hwBufferAccess"
     pixels      :   "isp_hub75_screenUtils"
@@ -55,7 +55,7 @@ OBJ { Objects Used by this Object }
     colorUtils :    "isp_hub75_colorUtils"
     scroller[MAX_SCROLLING_REGIONS] : "isp_hub75_scrollingText"
 
-VAR { Object Instance Variables }
+VAR ' Object Instance Variables
     LONG    instanceID
     LONG    chainIndex
     LONG    currTextColor
@@ -86,19 +86,34 @@ VAR { Object Instance Variables }
     LONG    bDidShowOnce
     BYTE   padBuffer[MAX_PAD_BUFFER_BYTES]
 
-CON { PRIVATE Constants }
+CON ' PRIVATE Constants
 
     MAX_PAD_BUFFER_BYTES = 30
 
 PUB null()
-'' This is not a top level object
+'' This is not a top level object.
+''
 
 PUB start(nChainIdx) : ok
-    '' Start the underlying driver(s)
+'' Start the underlying driver(s).
+''
+'' @param nChainIdx - the index of the desired chain
+'' @returns ok - cog ID or -1 on failure
+
     ok := startWithId(0, nChainIdx)
 
 PUB startWithId(nId, nChainIdx) : ok | scrollerIndex, dvrConfig, eChipType
-'' Start the underlying driver(s) - (multi-hub75 card version, pass debug instance ID)
+'' Start the underlying driver(s) with a debug instance ID for multi-hub75 card configurations.
+''
+'' @param nId - debug instance identifier
+'' @param nChainIdx - the index of the desired chain
+'' @returns ok - cog ID or -1 on failure
+
+' Local Variables:
+' @local scrollerIndex - loop index for scroller initialization
+' @local dvrConfig - driver configuration flags
+' @local eChipType - chip type enumeration value
+
     chainIndex := nChainIdx
     instanceID := nId
     bDidShowOnce := FALSE
@@ -130,14 +145,15 @@ PUB startWithId(nId, nChainIdx) : ok | scrollerIndex, dvrConfig, eChipType
     clearScreen()
 
 PUB stop()
-    '' Stop the underlying driver(s)
+'' Stop the underlying driver(s).
+''
+
     if cog
         panelSet.stop()
         cog := 0
 
 PUB setBufferPointers(nChainIdx, pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2)
-
-'' forward the buffer pointers to the underlying buffer access routines
+'' Forward the buffer pointers to the underlying buffer access routines.
 ''
 '' @param nChainIdx - the index of the desired chain
 '' @param pScrnBuffer - address of screen Buffer (2-3 bytes per pixel)
@@ -147,22 +163,42 @@ PUB setBufferPointers(nChainIdx, pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2)
     hub75Bffrs.setBufferPointers(nChainIdx, pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2)
 
 PUB clearScreen()
-    '' Clear the panel to BLACK
+'' Clear the panel to BLACK.
+''
+
     hub75Bffrs.zeroFillBuffer(chainIndex)
     commitScreenToPanelSet()
 
 PUB clearScreenBuffer()
-    '' Clear the panel to BLACK
+'' Clear the screen buffer to BLACK without committing to panel.
+''
+
     hub75Bffrs.zeroFillBuffer(chainIndex)
 
 PUB fillScreen(rgbColor) | row, column
-    '' Fill the display with 24-bit color value
+'' Fill the display with a 24-bit color value.
+''
+'' @param rgbColor - 24-bit RGB color value
+
+' Local Variables:
+' @local row - current row index
+' @local column - current column index
+
     repeat row from 0 to hub75Bffrs.maxDisplayRows(chainIndex) - 1
         repeat column from 0 to hub75Bffrs.maxDisplayColumns(chainIndex) - 1
             pixels.drawPixelAtRC(chainIndex, row, column, rgbColor)
 
 PUB fillPanel(panelIndex, rgbColor) | row, column, columnOffsetToPanel
-    '' Fill the specified panel (of panelSet) with 24-bit color value
+'' Fill the specified panel of the panel set with a 24-bit color value.
+''
+'' @param panelIndex - zero-based index of the panel to fill
+'' @param rgbColor - 24-bit RGB color value
+
+' Local Variables:
+' @local row - current row index
+' @local column - current column index
+' @local columnOffsetToPanel - pixel column offset to the target panel
+
     columnOffsetToPanel := panelIndex * hub75Bffrs.columnsPerPanel(chainIndex)
     repeat row from 0 to hub75Bffrs.rowsPerPanel(chainIndex) - 1
         repeat column from 0 to hub75Bffrs.columnsPerPanel(chainIndex) - 1
@@ -173,11 +209,16 @@ PUB fillPanel(panelIndex, rgbColor) | row, column, columnOffsetToPanel
     'bDidShowOnce := TRUE
 
 PUB fillScreenNoPWM(threeBitColor)
-    '' Fill screen but without PWM (for testing underlying driver)
+'' Fill screen without PWM conversion for testing the underlying driver.
+''
+'' @param threeBitColor - 3-bit color value (one bit per R, G, B)
+
     panelSet.fillScreenNoPWM(threeBitColor)
 
 PUB commitScreenToPanelSet()
-    '' Write screen to panel driver PWM frames (while alternating PWM frame sets)
+'' Write screen buffer to panel driver PWM frames while alternating PWM frame sets.
+''
+
     'debug("DSP: commit!")
 
     if bScan_1_4
@@ -186,21 +227,40 @@ PUB commitScreenToPanelSet()
         panelSet.convertScreen2PWM(hub75Bffrs.displayBufferAddress(0), bSwapRB, bSwapGB)
 
 
-CON { --------------     Text Handling     -------------- }
+CON ' --------------     Text Handling     --------------
 
 PUB setCursor(line, column)
-    '' Position the text cursor to row, column on our display
+'' Position the text cursor to row, column on the display.
+''
+'' @param line - zero-based text line number
+'' @param column - zero-based text column number
+
     ' TODO emit error on bad column/row?
     cursorLine := 0 #> line <# maxTextLines - 1
     cursorColumn := 0 #> column <# maxTextColumns - 1
     'debug("crsr: ln=", udec_(cursorLine), ", col=", udec_(cursorColumn))
 
 PUB homeCursor()
-    '' Return the cursor to top left corner of our display
+'' Return the cursor to the top left corner of the display.
+''
+
     setCursor(0, 0)
 
 PUB setCursorOnPanel(line, column, panelIndex) | boundedPanelIndex, panelOffsetInChars, boundedColumn, tmpCharOffsetInPix, desiredCharOffsetInPix, fixUpInPix
-    '' Position the text cursor to row, column of the selected panel
+'' Position the text cursor to row, column of the selected panel.
+''
+'' @param line - zero-based text line number
+'' @param column - zero-based text column number
+'' @param panelIndex - zero-based index of the target panel
+
+' Local Variables:
+' @local boundedPanelIndex - panel index clamped to valid range
+' @local panelOffsetInChars - character offset to the target panel
+' @local boundedColumn - column clamped to valid range
+' @local tmpCharOffsetInPix - temporary pixel offset for character position
+' @local desiredCharOffsetInPix - desired pixel offset for character position
+' @local fixUpInPix - pixel adjustment for panel alignment
+
     boundedPanelIndex := 0 #> panelIndex <# hub75Bffrs.maxPanels(chainIndex) - 1
     boundedColumn := 0 #> column <# maxPanelTextColumns - 1
     cursorLine := 0 #> line <# maxPanelTextLines - 1
@@ -211,11 +271,23 @@ PUB setCursorOnPanel(line, column, panelIndex) | boundedPanelIndex, panelOffsetI
     panelFixupOffetInPix := (tmpCharOffsetInPix < desiredCharOffsetInPix) ? desiredCharOffsetInPix - tmpCharOffsetInPix: 0
 
 PUB homeCursorOnPanel(panelIndex)
-    '' Return the cursor to top left corner of the selected panel
+'' Return the cursor to the top left corner of the selected panel.
+''
+'' @param panelIndex - zero-based index of the target panel
+
     setCursorOnPanel(0, 0, panelIndex)
 
 PUB setTextFont(newFont) | scrollerIndex, hUnusedPix, vUnusedPix, heightCorrection
-    '' Select font and update text grid size
+'' Select the text font and recalculate the text grid size.
+''
+'' @param newFont - font identifier constant (TEXT_FONT_*)
+
+' Local Variables:
+' @local scrollerIndex - loop index for scroller configuration
+' @local hUnusedPix - horizontal unused pixels after text grid layout
+' @local vUnusedPix - vertical unused pixels after text grid layout
+' @local heightCorrection - height adjustment for certain fonts
+
     ' currently we only support our 8x8 and 5x7 fonts
     panelFixupOffetInPix := 0
     heightCorrection := 0
@@ -262,23 +334,44 @@ PUB setTextFont(newFont) | scrollerIndex, hUnusedPix, vUnusedPix, heightCorrecti
         scroller[scrollerIndex].setFontInfo(maxTextColumns, charWidthInPix, charHeightInPix, leftOffsetInPix, horizontalGapInPix, hBitmapOffsetInPix, selectedTextFont)
 
 PUB numberTextLines() : nbrTextLines
-    '' Return the number of text-rows for the currently selected font
+'' Return the number of text rows for the currently selected font.
+''
+'' @returns nbrTextLines - number of text rows that fit on the display
+
     nbrTextLines := maxTextLines
 
 PUB numberTextColumns() : nbrTextColumns
-    '' Return the number of text-columns for the currently selected font
+'' Return the number of text columns for the currently selected font.
+''
+'' @returns nbrTextColumns - number of text columns that fit on the display
+
     nbrTextColumns := maxTextColumns
 
 PUB setTextColor(rgbColor)
-    '' Set 24-bit color for subsequent text display
+'' Set the 24-bit color for subsequent text display.
+''
+'' @param rgbColor - 24-bit RGB color value
+
     currTextColor := rgbColor
 
 PUB setTextAtCursor(pZString)
-    '' Place text 'zero terminated' at our current cursor position using current text color
+'' Place zero-terminated text at the current cursor position using the current text color.
+''
+'' @param pZString - pointer to zero-terminated string
+
     setColoredTextAtLnCol(cursorLine, cursorColumn, pZString, currTextColor)
 
 PUB setColoredTextAtLnCol(line, column, pZString, rgbColor) | charIndex
-    '' Place text at specific cursor position using current text color
+'' Place zero-terminated text at the specified line and column using the given color.
+''
+'' @param line - zero-based text line number
+'' @param column - zero-based text column number
+'' @param pZString - pointer to zero-terminated string
+'' @param rgbColor - 24-bit RGB color value
+
+' Local Variables:
+' @local charIndex - index into the string being placed
+
     setCursor(line, column)
     charIndex := 0
     repeat
@@ -287,7 +380,16 @@ PUB setColoredTextAtLnCol(line, column, pZString, rgbColor) | charIndex
     while BYTE[pZString][charIndex] <> 0
 
 PUB centerColoredTextAtLn(line, pZString, rgbColor) | textLen, desiredCol
-    '' Center text on specific line using current text color
+'' Center text on the specified line using the given color.
+''
+'' @param line - zero-based text line number
+'' @param pZString - pointer to zero-terminated string
+'' @param rgbColor - 24-bit RGB color value
+
+' Local Variables:
+' @local textLen - length of the string in characters
+' @local desiredCol - calculated column for centering
+
     textLen := strsize(pZString)
     desiredCol := (numberTextColumns() - textLen) / 2    ' Calc centering value for clock
     'debug("DSP: cctal() ", udec(desiredCol), udec(textLen), zstr(pZString))
@@ -297,7 +399,21 @@ VAR
   LONG      lastColumn
 
 PUB setColoredTextAtLnWithAlignPad(line, pZString, rgbColor, alignment, padLen) | offset, valLen, lineWidth, paddedStr, padOffset
-    '' Align and Pad text on specific line using current text color
+'' Align and pad text on the specified line using the given color.
+''
+'' @param line - zero-based text line number
+'' @param pZString - pointer to zero-terminated string
+'' @param rgbColor - 24-bit RGB color value
+'' @param alignment - text alignment (ALIGN_LEFT, ALIGN_CENTER, or ALIGN_RIGHT)
+'' @param padLen - total padded field width in characters
+
+' Local Variables:
+' @local offset - calculated column offset for alignment
+' @local valLen - length of the input string
+' @local lineWidth - total number of text columns on the display
+' @local paddedStr - pointer to the padded output string
+' @local padOffset - offset within pad buffer for string placement
+
     paddedStr := pZString
     valLen := strsize(pZString)
 
@@ -345,20 +461,51 @@ PUB setColoredTextAtLnWithAlignPad(line, pZString, rgbColor, alignment, padLen) 
     setColoredTextAtLnCol(line, offset, paddedStr, rgbColor)
 
 PUB setCharAtCursor(cChar)
-    '' Write char to current cursor position using current text color, increment the cursor position with line wrap
+'' Write a character at the current cursor position using the current text color and advance the cursor with line wrap.
+''
+'' @param cChar - character to display
+
     setColorCharAtCursor(cChar, currTextColor)
 
 PUB setColorCharAtCursor(cChar, rgbColor)
-    '' Write char to current cursor position with given text color, increment the cursor position with line wrap
+'' Write a character at the current cursor position with the given color and advance the cursor with line wrap.
+''
+'' @param cChar - character to display
+'' @param rgbColor - 24-bit RGB color value
+
     setColoredCharAtLnCol(cursorLine, cursorColumn, cChar, rgbColor)
     incrCursorWithWrap()
 
 PUB setCharAtLnCol(line, column, cChar)
-    '' Write character to display at R,C using current text color
+'' Write a character to the display at the specified line and column using the current text color.
+''
+'' @param line - zero-based text line number
+'' @param column - zero-based text column number
+'' @param cChar - character to display
+
     setColoredCharAtLnCol(line, column, cChar, currTextColor)
 
 PUB setColoredCharAtLnCol(line, column, cChar, rgbColor) | pCharBitMap, tlScreenOffset, tlCharOffset, cLineIdx, cColumnIdx, sRowPixIdx, sColumnPixIdx, cColOffset, cRowOffset, cRowBits, pixColumn
-    '' Write cChar to display R,C using rgbColor
+'' Write a character to the display at the specified line and column using the given color.
+''
+'' @param line - zero-based text line number
+'' @param column - zero-based text column number
+'' @param cChar - character to display
+'' @param rgbColor - 24-bit RGB color value
+
+' Local Variables:
+' @local pCharBitMap - pointer to the character bitmap data
+' @local tlScreenOffset - top-left screen offset
+' @local tlCharOffset - top-left character offset
+' @local cLineIdx - bounded line index
+' @local cColumnIdx - bounded column index
+' @local sRowPixIdx - screen row in pixels
+' @local sColumnPixIdx - screen column in pixels
+' @local cColOffset - column offset within character bitmap
+' @local cRowOffset - row offset within character bitmap
+' @local cRowBits - bit pattern for current row of character
+' @local pixColumn - pixel column position
+
     'debug("DSP: setCharAtCursor @LnCol(", udec_(line), ",", udec_(column), "), char=", uhex_(cChar), ", RGB=", uhex_long_(rgbColor), udec(topOffsetInPix), udec(leftOffsetInPix))
     cLineIdx := 0 #> line <# maxTextLines - 1
     cColumnIdx :=  0 #> column <# maxTextColumns - 1
@@ -376,6 +523,20 @@ PUB setColoredCharAtLnCol(line, column, cChar, rgbColor) | pCharBitMap, tlScreen
         placeCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor)
 
 PRI placeCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor) | cRowOffset, cRowBits, cColOffset, pixColor, cBitOffset
+' Render a non-dithered character bitmap to the screen buffer.
+'
+' @param pCharBitMap - pointer to the character bitmap data
+' @param sRowPixIdx - screen row in pixels for top of character
+' @param sColumnPixIdx - screen column in pixels for left of character
+' @param rgbColor - 24-bit RGB color value
+
+' Local Variables:
+' @local cRowOffset - row offset within character bitmap
+' @local cRowBits - bit pattern for current row of character
+' @local cColOffset - column offset within character bitmap
+' @local pixColor - resolved pixel color (foreground or black)
+' @local cBitOffset - bit position within the row byte
+
     repeat cRowOffset from 0 to charHeightInPix - 1
         cRowBits := BYTE[pCharBitMap][cRowOffset]
         repeat cColOffset from 0 to charWidthInPix - 1
@@ -384,6 +545,22 @@ PRI placeCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor) | cRowOffs
             pixels.drawPixelAtRC(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor)
 
 PRI placeDitheredCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor) | cRowOffset, cRowBits, cColOffset, ditheredRGBColor, cBitOffset, pixVal, pixColor
+' Render a dithered character bitmap to the screen buffer using two brightness levels.
+'
+' @param pCharBitMap - pointer to the character bitmap data
+' @param sRowPixIdx - screen row in pixels for top of character
+' @param sColumnPixIdx - screen column in pixels for left of character
+' @param rgbColor - 24-bit RGB color value
+
+' Local Variables:
+' @local cRowOffset - row offset within character bitmap
+' @local cRowBits - word-sized bit pattern for current row
+' @local cColOffset - column offset within character bitmap
+' @local ditheredRGBColor - reduced brightness color for dithered pixels
+' @local cBitOffset - bit position within the row word
+' @local pixVal - 2-bit pixel value from the dithered font
+' @local pixColor - resolved pixel color for this position
+
     ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, 36)      ' 50% brightness
     'debug(" COLOR PERCENT ", uhex_long_(rgbColor), " -> ", uhex_long_(ditheredRGBColor))
     repeat cRowOffset from 0 to charHeightInPix - 1
@@ -399,6 +576,23 @@ PRI placeDitheredCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor) | 
             pixels.drawPixelAtRC(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor)
 
 PRI offsetToTextOnPanel(line, column, panelIndex) : panelLine, panelColumn | gridRow, gridColumn, boundedPanelIndex, boundedColumn, tmpCharOffsetInPix, panelOffsetInChars, desiredCharOffsetInPix
+' Calculate text cursor offsets for a specific panel position.
+'
+' @param line - zero-based text line number
+' @param column - zero-based text column number
+' @param panelIndex - zero-based index of the target panel
+' @returns panelLine - bounded line on the panel
+' @returns panelColumn - character column offset including panel offset
+
+' Local Variables:
+' @local gridRow - text grid row position
+' @local gridColumn - text grid column position
+' @local boundedPanelIndex - panel index clamped to valid range
+' @local boundedColumn - column clamped to valid range
+' @local tmpCharOffsetInPix - temporary pixel offset for character position
+' @local panelOffsetInChars - character offset to the target panel
+' @local desiredCharOffsetInPix - desired pixel offset for character position
+
     boundedPanelIndex := 0 #> panelIndex <# hub75Bffrs.maxPanels(chainIndex) - 1
     boundedColumn := 0 #> column <# maxPanelTextColumns - 1
     panelLine := 0 #> line <# maxPanelTextLines - 1
@@ -409,7 +603,13 @@ PRI offsetToTextOnPanel(line, column, panelIndex) : panelLine, panelColumn | gri
     'panelFixupOffetInPix := (tmpCharOffsetInPix < desiredCharOffsetInPix) ? desiredCharOffsetInPix - tmpCharOffsetInPix: 0
 
 PRI incrCursorWithWrap() | priorRow, priorCol
-    ' increment cursor position, wrapping at end of line when needed
+' Increment the cursor position, wrapping at end of line and end of screen.
+'
+
+' Local Variables:
+' @local priorRow - cursor row before increment
+' @local priorCol - cursor column before increment
+
     priorRow := cursorLine
     priorCol := cursorColumn
     cursorColumn++
@@ -421,13 +621,17 @@ PRI incrCursorWithWrap() | priorRow, priorCol
     'debug("incr curPOS RC(", udec_(priorRow), ",", udec_(priorCol), ") -> RC(", udec_(cursorLine), ",", udec_(cursorColumn), ")")
 
 
-CON { --------------     Scrolling Text     -------------- }
+CON ' --------------     Scrolling Text     --------------
 ' EXAMPLES
 '    configureScrollLoopMode(scrollerID, display.SCROLL_ONCE)
 '    configureScrollLoopCount(scrollerID, display.SCROLL_N_TIMES, 2)
 
 PUB configureScrollLoopMode(indexAllocated, loopMode)
-    '' Specify scrolling text duration (forever, once, twice)
+'' Specify the scrolling text loop duration mode.
+''
+'' @param indexAllocated - scroller region index returned by a scroll method
+'' @param loopMode - scrolling duration (SCROLL_FOREVER, SCROLL_ONCE, etc.)
+
     'debug("DSP: configureScrollLoopMode() ", udec(indexAllocated))
     if indexAllocated >= 0 && indexAllocated < MAX_SCROLLING_REGIONS
         'debug("DSP: idx=(", udec_(indexAllocated), ") ", udec(loopMode))
@@ -436,19 +640,44 @@ PUB configureScrollLoopMode(indexAllocated, loopMode)
         debug("DSP: ERROR no such scroller idx=(", udec_(indexAllocated), ")")
 
 PUB configureScrollLoopCount(indexAllocated, loopMode, loopCount)
-    '' Specify scrolling text duration (forever, once, twice)
+'' Specify the scrolling text loop duration mode with a repeat count.
+''
+'' @param indexAllocated - scroller region index returned by a scroll method
+'' @param loopMode - scrolling duration (SCROLL_N_TIMES, etc.)
+'' @param loopCount - number of times to repeat the scroll
+
     'debug("DSP: configureScrollLoopCount() ", udec(indexAllocated))
     if indexAllocated >= 0 && indexAllocated < MAX_SCROLLING_REGIONS
         scroller[indexAllocated].configureScrollLoopCount(loopMode, loopCount)
 
 
 PUB scrollTextOnLine(line, pZString, direction) : indexAllocated
-    '' Place scrolling text on line N, of pZString scrolling in direction using current text color
+'' Place scrolling text on the specified line using the current text color.
+''
+'' @param line - zero-based text line number
+'' @param pZString - pointer to zero-terminated string
+'' @param direction - scroll direction (DIR_TO_LEFT, DIR_TO_RIGHT, etc.)
+'' @returns indexAllocated - scroller region index or NOT_FOUND on failure
+
     indexAllocated := scrollColoredTextOnLn(line, pZString, direction, currTextColor)
 
 
 PUB scrollColoredTextOnLn(line, pZString, direction, rgbColor) : indexAllocated  | cLineIdx, cColumnIdx, widthInChars, sRowPixIdx, sColumnPixIdx
-    '' Place scrolling text on line N [0 - N-1], of pZString scrolling in direction using rgbColor
+'' Place scrolling text on the specified line using the given color.
+''
+'' @param line - zero-based text line number
+'' @param pZString - pointer to zero-terminated string
+'' @param direction - scroll direction (DIR_TO_LEFT, DIR_TO_RIGHT, etc.)
+'' @param rgbColor - 24-bit RGB color value
+'' @returns indexAllocated - scroller region index or NOT_FOUND on failure
+
+' Local Variables:
+' @local cLineIdx - bounded line index
+' @local cColumnIdx - starting column index
+' @local widthInChars - width of scrolling region in characters
+' @local sRowPixIdx - screen row in pixels
+' @local sColumnPixIdx - screen column in pixels
+
     'debug("DSP: scrollColoredTextOnLn()")
     ' ensure we are asked to use a good location
     cLineIdx := 0 #> line <# maxTextLines - 1
@@ -463,11 +692,41 @@ PUB scrollColoredTextOnLn(line, pZString, direction, rgbColor) : indexAllocated 
     debug("DSP: new scroller ", udec(indexAllocated))
 
 PUB scrollTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direction) : indexAllocated
-    '' Place scrolling text on line N, of pZString scrolling in direction using current text color
+'' Place scrolling text across multiple panels on the specified line using the current text color.
+''
+'' @param line - zero-based text line number
+'' @param panelIndex - zero-based index of the starting panel
+'' @param panelCount - number of panels to scroll across
+'' @param pZString - pointer to zero-terminated string
+'' @param direction - scroll direction (DIR_TO_LEFT, DIR_TO_RIGHT, etc.)
+'' @returns indexAllocated - scroller region index or NOT_FOUND on failure
+
     indexAllocated := scrollColoredTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direction, currTextColor)
 
 PUB scrollColoredTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direction, rgbColor) : indexAllocated | cLineIdx, cColumnIdx, widthInChars, sRowPixIdx, sColumnPixIdx, panelLine, panelColumn, boundedPanelIdx, cPanelCt, offsetPixelRows, offsetPixelColumns
-    '' Place scrolling text on line N [0 - N-1], of pZString scrolling in direction using rgbColor
+'' Place scrolling text across multiple panels on the specified line using the given color.
+''
+'' @param line - zero-based text line number
+'' @param panelIndex - zero-based index of the starting panel
+'' @param panelCount - number of panels to scroll across
+'' @param pZString - pointer to zero-terminated string
+'' @param direction - scroll direction (DIR_TO_LEFT, DIR_TO_RIGHT, etc.)
+'' @param rgbColor - 24-bit RGB color value
+'' @returns indexAllocated - scroller region index or NOT_FOUND on failure
+
+' Local Variables:
+' @local cLineIdx - bounded line index
+' @local cColumnIdx - starting column index
+' @local widthInChars - width of scrolling region in characters
+' @local sRowPixIdx - screen row in pixels
+' @local sColumnPixIdx - screen column in pixels
+' @local panelLine - line offset on the target panel
+' @local panelColumn - column offset on the target panel
+' @local boundedPanelIdx - panel index clamped to valid range
+' @local cPanelCt - panel count clamped to valid range
+' @local offsetPixelRows - pixel row offset to the target panel
+' @local offsetPixelColumns - pixel column offset to the target panel
+
     'debug("DSP: scrollColoredTextOnLnOfNPanels()")
     boundedPanelIdx := 0 #> panelIndex <# hub75Bffrs.maxPanels(chainIndex) - 1
     cPanelCt := 1 #> panelCount <# hub75Bffrs.maxPanels(chainIndex)
@@ -484,19 +743,42 @@ PUB scrollColoredTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direc
     indexAllocated := scrollTextAtRCOfColor(sRowPixIdx, sColumnPixIdx, widthInChars, pZString, direction, rgbColor)
 
 PUB scrollTextAtRC(row, column, widthInChars, pZString, direction) : indexAllocated
-    '' Place scrolling text at absolute R,C, of pZString scrolling in direction using current text color
+'' Place scrolling text at the specified pixel row and column using the current text color.
+''
+'' @param row - pixel row position
+'' @param column - pixel column position
+'' @param widthInChars - width of scrolling region in characters
+'' @param pZString - pointer to zero-terminated string
+'' @param direction - scroll direction (DIR_TO_LEFT, DIR_TO_RIGHT, etc.)
+'' @returns indexAllocated - scroller region index or NOT_FOUND on failure
+
     indexAllocated := scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, currTextColor)
 
 
 PUB scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbColor) : indexAllocated
-    '' Place scrolling text at absolute R,C, of pZString scrolling in direction using rgbColor
+'' Place scrolling text at the specified pixel row and column using the given color.
+''
+'' @param row - pixel row position
+'' @param column - pixel column position
+'' @param widthInChars - width of scrolling region in characters
+'' @param pZString - pointer to zero-terminated string
+'' @param direction - scroll direction (DIR_TO_LEFT, DIR_TO_RIGHT, etc.)
+'' @param rgbColor - 24-bit RGB color value
+'' @returns indexAllocated - scroller region index or NOT_FOUND on failure
+
     indexAllocated := nextFreeScroller()
     'debug("DSP: scrollTextAtRCOfColor() ", udec(indexAllocated))
     scroller[indexAllocated].scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbColor)
 
 
 PUB isScrollingComplete() : status | scrollerIndex
-    '' Return T/F where T means that all movement for scrolling text regions is complete
+'' Return TRUE if all scrolling text region movements are complete.
+''
+'' @returns status - TRUE when all scrollers are idle or finished
+
+' Local Variables:
+' @local scrollerIndex - loop index for checking each scroller
+
     status := TRUE
     ' if one or more scrollers are still moving we are not done!
     repeat scrollerIndex from 0 to MAX_SCROLLING_REGIONS - 1
@@ -510,19 +792,34 @@ PUB isScrollingComplete() : status | scrollerIndex
     '    debug("DSP: isScrollingComplete() TRUE")
 
 PUB animateScroll() | scrollerIndex
-    '' Do one scroll step, if one is pending
+'' Perform one scroll animation step for all active scrolling regions.
+''
+
+' Local Variables:
+' @local scrollerIndex - loop index for each scroller
+
     repeat scrollerIndex from 0 to MAX_SCROLLING_REGIONS - 1
         if NOT scroller[scrollerIndex].isIdle()
             if NOT scroller[scrollerIndex].isScrollingComplete()
                 scroller[scrollerIndex].animateScroll()
 
 PUB releaseScroller(indexAllocated)
-    '' Mark this scroller as no longer in use
+'' Mark the specified scroller region as no longer in use.
+''
+'' @param indexAllocated - scroller region index returned by a scroll method
+
     if indexAllocated > 0 and indexAllocated < MAX_SCROLLING_REGIONS
         ' make this once again avial for reuse
         scroller[indexAllocated].release()
 
 PRI nextFreeScroller() : scrollerIndexToUse | scrollerIndex
+' Find and return the index of the next available idle scroller region.
+'
+' @returns scrollerIndexToUse - index of the free scroller or NOT_FOUND
+
+' Local Variables:
+' @local scrollerIndex - loop index for searching scrollers
+
     scrollerIndexToUse := NOT_FOUND
     repeat scrollerIndex from 0 to MAX_SCROLLING_REGIONS - 1
         if scroller[scrollerIndex].isIdle()
@@ -533,14 +830,34 @@ PRI nextFreeScroller() : scrollerIndexToUse | scrollerIndex
         abort
     'debug("DSP: nextFreeScroller() ", udec(scrollerIndexToUse))
 
-CON { --------------     Basic Graphics     -------------- }
+CON ' --------------     Basic Graphics     --------------
 
 PUB drawBox(topRow, leftColumn, width, height, filled)
-    '' Draw box outline/filled of width x height at R,C (using current text color)
+'' Draw a box outline or filled rectangle of width x height at the specified position using the current text color.
+''
+'' @param topRow - top pixel row of the box
+'' @param leftColumn - left pixel column of the box
+'' @param width - box width in pixels
+'' @param height - box height in pixels
+'' @param filled - TRUE for filled box, FALSE for outline only
+
     drawBoxOfColor(topRow, leftColumn, width, height, filled, currTextColor)
 
 PUB drawBoxOfColor(topRow, leftColumn, width, height, filled, rgbColor) | rightColumn, bottomRow, rowIndex
-    '' Draw box outline/filled of width x height at R,C using rgbColor
+'' Draw a box outline or filled rectangle of width x height at the specified position using the given color.
+''
+'' @param topRow - top pixel row of the box
+'' @param leftColumn - left pixel column of the box
+'' @param width - box width in pixels
+'' @param height - box height in pixels
+'' @param filled - TRUE for filled box, FALSE for outline only
+'' @param rgbColor - 24-bit RGB color value
+
+' Local Variables:
+' @local rightColumn - calculated right pixel column of the box
+' @local bottomRow - calculated bottom pixel row of the box
+' @local rowIndex - loop index for filling rows
+
     rightColumn := leftColumn + width - 1
     bottomRow := topRow + height - 1
     if filled == TRUE
@@ -553,11 +870,35 @@ PUB drawBoxOfColor(topRow, leftColumn, width, height, filled, rgbColor) | rightC
         drawLineOfColor(topRow, leftColumn, bottomRow, leftColumn, rgbColor)    ' vert left
 
 PUB drawPanelBox(panelIndex, topRow, leftColumn, width, height, filled)
-    '' Draw in desired panel a box outline/filled of width x height at R,C (using current text color)
+'' Draw a box outline or filled rectangle on the specified panel using the current text color.
+''
+'' @param panelIndex - zero-based index of the target panel
+'' @param topRow - top pixel row of the box relative to the panel
+'' @param leftColumn - left pixel column of the box relative to the panel
+'' @param width - box width in pixels
+'' @param height - box height in pixels
+'' @param filled - TRUE for filled box, FALSE for outline only
+
     drawPanelBoxOfColor(panelIndex, topRow, leftColumn, width, height, filled, currTextColor)
 
 PUB drawPanelBoxOfColor(panelIndex, topRow, leftColumn, width, height, filled, rgbColor) | rightColumn, bottomRow, rowIndex, offsetPixelRows, offsetPixelColumns
-    '' Draw in desired panel a box outline/filled of width x height at R,C using rgbColor
+'' Draw a box outline or filled rectangle on the specified panel using the given color.
+''
+'' @param panelIndex - zero-based index of the target panel
+'' @param topRow - top pixel row of the box relative to the panel
+'' @param leftColumn - left pixel column of the box relative to the panel
+'' @param width - box width in pixels
+'' @param height - box height in pixels
+'' @param filled - TRUE for filled box, FALSE for outline only
+'' @param rgbColor - 24-bit RGB color value
+
+' Local Variables:
+' @local rightColumn - calculated right pixel column of the box
+' @local bottomRow - calculated bottom pixel row of the box
+' @local rowIndex - loop index for filling rows
+' @local offsetPixelRows - pixel row offset to the target panel
+' @local offsetPixelColumns - pixel column offset to the target panel
+
     offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, panelIndex)
     topRow :=  0 #> topRow <# hub75Bffrs.rowsPerPanel(chainIndex) - 1
     leftColumn :=  0 #> leftColumn <# hub75Bffrs.columnsPerPanel(chainIndex) - 1
@@ -580,11 +921,33 @@ PUB drawPanelBoxOfColor(panelIndex, topRow, leftColumn, width, height, filled, r
         drawLineOfColor(topRow, leftColumn, bottomRow, leftColumn, rgbColor)    ' vert left
 
 PUB drawLine(fmRow, fmColumn, toRow, toColumn)
-    '' Draw line fromRC -> toRC using current text color (currently limited to horizontal/vertical lines)
+'' Draw a line from one position to another using the current text color.
+''
+'' @param fmRow - starting pixel row
+'' @param fmColumn - starting pixel column
+'' @param toRow - ending pixel row
+'' @param toColumn - ending pixel column
+
     drawLineOfColor(fmRow, fmColumn, toRow, toColumn, currTextColor)
 
 PUB drawLineOfColor(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column, dx, dy, ctr, incr, intD
-    '' Draw line fromRC -> toRC using rgbColor (currently limited to horizontal/vertical lines)
+'' Draw a line from one position to another using the given color.
+''
+'' @param fmRow - starting pixel row
+'' @param fmColumn - starting pixel column
+'' @param toRow - ending pixel row
+'' @param toColumn - ending pixel column
+'' @param rgbColor - 24-bit RGB color value
+
+' Local Variables:
+' @local row - current row during line drawing
+' @local column - current column during line drawing
+' @local dx - horizontal distance
+' @local dy - vertical distance
+' @local ctr - loop counter
+' @local incr - increment direction
+' @local intD - integer decision variable for Bresenham algorithm
+
     fmRow :=  0 #> fmRow <# hub75Bffrs.maxDisplayRows(chainIndex) - 1
     fmColumn :=  0 #> fmColumn <# hub75Bffrs.maxDisplayColumns(chainIndex) - 1
     toRow :=  0 #> toRow <# hub75Bffrs.maxDisplayRows(chainIndex) - 1
@@ -611,11 +974,38 @@ PUB drawLineOfColor(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column, d
                 plotLineHigh(fmColumn, fmRow, toColumn, toRow, rgbColor)
 
 PUB drawPanelLine(panelIndex, fmRow, fmColumn, toRow, toColumn)
-    '' Draw line fromRC -> toRC using current text color (currently limited to horizontal/vertical lines)
+'' Draw a line on the specified panel from one position to another using the current text color.
+''
+'' @param panelIndex - zero-based index of the target panel
+'' @param fmRow - starting pixel row relative to the panel
+'' @param fmColumn - starting pixel column relative to the panel
+'' @param toRow - ending pixel row relative to the panel
+'' @param toColumn - ending pixel column relative to the panel
+
     drawPanelLineOfColor(panelIndex, fmRow, fmColumn, toRow, toColumn, currTextColor)
 
 PUB drawPanelLineOfColor(panelIndex, fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column, dx, dy, ctr, incr, intD, desiredPanelIndex, offsetPixelRows, offsetPixelColumns
-    '' Draw line fromRC -> toRC using rgbColor (currently limited to horizontal/vertical lines)
+'' Draw a line on the specified panel from one position to another using the given color.
+''
+'' @param panelIndex - zero-based index of the target panel
+'' @param fmRow - starting pixel row relative to the panel
+'' @param fmColumn - starting pixel column relative to the panel
+'' @param toRow - ending pixel row relative to the panel
+'' @param toColumn - ending pixel column relative to the panel
+'' @param rgbColor - 24-bit RGB color value
+
+' Local Variables:
+' @local row - current row during line drawing
+' @local column - current column during line drawing
+' @local dx - horizontal distance
+' @local dy - vertical distance
+' @local ctr - loop counter
+' @local incr - increment direction
+' @local intD - integer decision variable for Bresenham algorithm
+' @local desiredPanelIndex - panel index clamped to valid range
+' @local offsetPixelRows - pixel row offset to the target panel
+' @local offsetPixelColumns - pixel column offset to the target panel
+
     fmRow :=  0 #> fmRow <# hub75Bffrs.rowsPerPanel(chainIndex) - 1
     fmColumn :=  0 #> fmColumn <# hub75Bffrs.columnsPerPanel(chainIndex) - 1
     toRow :=  0 #> toRow <# hub75Bffrs.rowsPerPanel(chainIndex) - 1
@@ -627,6 +1017,22 @@ PUB drawPanelLineOfColor(panelIndex, fmRow, fmColumn, toRow, toColumn, rgbColor)
 
 
 PRI plotLineLow(x0, y0, x1, y1, rgbColor) | row, column, dy, dx, D, yi
+' Draw a line with shallow slope using Bresenham algorithm (dx > dy).
+'
+' @param x0 - starting column
+' @param y0 - starting row
+' @param x1 - ending column
+' @param y1 - ending row
+' @param rgbColor - 24-bit RGB color value
+
+' Local Variables:
+' @local row - current row position
+' @local column - current column position
+' @local dy - vertical distance
+' @local dx - horizontal distance
+' @local D - Bresenham decision variable
+' @local yi - row step direction (+1 or -1)
+
     dx := x1 - x0
     dy := y1 - y0
     yi := 1
@@ -645,6 +1051,22 @@ PRI plotLineLow(x0, y0, x1, y1, rgbColor) | row, column, dy, dx, D, yi
             D := D + 2 * dy
 
 PRI plotLineHigh(x0, y0, x1, y1, rgbColor) | row, column, dy, dx, D, xi
+' Draw a line with steep slope using Bresenham algorithm (dy > dx).
+'
+' @param x0 - starting column
+' @param y0 - starting row
+' @param x1 - ending column
+' @param y1 - ending row
+' @param rgbColor - 24-bit RGB color value
+
+' Local Variables:
+' @local row - current row position
+' @local column - current column position
+' @local dy - vertical distance
+' @local dx - horizontal distance
+' @local D - Bresenham decision variable
+' @local xi - column step direction (+1 or -1)
+
     dx := x1 - x0
     dy := y1 - y0
     xi := 1
@@ -663,7 +1085,7 @@ PRI plotLineHigh(x0, y0, x1, y1, rgbColor) | row, column, dy, dx, D, xi
             D := D + 2*dx
 
 
-CON { license }
+CON ' license
 
 {{
 

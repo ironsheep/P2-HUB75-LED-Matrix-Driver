@@ -12,12 +12,12 @@
 '' =================================================================================================
 
 
-CON { timing }
+CON ' timing
 
   CLK_FREQ = 335_000_000                                        ' system freq as a constant
   _clkfreq = CLK_FREQ                                           ' set system clock
 
-CON { DEBUG PINs }
+CON ' DEBUG PINs
 
 'DEBUG_PIN = 0
 
@@ -37,8 +37,14 @@ OBJ
     scrnBuffers :   "isp_hub75_hwBuffers"               ' the large buffers storing pixel data
 
 PUB main() : ok | bitCount, newMask
+'' Run the scrolling text demo on the HUB75 LED matrix.
+''
+'' @returns ok - cog ID of the started display driver or -1 on failure
 
-    '' run demo - displaying text/graphics in various ways
+' Local Variables:
+' @local bitCount - bit count scratch variable
+' @local newMask - mask scratch variable
+
     hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
     chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
@@ -58,7 +64,12 @@ PUB main() : ok | bitCount, newMask
         display.stop()
 
 PRI demoScrollingText() | scrollerID, textSize
-    ' draw some scrolling text
+' Set up and animate multiple scrolling text lines in different directions.
+'
+
+' Local Variables:
+' @local scrollerID - identifier for the active text scroller
+' @local textSize - selected font size for the display text
 
     scrollPeriod := 20    ' 50 * 10 mSec :: 50/100th Sec
 
@@ -127,18 +138,33 @@ PRI demoScrollingText() | scrollerID, textSize
 
 
 PRI showDuration(startTimeValue, pFuncTitle) | duration, converted
+' Display the elapsed time in microseconds for a named operation.
+'
+' @param startTimeValue - system counter value at the start of the operation
+' @param pFuncTitle - pointer to a zero-terminated string naming the operation
+
+' Local Variables:
+' @local duration - raw elapsed clock ticks
+' @local converted - elapsed time converted to microseconds
+
     duration := getct() - startTimeValue
     converted := muldiv64(duration, 1_000_000, clkfreq)
     debug("- elapsed ", zstr_(pFuncTitle), ": ", udec_(converted), " uSec")
 
-DAT { string data }
+DAT ' string data
 
 pwmMsg  byte    "XXXfrm pwm",0
 bitMsg  byte    "-RGB "
 bitCt   byte    "nbit-",0
 
 PRI demoText() | pFrameCountStr, frameCount
-    ' draw some text!
+' Display static text showing driver info including color depth and PWM frame count.
+'
+
+' Local Variables:
+' @local pFrameCountStr - pointer to frame count string
+' @local frameCount - number of PWM frames reported by the driver
+
     display.clearScreen()
     display.setTextFont(display.TEXT_FONT_5x7)    ' font size
     display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
@@ -166,15 +192,22 @@ PRI demoText() | pFrameCountStr, frameCount
     display.commitScreenToPanelSet()
 
 PRI waitSec(countSeconds)
+' Wait for the specified number of seconds.
+'
+' @param countSeconds - number of seconds to wait
+
     repeat countSeconds
         waitms(1000)
 
 PRI wait100thSecs(count)
-    '' wait for N 110ths of a second
+' Wait for N hundredths of a second.
+'
+' @param count - number of hundredths of a second to wait
+
     repeat count
         waitms(10)  ' 1/100 seconds
 
-CON { license }
+CON ' license
 
 {{
 

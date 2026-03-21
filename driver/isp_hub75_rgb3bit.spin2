@@ -12,11 +12,11 @@
 '' =================================================================================================
 
 
-CON { timing }
+CON ' timing
 
 ' clock is setup in top-level file
 
-CON { I/O PINs }
+CON ' I/O PINs
 
 ' New P2 Eval Board HUB75 Adapter:
     ' the user-selected location: one of 0, 16, 32, and 48
@@ -30,7 +30,7 @@ CON { I/O PINs }
 '}
 
 
-CON { Data }
+CON ' Data
 
     PIN_GROUP_P0_P15 = hwEnum.PINS_P0_P15
     PIN_GROUP_P16_P31 = hwEnum.PINS_P16_P31
@@ -113,24 +113,24 @@ VAR
 
 ' --------------------------------------------------------------------------------------------------
 PUB null()
-'' This is not a top level object
+'' This is not a top level object.
+''
 
 PUB start(nID, nChainIdx) : ok | tmpVar, panelCt, tmpConstant, widthInPanels, heightInPanels, pwmRowSizeInLongs, pwmRowsInCogBuffer
-
-'' Setup the pasm2 driver vars, then start a new cog running the driver
+'' Set up PASM2 driver variables and start a new cog running the matrix driver.
 ''
 '' @param nId - debug instance id
 '' @param nChainIdx - index of the desired chain
 '' @returns ok - cogID() of driver cog if successful, -1 if not
 
 ' Local Variables:
-' @local tmpVar -
-' @local panelCt -
-' @local tmpConstant -
-' @local widthInPanels -
-' @local heightInPanels -
-' @local pwmRowSizeInLongs -
-' @local pwmRowsInCogBuffer -
+' @local tmpVar - temporary value for debug output
+' @local panelCt - number of panels in the chain
+' @local tmpConstant - temporary constant for debug output
+' @local widthInPanels - number of panels across the display width
+' @local heightInPanels - number of panels across the display height
+' @local pwmRowSizeInLongs - size of one PWM row in longs
+' @local pwmRowsInCogBuffer - number of PWM rows that fit in the cog buffer
 
     chainIndex := nChainIdx
     instanceID := nID
@@ -404,7 +404,8 @@ PUB start(nID, nChainIdx) : ok | tmpVar, panelCt, tmpConstant, widthInPanels, he
 
 
 PUB stop()
-    '' Stop the cog that is running the driver
+'' Stop the driver cog and release all HUB75 pins.
+''
 
     ' FIXME: UNDONE issue command to driver to stop and release pins??
     'dvrCommand := CMD_STOP
@@ -420,7 +421,16 @@ PUB stop()
 
 ' --------------------------------------------------------------------------------------------------
 PUB fillScreenNoPWM(color3bit) | cValue, redBit, greenBit, blueBit
-    '' Request that driver fill the buffer with {3bitColor} value (no PWM)
+'' Fill the display buffer with a 3-bit color value without PWM.
+''
+'' @param color3bit - 3-bit RGB color value (0-7)
+
+' Local Variables:
+' @local cValue - constrained color value
+' @local redBit - extracted red bit for swap
+' @local greenBit - extracted green bit for swap
+' @local blueBit - extracted blue bit for swap
+
     cValue := 0 #> color3bit <# 7
     if bSwapRB
         ' if our driver says Red and Blue are swapped let's do so!
@@ -434,25 +444,35 @@ PUB fillScreenNoPWM(color3bit) | cValue, redBit, greenBit, blueBit
     repeat while (dvrCommand <> CMD_DONE)
 
 PUB clearPanel()
-    '' Request that driver fill the buffer with 0's - black
+'' Clear the panel by filling the display buffer with black.
+''
+
     fillScreenNoPWM(BLACK)
 
 PUB writeBuffer(pBuffer)
-    '' Request that driver copy our buffer to its buffer and display it (no PWM)
+'' Copy the caller buffer to the driver buffer and display it without PWM.
+''
+'' @param pBuffer - hub address of the source display buffer
+
     dvrArgument := pBuffer
     dvrCommand := CMD_SHOW_BUFFER
     repeat while (dvrCommand <> CMD_DONE)
 
 PUB writePwmBuffer(pBuffer)
+'' Display the PWM buffer set by continuously copying each sub-buffer to the driver.
+''
+'' @param pBuffer - hub address of the PWM buffer set
+
     'debug("- r3b:wrtPwmBuffer ")
-    '' Request that driver copy each buffer of PWM bufferSet to its buffer and display it
     dvrArgument := pBuffer
     dvrCommand := CMD_SHOW_PWM_BUFFER
     ' this will keep showing same PWM buffer until caller changes command!
     ' so it just returns immediately
 
 PRI setupPins()
-    ' configure Matrix Panel HUB75 pins
+' Configure all HUB75 panel pins as outputs with default states.
+'
+
     debug("* Driver Set up Pins")
     ' Enable all comm & address pins as outputs, set default states:
     PINLOW(pnlLedPinCLK)
@@ -465,6 +485,14 @@ PRI setupPins()
 ' --------------------------------------------------------------------------------------------------
 
 PRI resetPanelOld() | columnIdx, bitIdx, panelIdx
+' Reset FM6126A panel using the old initialization sequence.
+'
+
+' Local Variables:
+' @local columnIdx - current column index during init sequence
+' @local bitIdx - bit position within a 16-channel FM6126A chip
+' @local panelIdx - current panel index in chain
+
     debug("* Driver FM6126A Init")
     ' write the required init sequence to our panel drivers
 
@@ -630,10 +658,27 @@ PRI resetPanelOld() | columnIdx, bitIdx, panelIdx
     'waitms(2)
 
 PRI resetPanelMBI5124()
+' Reset MBI5124 panel driver chips (placeholder, not yet implemented).
+'
+
     ' see datasheet
     debug("* Driver missing MBI5124 init")
 
 PRI resetPanelFM6126() | maxPhysicalCols, last11Cols, last12Cols, lPinOE, lPinLATCH, lPinCLK, lPinA, lPnlRowAddrPins, lPnlColorPins
+' Reset FM6126A panel driver chips by writing control registers 11 and 12 via inline PASM2.
+'
+
+' Local Variables:
+' @local maxPhysicalCols - total number of physical display columns
+' @local last11Cols - column index where register 11 latching begins
+' @local last12Cols - column index where register 12 latching begins
+' @local lPinOE - local copy of output enable pin number
+' @local lPinLATCH - local copy of latch pin number
+' @local lPinCLK - local copy of clock pin number
+' @local lPinA - local copy of address line A pin number
+' @local lPnlRowAddrPins - local copy of row address pin group
+' @local lPnlColorPins - local copy of color data pin group
+
 ' NOTE: 16 longs total avail to inline pasm: params + return + local
 '  --> 9/16 used
     debug("* Driver FM6126A Init")
@@ -722,7 +767,7 @@ bitIdx              long    0
 
 ' --------------------------------------------------------------------------------------------------
 '
-DAT     { driver assembly code }
+DAT ' driver assembly code
                     org     0       ' COG code
 
 ' DRAFT matrix driver - best speed
@@ -1203,7 +1248,7 @@ col_lng_ctr         res     1
                 FIT     496
 
 
-CON { license }
+CON ' license
 
 {{
 

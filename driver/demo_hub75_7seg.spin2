@@ -12,16 +12,16 @@
 '' =================================================================================================
 
 
-CON { timing }
+CON ' timing
 
   CLK_FREQ = 335_000_000                                        ' system freq as a constant
   _clkfreq = CLK_FREQ                                           ' set system clock
 
-CON { DEBUG PINs }
+CON ' DEBUG PINs
 
 'DEBUG_PIN = 0
 
-CON { Display constants }
+CON ' Display constants
 
 MAX_DIGITS = 8
 
@@ -47,7 +47,27 @@ OBJ
     scrnBuffers         :   "isp_hub75_hwBuffers"       ' the large buffers storing pixel data
 
 PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, builtPtr, color3bit, color24bit, pPixColor, colorOffset, byteOffset, hours24
-    '' Start underlying drivers and run demo
+'' Start underlying drivers and run the seven-segment clock demo.
+''
+'' @returns ok - cog ID of the display driver or -1 on failure
+
+' Local Variables:
+' @local blockX - horizontal block position
+' @local blockY - vertical block position
+' @local subrow - sub-row index within block
+' @local subcol - sub-column index within block
+' @local row - display row coordinate
+' @local col - display column coordinate
+' @local red - red color component
+' @local green - green color component
+' @local blue - blue color component
+' @local builtPtr - constructed pointer value
+' @local color3bit - 3-bit color value
+' @local color24bit - 24-bit RGB color value
+' @local pPixColor - pointer to pixel color
+' @local colorOffset - offset into color table
+' @local byteOffset - byte offset into buffer
+' @local hours24 - hours value in 24-hour format
 
     'debug("`term temp size 82 50 textsize 10")
     hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
@@ -157,7 +177,16 @@ PUB start() : ok | blockX, blockY, subrow, subcol, row, col, red, green, blue, b
     repeat
 
 PRI showSecondsDots(lightDark) | red, green, blue, targetColor
-   ' lightDarkv[0,1] where 1 means bright color
+' Draw the colon dots between hour and minute digits.
+'
+' @param lightDark - 0 for dim color, 1 for bright color
+
+' Local Variables:
+' @local red - red color component
+' @local green - green color component
+' @local blue - blue color component
+' @local targetColor - computed 24-bit RGB color for dots
+
     if lightDark == 0
         targetColor := $00006F
     else
@@ -170,12 +199,22 @@ PRI showSecondsDots(lightDark) | red, green, blue, targetColor
         drawSecondsDot(23, 31+64, targetColor)
 
 PRI drawSecondsDot(row, column, rgbColor)
+' Draw a 2x2 pixel dot at the given row and column.
+'
+' @param row - top-left row of the dot
+' @param column - top-left column of the dot
+' @param rgbColor - 24-bit RGB color for the dot
+
     pixels.drawPixelAtRC(chainIndex, row, column, rgbColor)
     pixels.drawPixelAtRC(chainIndex, row, column+1, rgbColor)
     pixels.drawPixelAtRC(chainIndex, row+1, column, rgbColor)
     pixels.drawPixelAtRC(chainIndex, row+1, column+1, rgbColor)
 
 PRI allDigitAnimationsComplete() : status
+' Return TRUE if all digit animations have finished.
+'
+' @returns status - TRUE if all complete, FALSE otherwise
+
     status := TRUE
     repeat digitIndex from 0 to MAX_DIGITS - 1
         if not digit[digitIndex].isAnimationComplete()
@@ -183,6 +222,12 @@ PRI allDigitAnimationsComplete() : status
             quit
 
 PRI loopUntilSegmentsFinish() | didAnimate
+' Animate all digit segments until all animations are complete.
+'
+
+' Local Variables:
+' @local didAnimate - TRUE if any digit animated this iteration
+
     repeat
         didAnimate := FALSE
         if not allDigitAnimationsComplete()
@@ -198,18 +243,23 @@ PRI loopUntilSegmentsFinish() | didAnimate
             quit
 
 PUB wait100thSecs(count)
-    '' Wait for {count} 100ths of a second
+'' Wait for the specified number of hundredths of a second.
+''
+'' @param count - number of hundredths of a second to wait
+
     repeat count
         waitms(10)  ' 1/100 seconds
 
 
 PUB stop()
-    '' Stop the driver
+'' Stop the display driver and release the cog.
+''
+
     if cog
         display.stop()
         cog := 0
 
-CON { license }
+CON ' license
 
 {{
 

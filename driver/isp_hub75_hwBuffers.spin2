@@ -31,12 +31,12 @@ OBJ
     hwEnum   : "isp_hub75_hwEnums"                      ' hub75 attachment, set up constants
     user     : "isp_hub75_hwPanelConfig"                ' panel(s) size and layout per adapter
 
-CON { User Panel Connection and Configuration }
+CON ' User Panel Connection and Configuration
 
 ''  User customized section allocating large screen buffers for each HUB75 adapter board
 
 
-DAT { Large Buffers for each HUB75 adapter/chain of panels }
+DAT ' Large Buffers for each HUB75 adapter/chain of panels
 
 ' allocating one or more screens of pixels of 24bit color
 ' our screen bitmap of RGB colors (pwm bit lengths ;-)
@@ -76,15 +76,16 @@ screenTable2End
 '}
 
 PUB null()
-'' This is not a top level object
+'' Placeholder to prevent this object from being used as a top-level file.
+''
 
 PUB chain0Ptrs() : pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2
-
-'' Return the pointers to the buffers for the first HUB75 adapter board
+'' Return the pointers to the buffers for the first HUB75 adapter board.
 ''
 '' @returns pScrnBuffer - address of screen Buffer (2-3 bytes per pixel)
 '' @returns pPwmFrameSet1 - address of PWM Frame-Set 1 (4 bits per pixel * color depth)
 '' @returns pPwmFrameSet2 - address of PWM Frame-Set 2 (4 bits per pixel * color depth)
+
     debug("hwBffrs: scrnBffr bytes=", udec_long_(user.DISP0_SCRN_SIZE_IN_LONGS * 4))
     debug("hwBffrs: 2x pwmFrameBffr bytes=", udec_long_(user.DISP0_FRAMESET_SIZE_IN_LONGS * 4))
     pScrnBuffer := @@LONG[@screenTable0][0]
@@ -98,8 +99,7 @@ PUB chain0Ptrs() : pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2
 
 {   COMMENT-OUT THIS LINE (place tic in front of this line) if you using the 2nd HUB75 adapter board
 PUB chain1Ptrs() : pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2
-
-'' Return the pointers to the buffers for the first HUB75 adapter board
+'' Return the pointers to the buffers for the second HUB75 adapter board.
 ''
 '' @returns pScrnBuffer - address of screen Buffer (2-3 bytes per pixel)
 '' @returns pPwmFrameSet1 - address of PWM Frame-Set 1 (4 bits per pixel * color depth)
@@ -112,8 +112,7 @@ PUB chain1Ptrs() : pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2
 
 {   COMMENT-OUT THIS LINE (place tic in front of this line) if you are using the 3rd HUB75 adapter board
 PUB chain2Ptrs() : pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2
-
-'' Return the pointers to the buffers for the first HUB75 adapter board
+'' Return the pointers to the buffers for the third HUB75 adapter board.
 ''
 '' @returns pScrnBuffer - address of screen Buffer (2-3 bytes per pixel)
 '' @returns pPwmFrameSet1 - address of PWM Frame-Set 1 (4 bits per pixel * color depth)
@@ -124,7 +123,7 @@ PUB chain2Ptrs() : pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2
     pPwmFrameSet2 := @@LONG[@screenTable2][2]
 '}
 
-CON { license }
+CON ' license
 
 {{
 

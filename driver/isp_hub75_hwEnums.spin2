@@ -13,7 +13,7 @@
 '
 '  Interface constants used to describe HUB75 panel connection and configuration
 
-CON { Hardware Interface Constants }
+CON ' Hardware Interface Constants
 
 ' =================================================================================================
 '  (1) here the P2 EVAL HUB75 Adapter is plugged in
@@ -73,8 +73,9 @@ CON { Hardware Interface Constants }
 
 PUB null()
 '' This is not a top level object
+''
 
-CON { license }
+CON ' license
 
 {{
 
