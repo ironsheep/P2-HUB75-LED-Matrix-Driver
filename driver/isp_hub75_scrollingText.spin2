@@ -15,32 +15,31 @@ CON ' public control values
 
 ' scrolling support
 '  enum: scrolling direction
-#10, DIR_UNKNOWN, DIR_TO_LEFT, DIR_TO_RIGHT, DIR_UP, DIR_DOWN
+    #10, DIR_UNKNOWN, DIR_TO_LEFT, DIR_TO_RIGHT, DIR_UP, DIR_DOWN
 
 ' enum: scrolling duration
-#0, SCROLL_UNKNOWN, SCROLL_FOREVER, SCROLL_ONCE, SCROLL_ONCE_TO_CLEAR, SCROLL_N_TIMES
+    #0, SCROLL_UNKNOWN, SCROLL_FOREVER, SCROLL_ONCE, SCROLL_ONCE_TO_CLEAR, SCROLL_N_TIMES
 
-MAX_SCROLL_CHARS_TO_BUFFER = 10 * 3     ' 3 lines wide, max 10 chars per line
-MAX_SCROLL_COLORS_TO_BUFFER = MAX_SCROLL_CHARS_TO_BUFFER    ' one color per character
+    MAX_SCROLL_CHARS_TO_BUFFER   = 10 * 3                           ' 3 lines wide, max 10 chars per line
+    MAX_SCROLL_COLORS_TO_BUFFER  = MAX_SCROLL_CHARS_TO_BUFFER       ' one color per character
 
-MAX_SCROLL_CHAR_BYTES = (((MAX_SCROLL_CHARS_TO_BUFFER + 3) / 4) * 4)
-MAX_SCROLL_CHAR_LONGS = (MAX_SCROLL_CHAR_BYTES / 4)
+    MAX_SCROLL_CHAR_BYTES        = (((MAX_SCROLL_CHARS_TO_BUFFER + 3) / 4) * 4)
+    MAX_SCROLL_CHAR_LONGS        = (MAX_SCROLL_CHAR_BYTES / 4)
 
+    MAX_LONGS_PER_CHAR_BITMAP    = 2
 
-MAX_LONGS_PER_CHAR_BITMAP = 2
-
-NO_LEADING_CHAR_DISPLAY = -1
+    NO_LEADING_CHAR_DISPLAY      = -1
 
 OBJ
 
-    hub75Bffrs  :   "isp_hub75_hwBufferAccess"
-    pixels      :   "isp_hub75_screenUtils"
-    fonts       :   "isp_hub75_fonts"
-    colorUtils  :   "isp_hub75_colorUtils"
+    hub75Bffrs  : "isp_hub75_hwBufferAccess"
+    pixels      : "isp_hub75_screenUtils"
+    fonts       : "isp_hub75_fonts"
+    colorUtils  : "isp_hub75_colorUtils"
 
-DAT ' initialized data - class-static variables
+DAT  ' initialized data - class-static variables
 
-instanceNumber BYTE 0
+    instanceNumber  BYTE    0
 
 VAR ' globals - instance variables
 
@@ -51,19 +50,19 @@ VAR ' globals - instance variables
     LONG    rightBitmap[MAX_LONGS_PER_CHAR_BITMAP]
     LONG    scrollTextColor
     LONG    scrollCharOffset
-    LONG    ctCharsToScroll    ' set when scrolling text is specified
-    LONG    remainingColumns    ' set when scrolling text is specified
-    LONG    bScrolling          ' set when scrolling text is specified
-    LONG    topRow              ' set when scrolling text is specified
-    LONG    leftColumn          ' set when scrolling text is specified
-    LONG    windowWidthInPix         ' set when scrolling text is specified
+    LONG    ctCharsToScroll                                         ' set when scrolling text is specified
+    LONG    remainingColumns                                        ' set when scrolling text is specified
+    LONG    bScrolling                                              ' set when scrolling text is specified
+    LONG    topRow                                                  ' set when scrolling text is specified
+    LONG    leftColumn                                              ' set when scrolling text is specified
+    LONG    windowWidthInPix                                        ' set when scrolling text is specified
 
-    BYTE    maxVisibleChars    ' set when scrolling text is specified
+    BYTE    maxVisibleChars                                         ' set when scrolling text is specified
 
     LONG    startTime
 
-    LONG    maxTextColumns      ' specs from display object
-    LONG    maxDisplayColumns   ' specs from buffer chain table
+    LONG    maxTextColumns                                          ' specs from display object
+    LONG    maxDisplayColumns                                       ' specs from buffer chain table
     BYTE    charWidthInPix
     BYTE    charHeightInPix
     BYTE    leadingGapInPix
@@ -74,13 +73,13 @@ VAR ' globals - instance variables
     BYTE    bFontIsDithered
 
     LONG    remainingPixToScroll
-    LONG    charHzPixOffset         ' offset into "charWidthInPix + horizontalGapInPix" field
-    LONG    charVtPixOffset         ' offset from top of char
-    LONG    firstVisCharIndex       ' index into list of scrolling chars, head of left-scrolling or window-tail of right-scrolling
+    LONG    charHzPixOffset                                         ' offset into "charWidthInPix + horizontalGapInPix" field
+    LONG    charVtPixOffset                                         ' offset from top of char
+    LONG    firstVisCharIndex                                       ' index into list of scrolling chars, head of left-scrolling or window-tail of right-scrolling
 
-    LONG    scrollNbrTimes          ' configure before use!
-    BYTE    eScrollMode             ' configure before use!
-    BYTE    eScrollDirection        ' configure before use!
+    LONG    scrollNbrTimes                                          ' configure before use!
+    BYTE    eScrollMode                                             ' configure before use!
+    BYTE    eScrollDirection                                        ' configure before use!
     BYTE    isSetup
     BYTE    instanceID
 
@@ -88,24 +87,23 @@ PUB null()
 '' This is NOT a top level object
 ''
 
-
 PUB initialize(nChainIdx)
 '' Initialize this scroller instance for the given chain index.
 ''
 '' @param nChainIdx - the panel chain index to use
 
-    chainIndex := nChainIdx
-    isSetup := FALSE
-    bScrolling := FALSE
-    ctCharsToScroll := 0
-    eScrollMode := SCROLL_UNKNOWN
-    scrollNbrTimes := 0
-    instanceID := ++instanceNumber
-    remainingPixToScroll := 0
-    maxDisplayColumns := hub75Bffrs.maxDisplayColumns(chainIndex)
-    isSetup := TRUE ' yes, now we are!
+  chainIndex := nChainIdx
+  isSetup := FALSE
+  bScrolling := FALSE
+  ctCharsToScroll := 0
+  eScrollMode := SCROLL_UNKNOWN
+  scrollNbrTimes := 0
+  instanceID := ++instanceNumber
+  remainingPixToScroll := 0
+  maxDisplayColumns := hub75Bffrs.maxDisplayColumns(chainIndex)
+  isSetup := TRUE                                       ' yes, now we are!
 
-    'debug("stx:initialize() ", udec(instanceID))
+  'debug("stx:initialize() ", udec(instanceID))
 
 PUB setFontInfo(nbrTextColumns, charWidth, charHeight, leadingGap, horizontalGap, hBitmapOffset, textFont)
 '' Update cached font metrics when the active font changes.
@@ -118,15 +116,16 @@ PUB setFontInfo(nbrTextColumns, charWidth, charHeight, leadingGap, horizontalGap
 '' @param hBitmapOffset - horizontal bitmap offset in pixels
 '' @param textFont - font identifier to select
 
-    'debug("stx:setFontInfo() ", udec(instanceID), ", TCol=", udec_(nbrTextColumns), ", fnt=", udec_(textFont), ", wxh=(", udec_(charWidth), ", ", udec_(charHeight), "), ltGap=", udec_(leadingGap), ", hGap=", udec_(horizontalGap))
-    maxTextColumns := nbrTextColumns
-    charWidthInPix := charWidth
-    charHeightInPix := charHeight
-    leadingGapInPix := leadingGap
-    horizontalGapInPix := horizontalGap
-    hBitmapOffsetInPix := hBitmapOffset
-    selectedTextFont := textFont
-    bFontIsDithered := fonts.isDitheredFont(selectedTextFont)
+' debug("stx:setFontInfo() ", udec(instanceID), ", TCol=", udec_(nbrTextColumns), ", fnt=", udec_(textFont), ", wxh=(", udec_(charWidth), ", ", udec_(charHeight), "), ltGap=", udec_(leadingGap), ", hGap=", udec_(horizontalGap))
+
+  maxTextColumns := nbrTextColumns
+  charWidthInPix := charWidth
+  charHeightInPix := charHeight
+  leadingGapInPix := leadingGap
+  horizontalGapInPix := horizontalGap
+  hBitmapOffsetInPix := hBitmapOffset
+  selectedTextFont := textFont
+  bFontIsDithered := fonts.isDitheredFont(selectedTextFont)
 
 ' EXAMPLES
 '    configureScrollLoopCount(row, column, widthInChars, "hello world", display.DIR_LEFT, rgbColor)
@@ -136,21 +135,21 @@ PUB isIdle() : statusValue
 ''
 '' @returns statusValue - TRUE if scroller is idle, FALSE otherwise
 
-    statusValue := (ctCharsToScroll == 0) ? TRUE : FALSE
-    'debug("stx:isIdle(", udec_(instanceID), ") RET=", sdec_(statusValue))
+  statusValue := (ctCharsToScroll == 0) ? TRUE : FALSE
+    ' debug("stx:isIdle(", udec_(instanceID), ") RET=", sdec_(statusValue))
 
 PUB release()
 '' Mark this scroller instance as available for reuse.
 ''
 
-    ctCharsToScroll := 0
+  ctCharsToScroll := 0
 
 PUB configureScrollLoopMode(loopMode)
 '' Specify scrolling text duration using a default count of zero.
 ''
 '' @param loopMode - scrolling duration mode (SCROLL_FOREVER, SCROLL_ONCE, etc.)
 
-    configureScrollLoopCount(loopMode, 0)
+  configureScrollLoopCount(loopMode, 0)
 
 PUB configureScrollLoopCount(loopMode, count) | bValidRequest, validCount
 '' Specify scrolling text duration and repeat count.
@@ -162,41 +161,40 @@ PUB configureScrollLoopCount(loopMode, count) | bValidRequest, validCount
 ' @local bValidRequest - TRUE if the requested loopMode is recognized
 ' @local validCount - the count value clamped to valid range
 
-    debug("cslm() #", udec_(instanceID), " mode=", udec_(loopMode))
-    bValidRequest := TRUE
-    validCount := 0 #> count <# 10
-    case loopMode
-        SCROLL_FOREVER:
-        SCROLL_ONCE:
-        SCROLL_ONCE_TO_CLEAR:
-            bValidRequest := TRUE
-            scrollNbrTimes := 0
-        SCROLL_N_TIMES:
-            bValidRequest := TRUE
-            scrollNbrTimes := count
-        other:
-            bValidRequest := FALSE
+  DEBUG("cslm() #", udec_(instanceID), " mode=", udec_(loopMode))
+  bValidRequest := TRUE
+  validCount := 0 #> count <# 10
+  case loopMode
+    SCROLL_FOREVER:
+    SCROLL_ONCE:
+    SCROLL_ONCE_TO_CLEAR:
+      bValidRequest := TRUE
+      scrollNbrTimes := 0
+    SCROLL_N_TIMES:
+      bValidRequest := TRUE
+      scrollNbrTimes := count
+    other:
+      bValidRequest := FALSE
 
-    if bValidRequest
-        eScrollMode := loopMode
+  if bValidRequest
+    eScrollMode := loopMode
 
-    if loopMode <> SCROLL_FOREVER
-        if loopMode == SCROLL_ONCE_TO_CLEAR
-            remainingPixToScroll := (ctCharsToScroll * (charWidthInPix + horizontalGapInPix))
-            if eScrollDirection == DIR_UP or eScrollDirection == DIR_DOWN
-                remainingPixToScroll := charHeightInPix
-            ' BUG: 3 chars short font8A
-        elseif loopMode == SCROLL_N_TIMES
-            remainingPixToScroll := (((ctCharsToScroll * (charWidthInPix + horizontalGapInPix)) * scrollNbrTimes) - horizontalGapInPix) - windowWidthInPix
-            if eScrollDirection == DIR_UP or eScrollDirection == DIR_DOWN
-                remainingPixToScroll := (charHeightInPix + 1) * scrollNbrTimes  ' + 1 we are doing a blank row of pixels between rows
-        else
-            remainingPixToScroll := ((ctCharsToScroll * (charWidthInPix + horizontalGapInPix)) - horizontalGapInPix) - windowWidthInPix
-            if eScrollDirection == DIR_UP or eScrollDirection == DIR_DOWN
-                remainingPixToScroll := charHeightInPix + 1                     ' + 1 we are doing a blank row of pixels between rows
+  if loopMode <> SCROLL_FOREVER
+    if loopMode == SCROLL_ONCE_TO_CLEAR
+      remainingPixToScroll := (ctCharsToScroll * (charWidthInPix + horizontalGapInPix))
+      if eScrollDirection == DIR_UP OR eScrollDirection == DIR_DOWN
+        remainingPixToScroll := charHeightInPix
+    ' BUG: 3 chars short font8A
+    elseif loopMode == SCROLL_N_TIMES
+      remainingPixToScroll := (((ctCharsToScroll * (charWidthInPix + horizontalGapInPix)) * scrollNbrTimes) - horizontalGapInPix) - windowWidthInPix
+      if eScrollDirection == DIR_UP OR eScrollDirection == DIR_DOWN
+        remainingPixToScroll := (charHeightInPix + 1) * scrollNbrTimes          ' + 1 we are doing a blank row of pixels between rows
+    else
+      remainingPixToScroll := ((ctCharsToScroll * (charWidthInPix + horizontalGapInPix)) - horizontalGapInPix) - windowWidthInPix
+      if eScrollDirection == DIR_UP OR eScrollDirection == DIR_DOWN
+        remainingPixToScroll := charHeightInPix + 1                             ' + 1 we are doing a blank row of pixels between rows
             ' BUG: 1 char short font 8A
     'debug("stx:scrlTxt() ", udec(instanceID), ", ", udec(remainingPixToScroll), udec(ctCharsToScroll), udec(maxVisibleChars), udec(charWidthInPix), udec(horizontalGapInPix))
-
 
 PUB scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbColor) | nextToAppearIndex, colIndex, charColumn
 '' Place scrolling text at row, column from a zero-terminated string using the given direction and color.
@@ -213,152 +211,152 @@ PUB scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbCol
 ' @local colIndex - column index used during placement
 ' @local charColumn - character column tracker
 
-    if isIdle()
-        debug("stx:starcoc() #", udec_(instanceID), " [", zstr_(pZString), "](", udec_(widthInChars), ")")
-        scrollTextColor := rgbColor
+  if isIdle()
+    DEBUG("stx:starcoc() #", udec_(instanceID), " [", zstr_(pZString), "](", udec_(widthInChars), ")")
+    scrollTextColor := rgbColor
 
-        ' our string length is smaller of length given or our receiving buffer length
-        ctCharsToScroll := min(strsize(pZString), MAX_SCROLL_CHAR_BYTES)
+    ' our string length is smaller of length given or our receiving buffer length
+    ctCharsToScroll := min(strsize(pZString), MAX_SCROLL_CHAR_BYTES)
 
-        ' visible chars is our window size constrained by our font max text columns
-        maxVisibleChars := 1 #> widthInChars <# maxTextColumns
+    ' visible chars is our window size constrained by our font max text columns
+    maxVisibleChars := 1 #> widthInChars <# maxTextColumns
 
-        ' if our string is shorter than our window then right is string-end, else right is window-end
-        nextToAppearIndex := min(maxVisibleChars, ctCharsToScroll)
+    ' if our string is shorter than our window then right is string-end, else right is window-end
+    nextToAppearIndex := min(maxVisibleChars, ctCharsToScroll)
 
-        ' our pix length is char-width + gap-between-chars
-        windowWidthInPix := (maxVisibleChars * (charWidthInPix + horizontalGapInPix)) - horizontalGapInPix
+    ' our pix length is char-width + gap-between-chars
+    windowWidthInPix := (maxVisibleChars * (charWidthInPix + horizontalGapInPix)) - horizontalGapInPix
 
-        ' remainingPix is our number of pix yet off screen to right (or to left if scrolling that direction)
-        remainingPixToScroll := ((ctCharsToScroll * (charWidthInPix + horizontalGapInPix)) - horizontalGapInPix) - windowWidthInPix
-        if direction == DIR_UP or direction == DIR_DOWN
-            remainingPixToScroll := charHeightInPix         ' + 1 we are doing a blank row of pixels between rows
+    ' remainingPix is our number of pix yet off screen to right (or to left if scrolling that direction)
+    remainingPixToScroll := ((ctCharsToScroll * (charWidthInPix + horizontalGapInPix)) - horizontalGapInPix) - windowWidthInPix
+    if direction == DIR_UP OR direction == DIR_DOWN
+      remainingPixToScroll := charHeightInPix           ' + 1 we are doing a blank row of pixels between rows
 
-        'debug("stx:scrollTxAtRCOfClr() ", udec(instanceID), ", RC=(", udec_(row), udec_(column), "), ", zstr(pZString), ", CT=", udec_(ctCharsToScroll), ", VIS=", udec_(maxVisibleChars), ", NTAI=", udec_(nextToAppearIndex))
+    ' debug("stx:scrollTxAtRCOfClr() ", udec(instanceID), ", RC=(", udec_(row), udec_(column), "), ", zstr(pZString), ", CT=", udec_(ctCharsToScroll), ", VIS=", udec_(maxVisibleChars), ", NTAI=", udec_(nextToAppearIndex))
 
-        if ctCharsToScroll > 0
-            bytemove(@scrollChars, pZString, ctCharsToScroll)
-            topRow := row
-            leftColumn := column
-            case direction
-                DIR_TO_LEFT:
-                    ' showing left-most chars first
-                    eScrollDirection := direction
-                    firstVisCharIndex := 0
-                    charHzPixOffset := 0
-                DIR_TO_RIGHT:
-                    ' showing right-most chars first
-                    eScrollDirection := direction
-                    firstVisCharIndex := ctCharsToScroll - maxVisibleChars
-                    charHzPixOffset := charWidthInPix + horizontalGapInPix - 1
-                DIR_UP:
-                    eScrollDirection := direction
-                    firstVisCharIndex := 0
-                    charVtPixOffset := 0    ' start with full text on screen
-                DIR_DOWN:
-                    eScrollDirection := direction
-                    firstVisCharIndex := 0
-                    charVtPixOffset := 0    ' start with full text on screen
-                other:
-                    eScrollDirection := DIR_UNKNOWN
-                    debug("stx:bad scroll direction, abort")
-                    abort
-        '
-        ' place window chars on screen
-        '
-        ' reset scroll offset to beginning
-        if direction == DIR_TO_LEFT
-            placeColrCharsHzOfstAtRC(topRow, leftColumn, charHzPixOffset, windowWidthInPix, firstVisCharIndex, scrollTextColor)
-            charHzPixOffset++  ' we showed first window content just now
-        elseif direction == DIR_TO_RIGHT
-            placeColrCharsHzOfstAtRC(topRow, leftColumn, charHzPixOffset, windowWidthInPix, firstVisCharIndex, scrollTextColor)
-            charHzPixOffset--  ' we showed first window content just now
-            if charHzPixOffset < 0
-                charHzPixOffset := charWidthInPix + horizontalGapInPix - 1
-                firstVisCharIndex--
-        elseif direction == DIR_UP
-            placeColrCharsVtOfstAtRC(topRow, leftColumn, charVtPixOffset, windowWidthInPix, scrollTextColor)
-            charVtPixOffset++  ' we showed first window content just now
-        elseif direction == DIR_DOWN
-            placeColrCharsVtOfstAtRC(topRow, leftColumn, charVtPixOffset, windowWidthInPix, scrollTextColor)
-            charVtPixOffset--  ' we showed first window content just now
-            if charVtPixOffset < 0
-                charVtPixOffset := charHeightInPix - 1 + 1  ' + 1 we are doing a blank row of pixels between rows
-    else
-        debug("stx:scrollTxAtRCOfClr() - NOT IDLE!")
-
+    if ctCharsToScroll > 0
+      bytemove(@scrollChars, pZString, ctCharsToScroll)
+      topRow := row
+      leftColumn := column
+      case direction
+        DIR_TO_LEFT:
+          ' showing left-most chars first
+          eScrollDirection := direction
+          firstVisCharIndex := 0
+          charHzPixOffset := 0
+        DIR_TO_RIGHT:
+          ' showing right-most chars first
+          eScrollDirection := direction
+          firstVisCharIndex := ctCharsToScroll - maxVisibleChars
+          charHzPixOffset := charWidthInPix + horizontalGapInPix - 1
+        DIR_UP:
+          eScrollDirection := direction
+          firstVisCharIndex := 0
+          charVtPixOffset := 0                          ' start with full text on screen
+        DIR_DOWN:
+          eScrollDirection := direction
+          firstVisCharIndex := 0
+          charVtPixOffset := 0                          ' start with full text on screen
+        other:
+          eScrollDirection := DIR_UNKNOWN
+          DEBUG("stx:bad scroll direction, abort")
+          abort
+    '
+    ' place window chars on screen
+    '
+    ' reset scroll offset to beginning
+    if direction == DIR_TO_LEFT
+      placeColrCharsHzOfstAtRC(topRow, leftColumn, charHzPixOffset, windowWidthInPix, firstVisCharIndex, scrollTextColor)
+      charHzPixOffset++                                 ' we showed first window content just now
+    elseif direction == DIR_TO_RIGHT
+      placeColrCharsHzOfstAtRC(topRow, leftColumn, charHzPixOffset, windowWidthInPix, firstVisCharIndex, scrollTextColor)
+      charHzPixOffset--                                 ' we showed first window content just now
+      if charHzPixOffset < 0
+        charHzPixOffset := charWidthInPix + horizontalGapInPix - 1
+        firstVisCharIndex--
+    elseif direction == DIR_UP
+      placeColrCharsVtOfstAtRC(topRow, leftColumn, charVtPixOffset, windowWidthInPix, scrollTextColor)
+      charVtPixOffset++                                 ' we showed first window content just now
+    elseif direction == DIR_DOWN
+      placeColrCharsVtOfstAtRC(topRow, leftColumn, charVtPixOffset, windowWidthInPix, scrollTextColor)
+      charVtPixOffset--                                 ' we showed first window content just now
+      if charVtPixOffset < 0
+        charVtPixOffset := charHeightInPix - 1 + 1      ' + 1 we are doing a blank row of pixels between rows
+  else
+    DEBUG("stx:scrollTxAtRCOfClr() - NOT IDLE!")
 
 PUB animateScroll()
 '' Perform one scroll animation step if scrolling is not yet complete.
 ''
 
-    if not isScrollingComplete()
-        'startTime := getct()
-        'debug("stx:AS()")
+  if NOT isScrollingComplete()
+    'startTime := getct()
+    'debug("stx:AS()")
 
-        ' if scrolling left then head is next loosing left most pixel (offset dictates)
-        '   and tail if moving left most pixel onscreen
-        ' else (moving right) then head is moving rightmost pixel on screen
-        '   while tail is loosing right most pixel (offset dictates)
-        ' all chars are in the char buffer "scrollChars"
+    ' if scrolling left then head is next loosing left most pixel (offset dictates)
+    '   and tail if moving left most pixel onscreen
+    ' else (moving right) then head is moving rightmost pixel on screen
+    '   while tail is loosing right most pixel (offset dictates)
+    ' all chars are in the char buffer "scrollChars"
 
-        'if instanceID == 0
-        'debug("stx:as(", udec_(instanceID), ") ", udec(charHzPixOffset), udec(firstVisCharIndex), udec(remainingPixToScroll))
+    'if instanceID == 0
+    'debug("stx:as(", udec_(instanceID), ") ", udec(charHzPixOffset), udec(firstVisCharIndex), udec(remainingPixToScroll))
 
-        ' place char bits
-        if eScrollDirection == DIR_TO_LEFT
-            placeColrCharsHzOfstAtRC(topRow, leftColumn, charHzPixOffset, windowWidthInPix, firstVisCharIndex, scrollTextColor)
-            charHzPixOffset++  ' we showed one just now
-            ' if finished scrolling first char offscreen then reset to show head of next char
-            if charHzPixOffset > charWidthInPix + horizontalGapInPix - 1
-                charHzPixOffset := 0
-                firstVisCharIndex++
-                if firstVisCharIndex > ctCharsToScroll - 1 && eScrollMode <> SCROLL_ONCE_TO_CLEAR
-                    firstVisCharIndex := 0
-        elseif eScrollDirection == DIR_TO_RIGHT
-            placeColrCharsHzOfstAtRC(topRow, leftColumn, charHzPixOffset, windowWidthInPix, firstVisCharIndex, scrollTextColor)
-            charHzPixOffset--  ' we showed one just now
-            ' if finished scrolling first char offscreen then reset to show head of next char
-            if charHzPixOffset < 0
-                charHzPixOffset := charWidthInPix + horizontalGapInPix - 1
-                firstVisCharIndex--
-                if firstVisCharIndex < 0 && eScrollMode <> SCROLL_ONCE_TO_CLEAR
-                    firstVisCharIndex := ctCharsToScroll - 1
-        elseif eScrollDirection == DIR_UP
-            placeColrCharsVtOfstAtRC(topRow, leftColumn, charVtPixOffset, windowWidthInPix, scrollTextColor)
-            charVtPixOffset++  ' we showed one just now
-            if charVtPixOffset >= charHeightInPix - 1 + 1           ' + 1 we are doing a blank row of pixels between rows
-                charVtPixOffset := 0
+    ' place char bits
+    if eScrollDirection == DIR_TO_LEFT
+      placeColrCharsHzOfstAtRC(topRow, leftColumn, charHzPixOffset, windowWidthInPix, firstVisCharIndex, scrollTextColor)
+      charHzPixOffset++                                 ' we showed one just now
+      ' if finished scrolling first char offscreen then reset to show head of next char
+      if charHzPixOffset > charWidthInPix + horizontalGapInPix - 1
+        charHzPixOffset := 0
+        firstVisCharIndex++
+        if firstVisCharIndex > ctCharsToScroll - 1 && eScrollMode <> SCROLL_ONCE_TO_CLEAR
+          firstVisCharIndex := 0
+    elseif eScrollDirection == DIR_TO_RIGHT
+      placeColrCharsHzOfstAtRC(topRow, leftColumn, charHzPixOffset, windowWidthInPix, firstVisCharIndex, scrollTextColor)
+      charHzPixOffset--                                 ' we showed one just now
+      ' if finished scrolling first char offscreen then reset to show head of next char
+      if charHzPixOffset < 0
+        charHzPixOffset := charWidthInPix + horizontalGapInPix - 1
+        firstVisCharIndex--
+        if firstVisCharIndex < 0 && eScrollMode <> SCROLL_ONCE_TO_CLEAR
+          firstVisCharIndex := ctCharsToScroll - 1
+    elseif eScrollDirection == DIR_UP
+      placeColrCharsVtOfstAtRC(topRow, leftColumn, charVtPixOffset, windowWidthInPix, scrollTextColor)
+      charVtPixOffset++                                 ' we showed one just now
+      if charVtPixOffset >= charHeightInPix - 1 + 1     ' + 1 we are doing a blank row of pixels between rows
+        charVtPixOffset := 0
 
-        elseif eScrollDirection == DIR_DOWN
-            placeColrCharsVtOfstAtRC(topRow, leftColumn, charVtPixOffset, windowWidthInPix, scrollTextColor)
-            charVtPixOffset--  ' we showed one just now
-            if charVtPixOffset < 0
-                charVtPixOffset := charHeightInPix - 1 + 1      ' + 1 we are doing a blank row of pixels between rows
+    elseif eScrollDirection == DIR_DOWN
+      placeColrCharsVtOfstAtRC(topRow, leftColumn, charVtPixOffset, windowWidthInPix, scrollTextColor)
+      charVtPixOffset--                                 ' we showed one just now
+      if charVtPixOffset < 0
+        charVtPixOffset := charHeightInPix - 1 + 1      ' + 1 we are doing a blank row of pixels between rows
 
-        if eScrollMode <> SCROLL_FOREVER
-            if remainingPixToScroll > 0
-                remainingPixToScroll--
-                if remainingPixToScroll == 0
-                    ctCharsToScroll := 0   'force IDLE to report true now
-            'debug("stx:AS ", udec(remainingPixToScroll))
+    if eScrollMode <> SCROLL_FOREVER
+      if remainingPixToScroll > 0
+        remainingPixToScroll--
+        if remainingPixToScroll == 0
+          ctCharsToScroll := 0  ' force IDLE to report true now
+            ' debug("stx:AS ", udec(remainingPixToScroll))
 
-        'showDuration(startTime, string("stx:AS"))
+        ' showDuration(startTime, string("stx:AS"))
 
 PUB isScrollingComplete() : doneStatus
 '' Return T/F where T means that all scrolling movement is complete.
 ''
 '' @returns doneStatus - TRUE if scrolling is complete, FALSE otherwise
 
-    'if instanceID == 0
-    '    debug("stx:isc(", udec_(instanceID), ") ", udec(remainingPixToScroll))
-    doneStatus := (remainingPixToScroll > 0) ? FALSE : TRUE
-    ' if 'foreever' we are never done!
-    if eScrollMode == SCROLL_FOREVER
-        doneStatus := FALSE
+'if instanceID == 0
+'    debug("stx:isc(", udec_(instanceID), ") ", udec(remainingPixToScroll))
 
-    if doneStatus
-        debug("stx:isc() #", udec_(instanceID), " scroll Complete")
+  doneStatus := (remainingPixToScroll > 0) ? FALSE : TRUE
+  ' if 'foreever' we are never done!
+  if eScrollMode == SCROLL_FOREVER
+    doneStatus := FALSE
+
+  if doneStatus
+    DEBUG("stx:isc() #", udec_(instanceID), " scroll Complete")
 
 CON ' -----------  PRIVATE Methods  -----------
 
@@ -391,48 +389,48 @@ PRI placeColrCharsHzOfstAtRC(row, column, charHzPxOffset, windowWidth, startChar
 ' @local endColumn - column position after last placed character
 ' @local pChrBitmap - pointer to the current character bitmap
 
-    maxCharIndex := (charHzPxOffset > 0) ? maxVisibleChars : maxVisibleChars - 1
-    headWidthInPix := charWidthInPix + horizontalGapInPix - charHzPxOffset
-    tailWidthInPix := 0
-    remainWindowPix := windowWidth
-    endColumn := column
-    hzInsetInPix := charHzPxOffset
-    'debug("stx:plcC() ", udec(maxCharIndex), udec(headWidthInPix), udec(remainWindowPix), udec(endColumn), udec(hzInsetInPix))
+  maxCharIndex := (charHzPxOffset > 0) ? maxVisibleChars : maxVisibleChars - 1
+  headWidthInPix := charWidthInPix + horizontalGapInPix - charHzPxOffset
+  tailWidthInPix := 0
+  remainWindowPix := windowWidth
+  endColumn := column
+  hzInsetInPix := charHzPxOffset
+  ' debug("stx:plcC() ", udec(maxCharIndex), udec(headWidthInPix), udec(remainWindowPix), udec(endColumn), udec(hzInsetInPix))
 
-    ' for width of visible window
-    repeat charIndex from 0 to maxCharIndex
-        ' calc index of next char to display
-        actCharIndex := charIndex + startCharIndex
-        ' correct the index on wrap-around
-        if actCharIndex > ctCharsToScroll - 1 && eScrollMode <> SCROLL_ONCE_TO_CLEAR
-            actCharIndex -= ctCharsToScroll
-        ' if we have only a trailing char left
-        if remainWindowPix < charWidthInPix
-            ' set char-to-paint width to size of remaining window width
-            tailWidthInPix := remainWindowPix
-            headWidthInPix := 0    ' kill all head display
+  ' for width of visible window
+  repeat charIndex from 0 TO maxCharIndex
+    ' calc index of next char to display
+    actCharIndex := charIndex + startCharIndex
+    ' correct the index on wrap-around
+    if actCharIndex > ctCharsToScroll - 1 && eScrollMode <> SCROLL_ONCE_TO_CLEAR
+      actCharIndex -= ctCharsToScroll
+    ' if we have only a trailing char left
+    if remainWindowPix < charWidthInPix
+      ' set char-to-paint width to size of remaining window width
+      tailWidthInPix := remainWindowPix
+      headWidthInPix := 0                               ' kill all head display
 
-        cChar := BYTE[@scrollChars][actCharIndex]
-        ' if we are scrolling end of text off screen then chars beyond text are ' ' chars
-        if actCharIndex > ctCharsToScroll - 1
-            cChar := $20  '  TEST use $30 ' space char (zero for TESTing)
-        ' get pointer to character bitmap
-        pChrBitmap := fonts.getCharAddrForFont(selectedTextFont, cChar)
-        ' if we've some character to show, then draw full or partial character
-        'debug("stx:plcChr ", udec(charIndex), udec(endColumn), udec(headWidthInPix), udec(tailWidthInPix))
-        if headWidthInPix > 0
-            ' place full/partial first char
-            endColumn := placeBitmapFrontAtRCWithColor(row, endColumn, hzInsetInPix, headWidthInPix, pChrBitmap, rgbColor)
-            ' count this many pix placed
-            remainWindowPix -= headWidthInPix
-            ' form here on (until last char) we do full char width placements
-            headWidthInPix := (charIndex == maxCharIndex) ? charWidthInPix : charWidthInPix + horizontalGapInPix
-            hzInsetInPix := 0  ' reset this to full char
-        if tailWidthInPix > 0
-            ' place partial last char
-            endColumn := placeBitmapBackAtRCWithColor(row, endColumn, hzInsetInPix, tailWidthInPix, pChrBitmap, rgbColor)
-            ' count this many pix placed
-            remainWindowPix -= tailWidthInPix
+    cChar := BYTE[@scrollChars][actCharIndex]
+    ' if we are scrolling end of text off screen then chars beyond text are ' ' chars
+    if actCharIndex > ctCharsToScroll - 1
+      cChar := $20                                      '  TEST use $30 ' space char (zero for TESTing)
+    ' get pointer to character bitmap
+    pChrBitmap := fonts.getCharAddrForFont(selectedTextFont, cChar)
+    ' if we've some character to show, then draw full or partial character
+    'debug("stx:plcChr ", udec(charIndex), udec(endColumn), udec(headWidthInPix), udec(tailWidthInPix))
+    if headWidthInPix > 0
+      ' place full/partial first char
+      endColumn := placeBitmapFrontAtRCWithColor(row, endColumn, hzInsetInPix, headWidthInPix, pChrBitmap, rgbColor)
+      ' count this many pix placed
+      remainWindowPix -= headWidthInPix
+      ' form here on (until last char) we do full char width placements
+      headWidthInPix := (charIndex == maxCharIndex) ? charWidthInPix : charWidthInPix + horizontalGapInPix
+      hzInsetInPix := 0                                 ' reset this to full char
+    if tailWidthInPix > 0
+      ' place partial last char
+      endColumn := placeBitmapBackAtRCWithColor(row, endColumn, hzInsetInPix, tailWidthInPix, pChrBitmap, rgbColor)
+      ' count this many pix placed
+      remainWindowPix -= tailWidthInPix
 
 PRI placeColrCharsVtOfstAtRC(row, column, vtPxOffset, windowWidth, rgbColor) | endColumn, pChrBitmap
 ' Write character bitmaps to screen with vertical pixel offset for vertical scrolling.
@@ -446,23 +444,23 @@ PRI placeColrCharsVtOfstAtRC(row, column, vtPxOffset, windowWidth, rgbColor) | e
 ' @local endColumn - column position after last placed character
 ' @local pChrBitmap - pointer to the current character bitmap
 
-    maxCharIndex := maxVisibleChars
-    remainWindowPix := windowWidth
-    endColumn := column
-    'debug("stx:plcVtC() ", udec(maxCharIndex), udec(vtPxOffset), udec(remainWindowPix), udec(endColumn))
+  maxCharIndex := maxVisibleChars
+  remainWindowPix := windowWidth
+  endColumn := column
+  ' debug("stx:plcVtC() ", udec(maxCharIndex), udec(vtPxOffset), udec(remainWindowPix), udec(endColumn))
 
-    ' for width of visible window
-    repeat charIndex from 0 to maxCharIndex
-        ' calc index of next char to display
-        cChar := BYTE[@scrollChars][charIndex]
-        ' if we are scrolling end of text off screen then chars beyond text are ' ' chars
-        if charIndex > ctCharsToScroll - 1
-            cChar := $20  '  TEST use $30 ' space char (zero for TESTing)
-        ' get pointer to character bitmap
-        pChrBitmap := fonts.getCharAddrForFont(selectedTextFont, cChar)
-        ' draw full character but vertical pixels rotated
-        'debug("stx:plcChr ", udec(charIndex), udec(endColumn), udec(headWidthInPix), udec(tailWidthInPix))
-        endColumn := placeColrBitmapVtOffsetAtRC(row, endColumn, vtPxOffset, pChrBitmap, rgbColor)
+  ' for width of visible window
+  repeat charIndex from 0 TO maxCharIndex
+    ' calc index of next char to display
+    cChar := BYTE[@scrollChars][charIndex]
+    ' if we are scrolling end of text off screen then chars beyond text are ' ' chars
+    if charIndex > ctCharsToScroll - 1
+      cChar := $20                                      '  TEST use $30 ' space char (zero for TESTing)
+    ' get pointer to character bitmap
+    pChrBitmap := fonts.getCharAddrForFont(selectedTextFont, cChar)
+    ' draw full character but vertical pixels rotated
+    'debug("stx:plcChr ", udec(charIndex), udec(endColumn), udec(headWidthInPix), udec(tailWidthInPix))
+    endColumn := placeColrBitmapVtOffsetAtRC(row, endColumn, vtPxOffset, pChrBitmap, rgbColor)
 
 PRI min(a, b) : smallerNumber
 ' Return the smaller of two numbers.
@@ -471,8 +469,7 @@ PRI min(a, b) : smallerNumber
 ' @param b - second value to compare
 ' @returns smallerNumber - the lesser of a and b
 
-    smallerNumber := (a < b) ? a : b
-
+  smallerNumber := (a < b) ? a : b
 
 PRI placeSpaceAtRC(row, column, widthInPix) : endColumn | colIndex, rowIndex
 ' Write blank pixels for inter-character spacing at the given position.
@@ -485,13 +482,14 @@ PRI placeSpaceAtRC(row, column, widthInPix) : endColumn | colIndex, rowIndex
 ' @local colIndex - current column being drawn
 ' @local rowIndex - current row being drawn
 
-    'if widthInPix <> 1
-    'debug("stx:ps ", udec(widthInPix))
-    repeat colIndex from column to widthInPix - 1 + column
-        repeat rowIndex from row to charHeightInPix - 1 + row
-            pixels.drawPixelAtRC(chainIndex, rowIndex, colIndex, $000000)
+'if widthInPix <> 1
+'debug("stx:ps ", udec(widthInPix))
 
-    endColumn := column + widthInPix
+  repeat colIndex from column TO widthInPix - 1 + column
+    repeat rowIndex from row TO charHeightInPix - 1 + row
+      pixels.drawPixelAtRC(chainIndex, rowIndex, colIndex, $000000)
+
+  endColumn := column + widthInPix
 
 PRI placeBitmapFrontAtRCWithColor(row, column, bitInset, nbrFieldBits, pChrBitmap, rgbColor) : endColumn | cBitIdx, cByteIdx, cRowBits, pixColor, colOffset, pixColumn, pixRow, cBitOffset, nbrCharBits, pixVal, ditheredRGBColor
 ' Draw the leading (front) portion of a character bitmap at the given position with color.
@@ -516,50 +514,51 @@ PRI placeBitmapFrontAtRCWithColor(row, column, bitInset, nbrFieldBits, pChrBitma
 ' @local pixVal - extracted pixel value from dithered bitmap
 ' @local ditheredRGBColor - reduced brightness color for dithered pixels
 
-    'startTime := getct()
-    nbrCharBits := (nbrFieldBits > 0) ? nbrFieldBits - horizontalGapInPix : 0
-    'debug("stx:pbF ", udec(column), udec(bitInset), udec(nbrFieldBits), udec(nbrCharBits), uhex_long(pChrBitmap))
-    ' if we have some but not all char bits then we are leading char
-    'if nbrCharBits <> charWidthInPix    ' TESTING
-    '    rgbColor := $00ff00             ' TESTING color our leading char green
-    endColumn := column + nbrCharBits   ' point to gap locn
-    if nbrCharBits > 0
-        if bFontIsDithered
-            ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, 36)      ' 50% brightness
-            repeat cByteIdx from 0 to charHeightInPix - 1
-                cRowBits := WORD[pChrBitmap][cByteIdx]
-                pixRow := row + cByteIdx
-                ' from right edge of char to left
-                colOffset := 0
-                repeat cBitIdx from bitInset to bitInset + charWidthInPix - 1   ' 4-0, 4-1, 4-2, 4-3, 4-4
-                    cBitOffset := cBitIdx * 2
-                    pixVal := (cRowBits & ($c000 >> cBitOffset)) >> (14 - cBitOffset)
-                    pixColor := rgbColor
-                    if pixVal <> 3
-                        pixColor := (pixVal == 1) ? ditheredRGBColor : $000000
-                    pixColumn := column + colOffset
-                    ' dont paint beyond our left edge
-                    if pixColumn >= leftColumn
-                        pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
-                    colOffset++
-        else
-        repeat cByteIdx from 0 to charHeightInPix - 1
-            cRowBits := BYTE[pChrBitmap][cByteIdx]
-            pixRow := row + cByteIdx
-            ' from right edge of char to left
-            colOffset := 0
-            repeat cBitIdx from bitInset to bitInset + charWidthInPix - 1   ' 4-0, 4-1, 4-2, 4-3, 4-4
-                cBitOffset := (charWidthInPix - 1) - cBitIdx
-                pixColor := cRowBits & (1 << cBitOffset) > 0 ? rgbColor : $000000
-                pixColumn := column + colOffset
-                ' dont paint beyond our left edge
-                if pixColumn >= leftColumn
-                    pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
-                colOffset++
+' startTime := getct()
 
-    if horizontalGapInPix > 0 && nbrFieldBits > 0
-        ' place vert space after 1st char
-        endColumn := placeSpaceAtRC(row, endColumn, horizontalGapInPix)
+  nbrCharBits := (nbrFieldBits > 0) ? nbrFieldBits - horizontalGapInPix : 0
+  'debug("stx:pbF ", udec(column), udec(bitInset), udec(nbrFieldBits), udec(nbrCharBits), uhex_long(pChrBitmap))
+  ' if we have some but not all char bits then we are leading char
+  'if nbrCharBits <> charWidthInPix    ' TESTING
+  '    rgbColor := $00ff00             ' TESTING color our leading char green
+  endColumn := column + nbrCharBits                                             ' point to gap locn
+  if nbrCharBits > 0
+    if bFontIsDithered
+      ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, 36)    ' 50% brightness
+      repeat cByteIdx from 0 TO charHeightInPix - 1
+        cRowBits := WORD[pChrBitmap][cByteIdx]
+        pixRow := row + cByteIdx
+        ' from right edge of char to left
+        colOffset := 0
+        repeat cBitIdx from bitInset TO bitInset + charWidthInPix - 1           ' 4-0, 4-1, 4-2, 4-3, 4-4
+          cBitOffset := cBitIdx * 2
+          pixVal := (cRowBits & ($c000 >> cBitOffset)) >> (14 - cBitOffset)
+          pixColor := rgbColor
+          if pixVal <> 3
+            pixColor := (pixVal == 1) ? ditheredRGBColor : $000000
+          pixColumn := column + colOffset
+          ' dont paint beyond our left edge
+          if pixColumn >= leftColumn
+            pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
+          colOffset++
+    else
+    repeat cByteIdx from 0 TO charHeightInPix - 1
+      cRowBits := BYTE[pChrBitmap][cByteIdx]
+      pixRow := row + cByteIdx
+      ' from right edge of char to left
+      colOffset := 0
+      repeat cBitIdx from bitInset TO bitInset + charWidthInPix - 1             ' 4-0, 4-1, 4-2, 4-3, 4-4
+        cBitOffset := (charWidthInPix - 1) - cBitIdx
+        pixColor := cRowBits & (1 << cBitOffset) > 0 ? rgbColor : $000000
+        pixColumn := column + colOffset
+        ' dont paint beyond our left edge
+        if pixColumn >= leftColumn
+          pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
+        colOffset++
+
+  if horizontalGapInPix > 0 && nbrFieldBits > 0
+    ' place vert space after 1st char
+    endColumn := placeSpaceAtRC(row, endColumn, horizontalGapInPix)
 
     'debug("stx:pBMf() ", udec(instanceID), udec(row), udec(column), udec(bitInset), udec(nbrCharBits), udec(endColumn))
     'showDuration(startTime, string("stx:pbF"))
@@ -585,43 +584,43 @@ PRI placeBitmapBackAtRCWithColor(row, column, bitInset, nbrCharBits, pChrBitmap,
 ' @local cBitOffset - computed bit offset for extracting pixel value
 ' @local pixVal - extracted pixel value from dithered bitmap
 ' @local ditheredRGBColor - reduced brightness color for dithered pixels
-    'startTime := getct()
-    'debug("stx:pbB ", udec(column), udec(bitInset), udec(nbrCharBits), uhex_long(pChrBitmap))
-    'rgbColor := $ffff00 ' TESTING color our trailing char yellow
-    endColumn := column + nbrCharBits
-    if nbrCharBits > 0
-        if bFontIsDithered
-            ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, 36)      ' 50% brightness
-            repeat cByteIdx from 0 to charHeightInPix - 1
-                cRowBits := WORD[pChrBitmap][cByteIdx]
-                pixRow := row + cByteIdx
-                ' from right edge of char to left
-                colOffset := nbrCharBits - 1
-                repeat cBitIdx from bitInset to bitInset + nbrCharBits - 1  ' 4-0, 4-1, 4-2, 4-3, 4-4
-                    cBitOffset := cBitIdx * 2
-                    pixVal := (cRowBits & ($c000 >> cBitOffset)) >> (14 - cBitOffset)
-                    pixColor := rgbColor
-                    if pixVal <> 3
-                        pixColor := (pixVal == 1) ? ditheredRGBColor : $000000
-                    pixColumn := column + (nbrCharBits - 1) - colOffset
-                    ' dont paint off edge of matrix
-                    if pixColumn < maxDisplayColumns
-                        pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
-                    colOffset--
-        else
-        repeat cByteIdx from 0 to charHeightInPix - 1
-            cRowBits := BYTE[pChrBitmap][cByteIdx]
-            pixRow := row + cByteIdx
-            ' from right edge of char to left
-            colOffset := nbrCharBits - 1
-            repeat cBitIdx from bitInset to bitInset + nbrCharBits - 1  ' 4-0, 4-1, 4-2, 4-3, 4-4
-                cBitOffset := (charWidthInPix - 1) - cBitIdx
-                pixColor := cRowBits & (1 << cBitOffset) > 0 ? rgbColor : $000000
-                pixColumn := column + (nbrCharBits - 1) - colOffset
-                ' dont paint off edge of matrix
-                if pixColumn < maxDisplayColumns
-                    pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
-                colOffset--
+  'startTime := getct()
+  'debug("stx:pbB ", udec(column), udec(bitInset), udec(nbrCharBits), uhex_long(pChrBitmap))
+  'rgbColor := $ffff00 ' TESTING color our trailing char yellow
+  endColumn := column + nbrCharBits
+  if nbrCharBits > 0
+    if bFontIsDithered
+      ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, 36)    ' 50% brightness
+      repeat cByteIdx from 0 TO charHeightInPix - 1
+        cRowBits := WORD[pChrBitmap][cByteIdx]
+        pixRow := row + cByteIdx
+        ' from right edge of char to left
+        colOffset := nbrCharBits - 1
+        repeat cBitIdx from bitInset TO bitInset + nbrCharBits - 1              ' 4-0, 4-1, 4-2, 4-3, 4-4
+          cBitOffset := cBitIdx * 2
+          pixVal := (cRowBits & ($c000 >> cBitOffset)) >> (14 - cBitOffset)
+          pixColor := rgbColor
+          if pixVal <> 3
+            pixColor := (pixVal == 1) ? ditheredRGBColor : $000000
+          pixColumn := column + (nbrCharBits - 1) - colOffset
+          ' dont paint off edge of matrix
+          if pixColumn < maxDisplayColumns
+            pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
+          colOffset--
+    else
+    repeat cByteIdx from 0 TO charHeightInPix - 1
+      cRowBits := BYTE[pChrBitmap][cByteIdx]
+      pixRow := row + cByteIdx
+      ' from right edge of char to left
+      colOffset := nbrCharBits - 1
+      repeat cBitIdx from bitInset TO bitInset + nbrCharBits - 1                ' 4-0, 4-1, 4-2, 4-3, 4-4
+        cBitOffset := (charWidthInPix - 1) - cBitIdx
+        pixColor := cRowBits & (1 << cBitOffset) > 0 ? rgbColor : $000000
+        pixColumn := column + (nbrCharBits - 1) - colOffset
+        ' dont paint off edge of matrix
+        if pixColumn < maxDisplayColumns
+          pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
+        colOffset--
 
     'debug("stx:pBMb() ", udec(instanceID), udec(row), udec(column), udec(bitInset), udec(nbrCharBits), udec(endColumn))
     'showDuration(startTime, string("stx:pbB"))
@@ -652,55 +651,55 @@ PRI placeColrBitmapVtOffsetAtRC(row, column, vtPxOffset, pChrBitmap, rgbColor) :
 ' @local pixColumn - absolute column of the current pixel
 ' @local pixVal - extracted pixel value from dithered bitmap
 ' @local ditheredRGBColor - reduced brightness color for dithered pixels
-    endColumn := column + charWidthInPix
-    if bFontIsDithered
-        ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, 36)      ' 50% brightness
-        repeat rowIdx from 0 to charHeightInPix - 1
-            pixRow := row + rowIdx
-            cByteIdx := (rowIdx + vtPxOffset) +// (charHeightInPix + 1)    ' [0-(charHeight-1), and charHeight] where charHeight means black row of pixels
-            if cByteIdx > charHeightInPix - 1
-                cRowBits := 0     ' no 1 bits (all BG color)
-            else
-                cRowBits := WORD[pChrBitmap][cByteIdx]
+  endColumn := column + charWidthInPix
+  if bFontIsDithered
+    ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, 36)      ' 50% brightness
+    repeat rowIdx from 0 TO charHeightInPix - 1
+      pixRow := row + rowIdx
+      cByteIdx := (rowIdx + vtPxOffset) +// (charHeightInPix + 1)               ' [0-(charHeight-1), and charHeight] where charHeight means black row of pixels
+      if cByteIdx > charHeightInPix - 1
+        cRowBits := 0                                                           ' no 1 bits (all BG color)
+      else
+        cRowBits := WORD[pChrBitmap][cByteIdx]
+      '        if debugCount > 0 ' and vtPxOffset <> 0
+      '            debugCount--
+      '            if debugCount > 0
+      '                debug("pcbVt: ", udec(vtPxOffset), udec(cByteIdx))
+      ' from right edge of char to left
+      colOffset := charWidthInPix - 1
+      repeat cBitIdx from 0 TO charWidthInPix - 1                               ' 4-0, 4-1, 4-2, 4-3, 4-4
+        cBitOffset := cBitIdx * 2
+        pixVal := (cRowBits & ($c000 >> cBitOffset)) >> (14 - cBitOffset)
+        pixColor := rgbColor
+        if pixVal <> 3
+          pixColor := (pixVal == 1) ? ditheredRGBColor : $000000
+        pixColumn := column + (charWidthInPix - 1) - colOffset
+        ' dont paint off edge of matrix
+        if pixColumn < maxDisplayColumns
+          pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
+        colOffset--
+  else
+  repeat rowIdx from 0 TO charHeightInPix - 1
+    pixRow := row + rowIdx
+    cByteIdx := (rowIdx + vtPxOffset) +// (charHeightInPix + 1)                 ' [0-(charHeight-1), and charHeight] where charHeight means black row of pixels
+    if cByteIdx > charHeightInPix - 1
+      cRowBits := 0                                                             ' no 1 bits (all BG color)
+    else
+      cRowBits := BYTE[pChrBitmap][cByteIdx]
     '        if debugCount > 0 ' and vtPxOffset <> 0
     '            debugCount--
     '            if debugCount > 0
     '                debug("pcbVt: ", udec(vtPxOffset), udec(cByteIdx))
-            ' from right edge of char to left
-            colOffset := charWidthInPix - 1
-            repeat cBitIdx from 0 to charWidthInPix - 1  ' 4-0, 4-1, 4-2, 4-3, 4-4
-                cBitOffset := cBitIdx * 2
-                pixVal := (cRowBits & ($c000 >> cBitOffset)) >> (14 - cBitOffset)
-                pixColor := rgbColor
-                if pixVal <> 3
-                    pixColor := (pixVal == 1) ? ditheredRGBColor : $000000
-                pixColumn := column + (charWidthInPix - 1) - colOffset
-                ' dont paint off edge of matrix
-                if pixColumn < maxDisplayColumns
-                    pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
-                colOffset--
-    else
-    repeat rowIdx from 0 to charHeightInPix - 1
-        pixRow := row + rowIdx
-        cByteIdx := (rowIdx + vtPxOffset) +// (charHeightInPix + 1)    ' [0-(charHeight-1), and charHeight] where charHeight means black row of pixels
-        if cByteIdx > charHeightInPix - 1
-            cRowBits := 0     ' no 1 bits (all BG color)
-        else
-            cRowBits := BYTE[pChrBitmap][cByteIdx]
-'        if debugCount > 0 ' and vtPxOffset <> 0
-'            debugCount--
-'            if debugCount > 0
-'                debug("pcbVt: ", udec(vtPxOffset), udec(cByteIdx))
-        ' from right edge of char to left
-        colOffset := charWidthInPix - 1
-        repeat cBitIdx from 0 to charWidthInPix - 1  ' 4-0, 4-1, 4-2, 4-3, 4-4
-            cBitOffset := (charWidthInPix - 1) - cBitIdx
-            pixColor := cRowBits & (1 << cBitOffset) > 0 ? rgbColor : $000000
-            pixColumn := column + (charWidthInPix - 1) - colOffset
-            ' dont paint off edge of matrix
-            if pixColumn < maxDisplayColumns
-                pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
-            colOffset--
+    ' from right edge of char to left
+    colOffset := charWidthInPix - 1
+    repeat cBitIdx from 0 TO charWidthInPix - 1                                 ' 4-0, 4-1, 4-2, 4-3, 4-4
+      cBitOffset := (charWidthInPix - 1) - cBitIdx
+      pixColor := cRowBits & (1 << cBitOffset) > 0 ? rgbColor : $000000
+      pixColumn := column + (charWidthInPix - 1) - colOffset
+      ' dont paint off edge of matrix
+      if pixColumn < maxDisplayColumns
+        pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
+      colOffset--
 
 PRI showDuration(startTimeValue, pFuncTitle) | duration, converted
 ' Calculate and optionally display elapsed time since a start timestamp.
@@ -711,9 +710,9 @@ PRI showDuration(startTimeValue, pFuncTitle) | duration, converted
 ' @local duration - raw clock ticks elapsed
 ' @local converted - elapsed time converted to microseconds
 
-    duration := getct() - startTimeValue
-    converted := muldiv64(duration, 1_000_000, clkfreq)
-    'debug("stx:- elapsed ", zstr_(pFuncTitle), ": ", udec_(converted), " uSec")
+  duration := GETCT() - startTimeValue
+  converted := muldiv64(duration, 1_000_000, clkfreq)
+    ' debug("stx:- elapsed ", zstr_(pFuncTitle), ": ", udec_(converted), " uSec")
 
 CON ' license
 

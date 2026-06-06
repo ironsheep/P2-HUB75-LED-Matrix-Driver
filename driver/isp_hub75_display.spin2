@@ -13,47 +13,47 @@
 
 CON ' Object Interface: PUBLIC ENUMs
 
-  NOT_FOUND = -1
+    NOT_FOUND                 = -1
 
-  ' supported Text Fonts
+    ' supported Text Fonts
 
-  TEXT_FONT_DEFAULT           = fonts.TEXT_FONT_DEFAULT
-  TEXT_FONT_5x7               = fonts.TEXT_FONT_5x7
-  TEXT_FONT_5x7_DITH          = fonts.TEXT_FONT_5x7_DITH
-  TEXT_FONT_5x7_DITH_DCNDR    = fonts.TEXT_FONT_5x7_DITH_DCNDR
-  TEXT_FONT_8x8A              = fonts.TEXT_FONT_8x8A
-  TEXT_FONT_8x8B              = fonts.TEXT_FONT_8x8B
+    TEXT_FONT_DEFAULT         = fonts.TEXT_FONT_DEFAULT
+    TEXT_FONT_5X7             = fonts.TEXT_FONT_5X7
+    TEXT_FONT_5X7_DITH        = fonts.TEXT_FONT_5X7_DITH
+    TEXT_FONT_5X7_DITH_DCNDR  = fonts.TEXT_FONT_5X7_DITH_DCNDR
+    TEXT_FONT_8X8A            = fonts.TEXT_FONT_8X8A
+    TEXT_FONT_8X8B            = fonts.TEXT_FONT_8X8B
 
-  ' scrolling support
-  '  enum: scrolling direction (these start from 10 decimal)
-  DIR_UNKNOWN     = scroller.DIR_UNKNOWN
-  DIR_TO_LEFT     = scroller.DIR_TO_LEFT
-  DIR_TO_RIGHT    = scroller.DIR_TO_RIGHT
-  DIR_DOWN        = scroller.DIR_DOWN
-  DIR_UP          = scroller.DIR_UP
+    ' scrolling support
+    '  enum: scrolling direction (these start from 10 decimal)
+    DIR_UNKNOWN               = scroller.DIR_UNKNOWN
+    DIR_TO_LEFT               = scroller.DIR_TO_LEFT
+    DIR_TO_RIGHT              = scroller.DIR_TO_RIGHT
+    DIR_DOWN                  = scroller.DIR_DOWN
+    DIR_UP                    = scroller.DIR_UP
 
-  ' enum: scrolling duration
-  SCROLL_UNKNOWN      = scroller.SCROLL_UNKNOWN
-  SCROLL_FOREVER      = scroller.SCROLL_FOREVER
-  SCROLL_ONCE         = scroller.SCROLL_ONCE
-  SCROLL_ONCE_TO_CLEAR = scroller.SCROLL_ONCE_TO_CLEAR
-  SCROLL_N_TIMES      = scroller.SCROLL_N_TIMES
+    ' enum: scrolling duration
+    SCROLL_UNKNOWN            = scroller.SCROLL_UNKNOWN
+    SCROLL_FOREVER            = scroller.SCROLL_FOREVER
+    SCROLL_ONCE               = scroller.SCROLL_ONCE
+    SCROLL_ONCE_TO_CLEAR      = scroller.SCROLL_ONCE_TO_CLEAR
+    SCROLL_N_TIMES            = scroller.SCROLL_N_TIMES
 
-  ' enum: text alignment (these start from 0 decimal)
-  #0, ALIGN_UNKNOWN, ALIGN_RIGHT, ALIGN_CENTER, ALIGN_LEFT
+    ' enum: text alignment (these start from 0 decimal)
+    #0, ALIGN_UNKNOWN, ALIGN_RIGHT, ALIGN_CENTER, ALIGN_LEFT
 
-  ' FIXME: UNDONE make this user configurable
-  MAX_SCROLLING_REGIONS = 4
+    ' FIXME: UNDONE make this user configurable
+    MAX_SCROLLING_REGIONS     = 4
 
 OBJ ' Objects Used by this Object
 
-    hub75Bffrs  :   "isp_hub75_hwBufferAccess"
-    pixels      :   "isp_hub75_screenUtils"
-    panelSet    :   "isp_hub75_panel"
-    fonts       :   "isp_hub75_fonts"
-    hwEnum      :   "isp_hub75_hwEnums"  ' hub75 attachment, set up constants
-    colorUtils :    "isp_hub75_colorUtils"
-    scroller[MAX_SCROLLING_REGIONS] : "isp_hub75_scrollingText"
+    hub75Bffrs                              : "isp_hub75_hwBufferAccess"
+    pixels                                  : "isp_hub75_screenUtils"
+    panelSet                                : "isp_hub75_panel"
+    fonts                                   : "isp_hub75_fonts"
+    hwEnum                                  : "isp_hub75_hwEnums"   ' hub75 attachment, set up constants
+    colorUtils                              : "isp_hub75_colorUtils"
+    scroller[MAX_SCROLLING_REGIONS]         : "isp_hub75_scrollingText"
 
 VAR ' Object Instance Variables
     LONG    instanceID
@@ -89,11 +89,11 @@ VAR ' Object Instance Variables
     BYTE    bSwapGB
 
     LONG    bDidShowOnce
-    BYTE   padBuffer[MAX_PAD_BUFFER_BYTES]
+    BYTE    padBuffer[MAX_PAD_BUFFER_BYTES]
 
 CON ' PRIVATE Constants
 
-    MAX_PAD_BUFFER_BYTES = 30
+    MAX_PAD_BUFFER_BYTES  = 30
 
 PUB null()
 '' This is not a top level object.
@@ -105,7 +105,7 @@ PUB start(nChainIdx) : ok
 '' @param nChainIdx - the index of the desired chain
 '' @returns ok - cog ID or -1 on failure
 
-    ok := startWithId(0, nChainIdx)
+  ok := startWithId(0, nChainIdx)
 
 PUB startWithId(nId, nChainIdx) : ok | scrollerIndex, dvrConfig, eChipType
 '' Start the underlying driver(s) with a debug instance ID for multi-hub75 card configurations.
@@ -119,48 +119,48 @@ PUB startWithId(nId, nChainIdx) : ok | scrollerIndex, dvrConfig, eChipType
 ' @local dvrConfig - driver configuration flags
 ' @local eChipType - chip type enumeration value
 
-    chainIndex := nChainIdx
-    instanceID := nId
-    bDidShowOnce := FALSE
-    bytefill(@padBuffer, 0, MAX_PAD_BUFFER_BYTES)
+  chainIndex := nChainIdx
+  instanceID := nId
+  bDidShowOnce := FALSE
+  bytefill(@padBuffer, 0, MAX_PAD_BUFFER_BYTES)
 
-    ok := cog := -1 ' mark as failed, initially
+  ok := cog := -1                                       ' mark as failed, initially
 
-    debug("DSP: start() #", udec_(instanceID))
-    ok := cog := panelSet.start(instanceID, chainIndex)   ' send buffer to driver
-    if ok == -1
-        debug("DSP: underlying drivers failed!")
-        abort
+  DEBUG("DSP: start() #", udec_(instanceID))
+  ok := cog := panelSet.start(instanceID, chainIndex)   ' send buffer to driver
+  if ok == -1
+    DEBUG("DSP: underlying drivers failed!")
+    abort
 
-    ' now that we know our chainIndex for this instance, we can record geometry info
-    maxDisplayRows, maxDisplayColumns := hub75Bffrs.displaySizeInPixels(chainIndex)
-    maxPanels := hub75Bffrs.maxPanels(chainIndex)
-    rowsPerPanel, columnsPerPanel := hub75Bffrs.panelSizeInPixels(chainIndex)
+  ' now that we know our chainIndex for this instance, we can record geometry info
+  maxDisplayRows, maxDisplayColumns := hub75Bffrs.displaySizeInPixels(chainIndex)
+  maxPanels := hub75Bffrs.maxPanels(chainIndex)
+  rowsPerPanel, columnsPerPanel := hub75Bffrs.panelSizeInPixels(chainIndex)
 
-    debug("DSP: BFFR screen[", udec_long_(hub75Bffrs.displaySizeInLongs(chainIndex)), "] 0x", uhex_long_(hub75Bffrs.displayBufferAddress(chainIndex)))
+  debug("DSP: BFFR screen[", udec_long_(hub75Bffrs.displaySizeInLongs(chainIndex)), "] 0x", uhex_long_(hub75Bffrs.displayBufferAddress(chainIndex)))
 
-    dvrConfig, eChipType := hub75Bffrs.getDriverFlags(chainIndex)
-    bScan_1_4 := (dvrConfig & hwEnum.SCAN_4) > 0 ? True : False
-    bSwapRB := (dvrConfig & hwEnum.RB_SWAP) > 0 ? True : False
-    bSwapGB := (dvrConfig & hwEnum.GB_SWAP) > 0 ? True : False
+  dvrConfig, eChipType := hub75Bffrs.getDriverFlags(chainIndex)
+  bScan_1_4 := (dvrConfig & hwEnum.SCAN_4) > 0 ? True : False
+  bSwapRB := (dvrConfig & hwEnum.RB_SWAP) > 0 ? True : False
+  bSwapGB := (dvrConfig & hwEnum.GB_SWAP) > 0 ? True : False
 
-    ' configure our scrollers for first use
-    repeat scrollerIndex from 0 to MAX_SCROLLING_REGIONS - 1
-        scroller[scrollerIndex].initialize(chainIndex)
-    ' now set text font - which also tell scrollers!
-    setTextFont(TEXT_FONT_DEFAULT)
+  ' configure our scrollers for first use
+  repeat scrollerIndex from 0 TO MAX_SCROLLING_REGIONS - 1
+    scroller[scrollerIndex].initialize(chainIndex)
+  ' now set text font - which also tell scrollers!
+  setTextFont(TEXT_FONT_DEFAULT)
 
-    homeCursor()
-    setTextColor($AAAAAA)
-    clearScreen()
+  homeCursor()
+  setTextColor($AAAAAA)
+  clearScreen()
 
 PUB stop()
 '' Stop the underlying driver(s).
 ''
 
-    if cog
-        panelSet.stop()
-        cog := 0
+  if cog
+    panelSet.stop()
+    cog := 0
 
 PUB setBufferPointers(nChainIdx, pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2)
 '' Forward the buffer pointers to the underlying buffer access routines.
@@ -170,20 +170,20 @@ PUB setBufferPointers(nChainIdx, pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2)
 '' @param pPwmFrameSet1 - address of PWM Frame-Set 1 (4 bits per pixel * color depth)
 '' @param pPwmFrameSet2 - address of PWM Frame-Set 2 (4 bits per pixel * color depth)
 
-    hub75Bffrs.setBufferPointers(nChainIdx, pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2)
+  hub75Bffrs.setBufferPointers(nChainIdx, pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2)
 
 PUB clearScreen()
 '' Clear the panel to BLACK.
 ''
 
-    hub75Bffrs.zeroFillBuffer(chainIndex)
-    commitScreenToPanelSet()
+  hub75Bffrs.zeroFillBuffer(chainIndex)
+  commitScreenToPanelSet()
 
 PUB clearScreenBuffer()
 '' Clear the screen buffer to BLACK without committing to panel.
 ''
 
-    hub75Bffrs.zeroFillBuffer(chainIndex)
+  hub75Bffrs.zeroFillBuffer(chainIndex)
 
 PUB setBrightness(newBrightness)
 '' Set the global brightness value
@@ -192,7 +192,7 @@ PUB setBrightness(newBrightness)
 ''
 '' @param newBrightness - the desired brightness value [0-255,256]
 
-    colorUtils.setBrightness(newBrightness)
+  colorUtils.setBrightness(newBrightness)
 
 PUB getBrightness() : brightness
 '' Return the global brightness value
@@ -201,46 +201,47 @@ PUB getBrightness() : brightness
 ''  - where 256 is NO brightness adjustment
 ''  - where 0 is OFF, 205 = 80%, etc.
 
-    brightness := colorUtils.getBrightness()
+  brightness := colorUtils.getBrightness()
 
 PUB fillScreen(rgbColor) | row, column
-    '' Fill the display with 24-bit color value
-    '' Uses display coordinates (applies panel column swap if needed)
-    repeat maxDisplayRows with row
-        repeat maxDisplayColumns with column
-            drawDisplayPixel(row, column, rgbColor)
+'' Fill the display with 24-bit color value
+'' Uses display coordinates (applies panel column swap if needed)
+
+  repeat maxDisplayRows with row
+    repeat maxDisplayColumns with column
+      drawDisplayPixel(row, column, rgbColor)
 
 PUB fillPanel(panelIndex, rgbColor) | row, column, offsetPixelRows, offsetPixelColumns
-    '' Fill the specified panel (of panelSet) with 24-bit color value
-    '' For 2D grids, panelIndex uses row-major order from top-left:
-    ''   2x2 grid: [0][1]    3x3 grid: [0][1][2]
-    ''             [2][3]              [3][4][5]
-    ''                                 [6][7][8]
-    offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, panelIndex)
-    debug("fillPanel(", udec_(panelIndex), ") ", udec_(columnsPerPanel), "x", udec_(rowsPerPanel), " @ row=", udec_(offsetPixelRows), " col=", udec_(offsetPixelColumns))
+'' Fill the specified panel (of panelSet) with 24-bit color value
+'' For 2D grids, panelIndex uses row-major order from top-left:
+''   2x2 grid: [0][1]    3x3 grid: [0][1][2]
+''             [2][3]              [3][4][5]
+''                                 [6][7][8]
 
-    repeat rowsPerPanel with row
-        repeat columnsPerPanel with column
-            pixels.drawPixelAtRC(chainIndex, row + offsetPixelRows, column + offsetPixelColumns, rgbColor)
+  offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, panelIndex)
+  debug("fillPanel(", udec_(panelIndex), ") ", udec_(columnsPerPanel), "x", udec_(rowsPerPanel), " @ row=", udec_(offsetPixelRows), " col=", udec_(offsetPixelColumns))
+
+  repeat rowsPerPanel with row
+    repeat columnsPerPanel with column
+      pixels.drawPixelAtRC(chainIndex, row + offsetPixelRows, column + offsetPixelColumns, rgbColor)
 
 PUB fillScreenNoPWM(threeBitColor)
 '' Fill screen without PWM conversion for testing the underlying driver.
 ''
 '' @param threeBitColor - 3-bit color value (one bit per R, G, B)
 
-    panelSet.fillScreenNoPWM(threeBitColor)
+  panelSet.fillScreenNoPWM(threeBitColor)
 
 PUB commitScreenToPanelSet()
 '' Write screen buffer to panel driver PWM frames while alternating PWM frame sets.
 ''
 
-    'debug("DSP: commit!")
+' debug("DSP: commit!")
 
-    if bScan_1_4
-        panelSet.convertScreen2PWM_14(hub75Bffrs.displayBufferAddress(0), bSwapRB, bSwapGB)
-    else
-        panelSet.convertScreen2PWM(hub75Bffrs.displayBufferAddress(0), bSwapRB, bSwapGB)
-
+  if bScan_1_4
+    panelSet.convertScreen2PWM_14(hub75Bffrs.displayBufferAddress(0), bSwapRB, bSwapGB)
+  else
+    panelSet.convertScreen2PWM(hub75Bffrs.displayBufferAddress(0), bSwapRB, bSwapGB)
 
 CON ' --------------     Text Handling     --------------
 
@@ -250,48 +251,50 @@ PUB setCursor(line, column)
 '' @param line - zero-based text line number
 '' @param column - zero-based text column number
 
-    ' TODO emit error on bad column/row?
-    cursorLine := 0 #> line <# maxTextLines - 1
-    cursorColumn := 0 #> column <# maxTextColumns - 1
-    'debug("crsr: ln=", udec_(cursorLine), ", col=", udec_(cursorColumn))
+' TODO emit error on bad column/row?
+
+  cursorLine := 0 #> line <# maxTextLines - 1
+  cursorColumn := 0 #> column <# maxTextColumns - 1
+    ' debug("crsr: ln=", udec_(cursorLine), ", col=", udec_(cursorColumn))
 
 PUB homeCursor()
 '' Return the cursor to the top left corner of the display.
 ''
 
-    setCursor(0, 0)
+  setCursor(0, 0)
 
 PUB setCursorOnPanel(line, column, panelIndex) | boundedPanelIndex, boundedLine, boundedColumn, panelGridRow, panelGridCol, panelsPerRow, panelsPerCol
-    '' Position the text cursor to line, column within the selected panel
-    '' Translates panel-local text coordinates to display-wide coordinates
-    '' For 2D grids, panelIndex uses row-major order from top-left:
-    ''   2x2 grid: [0][1]    3x3 grid: [0][1][2]
-    ''             [2][3]              [3][4][5]
-    ''                                 [6][7][8]
-    boundedPanelIndex := 0 #> panelIndex <# maxPanels - 1
-    boundedLine := 0 #> line <# maxPanelTextLines - 1
-    boundedColumn := 0 #> column <# maxPanelTextColumns - 1
+'' Position the text cursor to line, column within the selected panel
+'' Translates panel-local text coordinates to display-wide coordinates
+'' For 2D grids, panelIndex uses row-major order from top-left:
+''   2x2 grid: [0][1]    3x3 grid: [0][1][2]
+''             [2][3]              [3][4][5]
+''                                 [6][7][8]
 
-    ' Get panel grid dimensions (panelsPerCol = rows of panels, panelsPerRow = columns of panels)
-    panelsPerCol, panelsPerRow := hub75Bffrs.displaySizeInPanels(chainIndex)
+  boundedPanelIndex := 0 #> panelIndex <# maxPanels - 1
+  boundedLine := 0 #> line <# maxPanelTextLines - 1
+  boundedColumn := 0 #> column <# maxPanelTextColumns - 1
 
-    ' Calculate panel position in grid (row-major order)
-    panelGridRow := boundedPanelIndex / panelsPerRow
-    panelGridCol := boundedPanelIndex // panelsPerRow
+  ' Get panel grid dimensions (panelsPerCol = rows of panels, panelsPerRow = columns of panels)
+  panelsPerCol, panelsPerRow := hub75Bffrs.displaySizeInPanels(chainIndex)
 
-    ' Translate panel-local coordinates to display-wide text coordinates
-    cursorLine := boundedLine + (panelGridRow * maxPanelTextLines)
-    cursorColumn := boundedColumn + (panelGridCol * maxPanelTextColumns)
+  ' Calculate panel position in grid (row-major order)
+  panelGridRow := boundedPanelIndex / panelsPerRow
+  panelGridCol := boundedPanelIndex // panelsPerRow
 
-    ' Reset pixel fixup (no longer needed with proper 2D calculation)
-    panelFixupOffetInPix := 0
+  ' Translate panel-local coordinates to display-wide text coordinates
+  cursorLine := boundedLine + (panelGridRow * maxPanelTextLines)
+  cursorColumn := boundedColumn + (panelGridCol * maxPanelTextColumns)
+
+  ' Reset pixel fixup (no longer needed with proper 2D calculation)
+  panelFixupOffetInPix := 0
 
 PUB homeCursorOnPanel(panelIndex)
 '' Return the cursor to the top left corner of the selected panel.
 ''
 '' @param panelIndex - zero-based index of the target panel
 
-    setCursorOnPanel(0, 0, panelIndex)
+  setCursorOnPanel(0, 0, panelIndex)
 
 PUB setTextFont(newFont) | scrollerIndex, hUnusedPix, vUnusedPix, heightCorrection
 '' Select the text font and recalculate the text grid size.
@@ -304,78 +307,78 @@ PUB setTextFont(newFont) | scrollerIndex, hUnusedPix, vUnusedPix, heightCorrecti
 ' @local vUnusedPix - vertical unused pixels after text grid layout
 ' @local heightCorrection - height adjustment for certain fonts
 
-    ' currently we only support our 8x8 and 5x7 fonts
-    panelFixupOffetInPix := 0
-    heightCorrection := 0
-    hBitmapOffsetInPix := 0
-    case newFont
-        TEXT_FONT_DEFAULT..TEXT_FONT_5x7:
-            heightCorrection := 1
-        TEXT_FONT_5x7_DITH:
-            heightCorrection := 1
-        TEXT_FONT_5x7_DITH_DCNDR:
-            heightCorrection := 1
-        TEXT_FONT_8x8A:
-            hBitmapOffsetInPix := 1
-        TEXT_FONT_8x8B:
-        OTHER:
-            debug("*ERROR* unknown text size*")
-            abort
+  ' currently we only support our 8x8 and 5x7 fonts
+  panelFixupOffetInPix := 0
+  heightCorrection := 0
+  hBitmapOffsetInPix := 0
+  case newFont
+    TEXT_FONT_DEFAULT..TEXT_FONT_5x7:
+      heightCorrection := 1
+    TEXT_FONT_5x7_DITH:
+      heightCorrection := 1
+    TEXT_FONT_5x7_DITH_DCNDR:
+      heightCorrection := 1
+    TEXT_FONT_8x8A:
+      hBitmapOffsetInPix := 1
+    TEXT_FONT_8x8B:
+    OTHER:
+      debug("*ERROR* unknown text size*")
+      abort
 
-    selectedTextFont := newFont
-    charWidthInPix, charHeightInPix := fonts.getGeometryOfFont(newFont)
-    maxTextLines := (maxDisplayRows / (charHeightInPix + heightCorrection))
-    maxTextColumns := (maxDisplayColumns / (charWidthInPix + heightCorrection))
+  selectedTextFont := newFont
+  charWidthInPix, charHeightInPix := fonts.getGeometryOfFont(newFont)
+  maxTextLines := (maxDisplayRows / (charHeightInPix + heightCorrection))
+  maxTextColumns := (maxDisplayColumns / (charWidthInPix + heightCorrection))
 
-    bFontIsDithered := fonts.isDitheredFont(newFont)
+  bFontIsDithered := fonts.isDitheredFont(newFont)
 
-    vUnusedPix := maxDisplayRows - (maxTextLines * charHeightInPix)
-    hUnusedPix := maxDisplayColumns - (maxTextColumns * charWidthInPix)
-    verticalGapInPix := vUnusedPix / maxTextLines
-    horizontalGapInPix := hUnusedPix / maxTextColumns
-    vUnusedPix := maxDisplayRows - (maxTextLines * (charHeightInPix + verticalGapInPix))
-    hUnusedPix := maxDisplayColumns - (maxTextColumns * (charWidthInPix + horizontalGapInPix))
-    topOffsetInPix := (vUnusedPix + 1) >> 1
-    leftOffsetInPix := (hUnusedPix + 1) >> 1
+  vUnusedPix := maxDisplayRows - (maxTextLines * charHeightInPix)
+  hUnusedPix := maxDisplayColumns - (maxTextColumns * charWidthInPix)
+  verticalGapInPix := vUnusedPix / maxTextLines
+  horizontalGapInPix := hUnusedPix / maxTextColumns
+  vUnusedPix := maxDisplayRows - (maxTextLines * (charHeightInPix + verticalGapInPix))
+  hUnusedPix := maxDisplayColumns - (maxTextColumns * (charWidthInPix + horizontalGapInPix))
+  topOffsetInPix := (vUnusedPix + 1) >> 1
+  leftOffsetInPix := (hUnusedPix + 1) >> 1
 
-    maxPanelTextLines := ((rowsPerPanel - topOffsetInPix) / (charHeightInPix + verticalGapInPix))
-    maxPanelTextColumns := ((columnsPerPanel - leftOffsetInPix) / (charWidthInPix + horizontalGapInPix))
+  maxPanelTextLines := ((rowsPerPanel - topOffsetInPix) / (charHeightInPix + verticalGapInPix))
+  maxPanelTextColumns := ((columnsPerPanel - leftOffsetInPix) / (charWidthInPix + horizontalGapInPix))
 
-    'debug("DSP: TEXT: ", udec(maxTextColumns), udec(maxTextLines))
+  'debug("DSP: TEXT: ", udec(maxTextColumns), udec(maxTextLines))
 
-    'debug("DSP: font ", udec(charHeightInPix), udec(charWidthInPix), udec(maxTextLines), udec(maxTextColumns), udec(verticalGapInPix), udec(horizontalGapInPix), udec(topOffsetInPix), udec(leftOffsetInPix))
+  'debug("DSP: font ", udec(charHeightInPix), udec(charWidthInPix), udec(maxTextLines), udec(maxTextColumns), udec(verticalGapInPix), udec(horizontalGapInPix), udec(topOffsetInPix), udec(leftOffsetInPix))
 
-    ' configure our scrollers for font choice
-    repeat scrollerIndex from 0 to MAX_SCROLLING_REGIONS - 1
-        scroller[scrollerIndex].setFontInfo(maxTextColumns, charWidthInPix, charHeightInPix, leftOffsetInPix, horizontalGapInPix, hBitmapOffsetInPix, selectedTextFont)
+  ' configure our scrollers for font choice
+  repeat scrollerIndex from 0 to MAX_SCROLLING_REGIONS - 1
+    scroller[scrollerIndex].setFontInfo(maxTextColumns, charWidthInPix, charHeightInPix, leftOffsetInPix, horizontalGapInPix, hBitmapOffsetInPix, selectedTextFont)
 
 PUB numberTextLines() : nbrTextLines
 '' Return the number of text rows for the currently selected font.
 ''
 '' @returns nbrTextLines - number of text rows that fit on the display
 
-    nbrTextLines := maxTextLines
+  nbrTextLines := maxTextLines
 
 PUB numberTextColumns() : nbrTextColumns
 '' Return the number of text columns for the currently selected font.
 ''
 '' @returns nbrTextColumns - number of text columns that fit on the display
 
-    nbrTextColumns := maxTextColumns
+  nbrTextColumns := maxTextColumns
 
 PUB setTextColor(rgbColor)
 '' Set the 24-bit color for subsequent text display.
 ''
 '' @param rgbColor - 24-bit RGB color value
 
-    currTextColor := rgbColor
+  currTextColor := rgbColor
 
 PUB setTextAtCursor(pZString)
 '' Place zero-terminated text at the current cursor position using the current text color.
 ''
 '' @param pZString - pointer to zero-terminated string
 
-    setColoredTextAtLnCol(cursorLine, cursorColumn, pZString, currTextColor)
+  setColoredTextAtLnCol(cursorLine, cursorColumn, pZString, currTextColor)
 
 PUB setColoredTextAtLnCol(line, column, pZString, rgbColor) | charIndex
 '' Place zero-terminated text at the specified line and column using the given color.
@@ -388,12 +391,12 @@ PUB setColoredTextAtLnCol(line, column, pZString, rgbColor) | charIndex
 ' Local Variables:
 ' @local charIndex - index into the string being placed
 
-    setCursor(line, column)
-    charIndex := 0
-    repeat
-        if BYTE[pZString][charIndex] <> 0
-            setColorCharAtCursor(BYTE[pZString][charIndex++], rgbColor)
-    while BYTE[pZString][charIndex] <> 0
+  setCursor(line, column)
+  charIndex := 0
+  repeat
+    if BYTE[pZString][charIndex] <> 0
+      setColorCharAtCursor(BYTE[pZString][charIndex++], rgbColor)
+  while BYTE[pZString][charIndex] <> 0
 
 PUB centerColoredTextAtLn(line, pZString, rgbColor) | textLen, desiredCol
 '' Center text on the specified line using the given color.
@@ -406,13 +409,13 @@ PUB centerColoredTextAtLn(line, pZString, rgbColor) | textLen, desiredCol
 ' @local textLen - length of the string in characters
 ' @local desiredCol - calculated column for centering
 
-    textLen := strsize(pZString)
-    desiredCol := (numberTextColumns() - textLen) / 2    ' Calc centering value for clock
-    'debug("DSP: cctal() ", udec(desiredCol), udec(textLen), zstr(pZString))
-    setColoredTextAtLnCol(line, desiredCol, pZString, rgbColor)
+  textLen := strsize(pZString)
+  desiredCol := (numberTextColumns() - textLen) / 2     ' Calc centering value for clock
+  ' debug("DSP: cctal() ", udec(desiredCol), udec(textLen), zstr(pZString))
+  setColoredTextAtLnCol(line, desiredCol, pZString, rgbColor)
 
 VAR
-  LONG      lastColumn
+    LONG    lastColumn
 
 PUB setColoredTextAtLnWithAlignPad(line, pZString, rgbColor, alignment, padLen) | offset, valLen, lineWidth, paddedStr, padOffset
 '' Align and pad text on the specified line using the given color.
@@ -430,58 +433,58 @@ PUB setColoredTextAtLnWithAlignPad(line, pZString, rgbColor, alignment, padLen) 
 ' @local paddedStr - pointer to the padded output string
 ' @local padOffset - offset within pad buffer for string placement
 
-    paddedStr := pZString
-    valLen := strsize(pZString)
+  paddedStr := pZString
+  valLen := strsize(pZString)
 
-    'debug("sctalwap: ln=", udec_(line), " [", zstr_(pZString), "](", udec_(valLen), ") ", udec(alignment), udec(padLen))
-    lineWidth := numberTextColumns()
-    ' calc padded string offset
+  ' debug("sctalwap: ln=", udec_(line), " [", zstr_(pZString), "](", udec_(valLen), ") ", udec(alignment), udec(padLen))
+  lineWidth := numberTextColumns()
+  ' calc padded string offset
+  case alignment
+    ALIGN_RIGHT:
+      ' pad on left
+      offset := lineWidth - valLen
+    ALIGN_CENTER:
+      ' 1/2 padLen on left
+      offset := (lineWidth - valLen) / 2
+    other:
+      ' ALIGN_CENTER - pad on right
+      offset := 0
+
+  ' if padLen == 5 and offset <> 5
+  lastColumn := offset + padLen
+  if lastColumn <> 10
+    DEBUG("DSP: ERROR1: off Edge? r,c=[", udec_(line), ",", udec_(offset), "] ", udec(padLen), udec(valLen), ", [", zstr_(pZString), "] endCol=", udec_(lastColumn))
+
+  ' if we need to pad...
+  if valLen < padLen
+    bytefill(@padBuffer, 0, MAX_PAD_BUFFER_BYTES)
     case alignment
-        ALIGN_RIGHT:
-            ' pad on left
-            offset := lineWidth - valLen
-        ALIGN_CENTER:
-            ' 1/2 padLen on left
-            offset := (lineWidth - valLen) / 2
-        other:
-            ' ALIGN_CENTER - pad on right
-            offset := 0
+      ALIGN_RIGHT:
+        ' pad on left
+        padOffset := padLen - valLen
+        bytefill(@padBuffer, $20, padOffset)
+      ALIGN_CENTER:
+        ' 1/2 padLen on left
+        padOffset := (padLen - valLen) / 2
+        bytefill(@padBuffer, $20, padOffset)
+      other:
+        ' ALIGN_CENTER - pad on right
+        bytefill(@padBuffer, $20, padLen)
+        padOffset := 0
+    bytemove(@BYTE[@padBuffer][padOffset], pZString, valLen)
+    paddedStr := @padBuffer
 
-    'if padLen == 5 and offset <> 5
-    lastColumn := offset + padLen
-    if lastColumn <> 10
-      debug("DSP: ERROR1: off Edge? r,c=[", udec_(line), ",", udec_(offset), "] ", udec(padLen), udec(valLen), ", [", zstr_(pZString), "] endCol=", udec_(lastColumn))
-
-    ' if we need to pad...
-    if valLen < padLen
-        bytefill(@padBuffer, 0, MAX_PAD_BUFFER_BYTES)
-        case alignment
-            ALIGN_RIGHT:
-                ' pad on left
-                padOffset := padLen - valLen
-                bytefill(@padBuffer, $20, padOffset)
-            ALIGN_CENTER:
-                ' 1/2 padLen on left
-                padOffset := (padLen - valLen) / 2
-                bytefill(@padBuffer, $20, padOffset)
-            other:
-                ' ALIGN_CENTER - pad on right
-                bytefill(@padBuffer, $20, padLen)
-                padOffset := 0
-        bytemove(@BYTE[@padBuffer][padOffset], pZString, valLen)
-        paddedStr := @padBuffer
-
-    'debug("               [", zstr_(paddedStr), "](", udec_(strsize(paddedStr)), ") col=", udec_(offset))
-    if strsize(paddedStr) + offset > lineWidth
-        debug("DSP: ERROR2: off Edge! ", udec(offset), udec(padLen), udec(valLen), zstr(pZString))
-    setColoredTextAtLnCol(line, offset, paddedStr, rgbColor)
+  ' debug("               [", zstr_(paddedStr), "](", udec_(strsize(paddedStr)), ") col=", udec_(offset))
+  if strsize(paddedStr) + offset > lineWidth
+    DEBUG("DSP: ERROR2: off Edge! ", udec(offset), udec(padLen), udec(valLen), zstr(pZString))
+  setColoredTextAtLnCol(line, offset, paddedStr, rgbColor)
 
 PUB setCharAtCursor(cChar)
 '' Write a character at the current cursor position using the current text color and advance the cursor with line wrap.
 ''
 '' @param cChar - character to display
 
-    setColorCharAtCursor(cChar, currTextColor)
+  setColorCharAtCursor(cChar, currTextColor)
 
 PUB setColorCharAtCursor(cChar, rgbColor)
 '' Write a character at the current cursor position with the given color and advance the cursor with line wrap.
@@ -489,8 +492,8 @@ PUB setColorCharAtCursor(cChar, rgbColor)
 '' @param cChar - character to display
 '' @param rgbColor - 24-bit RGB color value
 
-    setColoredCharAtLnCol(cursorLine, cursorColumn, cChar, rgbColor)
-    incrCursorWithWrap()
+  setColoredCharAtLnCol(cursorLine, cursorColumn, cChar, rgbColor)
+  incrCursorWithWrap()
 
 PUB setCharAtLnCol(line, column, cChar)
 '' Write a character to the display at the specified line and column using the current text color.
@@ -499,7 +502,7 @@ PUB setCharAtLnCol(line, column, cChar)
 '' @param column - zero-based text column number
 '' @param cChar - character to display
 
-    setColoredCharAtLnCol(line, column, cChar, currTextColor)
+  setColoredCharAtLnCol(line, column, cChar, currTextColor)
 
 PUB setColoredCharAtLnCol(line, column, cChar, rgbColor) | pCharBitMap, tlScreenOffset, tlCharOffset, cLineIdx, cColumnIdx, sRowPixIdx, sColumnPixIdx, cColOffset, cRowOffset, cRowBits, pixColumn
 '' Write a character to the display at the specified line and column using the given color.
@@ -522,21 +525,22 @@ PUB setColoredCharAtLnCol(line, column, cChar, rgbColor) | pCharBitMap, tlScreen
 ' @local cRowBits - bit pattern for current row of character
 ' @local pixColumn - pixel column position
 
-    'debug("DSP: setCharAtCursor @LnCol(", udec_(line), ",", udec_(column), "), char=", uhex_(cChar), ", RGB=", uhex_long_(rgbColor), udec(topOffsetInPix), udec(leftOffsetInPix))
-    cLineIdx := 0 #> line <# maxTextLines - 1
-    cColumnIdx :=  0 #> column <# maxTextColumns - 1
-    ' get pointer to character bitmap
-    pCharBitMap := fonts.getCharAddrForFont(selectedTextFont, cChar)
-    'debug("- pChar=", uhex_long(pCharBitMap))
-    ' NOTE: cursor is 0-relative so add in our top/left offset to get row/col and mult by char size in pix
-    sRowPixIdx := topOffsetInPix + (cLineIdx * (charHeightInPix + verticalGapInPix))
-    ' NOTE: panelFixupOffetInPix is only non-zero when we are placing text on specific panel!
-    sColumnPixIdx := leftOffsetInPix + panelFixupOffetInPix + (cColumnIdx * (charWidthInPix + horizontalGapInPix))
+' debug("DSP: setCharAtCursor @LnCol(", udec_(line), ",", udec_(column), "), char=", uhex_(cChar), ", RGB=", uhex_long_(rgbColor), udec(topOffsetInPix), udec(leftOffsetInPix))
 
-    if bFontIsDithered
-        placeDitheredCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor)
-    else
-        placeCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor)
+  cLineIdx := 0 #> line <# maxTextLines - 1
+  cColumnIdx :=  0 #> column <# maxTextColumns - 1
+  ' get pointer to character bitmap
+  pCharBitMap := fonts.getCharAddrForFont(selectedTextFont, cChar)
+  'debug("- pChar=", uhex_long(pCharBitMap))
+  ' NOTE: cursor is 0-relative so add in our top/left offset to get row/col and mult by char size in pix
+  sRowPixIdx := topOffsetInPix + (cLineIdx * (charHeightInPix + verticalGapInPix))
+  ' NOTE: panelFixupOffetInPix is only non-zero when we are placing text on specific panel!
+  sColumnPixIdx := leftOffsetInPix + panelFixupOffetInPix + (cColumnIdx * (charWidthInPix + horizontalGapInPix))
+
+  if bFontIsDithered
+    placeDitheredCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor)
+  else
+    placeCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor)
 
 PRI placeCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor) | cRowOffset, cRowBits, cColOffset, pixColor, cBitOffset
 ' Render a non-dithered character bitmap to the screen buffer.
@@ -553,12 +557,12 @@ PRI placeCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor) | cRowOffs
 ' @local pixColor - resolved pixel color (foreground or black)
 ' @local cBitOffset - bit position within the row byte
 
-    repeat cRowOffset from 0 to charHeightInPix - 1
-        cRowBits := BYTE[pCharBitMap][cRowOffset]
-        repeat cColOffset from 0 to charWidthInPix - 1
-            cBitOffset := (charWidthInPix - 1) - cColOffset
-            pixColor := ((cRowBits & (1 << cBitOffset)) > 0) ? rgbColor : $000000
-            pixels.drawPixelAtRC(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor)
+  repeat cRowOffset from 0 TO charHeightInPix - 1
+    cRowBits := BYTE[pCharBitMap][cRowOffset]
+    repeat cColOffset from 0 TO charWidthInPix - 1
+      cBitOffset := (charWidthInPix - 1) - cColOffset
+      pixColor := ((cRowBits & (1 << cBitOffset)) > 0) ? rgbColor : $000000
+      pixels.drawPixelAtRC(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor)
 
 PRI placeDitheredCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor) | cRowOffset, cRowBits, cColOffset, ditheredRGBColor, cBitOffset, pixVal, pixColor
 ' Render a dithered character bitmap to the screen buffer using two brightness levels.
@@ -577,29 +581,46 @@ PRI placeDitheredCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor) | 
 ' @local pixVal - 2-bit pixel value from the dithered font
 ' @local pixColor - resolved pixel color for this position
 
-    ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, 36)      ' 50% brightness
-    'debug(" COLOR PERCENT ", uhex_long_(rgbColor), " -> ", uhex_long_(ditheredRGBColor))
-    repeat cRowOffset from 0 to charHeightInPix - 1
-        cRowBits := WORD[pCharBitMap][cRowOffset]         ' ms 12 bits are char def'n (of the 16bits)
-        'debug(" FONT row ", ubin_word_(cRowBits))
-        repeat cColOffset from 0 to charWidthInPix - 1
-            cBitOffset := cColOffset * 2
-            pixVal := ((cRowBits << cBitOffset) & $c000) >> 14
-            'debug("   PIX ", ubin_(pixVal))
-            pixColor := rgbColor
-            if pixVal <> 3
-                 pixColor := (pixVal == 1) ? ditheredRGBColor : $000000    ' val == [2,0] = black
-            pixels.drawPixelAtRC(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor)
+  ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, 36)        ' 50% brightness
+  ' debug(" COLOR PERCENT ", uhex_long_(rgbColor), " -> ", uhex_long_(ditheredRGBColor))
+  repeat cRowOffset from 0 TO charHeightInPix - 1
+    cRowBits := WORD[pCharBitMap][cRowOffset]                                   ' ms 12 bits are char def'n (of the 16bits)
+    ' debug(" FONT row ", ubin_word_(cRowBits))
+    repeat cColOffset from 0 TO charWidthInPix - 1
+      cBitOffset := cColOffset * 2
+      pixVal := ((cRowBits << cBitOffset) & $c000) >> 14
+      ' debug("   PIX ", ubin_(pixVal))
+      pixColor := rgbColor
+      if pixVal <> 3
+        pixColor := (pixVal == 1) ? ditheredRGBColor : $000000                  ' val == [2,0] = black
+      pixels.drawPixelAtRC(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor)
 
 PRI offsetToTextOnPanel(line, column, panelIndex) : panelLine, panelColumn | gridRow, gridColumn, boundedPanelIndex, boundedColumn, tmpCharOffsetInPix, panelOffsetInChars, desiredCharOffsetInPix
-    boundedPanelIndex := 0 #> panelIndex <# maxPanels - 1
-    boundedColumn := 0 #> column <# maxPanelTextColumns - 1
-    panelLine := 0 #> line <# maxPanelTextLines - 1
-    panelOffsetInChars := (boundedPanelIndex * maxPanelTextColumns) + boundedColumn
-    panelColumn := panelOffsetInChars
-    tmpCharOffsetInPix := leftOffsetInPix + (cursorColumn * (charWidthInPix + horizontalGapInPix))
-    desiredCharOffsetInPix := leftOffsetInPix + (columnsPerPanel * boundedPanelIndex) + (boundedColumn * (charWidthInPix + horizontalGapInPix))
-    'panelFixupOffetInPix := (tmpCharOffsetInPix < desiredCharOffsetInPix) ? desiredCharOffsetInPix - tmpCharOffsetInPix: 0
+' Calculate text cursor offsets for a specific panel position.
+'
+' @param line - zero-based text line number
+' @param column - zero-based text column number
+' @param panelIndex - zero-based index of the target panel
+' @returns panelLine - bounded line on the panel
+' @returns panelColumn - character column offset including panel offset
+
+' Local Variables:
+' @local gridRow - text grid row position
+' @local gridColumn - text grid column position
+' @local boundedPanelIndex - panel index clamped to valid range
+' @local boundedColumn - column clamped to valid range
+' @local tmpCharOffsetInPix - temporary pixel offset for character position
+' @local panelOffsetInChars - character offset to the target panel
+' @local desiredCharOffsetInPix - desired pixel offset for character position
+
+  boundedPanelIndex := 0 #> panelIndex <# maxPanels - 1
+  boundedColumn := 0 #> column <# maxPanelTextColumns - 1
+  panelLine := 0 #> line <# maxPanelTextLines - 1
+  panelOffsetInChars := (boundedPanelIndex * maxPanelTextColumns) + boundedColumn
+  panelColumn := panelOffsetInChars
+  tmpCharOffsetInPix := leftOffsetInPix + (cursorColumn * (charWidthInPix + horizontalGapInPix))
+  desiredCharOffsetInPix := leftOffsetInPix + (columnsPerPanel * boundedPanelIndex) + (boundedColumn * (charWidthInPix + horizontalGapInPix))
+  'panelFixupOffetInPix := (tmpCharOffsetInPix < desiredCharOffsetInPix) ? desiredCharOffsetInPix - tmpCharOffsetInPix: 0
 
 PRI incrCursorWithWrap() | priorRow, priorCol
 ' Increment the cursor position, wrapping at end of line and end of screen.
@@ -609,16 +630,15 @@ PRI incrCursorWithWrap() | priorRow, priorCol
 ' @local priorRow - cursor row before increment
 ' @local priorCol - cursor column before increment
 
-    priorRow := cursorLine
-    priorCol := cursorColumn
-    cursorColumn++
-    if cursorColumn > maxTextColumns - 1
-        cursorColumn := 0
-        cursorLine++
-        if cursorLine > maxTextLines - 1
-            cursorLine := 0
-    'debug("incr curPOS RC(", udec_(priorRow), ",", udec_(priorCol), ") -> RC(", udec_(cursorLine), ",", udec_(cursorColumn), ")")
-
+  priorRow := cursorLine
+  priorCol := cursorColumn
+  cursorColumn++
+  if cursorColumn > maxTextColumns - 1
+    cursorColumn := 0
+    cursorLine++
+    if cursorLine > maxTextLines - 1
+      cursorLine := 0
+    ' debug("incr curPOS RC(", udec_(priorRow), ",", udec_(priorCol), ") -> RC(", udec_(cursorLine), ",", udec_(cursorColumn), ")")
 
 CON ' --------------     Scrolling Text     --------------
 ' EXAMPLES
@@ -631,12 +651,13 @@ PUB configureScrollLoopMode(indexAllocated, loopMode)
 '' @param indexAllocated - scroller region index returned by a scroll method
 '' @param loopMode - scrolling duration (SCROLL_FOREVER, SCROLL_ONCE, etc.)
 
-    'debug("DSP: configureScrollLoopMode() ", udec(indexAllocated))
-    if indexAllocated >= 0 && indexAllocated < MAX_SCROLLING_REGIONS
-        'debug("DSP: idx=(", udec_(indexAllocated), ") ", udec(loopMode))
-        scroller[indexAllocated].configureScrollLoopMode(loopMode)
-    else
-        debug("DSP: ERROR no such scroller idx=(", udec_(indexAllocated), ")")
+' debug("DSP: configureScrollLoopMode() ", udec(indexAllocated))
+
+  if indexAllocated >= 0 && indexAllocated < MAX_SCROLLING_REGIONS
+    ' debug("DSP: idx=(", udec_(indexAllocated), ") ", udec(loopMode))
+    scroller[indexAllocated].configureScrollLoopMode(loopMode)
+  else
+    DEBUG("DSP: ERROR no such scroller idx=(", udec_(indexAllocated), ")")
 
 PUB configureScrollLoopCount(indexAllocated, loopMode, loopCount)
 '' Specify the scrolling text loop duration mode with a repeat count.
@@ -645,10 +666,10 @@ PUB configureScrollLoopCount(indexAllocated, loopMode, loopCount)
 '' @param loopMode - scrolling duration (SCROLL_N_TIMES, etc.)
 '' @param loopCount - number of times to repeat the scroll
 
-    'debug("DSP: configureScrollLoopCount() ", udec(indexAllocated))
-    if indexAllocated >= 0 && indexAllocated < MAX_SCROLLING_REGIONS
-        scroller[indexAllocated].configureScrollLoopCount(loopMode, loopCount)
+' debug("DSP: configureScrollLoopCount() ", udec(indexAllocated))
 
+  if indexAllocated >= 0 && indexAllocated < MAX_SCROLLING_REGIONS
+    scroller[indexAllocated].configureScrollLoopCount(loopMode, loopCount)
 
 PUB scrollTextOnLine(line, pZString, direction) : indexAllocated
 '' Place scrolling text on the specified line using the current text color.
@@ -658,8 +679,7 @@ PUB scrollTextOnLine(line, pZString, direction) : indexAllocated
 '' @param direction - scroll direction (DIR_TO_LEFT, DIR_TO_RIGHT, etc.)
 '' @returns indexAllocated - scroller region index or NOT_FOUND on failure
 
-    indexAllocated := scrollColoredTextOnLn(line, pZString, direction, currTextColor)
-
+  indexAllocated := scrollColoredTextOnLn(line, pZString, direction, currTextColor)
 
 PUB scrollColoredTextOnLn(line, pZString, direction, rgbColor) : indexAllocated  | cLineIdx, cColumnIdx, widthInChars, sRowPixIdx, sColumnPixIdx
 '' Place scrolling text on the specified line using the given color.
@@ -677,18 +697,19 @@ PUB scrollColoredTextOnLn(line, pZString, direction, rgbColor) : indexAllocated 
 ' @local sRowPixIdx - screen row in pixels
 ' @local sColumnPixIdx - screen column in pixels
 
-    'debug("DSP: scrollColoredTextOnLn()")
-    ' ensure we are asked to use a good location
-    cLineIdx := 0 #> line <# maxTextLines - 1
-    cColumnIdx :=  0
-    ' convert line info to row,col
-    ' NOTE: cursor is 0-relative so add in our top/left offset to get row/col and mult by char size in pix
-    widthInChars := maxTextColumns
-    sRowPixIdx := topOffsetInPix + (cLineIdx * (charHeightInPix + verticalGapInPix))
-    sColumnPixIdx := leftOffsetInPix + (cColumnIdx * (charWidthInPix + horizontalGapInPix))
+'debug("DSP: scrollColoredTextOnLn()")
+' ensure we are asked to use a good location
 
-    indexAllocated := scrollTextAtRCOfColor(sRowPixIdx, sColumnPixIdx, widthInChars, pZString, direction, rgbColor)
-    debug("DSP: new scroller ", udec(indexAllocated))
+  cLineIdx := 0 #> line <# maxTextLines - 1
+  cColumnIdx :=  0
+  ' convert line info to row,col
+  ' NOTE: cursor is 0-relative so add in our top/left offset to get row/col and mult by char size in pix
+  widthInChars := maxTextColumns
+  sRowPixIdx := topOffsetInPix + (cLineIdx * (charHeightInPix + verticalGapInPix))
+  sColumnPixIdx := leftOffsetInPix + (cColumnIdx * (charWidthInPix + horizontalGapInPix))
+
+  indexAllocated := scrollTextAtRCOfColor(sRowPixIdx, sColumnPixIdx, widthInChars, pZString, direction, rgbColor)
+  DEBUG("DSP: new scroller ", udec(indexAllocated))
 
 PUB scrollTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direction) : indexAllocated
 '' Place scrolling text across multiple panels on the specified line using the current text color.
@@ -700,7 +721,7 @@ PUB scrollTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direction) :
 '' @param direction - scroll direction (DIR_TO_LEFT, DIR_TO_RIGHT, etc.)
 '' @returns indexAllocated - scroller region index or NOT_FOUND on failure
 
-    indexAllocated := scrollColoredTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direction, currTextColor)
+  indexAllocated := scrollColoredTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direction, currTextColor)
 
 PUB scrollColoredTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direction, rgbColor) : indexAllocated | cLineIdx, cColumnIdx, widthInChars, sRowPixIdx, sColumnPixIdx, panelLine, panelColumn, boundedPanelIdx, cPanelCt, offsetPixelRows, offsetPixelColumns
 '' Place scrolling text across multiple panels on the specified line using the given color.
@@ -726,20 +747,20 @@ PUB scrollColoredTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direc
 ' @local offsetPixelRows - pixel row offset to the target panel
 ' @local offsetPixelColumns - pixel column offset to the target panel
 
-    'debug("DSP: scrollColoredTextOnLnOfNPanels()")
-    boundedPanelIdx := 0 #> panelIndex <# maxPanels - 1
-    cPanelCt := 1 #> panelCount <# maxPanels
-    cLineIdx := 0 #> line <# maxTextLines - 1
-    cColumnIdx :=  0
-    widthInChars := ((cPanelCt * columnsPerPanel) - (2 * leftOffsetInPix)) / (charWidthInPix + horizontalGapInPix)
-    'panelLine, panelColumn := offsetToTextOnPanel(cLineIdx, cColumnIdx, panelIndex)
-    offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, panelIndex)
-    ' ensure we are asked to use a good location
-    ' convert line info to row,col
-    ' NOTE: cursor is 0-relative so add in our top/left offset to get row/col and mult by char size in pix
-    sRowPixIdx := topOffsetInPix + (cLineIdx * (charHeightInPix + verticalGapInPix))
-    sColumnPixIdx := offsetPixelColumns + leftOffsetInPix
-    indexAllocated := scrollTextAtRCOfColor(sRowPixIdx, sColumnPixIdx, widthInChars, pZString, direction, rgbColor)
+  'debug("DSP: scrollColoredTextOnLnOfNPanels()")
+  boundedPanelIdx := 0 #> panelIndex <# maxPanels - 1
+  cPanelCt := 1 #> panelCount <# maxPanels
+  cLineIdx := 0 #> line <# maxTextLines - 1
+  cColumnIdx :=  0
+  widthInChars := ((cPanelCt * columnsPerPanel) - (2 * leftOffsetInPix)) / (charWidthInPix + horizontalGapInPix)
+  'panelLine, panelColumn := offsetToTextOnPanel(cLineIdx, cColumnIdx, panelIndex)
+  offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, panelIndex)
+  ' ensure we are asked to use a good location
+  ' convert line info to row,col
+  ' NOTE: cursor is 0-relative so add in our top/left offset to get row/col and mult by char size in pix
+  sRowPixIdx := topOffsetInPix + (cLineIdx * (charHeightInPix + verticalGapInPix))
+  sColumnPixIdx := offsetPixelColumns + leftOffsetInPix
+  indexAllocated := scrollTextAtRCOfColor(sRowPixIdx, sColumnPixIdx, widthInChars, pZString, direction, rgbColor)
 
 PUB scrollTextAtRC(row, column, widthInChars, pZString, direction) : indexAllocated
 '' Place scrolling text at the specified pixel row and column using the current text color.
@@ -751,8 +772,7 @@ PUB scrollTextAtRC(row, column, widthInChars, pZString, direction) : indexAlloca
 '' @param direction - scroll direction (DIR_TO_LEFT, DIR_TO_RIGHT, etc.)
 '' @returns indexAllocated - scroller region index or NOT_FOUND on failure
 
-    indexAllocated := scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, currTextColor)
-
+  indexAllocated := scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, currTextColor)
 
 PUB scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbColor) : indexAllocated
 '' Place scrolling text at the specified pixel row and column using the given color.
@@ -765,10 +785,9 @@ PUB scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbCol
 '' @param rgbColor - 24-bit RGB color value
 '' @returns indexAllocated - scroller region index or NOT_FOUND on failure
 
-    indexAllocated := nextFreeScroller()
-    'debug("DSP: scrollTextAtRCOfColor() ", udec(indexAllocated))
-    scroller[indexAllocated].scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbColor)
-
+  indexAllocated := nextFreeScroller()
+  ' debug("DSP: scrollTextAtRCOfColor() ", udec(indexAllocated))
+  scroller[indexAllocated].scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbColor)
 
 PUB isScrollingComplete() : status | scrollerIndex
 '' Return TRUE if all scrolling text region movements are complete.
@@ -778,15 +797,15 @@ PUB isScrollingComplete() : status | scrollerIndex
 ' Local Variables:
 ' @local scrollerIndex - loop index for checking each scroller
 
-    status := TRUE
-    ' if one or more scrollers are still moving we are not done!
-    repeat scrollerIndex from 0 to MAX_SCROLLING_REGIONS - 1
-        ' is this scroller active?
-        if NOT scroller[scrollerIndex].isIdle()
-            ' is its' scrolling complete?
-            if NOT scroller[scrollerIndex].isScrollingComplete()
-                status := FALSE
-                quit    ' outta here we have our answer
+  status := TRUE
+  ' if one or more scrollers are still moving we are not done!
+  repeat scrollerIndex from 0 TO MAX_SCROLLING_REGIONS - 1
+    ' is this scroller active?
+    if NOT scroller[scrollerIndex].isIdle()
+      ' is its' scrolling complete?
+      if NOT scroller[scrollerIndex].isScrollingComplete()
+        status := FALSE
+        quit                                            ' outta here we have our answer
     'if status
     '    debug("DSP: isScrollingComplete() TRUE")
 
@@ -797,19 +816,19 @@ PUB animateScroll() | scrollerIndex
 ' Local Variables:
 ' @local scrollerIndex - loop index for each scroller
 
-    repeat scrollerIndex from 0 to MAX_SCROLLING_REGIONS - 1
-        if NOT scroller[scrollerIndex].isIdle()
-            if NOT scroller[scrollerIndex].isScrollingComplete()
-                scroller[scrollerIndex].animateScroll()
+  repeat scrollerIndex from 0 TO MAX_SCROLLING_REGIONS - 1
+    if NOT scroller[scrollerIndex].isIdle()
+      if NOT scroller[scrollerIndex].isScrollingComplete()
+        scroller[scrollerIndex].animateScroll()
 
 PUB releaseScroller(indexAllocated)
 '' Mark the specified scroller region as no longer in use.
 ''
 '' @param indexAllocated - scroller region index returned by a scroll method
 
-    if indexAllocated > 0 and indexAllocated < MAX_SCROLLING_REGIONS
-        ' make this once again avial for reuse
-        scroller[indexAllocated].release()
+  if indexAllocated > 0 AND indexAllocated < MAX_SCROLLING_REGIONS
+    ' make this once again avial for reuse
+    scroller[indexAllocated].release()
 
 PRI nextFreeScroller() : scrollerIndexToUse | scrollerIndex
 ' Find and return the index of the next available idle scroller region.
@@ -819,15 +838,15 @@ PRI nextFreeScroller() : scrollerIndexToUse | scrollerIndex
 ' Local Variables:
 ' @local scrollerIndex - loop index for searching scrollers
 
-    scrollerIndexToUse := NOT_FOUND
-    repeat scrollerIndex from 0 to MAX_SCROLLING_REGIONS - 1
-        if scroller[scrollerIndex].isIdle()
-            scrollerIndexToUse := scrollerIndex
-            quit
-    if scrollerIndexToUse == NOT_FOUND
-        debug("Failed to locate free scroller!")
-        abort
-    'debug("DSP: nextFreeScroller() ", udec(scrollerIndexToUse))
+  scrollerIndexToUse := NOT_FOUND
+  repeat scrollerIndex from 0 TO MAX_SCROLLING_REGIONS - 1
+    if scroller[scrollerIndex].isIdle()
+      scrollerIndexToUse := scrollerIndex
+      quit
+  if scrollerIndexToUse == NOT_FOUND
+    DEBUG("Failed to locate free scroller!")
+    abort
+    ' debug("DSP: nextFreeScroller() ", udec(scrollerIndexToUse))
 
 CON ' --------------     Basic Graphics     --------------
 
@@ -841,7 +860,7 @@ PUB drawBox(topRow, leftColumn, width, height, filled)
 '' @param height - height of box in pixels
 '' @param filled - T/F where T = filled with current text color
 
-    drawBoxOfColor(topRow, leftColumn, width, height, filled, currTextColor)
+  drawBoxOfColor(topRow, leftColumn, width, height, filled, currTextColor)
 
 PUB drawBoxOfColor(topRow, leftColumn, width, height, filled, rgbColor) | rightColumn, bottomRow, rowIndex
 '' Draw box within the display outline/filled of width x height at R,C using rgbColor)
@@ -858,16 +877,16 @@ PUB drawBoxOfColor(topRow, leftColumn, width, height, filled, rgbColor) | rightC
 ' @local bottomRow -
 ' @local rowIndex -
 
-    rightColumn := leftColumn + width - 1
-    bottomRow := topRow + height - 1
-    if filled == TRUE
-        repeat rowIndex from 0 to height - 1
-            drawLineOfColor(topRow + rowIndex, leftColumn, topRow + rowIndex, rightColumn, rgbColor)    ' horiz row
-    else
-        drawLineOfColor(topRow, leftColumn, topRow, rightColumn, rgbColor)    ' horiz top
-        drawLineOfColor(topRow, rightColumn, bottomRow, rightColumn, rgbColor)    ' vert right
-        drawLineOfColor(bottomRow, leftColumn, bottomRow, rightColumn, rgbColor)    ' horiz bottom
-        drawLineOfColor(topRow, leftColumn, bottomRow, leftColumn, rgbColor)    ' vert left
+  rightColumn := leftColumn + width - 1
+  bottomRow := topRow + height - 1
+  if filled == TRUE
+    repeat rowIndex from 0 TO height - 1
+      drawLineOfColor(topRow + rowIndex, leftColumn, topRow + rowIndex, rightColumn, rgbColor)  ' horiz row
+  else
+    drawLineOfColor(topRow, leftColumn, topRow, rightColumn, rgbColor)                          ' horiz top
+    drawLineOfColor(topRow, rightColumn, bottomRow, rightColumn, rgbColor)                      ' vert right
+    drawLineOfColor(bottomRow, leftColumn, bottomRow, rightColumn, rgbColor)                    ' horiz bottom
+    drawLineOfColor(topRow, leftColumn, bottomRow, leftColumn, rgbColor)                        ' vert left
 
 PUB drawPanelBox(panelIndex, topRow, leftColumn, width, height, filled)
 '' Draw a box in desired panel outline/filled of width x height at R,C (using current text color)
@@ -880,7 +899,7 @@ PUB drawPanelBox(panelIndex, topRow, leftColumn, width, height, filled)
 '' @param height - height of box in pixels
 '' @param filled - T/F where T = filled with current text color
 
-    drawPanelBoxOfColor(panelIndex, topRow, leftColumn, width, height, filled, currTextColor)
+  drawPanelBoxOfColor(panelIndex, topRow, leftColumn, width, height, filled, currTextColor)
 
 PUB drawPanelBoxOfColor(panelIndex, topRow, leftColumn, width, height, filled, rgbColor) | rightColumn, bottomRow, rowIndex, offsetPixelRows, offsetPixelColumns
 '' Draw a box in desired panel a box outline/filled of width x height at R,C using rgbColor
@@ -900,27 +919,27 @@ PUB drawPanelBoxOfColor(panelIndex, topRow, leftColumn, width, height, filled, r
 ' @local offsetPixelRows -
 ' @local offsetPixelColumns -
 
-    offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, panelIndex)
-    topRow :=  0 #> topRow <# rowsPerPanel - 1
-    leftColumn :=  0 #> leftColumn <# columnsPerPanel - 1
-    height :=  0 #> height <# rowsPerPanel - 1
-    width :=  0 #> width <# columnsPerPanel - 1
-    rightColumn := leftColumn + width - 1
-    bottomRow := topRow + height - 1
-    ' offset everything to desired panel
-    topRow += offsetPixelRows
-    bottomRow += offsetPixelRows
-    leftColumn += offsetPixelColumns
-    rightColumn += offsetPixelColumns
-    ' Use FALSE for bUseDisplayCoords - panel routines use wire-order coordinates
-    if filled == TRUE
-        repeat rowIndex from 0 to height - 1
-            drawLineInternal(topRow + rowIndex, leftColumn, topRow + rowIndex, rightColumn, rgbColor, FALSE)    ' horiz row
-    else
-        drawLineInternal(topRow, leftColumn, topRow, rightColumn, rgbColor, FALSE)    ' horiz top
-        drawLineInternal(topRow, rightColumn, bottomRow, rightColumn, rgbColor, FALSE)    ' vert right
-        drawLineInternal(bottomRow, leftColumn, bottomRow, rightColumn, rgbColor, FALSE)    ' horiz bottom
-        drawLineInternal(topRow, leftColumn, bottomRow, leftColumn, rgbColor, FALSE)    ' vert left
+  offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, panelIndex)
+  topRow :=  0 #> topRow <# rowsPerPanel - 1
+  leftColumn :=  0 #> leftColumn <# columnsPerPanel - 1
+  height :=  0 #> height <# rowsPerPanel - 1
+  width :=  0 #> width <# columnsPerPanel - 1
+  rightColumn := leftColumn + width - 1
+  bottomRow := topRow + height - 1
+  ' offset everything to desired panel
+  topRow += offsetPixelRows
+  bottomRow += offsetPixelRows
+  leftColumn += offsetPixelColumns
+  rightColumn += offsetPixelColumns
+  ' Use FALSE for bUseDisplayCoords - panel routines use wire-order coordinates
+  if filled == TRUE
+    repeat rowIndex from 0 to height - 1
+      drawLineInternal(topRow + rowIndex, leftColumn, topRow + rowIndex, rightColumn, rgbColor, FALSE)    ' horiz row
+  else
+    drawLineInternal(topRow, leftColumn, topRow, rightColumn, rgbColor, FALSE)    ' horiz top
+    drawLineInternal(topRow, rightColumn, bottomRow, rightColumn, rgbColor, FALSE)    ' vert right
+    drawLineInternal(bottomRow, leftColumn, bottomRow, rightColumn, rgbColor, FALSE)    ' horiz bottom
+    drawLineInternal(topRow, leftColumn, bottomRow, leftColumn, rgbColor, FALSE)    ' vert left
 
 PUB drawLine(fmRow, fmColumn, toRow, toColumn)
 '' Draw a line from one position to another using the current text color.
@@ -930,12 +949,13 @@ PUB drawLine(fmRow, fmColumn, toRow, toColumn)
 '' @param toRow - ending pixel row
 '' @param toColumn - ending pixel column
 
-    drawLineOfColor(fmRow, fmColumn, toRow, toColumn, currTextColor)
+  drawLineOfColor(fmRow, fmColumn, toRow, toColumn, currTextColor)
 
 PUB drawLineOfColor(fmRow, fmColumn, toRow, toColumn, rgbColor)
-    '' Draw line fromRC -> toRC using rgbColor
-    '' Uses display coordinates (applies panel column swap if needed)
-    drawLineInternal(fmRow, fmColumn, toRow, toColumn, rgbColor, TRUE)
+'' Draw line fromRC -> toRC using rgbColor
+'' Uses display coordinates (applies panel column swap if needed)
+
+  drawLineInternal(fmRow, fmColumn, toRow, toColumn, rgbColor, TRUE)
 
 PUB drawPanelLine(panelIndex, fmRow, fmColumn, toRow, toColumn)
 '' Draw a line on the specified panel from one position to another using the current text color.
@@ -946,20 +966,20 @@ PUB drawPanelLine(panelIndex, fmRow, fmColumn, toRow, toColumn)
 '' @param toRow - ending pixel row relative to the panel
 '' @param toColumn - ending pixel column relative to the panel
 
-    drawPanelLineOfColor(panelIndex, fmRow, fmColumn, toRow, toColumn, currTextColor)
+  drawPanelLineOfColor(panelIndex, fmRow, fmColumn, toRow, toColumn, currTextColor)
 
 PUB drawPanelLineOfColor(panelIndex, fmRow, fmColumn, toRow, toColumn, rgbColor) | desiredPanelIndex, offsetPixelRows, offsetPixelColumns
-    '' Draw line fromRC -> toRC using rgbColor within a specific panel
-    '' Uses panel coordinates (no panel column swap - direct wire-order drawing)
-    fmRow :=  0 #> fmRow <# rowsPerPanel - 1
-    fmColumn :=  0 #> fmColumn <# columnsPerPanel - 1
-    toRow :=  0 #> toRow <# rowsPerPanel - 1
-    toColumn :=  0 #> toColumn <# columnsPerPanel - 1
-    desiredPanelIndex :=  0 #> panelIndex <# maxPanels - 1
-    offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, panelIndex)
-    ' Use FALSE for bUseDisplayCoords - panel routines use wire-order coordinates
-    drawLineInternal(fmRow + offsetPixelRows, fmColumn + offsetPixelColumns, toRow + offsetPixelRows, toColumn + offsetPixelColumns, rgbColor, FALSE)
+'' Draw line fromRC -> toRC using rgbColor within a specific panel
+'' Uses panel coordinates (no panel column swap - direct wire-order drawing)
 
+  fmRow :=  0 #> fmRow <# rowsPerPanel - 1
+  fmColumn :=  0 #> fmColumn <# columnsPerPanel - 1
+  toRow :=  0 #> toRow <# rowsPerPanel - 1
+  toColumn :=  0 #> toColumn <# columnsPerPanel - 1
+  desiredPanelIndex :=  0 #> panelIndex <# maxPanels - 1
+  offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, panelIndex)
+  ' Use FALSE for bUseDisplayCoords - panel routines use wire-order coordinates
+  drawLineInternal(fmRow + offsetPixelRows, fmColumn + offsetPixelColumns, toRow + offsetPixelRows, toColumn + offsetPixelColumns, rgbColor, FALSE)
 
 PRI drawLineInternal(fmRow, fmColumn, toRow, toColumn, rgbColor, bUseDisplayCoords) | row, column
     '' Internal line drawing with control over coordinate system
@@ -992,43 +1012,44 @@ PRI drawLineInternal(fmRow, fmColumn, toRow, toColumn, rgbColor, bUseDisplayCoor
 
 
 PRI plotLineLowInternal(x0, y0, x1, y1, rgbColor, bUseDisplayCoords) | row, column, dy, dx, D, yi
-    '' Bresenham line algorithm for shallow slopes
-    dx := x1 - x0
-    dy := y1 - y0
-    yi := 1
-    if dy < 0
-        yi := -1
-        dy := -dy
-    D := (2 * dy) - dx
-    row := y0
+'' Bresenham line algorithm for shallow slopes
 
-    repeat column from x0 to x1
-        drawPixelInternal(row, column, rgbColor, bUseDisplayCoords)
-        if D > 0
-            row := row + yi
-            D := D + (2 * (dy - dx))
-        else
-            D := D + 2 * dy
+  dx := x1 - x0
+  dy := y1 - y0
+  yi := 1
+  if dy < 0
+    yi := -1
+    dy := -dy
+  D := (2 * dy) - dx
+  row := y0
+
+  repeat column from x0 to x1
+    drawPixelInternal(row, column, rgbColor, bUseDisplayCoords)
+    if D > 0
+      row := row + yi
+      D := D + (2 * (dy - dx))
+    else
+      D := D + 2 * dy
 
 PRI plotLineHighInternal(x0, y0, x1, y1, rgbColor, bUseDisplayCoords) | row, column, dy, dx, D, xi
-    '' Bresenham line algorithm for steep slopes
-    dx := x1 - x0
-    dy := y1 - y0
-    xi := 1
-    if dx < 0
-        xi := -1
-        dx := -dx
-    D := (2 * dx) - dy
-    column := x0
+'' Bresenham line algorithm for steep slopes
 
-    repeat row from y0 to y1
-        drawPixelInternal(row, column, rgbColor, bUseDisplayCoords)
-        if D > 0
-            column := column + xi
-            D := D + (2 * (dx - dy))
-        else
-            D := D + 2*dx
+  dx := x1 - x0
+  dy := y1 - y0
+  xi := 1
+  if dx < 0
+    xi := -1
+    dx := -dx
+  D := (2 * dx) - dy
+  column := x0
 
+  repeat row from y0 to y1
+    drawPixelInternal(row, column, rgbColor, bUseDisplayCoords)
+    if D > 0
+      column := column + xi
+      D := D + (2 * (dx - dy))
+    else
+      D := D + 2*dx
 
 PRI drawPixelInternal(row, column, rgbColor, bUseDisplayCoords)
     '' Draw a single pixel with coordinate system control
