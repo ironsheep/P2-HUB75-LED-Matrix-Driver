@@ -281,3 +281,23 @@ ChangeLog entry is written at `build-wrapup`.
   **Not exercised (container limitation):** the golden-binary md5 check
   (`check_reformat.sh`, macOS-only) — GOLD verification is the §4 macOS
   step. Exit baseline at closeout asserts no regression vs. this.
+
+---
+
+## Section <-> task cross-reference (via `plan-to-tasks`, 2026-06-06)
+
+Sprint tag: **`src-reconcile`**. §1 (file-by-file analysis) is already
+delivered in this plan, so it carries no task. Tasks are ordered
+foundational -> dependent by `seq`; declared dependencies are documentary
+(stated in each task's prose), `seq` is the operational order.
+
+| Plan § | Deliverable | Task | seq | Effort | Where |
+| ------ | ----------- | ---- | --- | ------ | ----- |
+| §1 | File-by-file reconciliation analysis | *(none — delivered in plan)* | — | — | — |
+| §2 | Dispose vestigial `feature-clock1` | «#1» | 1 | 20m | container |
+| §3 | develop->main functional merge | «#2» | 2 | 10h | container |
+| §4a | Regenerate GOLD from merged tree | «#3» | 3 | 30m | macOS |
+| §4b | Re-apply/re-derive restyle, GOLD-verified | «#4» | 4 | 6h | container+macOS |
+| §5a | Reconcile ChangeLog & docs | «#5» | 5 | 2h | container |
+| §5b | Hardware verification | «#6» | 6 | 1h30m | macOS |
+| §5c | Finalize: push main, delete `develop` | «#7» | 7 | 30m | container |
