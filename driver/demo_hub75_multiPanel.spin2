@@ -11,47 +11,46 @@
 ''
 '' =================================================================================================
 
-
 CON ' timing
 
-  CLK_FREQ = 335_000_000                                        ' system freq as a constant 2.985 nSec
-  'CLK_FREQ = 250_000_000                                        ' system freq as a constant 2.985 nSec
-  _clkfreq = CLK_FREQ                                           ' set system clock
+    CLK_FREQ  = 335_000_000                                         ' system freq as a constant 2.985 nSec
+    ' CLK_FREQ = 250_000_000                                        ' system freq as a constant 2.985 nSec
+    _CLKFREQ  = CLK_FREQ                                            ' set system clock
 
 CON ' DEBUG PINs
 
-'DEBUG_PIN = 0
-DEBUG_COGS = %11111111
-DEBUG_BAUD = 2_000_000
+' DEBUG_PIN = 0
+    DEBUG_COGS  = %11111111
+    DEBUG_BAUD  = 2_000_000
 
 VAR
 
-    long    cog
-    long    chainIndex
-    long    demoPausePeriod
-    long    scrollPeriod
-    long    textSize
+    LONG    cog
+    LONG    chainIndex
+    LONG    demoPausePeriod
+    LONG    scrollPeriod
+    LONG    textSize
 
 OBJ
 
-    color       :   "isp_hub75_color"
-    colorUtils  :   "isp_hub75_colorUtils"
-    pixels      :   "isp_hub75_screenUtils"
-    hub75Bffrs  :   "isp_hub75_hwBufferAccess"
-    display     :   "isp_hub75_display"
-    user        :   "isp_hub75_hwPanelConfig"           ' hardware config common to all demos
-    scrnBuffers :   "isp_hub75_hwBuffers"               ' the large buffers storing pixel data
+    color           : "isp_hub75_color"
+    colorUtils      : "isp_hub75_colorUtils"
+    pixels          : "isp_hub75_screenUtils"
+    hub75Bffrs      : "isp_hub75_hwBufferAccess"
+    display         : "isp_hub75_display"
+    user            : "isp_hub75_hwPanelConfig"                     ' hardware config common to all demos
+    scrnBuffers     : "isp_hub75_hwBuffers"                         ' the large buffers storing pixel data
 
 CON ' DEMO info
 
 ' 11 enables .bmp file display
-DEMO_COUNT = 3
+    DEMO_COUNT  = 3
 
-#0, PNL_TOP, PNL_FRONT, PNL_RIGHT, PNL_BACK, PNL_LEFT, PNL_BOTTOM
+    #0, PNL_TOP, PNL_FRONT, PNL_RIGHT, PNL_BACK, PNL_LEFT, PNL_BOTTOM
 
 DAT
 
-panelIdMessage  byte    "Pn",0
+    panelIdMessage  BYTE    "Pn",0
 
 PUB main() : ok | demoIndex
 '' Start underlying drivers and run the multi-panel demo sequence.
@@ -61,81 +60,81 @@ PUB main() : ok | demoIndex
 ' Local Variables:
 ' @local demoIndex - index of the current demo being run
 
-    'repeat
+' repeat
 
-    'debug("`term temp size 82 50 textsize 10")
-    hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
-    chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
+' debug("`term temp size 82 50 textsize 10")
 
-    ' startup our backend COG(s)
-    display.setBufferPointers(chainIndex, scrnBuffers.chain0Ptrs())
-    ok := cog := display.start(chainIndex)   ' send buffer to driver
-    if ok == -1
-        debug("- DEMO: underlying driver failed!")
-        abort
+  hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
+  chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
-    demoPausePeriod := 3   ' seconds
-    scrollPeriod := 1
+  ' startup our backend COG(s)
+  display.setBufferPointers(chainIndex, scrnBuffers.chain0Ptrs())
+  ok := cog := display.start(chainIndex)                ' send buffer to driver
+  if ok == -1
+    DEBUG("- DEMO: underlying driver failed!")
+    abort
 
-    repeat 20
-        repeat demoIndex from 0 to DEMO_COUNT - 1
-            'waitSec(1)
-            case demoIndex + 1
-                1: demoPanelColors()
-                2: demoTopBottomScroll()
-                3: demoRandomPanelColors()
-                4: demoPanelFillColors()
-'                5: demoColorPalette12Panels()
-'                6: showFullColorSweep()
-'                7: demoTest12x9ColorBrightness()
-'                8: colorBlast()
-'                9: demoText()
-'               10: demoScreenBlast()
-'               11: demoBmpFileLoad()
+  demoPausePeriod := 3                                  ' seconds
+  scrollPeriod := 1
 
-            waitSec(demoPausePeriod)
+  repeat 20
+    repeat demoIndex from 0 TO DEMO_COUNT - 1
+      ' waitSec(1)
+      case demoIndex + 1
+        1: demoPanelColors()
+        2: demoTopBottomScroll()
+        3: demoRandomPanelColors()
+        4: demoPanelFillColors()
+      '                5: demoColorPalette12Panels()
+      '                6: showFullColorSweep()
+      '                7: demoTest12x9ColorBrightness()
+      '                8: colorBlast()
+      '                9: demoText()
+      '               10: demoScreenBlast()
+      '               11: demoBmpFileLoad()
 
-    stop()
+      waitSec(demoPausePeriod)
+
+  stop()
 
 PRI stop()
 ' Stop the display driver and release the cog.
 '
 
-    if cog
-        display.stop()
-        cog := 0
+  if cog
+    display.stop()
+    cog := 0
 
 PRI waitSec(countSeconds)
 ' Wait for the specified number of seconds.
 '
 ' @param countSeconds - number of seconds to wait
 
-    repeat countSeconds
-        waitms(1000)
+  repeat countSeconds
+    waitms(1000)
 
 PRI wait1000thSecs(count)
 ' Wait for N milliseconds.
 '
 ' @param count - number of milliseconds to wait
 
-    repeat count
-        waitms(1)  ' 1/100 seconds
+  repeat count
+    waitms(1)                                           ' 1/100 seconds
 
 PRI demoPanelFillColors()
 ' Fill the screen with solid red, green, blue, and white colors in sequence.
 '
 
-    display.clearScreenBuffer()
-    repeat 4
-        display.fillScreenNoPWM(color.BASE_RED)    ' full single color panel NO pwm
-        waitSec(2)
-        display.fillScreenNoPWM(color.BASE_GREEN)    ' full single color panel NO pwm
-        waitSec(2)
-        display.fillScreenNoPWM(color.BASE_BLUE)    ' full single color panel NO pwm
-        waitSec(2)
-        display.fillScreenNoPWM(color.BASE_WHITE)    ' full single color panel NO pwm
-        waitSec(4)
-
+  display.clearScreenBuffer()
+  repeat 4
+    display.fillScreenNoPWM(color.BASE_RED)             ' full single color panel NO pwm
+    waitSec(2)
+    display.fillScreenNoPWM(color.BASE_GREEN)           ' full single color panel NO pwm
+    waitSec(2)
+    display.fillScreenNoPWM(color.BASE_BLUE)            ' full single color panel NO pwm
+    waitSec(2)
+    display.fillScreenNoPWM(color.BASE_WHITE)           ' full single color panel NO pwm
+    waitSec(4)
 
 PRI demoRandomPanelColors() | panelIndex, panelHue, panelColor
 ' Fill each panel with a random hue color.
@@ -146,24 +145,24 @@ PRI demoRandomPanelColors() | panelIndex, panelHue, panelColor
 ' @local panelHue - random hue value for the panel
 ' @local panelColor - RGB color derived from the hue
 
-    display.clearScreenBuffer()
-    repeat 20
-        repeat panelIndex from 0 to hub75Bffrs.maxPanels(chainIndex) - 1
-            panelHue := (getrnd() +// 254) + 1
-            panelColor := colorUtils.rgbColorFromDegrees(panelHue)
-            display.fillPanel(panelIndex, panelColor)
-        ' update our screen
-        display.commitScreenToPanelSet()
-        'wait1000thSecs(10)
+  display.clearScreenBuffer()
+  repeat 20
+    repeat panelIndex from 0 TO hub75Bffrs.maxPanels(chainIndex) - 1
+      panelHue := (GETRND() +// 254) + 1
+      panelColor := colorUtils.rgbColorFromDegrees(panelHue)
+      display.fillPanel(panelIndex, panelColor)
+    ' update our screen
+    display.commitScreenToPanelSet()
+        ' wait1000thSecs(10)
 
-DAT ' panel messages
+DAT  ' panel messages
 
-lblTop      byte    "Top", 0
-lblBot      byte    "Bot", 0
-lblFrnt     byte    "Front", 0
-lblRight    byte    "Right", 0
-lblBack     byte    "Back", 0
-lblLeft     byte    "Left", 0
+    lblTop      BYTE    "Top", 0
+    lblBot      BYTE    "Bot", 0
+    lblFrnt     BYTE    "Front", 0
+    lblRight    BYTE    "Right", 0
+    lblBack     BYTE    "Back", 0
+    lblLeft     BYTE    "Left", 0
 
 PRI demoTopBottomScroll() | scrollerID, startTime
 ' Label each panel face and scroll text across multiple panels.
@@ -173,63 +172,62 @@ PRI demoTopBottomScroll() | scrollerID, startTime
 ' @local scrollerID - identifier for the active text scroller
 ' @local startTime - timestamp for duration measurement
 
-    textSize := display.TEXT_FONT_8x8A
-    'textSize := display.TEXT_FONT_8x8B
-    display.setTextFont(textSize)    ' font size
-    display.setTextColor(color.cBlueViolet)
+  textSize := display.TEXT_FONT_8x8A
+  ' textSize := display.TEXT_FONT_8x8B
+  display.setTextFont(textSize)                         ' font size
+  display.setTextColor(color.cBlueViolet)
 
-    ' start with blank screen on which to draw
-    display.clearScreenBuffer()
+  ' start with blank screen on which to draw
+  display.clearScreenBuffer()
 
-    display.fillPanel(PNL_TOP, color.cGreen)
-    display.setCursorOnPanel(4, 3, PNL_TOP)
-    display.setTextAtCursor(@lblTop)
+  display.fillPanel(PNL_TOP, color.cGreen)
+  display.setCursorOnPanel(4, 3, PNL_TOP)
+  display.setTextAtCursor(@lblTop)
 
-    display.fillPanel(PNL_BOTTOM, color.cRed)
-    display.setCursorOnPanel(4, 3, PNL_BOTTOM)
-    display.setTextAtCursor(@lblBot)
+  display.fillPanel(PNL_BOTTOM, color.cRed)
+  display.setCursorOnPanel(4, 3, PNL_BOTTOM)
+  display.setTextAtCursor(@lblBot)
 
-    display.fillPanel(PNL_FRONT, color.cYellow)
-    display.setCursorOnPanel(7, 1, PNL_FRONT)
-    display.setTextAtCursor(@lblFrnt)
+  display.fillPanel(PNL_FRONT, color.cYellow)
+  display.setCursorOnPanel(7, 1, PNL_FRONT)
+  display.setTextAtCursor(@lblFrnt)
 
-    display.fillPanel(PNL_RIGHT, color.cCyan)
-    display.setCursorOnPanel(7, 1, PNL_RIGHT)
-    display.setTextAtCursor(@lblRight)
+  display.fillPanel(PNL_RIGHT, color.cCyan)
+  display.setCursorOnPanel(7, 1, PNL_RIGHT)
+  display.setTextAtCursor(@lblRight)
 
-    display.fillPanel(PNL_BACK, color.cOrange)
-    display.setCursorOnPanel(7, 2, PNL_BACK)
-    display.setTextAtCursor(@lblBack)
+  display.fillPanel(PNL_BACK, color.cOrange)
+  display.setCursorOnPanel(7, 2, PNL_BACK)
+  display.setTextAtCursor(@lblBack)
 
-    display.fillPanel(PNL_LEFT, color.cLime)
-    display.setCursorOnPanel(7, 2, PNL_LEFT)
-    display.setTextAtCursor(@lblLeft)
+  display.fillPanel(PNL_LEFT, color.cLime)
+  display.setCursorOnPanel(7, 2, PNL_LEFT)
+  display.setTextAtCursor(@lblLeft)
 
-    ' get scroller initialized with text to scroll and direction
-    scrollerID := display.scrollColoredTextOnLnOfNPanels(4, PNL_FRONT, 4, string("Multi-panel long test scroll   "), display.DIR_TO_LEFT, color.cBlue)
-    ' configure scroll repeat count
-    display.configureScrollLoopCount(scrollerID, display.SCROLL_N_TIMES, 2)
+  ' get scroller initialized with text to scroll and direction
+  scrollerID := display.scrollColoredTextOnLnOfNPanels(4, PNL_FRONT, 4, string("Multi-panel long test scroll   "), display.DIR_TO_LEFT, color.cBlue)
+  ' configure scroll repeat count
+  display.configureScrollLoopCount(scrollerID, display.SCROLL_N_TIMES, 2)
 
-    ' update our screen
+  ' update our screen
+  display.commitScreenToPanelSet()
+
+  ' delay to first movement
+  'wait1000thSecs(scrollPeriod)
+
+  ' loop while scrolling finishes
+  repeat while NOT display.isScrollingComplete()
+    ' move the text
+    'startTime := getct()
+    display.animateScroll()
+    'showDuration(startTime, string("top:ANI"))
+    ' commit to screen
+    'startTime := getct()
     display.commitScreenToPanelSet()
-
-    ' delay to first movement
-    'wait1000thSecs(scrollPeriod)
-
-    ' loop while scrolling finishes
-    repeat while NOT display.isScrollingComplete()
-        ' move the text
-        'startTime := getct()
-        display.animateScroll()
-        'showDuration(startTime, string("top:ANI"))
-        ' commit to screen
-        'startTime := getct()
-        display.commitScreenToPanelSet()
-        'showDuration(startTime, string("top:ANI-wr"))
+        ' showDuration(startTime, string("top:ANI-wr"))
 
         ' delay to next movement
         'wait1000thSecs(scrollPeriod)
-
 
 PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, boxColor, hueIndex
 ' Color each panel with a unique hue, label it, and draw a colored box inside.
@@ -242,39 +240,39 @@ PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, boxColor, hueInde
 ' @local boxColor - RGB color for the box drawn inside the panel
 ' @local hueIndex - computed hue index for color selection
 
-    panelHueWidth := 256 / hub75Bffrs.maxPanels(chainIndex)
+  panelHueWidth := 256 / hub75Bffrs.maxPanels(chainIndex)
 
-    ' set up text subsystem
-    'textSize := display.TEXT_FONT_5x7
-    textSize := display.TEXT_FONT_8x8A
-    'textSize := display.TEXT_FONT_8x8B
-    display.setTextFont(textSize)    ' font size
-    display.setTextColor(color.cBlueViolet)
-    display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
+  ' set up text subsystem
+  'textSize := display.TEXT_FONT_5x7
+  textSize := display.TEXT_FONT_8x8A
+  ' textSize := display.TEXT_FONT_8x8B
+  display.setTextFont(textSize)                         ' font size
+  display.setTextColor(color.cBlueViolet)
+  display.setCursor(0, 0)                               ' start at top left, with one pixel of spacing
 
-    ' start with blank screen on which to draw
-    display.clearScreenBuffer()
+  ' start with blank screen on which to draw
+  display.clearScreenBuffer()
 
-    panelIndex := 0
+  panelIndex := 0
 
-    repeat panelIndex from 0 to hub75Bffrs.maxPanels(chainIndex) - 1
-        ' color the panel
-        hueIndex := panelIndex + 1
-        if hueIndex > hub75Bffrs.maxPanels(chainIndex) - 1
-            hueIndex -= hub75Bffrs.maxPanels(chainIndex)
-        panelColor := colorUtils.rgbColorFromDegrees(panelHueWidth * hueIndex)
-        display.fillPanel(panelIndex, panelColor)
-        ' number the panel
-        display.setCursorOnPanel(1,1, panelIndex)
-        byte [@panelIdMessage][1] := panelIndex + $30
-        display.setTextAtCursor(@panelIdMessage)
-        ' draw a colored box in panel (don't use panel color)
-        hueIndex := panelIndex + 3
-        if hueIndex > hub75Bffrs.maxPanels(chainIndex) - 1
-            hueIndex -= hub75Bffrs.maxPanels(chainIndex)
-        boxColor := colorUtils.rgbColorFromDegrees(panelHueWidth * hueIndex)
-        display.drawPanelBoxOfColor(panelIndex, 17, 10, 40, 34, TRUE, boxColor)
-    display.commitScreenToPanelSet()
+  repeat panelIndex from 0 TO hub75Bffrs.maxPanels(chainIndex) - 1
+    ' color the panel
+    hueIndex := panelIndex + 1
+    if hueIndex > hub75Bffrs.maxPanels(chainIndex) - 1
+      hueIndex -= hub75Bffrs.maxPanels(chainIndex)
+    panelColor := colorUtils.rgbColorFromDegrees(panelHueWidth * hueIndex)
+    display.fillPanel(panelIndex, panelColor)
+    ' number the panel
+    display.setCursorOnPanel(1,1, panelIndex)
+    BYTE [@panelIdMessage][1] := panelIndex + $30
+    display.setTextAtCursor(@panelIdMessage)
+    ' draw a colored box in panel (don't use panel color)
+    hueIndex := panelIndex + 3
+    if hueIndex > hub75Bffrs.maxPanels(chainIndex) - 1
+      hueIndex -= hub75Bffrs.maxPanels(chainIndex)
+    boxColor := colorUtils.rgbColorFromDegrees(panelHueWidth * hueIndex)
+    display.drawPanelBoxOfColor(panelIndex, 17, 10, 40, 34, TRUE, boxColor)
+  display.commitScreenToPanelSet()
 
 PRI showDuration(startTimeValue, pFuncTitle) | duration, converted
 ' Display the elapsed time in microseconds for a named operation.
@@ -286,10 +284,9 @@ PRI showDuration(startTimeValue, pFuncTitle) | duration, converted
 ' @local duration - raw elapsed clock ticks
 ' @local converted - elapsed time converted to microseconds
 
-    duration := getct() - startTimeValue
-    converted := muldiv64(duration, 1_000_000, clkfreq)
-    debug("- elapsed ", zstr_(pFuncTitle), ": ", udec_(converted), " uSec")
-
+  duration := GETCT() - startTimeValue
+  converted := muldiv64(duration, 1_000_000, clkfreq)
+  DEBUG("- elapsed ", zstr_(pFuncTitle), ": ", udec_(converted), " uSec")
 
 CON ' license
 

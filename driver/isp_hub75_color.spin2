@@ -13,43 +13,43 @@
 
 CON ' test colorset
 
-    cBlack = $000000
-    cWhite = $FFFFFF
-    cRed = $FF0000
-    cLime = $00FF00
-    cBlue = $0000FF
-    cYellow = $FFFF00
-    cCyan = $00FFFF
-    cMagenta = $FF00FF
-    cSilver = $C0C0C0
-    cGray = $808080
-    cMaroon = $800000
-    cOlive = $808000
-    cGreen = $008000
-    cPurple = $800080
-    cTeal = $008080
-    cNavy = $000080
-    cDarkGreen = $006400
-    cOrange = $FFA500
-    cBlueViolet = $8A2BE2
+    CBLACK        = $000000
+    CWHITE        = $FFFFFF
+    CRED          = $FF0000
+    CLIME         = $00FF00
+    CBLUE         = $0000FF
+    CYELLOW       = $FFFF00
+    CCYAN         = $00FFFF
+    CMAGENTA      = $FF00FF
+    CSILVER       = $C0C0C0
+    CGRAY         = $808080
+    CMAROON       = $800000
+    COLIVE        = $808000
+    CGREEN        = $008000
+    CPURPLE       = $800080
+    CTEAL         = $008080
+    CNAVY         = $000080
+    CDARKGREEN    = $006400
+    CORANGE       = $FFA500
+    CBLUEVIOLET   = $8A2BE2
 
-    cFullRed = $FF0000
-    cFullGreen = $00FF00
-    cFullBlue = $0000FF
+    CFULLRED      = $FF0000
+    CFULLGREEN    = $00FF00
+    CFULLBLUE     = $0000FF
 
     ' SPECIAL non-colors - invoke alforithm to gerate actual color used'
-    cRedWhtBlu = $deadf0
-    cRainbow = $deadf1
+    CREDWHTBLU    = $deadf0
+    CRAINBOW      = $deadf1
 
     ' our 3-bit colors
-    BASE_BLACK   = $00
-    BASE_RED     = $01
-    BASE_GREEN   = $02
-    BASE_YELLOW    = $03
-    BASE_BLUE    = $04
-    BASE_MAGENTA = $05
-    BASE_CYAN  = $06
-    BASE_WHITE   = $07
+    BASE_BLACK    = $00
+    BASE_RED      = $01
+    BASE_GREEN    = $02
+    BASE_YELLOW   = $03
+    BASE_BLUE     = $04
+    BASE_MAGENTA  = $05
+    BASE_CYAN     = $06
+    BASE_WHITE    = $07
 
 PUB null()
 '' This is not a top level object

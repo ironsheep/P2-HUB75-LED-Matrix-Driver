@@ -11,40 +11,39 @@
 ''
 '' =================================================================================================
 
-
 CON ' timing
 
-  CLK_FREQ = 335_000_000                                        ' system freq as a constant
-  _clkfreq = CLK_FREQ                                           ' set system clock
+    CLK_FREQ  = 335_000_000                                         ' system freq as a constant
+    _CLKFREQ  = CLK_FREQ                                            ' set system clock
 
 CON ' DEBUG PINs
 
-'DEBUG_PIN = 0
+' DEBUG_PIN = 0
 
 CON ' Display constants
 
-MAX_DIGITS = 8
+    MAX_DIGITS  = 8
 
 VAR
 
-    long    cog
-    long    chainIndex
-    long    segmentPeriod
-    long    digitPeriod
-    long    digitVal
-    long    digitIndex
-    long    hours
-    long    minutes
+    LONG    cog
+    LONG    chainIndex
+    LONG    segmentPeriod
+    LONG    digitPeriod
+    LONG    digitVal
+    LONG    digitIndex
+    LONG    hours
+    LONG    minutes
 
 OBJ
 
-    color               :   "isp_hub75_color"
-    display             :   "isp_hub75_display"
-    pixels              :   "isp_hub75_screenUtils"
-    digit[MAX_DIGITS]   :   "isp_hub75_7seg"
-    hub75Bffrs          :   "isp_hub75_hwBufferAccess"
-    user                :   "isp_hub75_hwPanelConfig"   ' hardware config common to all demos
-    scrnBuffers         :   "isp_hub75_hwBuffers"       ' the large buffers storing pixel data
+    color                       : "isp_hub75_color"
+    display                     : "isp_hub75_display"
+    pixels                      : "isp_hub75_screenUtils"
+    digit[MAX_DIGITS]           : "isp_hub75_7seg"
+    hub75Bffrs                  : "isp_hub75_hwBufferAccess"
+    user                        : "isp_hub75_hwPanelConfig"         ' hardware config common to all demos
+    scrnBuffers                 : "isp_hub75_hwBuffers"             ' the large buffers storing pixel data
 
 PUB start() : ok | hours24
 '' Start underlying drivers and run the seven-segment clock demo.
@@ -54,82 +53,82 @@ PUB start() : ok | hours24
 ' Local Variables:
 ' @local hours24 - hours value in 24-hour format
 
-    'debug("`term temp size 82 50 textsize 10")
-    hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
-    chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
+' debug("`term temp size 82 50 textsize 10")
 
-    ' startup our backend COG(s)
-    display.setBufferPointers(chainIndex, scrnBuffers.chain0Ptrs())
-    ok := cog := display.start(chainIndex)   ' send buffer to driver
-    if ok == -1
-        debug("- DEMO: underlying drivers failed!")
-        abort
+  hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
+  chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
-    '  SEVEN SEGMENT DEMO
+  ' startup our backend COG(s)
+  display.setBufferPointers(chainIndex, scrnBuffers.chain0Ptrs())
+  ok := cog := display.start(chainIndex)                ' send buffer to driver
+  if ok == -1
+    DEBUG("- DEMO: underlying drivers failed!")
+    abort
 
-    segmentPeriod := 8     ' 4 x 100ths of a second
-    digitPeriod := 12    ' 90     ' 4 x 100ths of a second
+  '  SEVEN SEGMENT DEMO
 
-        ' draw some text!
-    display.setTextFont(display.TEXT_FONT_5x7)    ' font size
-    display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
+  segmentPeriod := 8                                    ' 4 x 100ths of a second
+  digitPeriod := 12                                     ' 90     ' 4 x 100ths of a second
 
+  ' draw some text!
+  display.setTextFont(display.TEXT_FONT_5x7)            ' font size
+  display.setCursor(0, 0)                               ' start at top left, with one pixel of spacing
 
-    display.setColoredTextAtLnCol(0,0, string("iron sheep"), color.cMaroon)
-    display.commitScreenToPanelSet()
+  display.setColoredTextAtLnCol(0,0, string("iron sheep"), color.cMaroon)
+  display.commitScreenToPanelSet()
 
-    ' High Speed CLOCK demo
-    hours := minutes := 0
+  ' High Speed CLOCK demo
+  hours := minutes := 0
 
-    digit[0].placeDigit(chainIndex, 8, 2, 0, color.cOrange)
-    digit[1].placeDigit(chainIndex, 8, 17, 0, color.cOrange)
-    if hub75Bffrs.maxDisplayColumns(chainIndex) > 32
-        digit[2].placeDigit(chainIndex, 8, 35, 0, color.cOrange)
-        digit[3].placeDigit(chainIndex, 8, 50, 0, color.cOrange)
-    if hub75Bffrs.maxDisplayColumns(chainIndex) > 64
-        digit[4].placeDigit(chainIndex, 8, 2+64, 1, color.cOrange)
-        digit[5].placeDigit(chainIndex, 8, 17+64, 2, color.cOrange)
-    if hub75Bffrs.maxDisplayColumns(chainIndex) > 96
-        digit[6].placeDigit(chainIndex, 8, 35+64, 0, color.cOrange)
-        digit[7].placeDigit(chainIndex, 8, 50+64, 0, color.cOrange)
+  digit[0].placeDigit(chainIndex, 8, 2, 0, color.cOrange)
+  digit[1].placeDigit(chainIndex, 8, 17, 0, color.cOrange)
+  if hub75Bffrs.maxDisplayColumns(chainIndex) > 32
+    digit[2].placeDigit(chainIndex, 8, 35, 0, color.cOrange)
+    digit[3].placeDigit(chainIndex, 8, 50, 0, color.cOrange)
+  if hub75Bffrs.maxDisplayColumns(chainIndex) > 64
+    digit[4].placeDigit(chainIndex, 8, 2+64, 1, color.cOrange)
+    digit[5].placeDigit(chainIndex, 8, 17+64, 2, color.cOrange)
+  if hub75Bffrs.maxDisplayColumns(chainIndex) > 96
+    digit[6].placeDigit(chainIndex, 8, 35+64, 0, color.cOrange)
+    digit[7].placeDigit(chainIndex, 8, 50+64, 0, color.cOrange)
 
-    display.commitScreenToPanelSet()
-    wait100thSecs(segmentPeriod)
+  display.commitScreenToPanelSet()
+  wait100thSecs(segmentPeriod)
 
-    loopUntilSegmentsFinish()
+  loopUntilSegmentsFinish()
 
-    ' PAUSE to see digit before next morph
-    wait100thSecs(digitPeriod)
+  ' PAUSE to see digit before next morph
+  wait100thSecs(digitPeriod)
 
-    repeat hours from 0 to 12
-        hours24 := hours + 12
-        if hours24 > 23
-            hours24 -= 24
+  repeat hours from 0 TO 12
+    hours24 := hours + 12
+    if hours24 > 23
+      hours24 -= 24
 
-        repeat minutes from 0 to 59
+    repeat minutes from 0 TO 59
 
-            digit[0].setValue(hours / 10)
-            digit[1].setValue(hours // 10)
-            digit[2].setValue(minutes / 10)
-            digit[3].setValue(minutes // 10)
-            if hub75Bffrs.maxDisplayColumns(chainIndex) > 64
-                digit[4].setValue(hours24 / 10)
-                digit[5].setValue(hours24 // 10)
-            if hub75Bffrs.maxDisplayColumns(chainIndex) > 96
-                digit[6].setValue(minutes / 10)
-                digit[7].setValue(minutes // 10)
+      digit[0].setValue(hours / 10)
+      digit[1].setValue(hours // 10)
+      digit[2].setValue(minutes / 10)
+      digit[3].setValue(minutes // 10)
+      if hub75Bffrs.maxDisplayColumns(chainIndex) > 64
+        digit[4].setValue(hours24 / 10)
+        digit[5].setValue(hours24 // 10)
+      if hub75Bffrs.maxDisplayColumns(chainIndex) > 96
+        digit[6].setValue(minutes / 10)
+        digit[7].setValue(minutes // 10)
 
-            display.commitScreenToPanelSet()
-            wait100thSecs(segmentPeriod)
+      display.commitScreenToPanelSet()
+      wait100thSecs(segmentPeriod)
 
-            showSecondsDots( minutes // 2 )
+      showSecondsDots( minutes // 2 )
 
-            loopUntilSegmentsFinish()
+      loopUntilSegmentsFinish()
 
-            wait100thSecs(digitPeriod)
+      wait100thSecs(digitPeriod)
 
 {
-' transitional DEMO
+  ' transitional DEMO
 
     digit[0].placeDigit(chainIndex, 8, 2, 5, color.cOrange)
     digit[1].placeDigit(chainIndex, 8, 18, 7, color.cOrange)
@@ -141,10 +140,10 @@ PUB start() : ok | hours24
 
     loopUntilSegmentsFinish()
 
-    ' PAUSE to see digit before next morph
+  ' PAUSE to see digit before next morph
     wait100thSecs(digitPeriod)
 
-    'repeat ' hold here
+  'repeat ' hold here
 
     repeat digitVal from 1 to 9
         repeat digitIndex from 0 to 3
@@ -157,9 +156,8 @@ PUB start() : ok | hours24
         wait100thSecs(digitPeriod)
 }
 
-
-    debug("DEMO: done")
-    repeat
+  DEBUG("DEMO: done")
+  repeat
 
 PRI showSecondsDots(lightDark) | red, green, blue, targetColor
 ' Draw the colon dots between hour and minute digits.
@@ -172,16 +170,16 @@ PRI showSecondsDots(lightDark) | red, green, blue, targetColor
 ' @local blue - blue color component
 ' @local targetColor - computed 24-bit RGB color for dots
 
-    if lightDark == 0
-        targetColor := $00006F
-    else
-        targetColor := $0080FF
+  if lightDark == 0
+    targetColor := $00006F
+  else
+    targetColor := $0080FF
 
-    drawSecondsDot(15, 31, targetColor)
-    drawSecondsDot(23, 31, targetColor)
-    if hub75Bffrs.maxDisplayColumns(chainIndex) > 96
-        drawSecondsDot(15, 31+64, targetColor)
-        drawSecondsDot(23, 31+64, targetColor)
+  drawSecondsDot(15, 31, targetColor)
+  drawSecondsDot(23, 31, targetColor)
+  if hub75Bffrs.maxDisplayColumns(chainIndex) > 96
+    drawSecondsDot(15, 31+64, targetColor)
+    drawSecondsDot(23, 31+64, targetColor)
 
 PRI drawSecondsDot(row, column, rgbColor)
 ' Draw a 2x2 pixel dot at the given row and column.
@@ -190,21 +188,21 @@ PRI drawSecondsDot(row, column, rgbColor)
 ' @param column - top-left column of the dot
 ' @param rgbColor - 24-bit RGB color for the dot
 
-    pixels.drawPixelAtRC(chainIndex, row, column, rgbColor)
-    pixels.drawPixelAtRC(chainIndex, row, column+1, rgbColor)
-    pixels.drawPixelAtRC(chainIndex, row+1, column, rgbColor)
-    pixels.drawPixelAtRC(chainIndex, row+1, column+1, rgbColor)
+  pixels.drawPixelAtRC(chainIndex, row, column, rgbColor)
+  pixels.drawPixelAtRC(chainIndex, row, column+1, rgbColor)
+  pixels.drawPixelAtRC(chainIndex, row+1, column, rgbColor)
+  pixels.drawPixelAtRC(chainIndex, row+1, column+1, rgbColor)
 
 PRI allDigitAnimationsComplete() : status
 ' Return TRUE if all digit animations have finished.
 '
 ' @returns status - TRUE if all complete, FALSE otherwise
 
-    status := TRUE
-    repeat digitIndex from 0 to MAX_DIGITS - 1
-        if not digit[digitIndex].isAnimationComplete()
-            status := FALSE
-            quit
+  status := TRUE
+  repeat digitIndex from 0 TO MAX_DIGITS - 1
+    if NOT digit[digitIndex].isAnimationComplete()
+      status := FALSE
+      quit
 
 PRI loopUntilSegmentsFinish() | didAnimate
 ' Animate all digit segments until all animations are complete.
@@ -213,36 +211,35 @@ PRI loopUntilSegmentsFinish() | didAnimate
 ' Local Variables:
 ' @local didAnimate - TRUE if any digit animated this iteration
 
-    repeat
-        didAnimate := FALSE
-        if not allDigitAnimationsComplete()
-            repeat digitIndex from 0 to MAX_DIGITS - 1
-                if not digit[digitIndex].isAnimationComplete()
-                    didAnimate := TRUE
-                    digit[digitIndex].animateStep()
-            if didAnimate
-                display.commitScreenToPanelSet()
-                wait100thSecs(segmentPeriod)
+  repeat
+    didAnimate := FALSE
+    if NOT allDigitAnimationsComplete()
+      repeat digitIndex from 0 TO MAX_DIGITS - 1
+        if NOT digit[digitIndex].isAnimationComplete()
+          didAnimate := TRUE
+          digit[digitIndex].animateStep()
+      if didAnimate
+        display.commitScreenToPanelSet()
+        wait100thSecs(segmentPeriod)
 
-        if allDigitAnimationsComplete()
-            quit
+    if allDigitAnimationsComplete()
+      quit
 
 PUB wait100thSecs(count)
 '' Wait for the specified number of hundredths of a second.
 ''
 '' @param count - number of hundredths of a second to wait
 
-    repeat count
-        waitms(10)  ' 1/100 seconds
-
+  repeat count
+    waitms(10)                                          ' 1/100 seconds
 
 PUB stop()
 '' Stop the display driver and release the cog.
 ''
 
-    if cog
-        display.stop()
-        cog := 0
+  if cog
+    display.stop()
+    cog := 0
 
 CON ' license
 

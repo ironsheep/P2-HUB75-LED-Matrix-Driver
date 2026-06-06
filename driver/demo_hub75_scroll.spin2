@@ -11,30 +11,29 @@
 ''
 '' =================================================================================================
 
-
 CON ' timing
 
-  CLK_FREQ = 335_000_000                                        ' system freq as a constant
-  _clkfreq = CLK_FREQ                                           ' set system clock
+    CLK_FREQ  = 335_000_000                                         ' system freq as a constant
+    _CLKFREQ  = CLK_FREQ                                            ' set system clock
 
 CON ' DEBUG PINs
 
-'DEBUG_PIN = 0
+' DEBUG_PIN = 0
 
 VAR
 
-    long    cog
-    long    chainIndex
-    long    scrollPeriod
-    long    startTime
+    LONG    cog
+    LONG    chainIndex
+    LONG    scrollPeriod
+    LONG    startTime
 
 OBJ
 
-    color       :   "isp_hub75_color"
-    hub75Bffrs  :   "isp_hub75_hwBufferAccess"
-    display     :   "isp_hub75_display"
-    user        :   "isp_hub75_hwPanelConfig"           ' hardware config common to all demos
-    scrnBuffers :   "isp_hub75_hwBuffers"               ' the large buffers storing pixel data
+    color           : "isp_hub75_color"
+    hub75Bffrs      : "isp_hub75_hwBufferAccess"
+    display         : "isp_hub75_display"
+    user            : "isp_hub75_hwPanelConfig"                     ' hardware config common to all demos
+    scrnBuffers     : "isp_hub75_hwBuffers"                         ' the large buffers storing pixel data
 
 PUB main() : ok
 '' Run the scrolling text demo on the HUB75 LED matrix.
@@ -46,9 +45,9 @@ PUB main() : ok
 
     ' startup our backend COG(s)
     display.setBufferPointers(chainIndex, scrnBuffers.chain0Ptrs())
-    ok := cog := display.start(chainIndex)   ' send buffer to driver
+    ok := cog := display.start(chainIndex)              ' send buffer to driver
     if ok == -1
-        debug("- DEMO: underlying drivers failed!")
+        DEBUG("- DEMO: underlying drivers failed!")
         abort
 
     demoScrollingText()
@@ -67,15 +66,15 @@ PRI demoScrollingText() | scrollerID, textSize
 ' @local scrollerID - identifier for the active text scroller
 ' @local textSize - selected font size for the display text
 
-    scrollPeriod := 20    ' 50 * 10 mSec :: 50/100th Sec
+    scrollPeriod := 20                                  ' 50 * 10 mSec :: 50/100th Sec
 
     textSize := display.TEXT_FONT_5x7
     'textSize := display.TEXT_FONT_8x8A
     'textSize := display.TEXT_FONT_8x8B
 
     display.clearScreen()
-    display.setTextFont(textSize)    ' font size
-    display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
+    display.setTextFont(textSize)                       ' font size
+    display.setCursor(0, 0)                             ' start at top left, with one pixel of spacing
     ' show some static text on 64x32 display
     if textSize == display.TEXT_FONT_5x7
         display.setColoredTextAtLnCol(0,0, string("Iron Sheep"), color.cMaroon)
@@ -89,7 +88,7 @@ PRI demoScrollingText() | scrollerID, textSize
     ' configure it for one time scroll then stop when last bit arrives on screen
     'display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE)
     display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE_TO_CLEAR)
-    'display.configureScrollLoopMode(scrollerID, display.SCROLL_FOREVER)
+    ' display.configureScrollLoopMode(scrollerID, display.SCROLL_FOREVER)
 
     scrollerID := display.scrollColoredTextOnLn(3, string("2nd shorter - "), display.DIR_TO_LEFT, color.cLime)
     ' configure it for one time scroll then stop when last bit arrives on screen
@@ -112,7 +111,7 @@ PRI demoScrollingText() | scrollerID, textSize
     ' update our screen
     display.commitScreenToPanelSet()
 
-    'repeat
+    ' repeat
 
     ' now loop while scrolling finishes
     wait100thSecs(scrollPeriod)
@@ -126,12 +125,11 @@ PRI demoScrollingText() | scrollerID, textSize
         ' commit to screen
         'startTime := getct()
         display.commitScreenToPanelSet()
-        'showDuration(startTime, string("top:ANI-wr"))
+        ' showDuration(startTime, string("top:ANI-wr"))
 
         ' delay while we stare wide-eyed at the new...
         'wait100thSecs(scrollPeriod)
         wait100thSecs(scrollPeriod)
-
 
 PRI showDuration(startTimeValue, pFuncTitle) | duration, converted
 ' Display the elapsed time in microseconds for a named operation.
@@ -143,15 +141,15 @@ PRI showDuration(startTimeValue, pFuncTitle) | duration, converted
 ' @local duration - raw elapsed clock ticks
 ' @local converted - elapsed time converted to microseconds
 
-    duration := getct() - startTimeValue
+    duration := GETCT() - startTimeValue
     converted := muldiv64(duration, 1_000_000, clkfreq)
-    debug("- elapsed ", zstr_(pFuncTitle), ": ", udec_(converted), " uSec")
+    DEBUG("- elapsed ", zstr_(pFuncTitle), ": ", udec_(converted), " uSec")
 
-DAT ' string data
+DAT  ' string data
 
-pwmMsg  byte    "XXXfrm pwm",0
-bitMsg  byte    "-RGB "
-bitCt   byte    "nbit-",0
+    pwmMsg      BYTE    "XXXfrm pwm",0
+    bitMsg      BYTE    "-RGB "
+    bitCt       BYTE    "nbit-",0
 
 PRI demoText() | pFrameCountStr, frameCount
 ' Display static text showing driver info including color depth and PWM frame count.
@@ -162,22 +160,22 @@ PRI demoText() | pFrameCountStr, frameCount
 ' @local frameCount - number of PWM frames reported by the driver
 
     display.clearScreen()
-    display.setTextFont(display.TEXT_FONT_5x7)    ' font size
-    display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
+    display.setTextFont(display.TEXT_FONT_5x7)          ' font size
+    display.setCursor(0, 0)                             ' start at top left, with one pixel of spacing
     display.setColoredTextAtLnCol(0,0, string("iron sheep"), color.cMaroon)
 
     frameCount := hub75Bffrs.pwmFrameCount(chainIndex)
     case hub75Bffrs.colorDepth(chainIndex)
         hub75Bffrs.DEPTH_3BIT:
-            pwmMsg.BYTE[0] := $20    ' space
-            pwmMsg.BYTE[1] := $20    ' space
+            pwmMsg.BYTE[0] := $20                       ' space
+            pwmMsg.BYTE[1] := $20                       ' space
             pwmMsg.BYTE[2] := $30 + frameCount
         hub75Bffrs.DEPTH_7BIT,hub75Bffrs.DEPTH_8BIT:
             pwmMsg.BYTE[0] := $30 + (frameCount / 100)
             pwmMsg.BYTE[1] := $30 + ((frameCount // 100) / 10)
             pwmMsg.BYTE[2] := $30 + ((frameCount // 100) // 10)
         other:
-            pwmMsg.BYTE[0] := $20    ' space
+            pwmMsg.BYTE[0] := $20                       ' space
             pwmMsg.BYTE[1] := $30 + (frameCount / 10)
             pwmMsg.BYTE[2] := $30 + (frameCount // 10)
     bitCt.BYTE[0] := hub75Bffrs.colorDepth(chainIndex) + $30
@@ -201,7 +199,7 @@ PRI wait100thSecs(count)
 ' @param count - number of hundredths of a second to wait
 
     repeat count
-        waitms(10)  ' 1/100 seconds
+        waitms(10)                                      ' 1/100 seconds
 
 CON ' license
 

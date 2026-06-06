@@ -19,7 +19,6 @@
 
 CON ' Hardware Description
 
-
 ' -------------------------------------------------------------------------------------------------
 ' AUTHORs  1st configuration
 ' -------------------------------------------------------------------------------------------------
@@ -44,7 +43,6 @@ CON ' Hardware Description
     ' The visual organization of panel(s)
     '   [1]
 '}
-
 
 ' -------------------------------------------------------------------------------------------------
 ' AUTHORs  2nd configuration
@@ -135,7 +133,7 @@ CON ' Hardware Description
 {
     ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
 
-   ' (1) determine what form of signalling the driver should use
+    ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
     PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 
@@ -160,14 +158,13 @@ CON ' Hardware Description
 {
     ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
 
-   ' (1) determine what form of signalling the driver should use
+    ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
     PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 
     ' The visual organization of panel(s)
     '   [1]      1 row of 1 panel
 '}
-
 
 ' -------------------------------------------------------------------------------------------------
 ' AUTHORs  7th configuration
@@ -186,7 +183,7 @@ CON ' Hardware Description
 {
     ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
 
-   ' (1) determine what form of signalling the driver should use
+    ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = hwEnum.CHIP_MBI5124_8S
     PANEL_ADDR_LINES = hwEnum.ADDR_ABC
 
@@ -211,14 +208,13 @@ CON ' Hardware Description
 {
     ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
 
-   ' (1) determine what form of signalling the driver should use
+    ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = hwEnum.CHIP_GS6238S ' hwEnum.CHIP_UNKNOWN
     PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
 
     ' The visual organization of panel(s)
     '   [1]      1 row of 1 panel
 '}
-
 
 ' -------------------------------------------------------------------------------------------------
 ' AUTHORs  9th configuration -- P2 P2 Cube FLAT (red/blue swapped!)
@@ -237,7 +233,7 @@ CON ' Hardware Description
 {
     ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
 
-   ' (1) determine what form of signalling the driver should use
+    ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
     PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 
@@ -262,7 +258,7 @@ CON ' Hardware Description
 {
     ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
 
-   ' (1) determine what form of signalling the driver should use
+    ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037_B
     PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 
@@ -285,16 +281,15 @@ CON ' Hardware Description
 '    max clock rate of 20MHz - [25ns hi/25ns lo]   TESTED NEW
 ' ----------------------------------------------------------
 '{
-    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+    ADAPTER_BASE_PIN   = hwEnum.PINs_P16_P31
 
-   ' (1) determine what form of signalling the driver should use
-    PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
-    PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
+    ' (1) determine what form of signalling the driver should use
+    PANEL_DRIVER_CHIP  = hwEnum.CHIP_ICN2037
+    PANEL_ADDR_LINES   = hwEnum.ADDR_ABCDE
 
     ' The visual organization of panel(s)
     '   [1]     ' one row of 1 panel
 '}
-
 
 '              (remember to enable (uncomment) only one configuration above here)
 
@@ -318,9 +313,7 @@ CON ' Hardware Description
 '
 OBJ
 
-    hwEnum   : "isp_hub75_hwEnums"  ' hub75 attachment, set up constants
-
-
+    hwEnum      : "isp_hub75_hwEnums"                               ' hub75 attachment, set up constants
 
 PUB null()
 '' Placeholder method indicating this is not a top-level object.

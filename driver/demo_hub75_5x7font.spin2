@@ -11,30 +11,29 @@
 ''
 '' =================================================================================================
 
-
 CON ' timing
 
-  CLK_FREQ = 335_000_000                                        ' system freq as a constant
-  _clkfreq = CLK_FREQ                                           ' set system clock
+    CLK_FREQ  = 335_000_000                                         ' system freq as a constant
+    _CLKFREQ  = CLK_FREQ                                            ' set system clock
 
 CON ' DEBUG PINs
 
-'DEBUG_PIN = 0
+' DEBUG_PIN = 0
 
 VAR
 
-    long    cog
-    long    chainIndex
-    long    scrollPeriod
-    long    startTime
+    LONG    cog
+    LONG    chainIndex
+    LONG    scrollPeriod
+    LONG    startTime
 
 OBJ
 
-    color       :   "isp_hub75_color"
-    display     :   "isp_hub75_display"
-    hub75Bffrs  :   "isp_hub75_hwBufferAccess"
-    user        :   "isp_hub75_hwPanelConfig"           ' hardware config common to all demos
-    scrnBuffers :   "isp_hub75_hwBuffers"               ' the large buffers storing pixel data
+    color           : "isp_hub75_color"
+    display         : "isp_hub75_display"
+    hub75Bffrs      : "isp_hub75_hwBufferAccess"
+    user            : "isp_hub75_hwPanelConfig"                     ' hardware config common to all demos
+    scrnBuffers     : "isp_hub75_hwBuffers"                         ' the large buffers storing pixel data
 
 PUB main() : ok | vertPixelCount
 '' Run demo displaying the full 5x7 font character set on the HUB75 LED matrix.
@@ -44,41 +43,41 @@ PUB main() : ok | vertPixelCount
 ' Local Variables:
 ' @local vertPixelCount - vertical pixel count of the display
 
-    hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
-    chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
+  hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
+  chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
-    ' startup our backend COG(s)
-    display.setBufferPointers(chainIndex, scrnBuffers.chain0Ptrs())
-    ok := cog := display.start(chainIndex)   ' send buffer to driver
-    if ok == -1
-        debug("- DEMO: underlying drivers failed!")
-        abort
+  ' startup our backend COG(s)
+  display.setBufferPointers(chainIndex, scrnBuffers.chain0Ptrs())
+  ok := cog := display.start(chainIndex)                ' send buffer to driver
+  if ok == -1
+    DEBUG("- DEMO: underlying drivers failed!")
+    abort
 
-    initCharacterSet()
+  initCharacterSet()
 
-    vertPixelCount := hub75Bffrs.maxDisplayRows(chainIndex)
-    if vertPixelCount > 32
-        demoFont64x64()
-    else
-        demoFont64x32()
+  vertPixelCount := hub75Bffrs.maxDisplayRows(chainIndex)
+  if vertPixelCount > 32
+    demoFont64x64()
+  else
+    demoFont64x32()
 
-    waitSec(60)    ' 60 seconds
+  waitSec(60)                                           ' 60 seconds
 
-    ' shutdown our backend COG(s)
-    if ok <> -1
-        display.stop()
+  ' shutdown our backend COG(s)
+  if ok <> -1
+    display.stop()
 
 CON
-    CHARS_PER_ROW = 10
-    BYTES_PER_ROW = 11
-    NBR_ROWS_64 = 13
-    ROWS_PER_SCREEN_64 = 10
-    ROWS_PER_SCREEN_32 = 5
-    NBR_ROWS_32 = 6
+    CHARS_PER_ROW       = 10
+    BYTES_PER_ROW       = 11
+    NBR_ROWS_64         = 13
+    ROWS_PER_SCREEN_64  = 10
+    ROWS_PER_SCREEN_32  = 5
+    NBR_ROWS_32         = 6
 
 DAT
     ' 10 rows (really 9.6, 10 chars + term. in each row)
-    charSet         BYTE    0[NBR_ROWS_64 * BYTES_PER_ROW]
+    charSet     BYTE    0[NBR_ROWS_64 * BYTES_PER_ROW]
 
 PRI initCharacterSet() | nBytesFilled
 ' Initialize the character set buffer with printable ASCII characters arranged in rows.
@@ -87,22 +86,22 @@ PRI initCharacterSet() | nBytesFilled
 ' Local Variables:
 ' @local nBytesFilled - number of bytes filled so far in current row
 
-    bytefill(@charSet, 0, NBR_ROWS_64 * BYTES_PER_ROW)
-    ' 1.5 rows
-    fillCharSet(0, 0, $20, $2f)    ' special chars (16)
-    ' 1.0 rows
-    nBytesFilled := fillCharSet(2, 0, $3a, $40)    ' special chars (7)
-    fillCharSet(2, nBytesFilled, $7e, $7f)    ' special chars (3)
-    ' 1.0 rows
-    nBytesFilled := fillCharSet(3, 0, $5b, $60)    ' special chars (6)
-    fillCharSet(3, nBytesFilled, $7b, $7d)    ' special chars (3)
+  bytefill(@charSet, 0, NBR_ROWS_64 * BYTES_PER_ROW)
+  ' 1.5 rows
+  fillCharSet(0, 0, $20, $2f)                           ' special chars (16)
+  ' 1.0 rows
+  nBytesFilled := fillCharSet(2, 0, $3a, $40)           ' special chars (7)
+  fillCharSet(2, nBytesFilled, $7e, $7f)                ' special chars (3)
+  ' 1.0 rows
+  nBytesFilled := fillCharSet(3, 0, $5b, $60)           ' special chars (6)
+  fillCharSet(3, nBytesFilled, $7b, $7d)                ' special chars (3)
 
-    ' 1.0 rows
-    fillCharSet(5, 0, $30, $39)    ' 0-9
-    ' 2.6 rows
-    fillCharSet(6, 0, $41, $5a)    ' UPPER CASE A-Z
-    ' 2.6 rows
-    fillCharSet(9, 0, $61, $7a)    ' LOWER CASE A-Z
+  ' 1.0 rows
+  fillCharSet(5, 0, $30, $39)                           ' 0-9
+  ' 2.6 rows
+  fillCharSet(6, 0, $41, $5a)                           ' UPPER CASE A-Z
+  ' 2.6 rows
+  fillCharSet(9, 0, $61, $7a)                           ' LOWER CASE A-Z
 
 PRI demoFont64x32() | textSize, nChar, nRow, nCol, byteIdx, nCharIdx, nScreenRow
 ' Display the full 5x7 font character set on a 64x32 panel in multiple screens.
@@ -117,48 +116,48 @@ PRI demoFont64x32() | textSize, nChar, nRow, nCol, byteIdx, nCharIdx, nScreenRow
 ' @local nCharIdx - unused
 ' @local nScreenRow - current screen row position for display output
 
-    textSize := display.TEXT_FONT_5x7
-    'textSize := display.TEXT_FONT_8x8A
-    'textSize := display.TEXT_FONT_8x8B
+  textSize := display.TEXT_FONT_5x7
+  'textSize := display.TEXT_FONT_8x8A
+  'textSize := display.TEXT_FONT_8x8B
 
-    display.clearScreen()
-    display.setTextFont(textSize)    ' font size
-    display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
+  display.clearScreen()
+  display.setTextFont(textSize)                         ' font size
+  display.setCursor(0, 0)                               ' start at top left, with one pixel of spacing
 
-    repeat
-        ' 3.5 rows
-        display.clearScreenBuffer()
-        nScreenRow := 0
-        repeat nRow from 0 to 3
-            display.setColoredTextAtLnCol(nScreenRow, 0, @BYTE[@charSet][nRow * BYTES_PER_ROW], color.cYellow)
-            nScreenRow++
+  repeat
+    ' 3.5 rows
+    display.clearScreenBuffer()
+    nScreenRow := 0
+    repeat nRow from 0 TO 3
+      display.setColoredTextAtLnCol(nScreenRow, 0, @BYTE[@charSet][nRow * BYTES_PER_ROW], color.cYellow)
+      nScreenRow++
 
-        ' update our screen
-        display.commitScreenToPanelSet()
-        waitSec(10)    ' seconds
+    ' update our screen
+    display.commitScreenToPanelSet()
+    waitSec(10)                                         ' seconds
 
-        nScreenRow := 0
-        display.clearScreenBuffer()
-        repeat nRow from 5 to 8
-            display.setColoredTextAtLnCol(nScreenRow, 0, @BYTE[@charSet][(nRow) * BYTES_PER_ROW], color.cOrange)
-            nScreenRow++
+    nScreenRow := 0
+    display.clearScreenBuffer()
+    repeat nRow from 5 TO 8
+      display.setColoredTextAtLnCol(nScreenRow, 0, @BYTE[@charSet][(nRow) * BYTES_PER_ROW], color.cOrange)
+      nScreenRow++
 
-        ' update our screen
-        display.commitScreenToPanelSet()
-        waitSec(10)    ' seconds
+    ' update our screen
+    display.commitScreenToPanelSet()
+    waitSec(10)                                         ' seconds
 
-        nScreenRow := 0
-        display.clearScreenBuffer()
-        nRow := 5
-        display.setColoredTextAtLnCol(nScreenRow, 0, @BYTE[@charSet][(nRow) * BYTES_PER_ROW], color.cOrange)
-        nScreenRow := 1
-        repeat nRow from 9 to 11
-            display.setColoredTextAtLnCol(nScreenRow, 0, @BYTE[@charSet][(nRow) * BYTES_PER_ROW], color.cOrange)
-            nScreenRow++
+    nScreenRow := 0
+    display.clearScreenBuffer()
+    nRow := 5
+    display.setColoredTextAtLnCol(nScreenRow, 0, @BYTE[@charSet][(nRow) * BYTES_PER_ROW], color.cOrange)
+    nScreenRow := 1
+    repeat nRow from 9 TO 11
+      display.setColoredTextAtLnCol(nScreenRow, 0, @BYTE[@charSet][(nRow) * BYTES_PER_ROW], color.cOrange)
+      nScreenRow++
 
-        ' update our screen
-        display.commitScreenToPanelSet()
-        waitSec(10)    ' seconds
+    ' update our screen
+    display.commitScreenToPanelSet()
+    waitSec(10)                                         ' seconds
 
 PRI demoFont64x64() | textSize, nChar, nRow, nCol, byteIdx, nCharIdx, nRows1stScreen
 ' Display the full 5x7 font character set on a 64x64 panel in two screens.
@@ -173,31 +172,31 @@ PRI demoFont64x64() | textSize, nChar, nRow, nCol, byteIdx, nCharIdx, nRows1stSc
 ' @local nCharIdx - unused
 ' @local nRows1stScreen - number of rows displayed on the first screen
 
-    textSize := display.TEXT_FONT_5x7
-    'textSize := display.TEXT_FONT_8x8A
-    'textSize := display.TEXT_FONT_8x8B
-    nRows1stScreen := ROWS_PER_SCREEN_64 / 2
+  textSize := display.TEXT_FONT_5x7
+  'textSize := display.TEXT_FONT_8x8A
+  'textSize := display.TEXT_FONT_8x8B
+  nRows1stScreen := ROWS_PER_SCREEN_64 / 2
 
-    display.clearScreen()
-    display.setTextFont(textSize)    ' font size
-    display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
+  display.clearScreen()
+  display.setTextFont(textSize)                         ' font size
+  display.setCursor(0, 0)                               ' start at top left, with one pixel of spacing
 
-    repeat
-        display.clearScreenBuffer()
-        repeat nRow from 0 to nRows1stScreen - 1 + 1 ' +1 add in digits 0-9 on this screen too
-            display.setColoredTextAtLnCol(nRow, 0, @BYTE[@charSet][nRow * BYTES_PER_ROW], color.cYellow)
+  repeat
+    display.clearScreenBuffer()
+    repeat nRow from 0 TO nRows1stScreen - 1 + 1        ' +1 add in digits 0-9 on this screen too
+      display.setColoredTextAtLnCol(nRow, 0, @BYTE[@charSet][nRow * BYTES_PER_ROW], color.cYellow)
 
-        ' update our screen
-        display.commitScreenToPanelSet()
-        waitSec(10)    ' seconds
+    ' update our screen
+    display.commitScreenToPanelSet()
+    waitSec(10)                                         ' seconds
 
-        display.clearScreenBuffer()
-        repeat nRow from nRows1stScreen to NBR_ROWS_64 - 1
-            display.setColoredTextAtLnCol(nRow - nRows1stScreen, 0, @BYTE[@charSet][(nRow) * BYTES_PER_ROW], color.cOrange)
+    display.clearScreenBuffer()
+    repeat nRow from nRows1stScreen TO NBR_ROWS_64 - 1
+      display.setColoredTextAtLnCol(nRow - nRows1stScreen, 0, @BYTE[@charSet][(nRow) * BYTES_PER_ROW], color.cOrange)
 
-        ' update our screen
-        display.commitScreenToPanelSet()
-        waitSec(10)    ' seconds
+    ' update our screen
+    display.commitScreenToPanelSet()
+    waitSec(10)                                         ' seconds
 
 PRI fillCharSet(startRow, startCol, startHex, stopHex) : nCount | nCharIdx, nChar, nRow, nCol, nIdx
 ' Fill the character set buffer with a range of ASCII characters starting at the given row and column.
@@ -215,22 +214,22 @@ PRI fillCharSet(startRow, startCol, startHex, stopHex) : nCount | nCharIdx, nCha
 ' @local nCol - computed column for current character
 ' @local nIdx - byte index into the charSet buffer
 
-    nCharIdx := (startRow * CHARS_PER_ROW) + startCol
-    nCount := (stopHex + 1) - startHex
-    repeat nChar from startHex to stopHex
-        nRow := nCharIdx / 10
-        nCol := nCharIdx +// 10
-        nIdx := (nRow * BYTES_PER_ROW) + nCol
-        BYTE [@charSet][nIdx] := nChar
-        nCharIdx++
+  nCharIdx := (startRow * CHARS_PER_ROW) + startCol
+  nCount := (stopHex + 1) - startHex
+  repeat nChar from startHex TO stopHex
+    nRow := nCharIdx / 10
+    nCol := nCharIdx +// 10
+    nIdx := (nRow * BYTES_PER_ROW) + nCol
+    BYTE [@charSet][nIdx] := nChar
+    nCharIdx++
 
 PRI waitSec(countSeconds)
 ' Wait for the specified number of seconds.
 '
 ' @param countSeconds - number of seconds to wait
 
-    repeat countSeconds
-        waitms(1000)
+  repeat countSeconds
+    waitms(1000)
 
 CON ' license
 
