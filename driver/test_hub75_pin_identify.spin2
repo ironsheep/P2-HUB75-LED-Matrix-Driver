@@ -1,0 +1,203 @@
+'' =================================================================================================
+''
+''   File....... test_hub75_pin_identify.spin2
+''   Purpose.... HUB75 Pin Identification Test - toggle pins at known frequencies
+''   Author..... Stephen M Moraco / Claude Code
+''   Started.... Jan 2025
+''
+''   This test program toggles HUB75 pins AND LA instrumentation pins (P8-P11)
+''   as a binary counter. Use a logic analyzer to measure each pin's frequency.
+''
+''   LA INSTRUMENTATION PINS (P8-P11) - bits 0-3 of counter:
+''     P8  = LA_CMD      - toggles at BASE_FREQ (fastest) - bit 0
+''     P9  = LA_FRMSET   - toggles at BASE_FREQ / 2       - bit 1
+''     P10 = LA_SAME     - toggles at BASE_FREQ / 4       - bit 2
+''     P11 = LA_NEW      - toggles at BASE_FREQ / 8       - bit 3
+''
+''   HUB75 PINS (offset from BASE_PIN) - bits 4-19 of counter:
+''     +0  = CLK      - toggles at BASE_FREQ / 16    - bit 4
+''     +1  = OE       - toggles at BASE_FREQ / 32    - bit 5
+''     +2  = LATCH    - toggles at BASE_FREQ / 64    - bit 6
+''     +3  = A        - toggles at BASE_FREQ / 128   - bit 7
+''     +4  = B        - toggles at BASE_FREQ / 256   - bit 8
+''     +5  = C        - toggles at BASE_FREQ / 512   - bit 9
+''     +6  = D        - toggles at BASE_FREQ / 1024  - bit 10
+''     +7  = E        - toggles at BASE_FREQ / 2048  - bit 11
+''     +8  = R1       - toggles at BASE_FREQ / 4096  - bit 12
+''     +9  = G1       - toggles at BASE_FREQ / 8192  - bit 13
+''     +10 = B1       - toggles at BASE_FREQ / 16384 - bit 14
+''     +11 = R2       - toggles at BASE_FREQ / 32768 - bit 15
+''     +12 = G2       - toggles at BASE_FREQ / 65536 - bit 16
+''     +13 = B2       - toggles at BASE_FREQ / 131072 - bit 17
+''     +14 = SPARE1   - toggles at BASE_FREQ / 262144 - bit 18
+''     +15 = SPARE2   - toggles at BASE_FREQ / 524288 - bit 19
+''
+''   With BASE_FREQ = 100 kHz:
+''     P8  (LA_CMD):    100.000 kHz  - bit 0
+''     P9  (LA_FRMSET):  50.000 kHz  - bit 1
+''     P10 (LA_SAME):    25.000 kHz  - bit 2
+''     P11 (LA_NEW):     12.500 kHz  - bit 3
+''     ---
+''     CLK   (BASE+0):    6.250 kHz  - bit 4
+''     OE    (BASE+1):    3.125 kHz  - bit 5
+''     LATCH (BASE+2):    1.563 kHz  - bit 6
+''     A     (BASE+3):      781 Hz   - bit 7
+''     B     (BASE+4):      391 Hz   - bit 8
+''     C     (BASE+5):      195 Hz   - bit 9
+''     D     (BASE+6):       98 Hz   - bit 10
+''     E     (BASE+7):       49 Hz   - bit 11
+''     R1    (BASE+8):       24 Hz   - bit 12
+''     G1    (BASE+9):       12 Hz   - bit 13
+''     B1    (BASE+10):       6 Hz   - bit 14
+''     R2    (BASE+11):       3 Hz   - bit 15
+''     G2    (BASE+12):     1.5 Hz   - bit 16
+''     B2    (BASE+13):    0.76 Hz   - bit 17
+''     SP1   (BASE+14):    0.38 Hz   - bit 18
+''     SP2   (BASE+15):    0.19 Hz   - bit 19
+''
+'' =================================================================================================
+
+CON { timing }
+
+    CLK_FREQ = 300_000_000                              ' system freq as a constant
+    _clkfreq = CLK_FREQ                                 ' set system clock
+
+CON { configuration }
+
+    ' =========================================================================
+    '  USER CONFIG: Set your HUB75 adapter base pin here
+    ' =========================================================================
+    BASE_PIN = 16                   ' Change to match your setup: 0, 16, 32, or 48
+
+    ' Base toggle frequency for bit 0 (P8 - fastest pin)
+    ' Each subsequent bit toggles at half the previous bit's rate
+    BASE_FREQ_HZ = 100_000          ' 100 kHz base - adjust if needed
+
+    ' =========================================================================
+
+    ' Calculate delay between counter increments
+    ' Counter increments cause bit 0 to toggle, so delay = 1/(2*BASE_FREQ)
+    DELAY_TICKS = CLK_FREQ / (BASE_FREQ_HZ * 2)
+
+    ' Pin groups
+    LA_PIN_GROUP = 8 ADDPINS 3              ' P8-P11 (4 LA instrumentation pins)
+    HUB75_PIN_GROUP = BASE_PIN ADDPINS 15   ' 16 HUB75 pins
+
+CON { pin names for reference }
+
+    ' LA Instrumentation pins (directly on P2, not on HUB75 connector)
+    PIN_LA_08  = 8      ' bit 0 - Start of NEW Command
+    PIN_LA_09  = 9      ' bit 1 - Start of PWM FrameSet
+    PIN_LA_10  = 10     ' bit 2 - Start of SAME PWM Frame
+    PIN_LA_11  = 11     ' bit 3 - Start of NEW single PWM Frame
+
+    ' HUB75 connector pins (bits 4-19 of counter)
+    PIN_CLK    = BASE_PIN + 0   ' bit 4
+    PIN_OE     = BASE_PIN + 1   ' bit 5
+    PIN_LATCH  = BASE_PIN + 2   ' bit 6
+    PIN_A      = BASE_PIN + 3   ' bit 7
+    PIN_B      = BASE_PIN + 4   ' bit 8
+    PIN_C      = BASE_PIN + 5   ' bit 9
+    PIN_D      = BASE_PIN + 6   ' bit 10
+    PIN_E      = BASE_PIN + 7   ' bit 11
+    PIN_R1     = BASE_PIN + 8   ' bit 12
+    PIN_G1     = BASE_PIN + 9   ' bit 13
+    PIN_B1     = BASE_PIN + 10  ' bit 14
+    PIN_R2     = BASE_PIN + 11  ' bit 15
+    PIN_G2     = BASE_PIN + 12  ' bit 16
+    PIN_B2     = BASE_PIN + 13  ' bit 17
+    PIN_SPARE1 = BASE_PIN + 14  ' bit 18
+    PIN_SPARE2 = BASE_PIN + 15  ' bit 19
+
+VAR
+
+    long    counter
+
+PUB main() | nextTime, laBits, hub75Bits
+
+    ' Initialize all pins as outputs, start LOW
+    pinlow(LA_PIN_GROUP)        ' P8-P11
+    pinlow(HUB75_PIN_GROUP)     ' 16 HUB75 pins
+
+    debug("==============================================")
+    debug("HUB75 + LA Pin Identification Test")
+    debug("==============================================")
+    debug("LA Pins: P8-P11 (bits 0-3)")
+    debug("HUB75 Base Pin: ", udec_(BASE_PIN))
+    debug("HUB75 Range: P", udec_(BASE_PIN), " - P", udec_(BASE_PIN + 15), " (bits 4-19)")
+    debug("Base Frequency: ", udec_(BASE_FREQ_HZ), " Hz")
+    debug(" ")
+    debug("Expected frequencies (20-bit counter):")
+    debug("--- LA INSTRUMENTATION PINS ---")
+    debug("  P8  (LA_CMD):    ", udec_(BASE_FREQ_HZ), " Hz      bit 0")
+    debug("  P9  (LA_FRMSET): ", udec_(BASE_FREQ_HZ / 2), " Hz     bit 1")
+    debug("  P10 (LA_SAME):   ", udec_(BASE_FREQ_HZ / 4), " Hz     bit 2")
+    debug("  P11 (LA_NEW):    ", udec_(BASE_FREQ_HZ / 8), " Hz    bit 3")
+    debug("--- HUB75 CONNECTOR PINS ---")
+    debug("  +0  (CLK):       ", udec_(BASE_FREQ_HZ / 16), " Hz    bit 4")
+    debug("  +1  (OE):        ", udec_(BASE_FREQ_HZ / 32), " Hz    bit 5")
+    debug("  +2  (LATCH):     ", udec_(BASE_FREQ_HZ / 64), " Hz    bit 6")
+    debug("  +3  (A):         ", udec_(BASE_FREQ_HZ / 128), " Hz      bit 7")
+    debug("  +4  (B):         ", udec_(BASE_FREQ_HZ / 256), " Hz      bit 8")
+    debug("  +5  (C):         ", udec_(BASE_FREQ_HZ / 512), " Hz      bit 9")
+    debug("  +6  (D):         ", udec_(BASE_FREQ_HZ / 1024), " Hz       bit 10")
+    debug("  +7  (E):         ", udec_(BASE_FREQ_HZ / 2048), " Hz       bit 11")
+    debug("  +8  (R1):        ", udec_(BASE_FREQ_HZ / 4096), " Hz       bit 12")
+    debug("  +9  (G1):        ", udec_(BASE_FREQ_HZ / 8192), " Hz       bit 13")
+    debug("  +10 (B1):        ", udec_(BASE_FREQ_HZ / 16384), " Hz        bit 14")
+    debug("  +11 (R2):        ", udec_(BASE_FREQ_HZ / 32768), " Hz        bit 15")
+    debug("  +12 (G2):        ~1.5 Hz        bit 16")
+    debug("  +13 (B2):        ~0.76 Hz       bit 17")
+    debug("  +14 (SP1):       ~0.38 Hz       bit 18")
+    debug("  +15 (SP2):       ~0.19 Hz       bit 19")
+    debug(" ")
+    debug("Running 20-bit binary counter...")
+    debug("==============================================")
+
+    counter := 0
+    nextTime := getct()
+
+    ' Run forever, outputting counter value to both pin groups
+    repeat
+        ' Split counter: bits 0-3 go to P8-P11, bits 4-19 go to HUB75 pins
+        laBits := counter & $F              ' lower 4 bits for LA pins
+        hub75Bits := (counter >> 4) & $FFFF ' upper 16 bits for HUB75 pins
+
+        ' Output to both pin groups
+        pinwrite(LA_PIN_GROUP, laBits)
+        pinwrite(HUB75_PIN_GROUP, hub75Bits)
+
+        ' Increment counter
+        counter++
+
+        ' Wait for next tick (maintains precise timing)
+        nextTime += DELAY_TICKS
+        waitct(nextTime)
+
+CON { license }
+
+{{
+ -------------------------------------------------------------------------------------------------
+  MIT License
+
+  Copyright (c) 2025 Iron Sheep Productions, LLC
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+ =================================================================================================
+}}

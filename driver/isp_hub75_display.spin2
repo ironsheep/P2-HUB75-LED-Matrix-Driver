@@ -63,8 +63,13 @@ VAR ' Object Instance Variables
     LONG    cursorColumn
     LONG    maxTextLines
     LONG    maxTextColumns
-
+    LONG    maxDisplayRows
+    LONG    maxDisplayColumns
+    LONG    maxPanels
     LONG    cog
+
+    WORD columnsPerPanel
+    WORD rowsPerPanel
 
     BYTE    selectedTextFont
     BYTE    bFontIsDithered
@@ -127,6 +132,11 @@ PUB startWithId(nId, nChainIdx) : ok | scrollerIndex, dvrConfig, eChipType
         debug("DSP: underlying drivers failed!")
         abort
 
+    ' now that we know our chainIndex for this instance, we can record geometry info
+    maxDisplayRows, maxDisplayColumns := hub75Bffrs.displaySizeInPixels(chainIndex)
+    maxPanels := hub75Bffrs.maxPanels(chainIndex)
+    rowsPerPanel, columnsPerPanel := hub75Bffrs.panelSizeInPixels(chainIndex)
+
     debug("DSP: BFFR screen[", udec_long_(hub75Bffrs.displaySizeInLongs(chainIndex)), "] 0x", uhex_long_(hub75Bffrs.displayBufferAddress(chainIndex)))
 
     dvrConfig, eChipType := hub75Bffrs.getDriverFlags(chainIndex)
@@ -175,38 +185,43 @@ PUB clearScreenBuffer()
 
     hub75Bffrs.zeroFillBuffer(chainIndex)
 
+PUB setBrightness(newBrightness)
+'' Set the global brightness value
+''  - where 256 is NO brightness adjustment
+''  - where 0 is OFF, 205 = 80%, etc.
+''
+'' @param newBrightness - the desired brightness value [0-255,256]
+
+    colorUtils.setBrightness(newBrightness)
+
+PUB getBrightness() : brightness
+'' Return the global brightness value
+''
+'' @returns brightness - the current brightness value [0-255,256]
+''  - where 256 is NO brightness adjustment
+''  - where 0 is OFF, 205 = 80%, etc.
+
+    brightness := colorUtils.getBrightness()
+
 PUB fillScreen(rgbColor) | row, column
-'' Fill the display with a 24-bit color value.
-''
-'' @param rgbColor - 24-bit RGB color value
+    '' Fill the display with 24-bit color value
+    '' Uses display coordinates (applies panel column swap if needed)
+    repeat maxDisplayRows with row
+        repeat maxDisplayColumns with column
+            drawDisplayPixel(row, column, rgbColor)
 
-' Local Variables:
-' @local row - current row index
-' @local column - current column index
+PUB fillPanel(panelIndex, rgbColor) | row, column, offsetPixelRows, offsetPixelColumns
+    '' Fill the specified panel (of panelSet) with 24-bit color value
+    '' For 2D grids, panelIndex uses row-major order from top-left:
+    ''   2x2 grid: [0][1]    3x3 grid: [0][1][2]
+    ''             [2][3]              [3][4][5]
+    ''                                 [6][7][8]
+    offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, panelIndex)
+    debug("fillPanel(", udec_(panelIndex), ") ", udec_(columnsPerPanel), "x", udec_(rowsPerPanel), " @ row=", udec_(offsetPixelRows), " col=", udec_(offsetPixelColumns))
 
-    repeat row from 0 to hub75Bffrs.maxDisplayRows(chainIndex) - 1
-        repeat column from 0 to hub75Bffrs.maxDisplayColumns(chainIndex) - 1
-            pixels.drawPixelAtRC(chainIndex, row, column, rgbColor)
-
-PUB fillPanel(panelIndex, rgbColor) | row, column, columnOffsetToPanel
-'' Fill the specified panel of the panel set with a 24-bit color value.
-''
-'' @param panelIndex - zero-based index of the panel to fill
-'' @param rgbColor - 24-bit RGB color value
-
-' Local Variables:
-' @local row - current row index
-' @local column - current column index
-' @local columnOffsetToPanel - pixel column offset to the target panel
-
-    columnOffsetToPanel := panelIndex * hub75Bffrs.columnsPerPanel(chainIndex)
-    repeat row from 0 to hub75Bffrs.rowsPerPanel(chainIndex) - 1
-        repeat column from 0 to hub75Bffrs.columnsPerPanel(chainIndex) - 1
-            'if row == 0 and (column < 4 or column > hub75Bffrs.columnsPerPanel(chainIndex) - 4)
-                'if not bDidShowOnce
-                '    debug("- fillPanel row=0 col=", udec_(column), ", ", udec(columnOffsetToPanel))
-            pixels.drawPixelAtRC(chainIndex, row, column + columnOffsetToPanel, rgbColor)
-    'bDidShowOnce := TRUE
+    repeat rowsPerPanel with row
+        repeat columnsPerPanel with column
+            pixels.drawPixelAtRC(chainIndex, row + offsetPixelRows, column + offsetPixelColumns, rgbColor)
 
 PUB fillScreenNoPWM(threeBitColor)
 '' Fill screen without PWM conversion for testing the underlying driver.
@@ -246,29 +261,30 @@ PUB homeCursor()
 
     setCursor(0, 0)
 
-PUB setCursorOnPanel(line, column, panelIndex) | boundedPanelIndex, panelOffsetInChars, boundedColumn, tmpCharOffsetInPix, desiredCharOffsetInPix, fixUpInPix
-'' Position the text cursor to row, column of the selected panel.
-''
-'' @param line - zero-based text line number
-'' @param column - zero-based text column number
-'' @param panelIndex - zero-based index of the target panel
-
-' Local Variables:
-' @local boundedPanelIndex - panel index clamped to valid range
-' @local panelOffsetInChars - character offset to the target panel
-' @local boundedColumn - column clamped to valid range
-' @local tmpCharOffsetInPix - temporary pixel offset for character position
-' @local desiredCharOffsetInPix - desired pixel offset for character position
-' @local fixUpInPix - pixel adjustment for panel alignment
-
-    boundedPanelIndex := 0 #> panelIndex <# hub75Bffrs.maxPanels(chainIndex) - 1
+PUB setCursorOnPanel(line, column, panelIndex) | boundedPanelIndex, boundedLine, boundedColumn, panelGridRow, panelGridCol, panelsPerRow, panelsPerCol
+    '' Position the text cursor to line, column within the selected panel
+    '' Translates panel-local text coordinates to display-wide coordinates
+    '' For 2D grids, panelIndex uses row-major order from top-left:
+    ''   2x2 grid: [0][1]    3x3 grid: [0][1][2]
+    ''             [2][3]              [3][4][5]
+    ''                                 [6][7][8]
+    boundedPanelIndex := 0 #> panelIndex <# maxPanels - 1
+    boundedLine := 0 #> line <# maxPanelTextLines - 1
     boundedColumn := 0 #> column <# maxPanelTextColumns - 1
-    cursorLine := 0 #> line <# maxPanelTextLines - 1
-    panelOffsetInChars := (boundedPanelIndex * maxPanelTextColumns) + boundedColumn
-    cursorColumn := panelOffsetInChars
-    tmpCharOffsetInPix := leftOffsetInPix + (cursorColumn * (charWidthInPix + horizontalGapInPix))
-    desiredCharOffsetInPix := leftOffsetInPix + (hub75Bffrs.columnsPerPanel(chainIndex) * boundedPanelIndex) + (boundedColumn * (charWidthInPix + horizontalGapInPix))
-    panelFixupOffetInPix := (tmpCharOffsetInPix < desiredCharOffsetInPix) ? desiredCharOffsetInPix - tmpCharOffsetInPix: 0
+
+    ' Get panel grid dimensions (panelsPerCol = rows of panels, panelsPerRow = columns of panels)
+    panelsPerCol, panelsPerRow := hub75Bffrs.displaySizeInPanels(chainIndex)
+
+    ' Calculate panel position in grid (row-major order)
+    panelGridRow := boundedPanelIndex / panelsPerRow
+    panelGridCol := boundedPanelIndex // panelsPerRow
+
+    ' Translate panel-local coordinates to display-wide text coordinates
+    cursorLine := boundedLine + (panelGridRow * maxPanelTextLines)
+    cursorColumn := boundedColumn + (panelGridCol * maxPanelTextColumns)
+
+    ' Reset pixel fixup (no longer needed with proper 2D calculation)
+    panelFixupOffetInPix := 0
 
 PUB homeCursorOnPanel(panelIndex)
 '' Return the cursor to the top left corner of the selected panel.
@@ -308,22 +324,22 @@ PUB setTextFont(newFont) | scrollerIndex, hUnusedPix, vUnusedPix, heightCorrecti
 
     selectedTextFont := newFont
     charWidthInPix, charHeightInPix := fonts.getGeometryOfFont(newFont)
-    maxTextLines := (hub75Bffrs.maxDisplayRows(chainIndex) / (charHeightInPix + heightCorrection))
-    maxTextColumns := (hub75Bffrs.maxDisplayColumns(chainIndex) / (charWidthInPix + heightCorrection))
+    maxTextLines := (maxDisplayRows / (charHeightInPix + heightCorrection))
+    maxTextColumns := (maxDisplayColumns / (charWidthInPix + heightCorrection))
 
     bFontIsDithered := fonts.isDitheredFont(newFont)
 
-    vUnusedPix := hub75Bffrs.maxDisplayRows(chainIndex) - (maxTextLines * charHeightInPix)
-    hUnusedPix := hub75Bffrs.maxDisplayColumns(chainIndex) - (maxTextColumns * charWidthInPix)
+    vUnusedPix := maxDisplayRows - (maxTextLines * charHeightInPix)
+    hUnusedPix := maxDisplayColumns - (maxTextColumns * charWidthInPix)
     verticalGapInPix := vUnusedPix / maxTextLines
     horizontalGapInPix := hUnusedPix / maxTextColumns
-    vUnusedPix := hub75Bffrs.maxDisplayRows(chainIndex) - (maxTextLines * (charHeightInPix + verticalGapInPix))
-    hUnusedPix := hub75Bffrs.maxDisplayColumns(chainIndex) - (maxTextColumns * (charWidthInPix + horizontalGapInPix))
+    vUnusedPix := maxDisplayRows - (maxTextLines * (charHeightInPix + verticalGapInPix))
+    hUnusedPix := maxDisplayColumns - (maxTextColumns * (charWidthInPix + horizontalGapInPix))
     topOffsetInPix := (vUnusedPix + 1) >> 1
     leftOffsetInPix := (hUnusedPix + 1) >> 1
 
-    maxPanelTextLines := ((hub75Bffrs.rowsPerPanel(chainIndex) - topOffsetInPix) / (charHeightInPix + verticalGapInPix))
-    maxPanelTextColumns := ((hub75Bffrs.columnsPerPanel(chainIndex) - leftOffsetInPix) / (charWidthInPix + horizontalGapInPix))
+    maxPanelTextLines := ((rowsPerPanel - topOffsetInPix) / (charHeightInPix + verticalGapInPix))
+    maxPanelTextColumns := ((columnsPerPanel - leftOffsetInPix) / (charWidthInPix + horizontalGapInPix))
 
     'debug("DSP: TEXT: ", udec(maxTextColumns), udec(maxTextLines))
 
@@ -576,30 +592,13 @@ PRI placeDitheredCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor) | 
             pixels.drawPixelAtRC(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor)
 
 PRI offsetToTextOnPanel(line, column, panelIndex) : panelLine, panelColumn | gridRow, gridColumn, boundedPanelIndex, boundedColumn, tmpCharOffsetInPix, panelOffsetInChars, desiredCharOffsetInPix
-' Calculate text cursor offsets for a specific panel position.
-'
-' @param line - zero-based text line number
-' @param column - zero-based text column number
-' @param panelIndex - zero-based index of the target panel
-' @returns panelLine - bounded line on the panel
-' @returns panelColumn - character column offset including panel offset
-
-' Local Variables:
-' @local gridRow - text grid row position
-' @local gridColumn - text grid column position
-' @local boundedPanelIndex - panel index clamped to valid range
-' @local boundedColumn - column clamped to valid range
-' @local tmpCharOffsetInPix - temporary pixel offset for character position
-' @local panelOffsetInChars - character offset to the target panel
-' @local desiredCharOffsetInPix - desired pixel offset for character position
-
-    boundedPanelIndex := 0 #> panelIndex <# hub75Bffrs.maxPanels(chainIndex) - 1
+    boundedPanelIndex := 0 #> panelIndex <# maxPanels - 1
     boundedColumn := 0 #> column <# maxPanelTextColumns - 1
     panelLine := 0 #> line <# maxPanelTextLines - 1
     panelOffsetInChars := (boundedPanelIndex * maxPanelTextColumns) + boundedColumn
     panelColumn := panelOffsetInChars
     tmpCharOffsetInPix := leftOffsetInPix + (cursorColumn * (charWidthInPix + horizontalGapInPix))
-    desiredCharOffsetInPix := leftOffsetInPix + (hub75Bffrs.columnsPerPanel(chainIndex) * boundedPanelIndex) + (boundedColumn * (charWidthInPix + horizontalGapInPix))
+    desiredCharOffsetInPix := leftOffsetInPix + (columnsPerPanel * boundedPanelIndex) + (boundedColumn * (charWidthInPix + horizontalGapInPix))
     'panelFixupOffetInPix := (tmpCharOffsetInPix < desiredCharOffsetInPix) ? desiredCharOffsetInPix - tmpCharOffsetInPix: 0
 
 PRI incrCursorWithWrap() | priorRow, priorCol
@@ -728,11 +727,11 @@ PUB scrollColoredTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direc
 ' @local offsetPixelColumns - pixel column offset to the target panel
 
     'debug("DSP: scrollColoredTextOnLnOfNPanels()")
-    boundedPanelIdx := 0 #> panelIndex <# hub75Bffrs.maxPanels(chainIndex) - 1
-    cPanelCt := 1 #> panelCount <# hub75Bffrs.maxPanels(chainIndex)
+    boundedPanelIdx := 0 #> panelIndex <# maxPanels - 1
+    cPanelCt := 1 #> panelCount <# maxPanels
     cLineIdx := 0 #> line <# maxTextLines - 1
     cColumnIdx :=  0
-    widthInChars := ((cPanelCt * hub75Bffrs.columnsPerPanel(chainIndex)) - (2 * leftOffsetInPix)) / (charWidthInPix + horizontalGapInPix)
+    widthInChars := ((cPanelCt * columnsPerPanel) - (2 * leftOffsetInPix)) / (charWidthInPix + horizontalGapInPix)
     'panelLine, panelColumn := offsetToTextOnPanel(cLineIdx, cColumnIdx, panelIndex)
     offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, panelIndex)
     ' ensure we are asked to use a good location
@@ -833,30 +832,31 @@ PRI nextFreeScroller() : scrollerIndexToUse | scrollerIndex
 CON ' --------------     Basic Graphics     --------------
 
 PUB drawBox(topRow, leftColumn, width, height, filled)
-'' Draw a box outline or filled rectangle of width x height at the specified position using the current text color.
+'' Draw box within the display outline/filled of width x height at R,C (using current text color)
+''   - use preceeding setTextColor() to set the outline color
 ''
-'' @param topRow - top pixel row of the box
-'' @param leftColumn - left pixel column of the box
-'' @param width - box width in pixels
-'' @param height - box height in pixels
-'' @param filled - TRUE for filled box, FALSE for outline only
+'' @param topRow - row number of top left corner
+'' @param leftColumn - column number of top left corner
+'' @param width - width of box in pixels (including outline)
+'' @param height - height of box in pixels
+'' @param filled - T/F where T = filled with current text color
 
     drawBoxOfColor(topRow, leftColumn, width, height, filled, currTextColor)
 
 PUB drawBoxOfColor(topRow, leftColumn, width, height, filled, rgbColor) | rightColumn, bottomRow, rowIndex
-'' Draw a box outline or filled rectangle of width x height at the specified position using the given color.
+'' Draw box within the display outline/filled of width x height at R,C using rgbColor)
 ''
-'' @param topRow - top pixel row of the box
-'' @param leftColumn - left pixel column of the box
-'' @param width - box width in pixels
-'' @param height - box height in pixels
-'' @param filled - TRUE for filled box, FALSE for outline only
-'' @param rgbColor - 24-bit RGB color value
+'' @param topRow - row number of top left corner
+'' @param leftColumn - column number of top left corner
+'' @param width - width of box in pixels (including outline)
+'' @param height - height of box in pixels
+'' @param filled - T/F where T = filled with current text color
+'' @param rgbColor - the 24-bit color value to use for the box & fill
 
 ' Local Variables:
-' @local rightColumn - calculated right pixel column of the box
-' @local bottomRow - calculated bottom pixel row of the box
-' @local rowIndex - loop index for filling rows
+' @local rightColumn -
+' @local bottomRow -
+' @local rowIndex -
 
     rightColumn := leftColumn + width - 1
     bottomRow := topRow + height - 1
@@ -870,40 +870,41 @@ PUB drawBoxOfColor(topRow, leftColumn, width, height, filled, rgbColor) | rightC
         drawLineOfColor(topRow, leftColumn, bottomRow, leftColumn, rgbColor)    ' vert left
 
 PUB drawPanelBox(panelIndex, topRow, leftColumn, width, height, filled)
-'' Draw a box outline or filled rectangle on the specified panel using the current text color.
+'' Draw a box in desired panel outline/filled of width x height at R,C (using current text color)
+''   - use preceeding setTextColor() to set the outline color
 ''
-'' @param panelIndex - zero-based index of the target panel
-'' @param topRow - top pixel row of the box relative to the panel
-'' @param leftColumn - left pixel column of the box relative to the panel
-'' @param width - box width in pixels
-'' @param height - box height in pixels
-'' @param filled - TRUE for filled box, FALSE for outline only
+'' @param panelIndex - index to panel within the display
+'' @param topRow - row number of top left corner
+'' @param leftColumn - column number of top left corner
+'' @param width - width of box in pixels (including outline)
+'' @param height - height of box in pixels
+'' @param filled - T/F where T = filled with current text color
 
     drawPanelBoxOfColor(panelIndex, topRow, leftColumn, width, height, filled, currTextColor)
 
 PUB drawPanelBoxOfColor(panelIndex, topRow, leftColumn, width, height, filled, rgbColor) | rightColumn, bottomRow, rowIndex, offsetPixelRows, offsetPixelColumns
-'' Draw a box outline or filled rectangle on the specified panel using the given color.
+'' Draw a box in desired panel a box outline/filled of width x height at R,C using rgbColor
 ''
-'' @param panelIndex - zero-based index of the target panel
-'' @param topRow - top pixel row of the box relative to the panel
-'' @param leftColumn - left pixel column of the box relative to the panel
-'' @param width - box width in pixels
-'' @param height - box height in pixels
-'' @param filled - TRUE for filled box, FALSE for outline only
-'' @param rgbColor - 24-bit RGB color value
+'' @param panelIndex - index to panel within the display
+'' @param topRow - row number of top left corner
+'' @param leftColumn - column number of top left corner
+'' @param width - width of box in pixels (including outline)
+'' @param height - height of box in pixels
+'' @param filled - T/F where T = filled with current text color
+'' @param rgbColor - the 24-bit color value to use for the box & fill
 
 ' Local Variables:
-' @local rightColumn - calculated right pixel column of the box
-' @local bottomRow - calculated bottom pixel row of the box
-' @local rowIndex - loop index for filling rows
-' @local offsetPixelRows - pixel row offset to the target panel
-' @local offsetPixelColumns - pixel column offset to the target panel
+' @local rightColumn -
+' @local bottomRow -
+' @local rowIndex -
+' @local offsetPixelRows -
+' @local offsetPixelColumns -
 
     offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, panelIndex)
-    topRow :=  0 #> topRow <# hub75Bffrs.rowsPerPanel(chainIndex) - 1
-    leftColumn :=  0 #> leftColumn <# hub75Bffrs.columnsPerPanel(chainIndex) - 1
-    height :=  0 #> height <# hub75Bffrs.rowsPerPanel(chainIndex) - 1
-    width :=  0 #> width <# hub75Bffrs.columnsPerPanel(chainIndex) - 1
+    topRow :=  0 #> topRow <# rowsPerPanel - 1
+    leftColumn :=  0 #> leftColumn <# columnsPerPanel - 1
+    height :=  0 #> height <# rowsPerPanel - 1
+    width :=  0 #> width <# columnsPerPanel - 1
     rightColumn := leftColumn + width - 1
     bottomRow := topRow + height - 1
     ' offset everything to desired panel
@@ -911,14 +912,15 @@ PUB drawPanelBoxOfColor(panelIndex, topRow, leftColumn, width, height, filled, r
     bottomRow += offsetPixelRows
     leftColumn += offsetPixelColumns
     rightColumn += offsetPixelColumns
+    ' Use FALSE for bUseDisplayCoords - panel routines use wire-order coordinates
     if filled == TRUE
         repeat rowIndex from 0 to height - 1
-            drawLineOfColor(topRow + rowIndex, leftColumn, topRow + rowIndex, rightColumn, rgbColor)    ' horiz row
+            drawLineInternal(topRow + rowIndex, leftColumn, topRow + rowIndex, rightColumn, rgbColor, FALSE)    ' horiz row
     else
-        drawLineOfColor(topRow, leftColumn, topRow, rightColumn, rgbColor)    ' horiz top
-        drawLineOfColor(topRow, rightColumn, bottomRow, rightColumn, rgbColor)    ' vert right
-        drawLineOfColor(bottomRow, leftColumn, bottomRow, rightColumn, rgbColor)    ' horiz bottom
-        drawLineOfColor(topRow, leftColumn, bottomRow, leftColumn, rgbColor)    ' vert left
+        drawLineInternal(topRow, leftColumn, topRow, rightColumn, rgbColor, FALSE)    ' horiz top
+        drawLineInternal(topRow, rightColumn, bottomRow, rightColumn, rgbColor, FALSE)    ' vert right
+        drawLineInternal(bottomRow, leftColumn, bottomRow, rightColumn, rgbColor, FALSE)    ' horiz bottom
+        drawLineInternal(topRow, leftColumn, bottomRow, leftColumn, rgbColor, FALSE)    ' vert left
 
 PUB drawLine(fmRow, fmColumn, toRow, toColumn)
 '' Draw a line from one position to another using the current text color.
@@ -930,48 +932,10 @@ PUB drawLine(fmRow, fmColumn, toRow, toColumn)
 
     drawLineOfColor(fmRow, fmColumn, toRow, toColumn, currTextColor)
 
-PUB drawLineOfColor(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column, dx, dy, ctr, incr, intD
-'' Draw a line from one position to another using the given color.
-''
-'' @param fmRow - starting pixel row
-'' @param fmColumn - starting pixel column
-'' @param toRow - ending pixel row
-'' @param toColumn - ending pixel column
-'' @param rgbColor - 24-bit RGB color value
-
-' Local Variables:
-' @local row - current row during line drawing
-' @local column - current column during line drawing
-' @local dx - horizontal distance
-' @local dy - vertical distance
-' @local ctr - loop counter
-' @local incr - increment direction
-' @local intD - integer decision variable for Bresenham algorithm
-
-    fmRow :=  0 #> fmRow <# hub75Bffrs.maxDisplayRows(chainIndex) - 1
-    fmColumn :=  0 #> fmColumn <# hub75Bffrs.maxDisplayColumns(chainIndex) - 1
-    toRow :=  0 #> toRow <# hub75Bffrs.maxDisplayRows(chainIndex) - 1
-    toColumn :=  0 #> toColumn <# hub75Bffrs.maxDisplayColumns(chainIndex) - 1
-    'debug("seg:drwLn fmRC=(", udec_(fmRow), ",", udec_(fmColumn), "), toRC=(", udec_(toRow), ",", udec_(toColumn), "), RGB=(", uhex_long(rgbColor), ")")
-    if fmRow == toRow
-        ' draw Horizontal Line
-        repeat column from fmColumn to toColumn
-            pixels.drawPixelAtRC(chainIndex, fmRow, column, rgbColor)
-    elseif fmColumn == toColumn
-        ' draw Vertical Line
-        repeat row from fmRow to toRow
-            pixels.drawPixelAtRC(chainIndex, row, fmColumn, rgbColor)
-    else
-        if abs(toRow - fmRow) < abs(toColumn - fmColumn)
-            if fmColumn > toColumn
-                plotLineLow(toColumn, toRow, fmColumn, fmRow, rgbColor)
-            else
-                plotLineLow(fmColumn, fmRow, toColumn, toRow, rgbColor)
-        else
-            if fmRow > toRow
-                plotLineHigh(toColumn, toRow, fmColumn, fmRow, rgbColor)
-            else
-                plotLineHigh(fmColumn, fmRow, toColumn, toRow, rgbColor)
+PUB drawLineOfColor(fmRow, fmColumn, toRow, toColumn, rgbColor)
+    '' Draw line fromRC -> toRC using rgbColor
+    '' Uses display coordinates (applies panel column swap if needed)
+    drawLineInternal(fmRow, fmColumn, toRow, toColumn, rgbColor, TRUE)
 
 PUB drawPanelLine(panelIndex, fmRow, fmColumn, toRow, toColumn)
 '' Draw a line on the specified panel from one position to another using the current text color.
@@ -984,55 +948,51 @@ PUB drawPanelLine(panelIndex, fmRow, fmColumn, toRow, toColumn)
 
     drawPanelLineOfColor(panelIndex, fmRow, fmColumn, toRow, toColumn, currTextColor)
 
-PUB drawPanelLineOfColor(panelIndex, fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column, dx, dy, ctr, incr, intD, desiredPanelIndex, offsetPixelRows, offsetPixelColumns
-'' Draw a line on the specified panel from one position to another using the given color.
-''
-'' @param panelIndex - zero-based index of the target panel
-'' @param fmRow - starting pixel row relative to the panel
-'' @param fmColumn - starting pixel column relative to the panel
-'' @param toRow - ending pixel row relative to the panel
-'' @param toColumn - ending pixel column relative to the panel
-'' @param rgbColor - 24-bit RGB color value
-
-' Local Variables:
-' @local row - current row during line drawing
-' @local column - current column during line drawing
-' @local dx - horizontal distance
-' @local dy - vertical distance
-' @local ctr - loop counter
-' @local incr - increment direction
-' @local intD - integer decision variable for Bresenham algorithm
-' @local desiredPanelIndex - panel index clamped to valid range
-' @local offsetPixelRows - pixel row offset to the target panel
-' @local offsetPixelColumns - pixel column offset to the target panel
-
-    fmRow :=  0 #> fmRow <# hub75Bffrs.rowsPerPanel(chainIndex) - 1
-    fmColumn :=  0 #> fmColumn <# hub75Bffrs.columnsPerPanel(chainIndex) - 1
-    toRow :=  0 #> toRow <# hub75Bffrs.rowsPerPanel(chainIndex) - 1
-    toColumn :=  0 #> toColumn <# hub75Bffrs.columnsPerPanel(chainIndex) - 1
-    desiredPanelIndex :=  0 #> panelIndex <# hub75Bffrs.maxPanels(chainIndex) - 1
+PUB drawPanelLineOfColor(panelIndex, fmRow, fmColumn, toRow, toColumn, rgbColor) | desiredPanelIndex, offsetPixelRows, offsetPixelColumns
+    '' Draw line fromRC -> toRC using rgbColor within a specific panel
+    '' Uses panel coordinates (no panel column swap - direct wire-order drawing)
+    fmRow :=  0 #> fmRow <# rowsPerPanel - 1
+    fmColumn :=  0 #> fmColumn <# columnsPerPanel - 1
+    toRow :=  0 #> toRow <# rowsPerPanel - 1
+    toColumn :=  0 #> toColumn <# columnsPerPanel - 1
+    desiredPanelIndex :=  0 #> panelIndex <# maxPanels - 1
     offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, panelIndex)
-    'debug("seg:drwLn fmRC=(", udec_(fmRow), ",", udec_(fmColumn), "), toRC=(", udec_(toRow), ",", udec_(toColumn), "), RGB=(", uhex_long(rgbColor), ")")
-    drawLineOfColor(fmRow + offsetPixelRows, fmColumn + offsetPixelColumns, toRow + offsetPixelRows, toColumn + offsetPixelColumns, rgbColor)
+    ' Use FALSE for bUseDisplayCoords - panel routines use wire-order coordinates
+    drawLineInternal(fmRow + offsetPixelRows, fmColumn + offsetPixelColumns, toRow + offsetPixelRows, toColumn + offsetPixelColumns, rgbColor, FALSE)
 
 
-PRI plotLineLow(x0, y0, x1, y1, rgbColor) | row, column, dy, dx, D, yi
-' Draw a line with shallow slope using Bresenham algorithm (dx > dy).
-'
-' @param x0 - starting column
-' @param y0 - starting row
-' @param x1 - ending column
-' @param y1 - ending row
-' @param rgbColor - 24-bit RGB color value
+PRI drawLineInternal(fmRow, fmColumn, toRow, toColumn, rgbColor, bUseDisplayCoords) | row, column
+    '' Internal line drawing with control over coordinate system
+    '' @param bUseDisplayCoords - TRUE for display routines (applies panel column swap)
+    ''                          - FALSE for panel routines (direct wire-order drawing)
+    fmRow :=  0 #> fmRow <# maxDisplayRows - 1
+    fmColumn :=  0 #> fmColumn <# maxDisplayColumns - 1
+    toRow :=  0 #> toRow <# maxDisplayRows - 1
+    toColumn :=  0 #> toColumn <# maxDisplayColumns - 1
 
-' Local Variables:
-' @local row - current row position
-' @local column - current column position
-' @local dy - vertical distance
-' @local dx - horizontal distance
-' @local D - Bresenham decision variable
-' @local yi - row step direction (+1 or -1)
+    if fmRow == toRow
+        ' draw Horizontal Line
+        repeat column from fmColumn to toColumn
+            drawPixelInternal(fmRow, column, rgbColor, bUseDisplayCoords)
+    elseif fmColumn == toColumn
+        ' draw Vertical Line
+        repeat row from fmRow to toRow
+            drawPixelInternal(row, fmColumn, rgbColor, bUseDisplayCoords)
+    else
+        if abs(toRow - fmRow) < abs(toColumn - fmColumn)
+            if fmColumn > toColumn
+                plotLineLowInternal(toColumn, toRow, fmColumn, fmRow, rgbColor, bUseDisplayCoords)
+            else
+                plotLineLowInternal(fmColumn, fmRow, toColumn, toRow, rgbColor, bUseDisplayCoords)
+        else
+            if fmRow > toRow
+                plotLineHighInternal(toColumn, toRow, fmColumn, fmRow, rgbColor, bUseDisplayCoords)
+            else
+                plotLineHighInternal(fmColumn, fmRow, toColumn, toRow, rgbColor, bUseDisplayCoords)
 
+
+PRI plotLineLowInternal(x0, y0, x1, y1, rgbColor, bUseDisplayCoords) | row, column, dy, dx, D, yi
+    '' Bresenham line algorithm for shallow slopes
     dx := x1 - x0
     dy := y1 - y0
     yi := 1
@@ -1043,30 +1003,15 @@ PRI plotLineLow(x0, y0, x1, y1, rgbColor) | row, column, dy, dx, D, yi
     row := y0
 
     repeat column from x0 to x1
-        pixels.drawPixelAtRC(chainIndex, row, column, rgbColor)
+        drawPixelInternal(row, column, rgbColor, bUseDisplayCoords)
         if D > 0
             row := row + yi
             D := D + (2 * (dy - dx))
         else
             D := D + 2 * dy
 
-PRI plotLineHigh(x0, y0, x1, y1, rgbColor) | row, column, dy, dx, D, xi
-' Draw a line with steep slope using Bresenham algorithm (dy > dx).
-'
-' @param x0 - starting column
-' @param y0 - starting row
-' @param x1 - ending column
-' @param y1 - ending row
-' @param rgbColor - 24-bit RGB color value
-
-' Local Variables:
-' @local row - current row position
-' @local column - current column position
-' @local dy - vertical distance
-' @local dx - horizontal distance
-' @local D - Bresenham decision variable
-' @local xi - column step direction (+1 or -1)
-
+PRI plotLineHighInternal(x0, y0, x1, y1, rgbColor, bUseDisplayCoords) | row, column, dy, dx, D, xi
+    '' Bresenham line algorithm for steep slopes
     dx := x1 - x0
     dy := y1 - y0
     xi := 1
@@ -1077,7 +1022,7 @@ PRI plotLineHigh(x0, y0, x1, y1, rgbColor) | row, column, dy, dx, D, xi
     column := x0
 
     repeat row from y0 to y1
-        pixels.drawPixelAtRC(chainIndex, row, column, rgbColor)
+        drawPixelInternal(row, column, rgbColor, bUseDisplayCoords)
         if D > 0
             column := column + xi
             D := D + (2 * (dx - dy))
@@ -1085,7 +1030,90 @@ PRI plotLineHigh(x0, y0, x1, y1, rgbColor) | row, column, dy, dx, D, xi
             D := D + 2*dx
 
 
-CON ' license
+PRI drawPixelInternal(row, column, rgbColor, bUseDisplayCoords)
+    '' Draw a single pixel with coordinate system control
+    '' @param bUseDisplayCoords - TRUE applies panel column swap (for display routines)
+    ''                          - FALSE uses direct wire-order (for panel routines)
+    if bUseDisplayCoords
+        drawDisplayPixel(row, column, rgbColor)
+    else
+        pixels.drawPixelAtRC(chainIndex, row, column, rgbColor)
+
+PUB drawCircle(row, column, radius)
+'' Draw circle centered at R,C of radius using current text color
+''   - use preceeding setTextColor() to set the outline color
+''
+'' @param row - row number of center-point
+'' @param column - column number of center-point
+'' @param radius - radius of circle
+
+    drawCircleOfColor(row, column, radius, currTextColor)
+
+
+PUB drawCircleOfColor(ctrRow, ctrColumn, radius, rgbColor) | column, row, decision
+'' Draw circle centered at R,C of radius using rgbColor
+''
+'' @param row - row number of center-point
+'' @param column - column number of center-point
+'' @param radius - radius of circle
+'' @param rgbColor - draw outline using this 24-bit color value
+
+' Local Variables:
+' @local column -
+' @local row -
+' @local decision -
+
+    ' Function for circle-generation
+    ' using Bresenham's algorithm
+    column := 0
+    row := radius
+    decision := 3 - 2 * radius
+    drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor)
+    repeat while (row >= column)
+        column++
+        ' check for decision parameter
+        ' and correspondingly
+        ' update decision, column, row
+        if (decision > 0)
+            row--
+            decision := decision + 4 * (column - row) + 10
+        else
+            decision := decision + 4 * column + 6
+        drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor)
+
+
+PRI drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor)
+    ' for each pixel we will
+    ' draw all eight pixels
+    ' NOTE: row/column here are offsets from center, not absolute coordinates
+    '       The drawPixelAtRC signature is (chainIdx, row, column, color)
+    drawDisplayPixel(ctrRow+row, ctrColumn+column, rgbColor)
+    drawDisplayPixel(ctrRow+row, ctrColumn-column, rgbColor)
+    drawDisplayPixel(ctrRow-row, ctrColumn+column, rgbColor)
+    drawDisplayPixel(ctrRow-row, ctrColumn-column, rgbColor)
+    drawDisplayPixel(ctrRow+column, ctrColumn+row, rgbColor)
+    drawDisplayPixel(ctrRow+column, ctrColumn-row, rgbColor)
+    drawDisplayPixel(ctrRow-column, ctrColumn+row, rgbColor)
+    drawDisplayPixel(ctrRow-column, ctrColumn-row, rgbColor)
+
+
+PRI drawDisplayPixel(row, column, rgbColor) | panelCols, pnlsPerCol, pnlsPerRow, panelColIdx, localColInPanel, swappedColumn
+    '' Draw pixel at display coordinates, applying panel column swap if needed
+    '' This is used by display-level routines only (not panel routines)
+    swappedColumn := column
+    if hub75Bffrs.needsPanelColumnSwap(chainIndex)
+        panelCols := columnsPerPanel
+        pnlsPerCol, pnlsPerRow := hub75Bffrs.displaySizeInPanels(chainIndex)
+        if pnlsPerRow > 1
+            ' Swap panel columns while preserving local position within panel
+            panelColIdx := column / panelCols
+            localColInPanel := column // panelCols
+            panelColIdx := (pnlsPerRow - 1) - panelColIdx
+            swappedColumn := panelColIdx * panelCols + localColInPanel
+    pixels.drawPixelAtRC(chainIndex, row, swappedColumn, rgbColor)
+
+
+CON { license }
 
 {{
 

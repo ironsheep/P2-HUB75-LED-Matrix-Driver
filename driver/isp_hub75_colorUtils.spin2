@@ -15,6 +15,10 @@ CON
 
     #0, LED_UNKNOWN, LED_RED, LED_GREEN, LED_BLUE
 
+OBJ
+
+    hub75Bffrs  :   "isp_hub75_hwBufferAccess"
+
 
 DAT ' driver controls for testing
 
@@ -31,11 +35,22 @@ PUB init()
     ' this allows our color conversion routines to be faster as there is less runtime code
 
 PUB setBrightness(newBrightness)
-'' Set the global brightness value.
+'' Set the global brightness value
+''  - where 256 is NO brightness adjustment
+''  - where 0 is OFF, 205 = 80%, etc.
 ''
-'' @param newBrightness - brightness level to apply globally
+'' @param newBrightness - the desired brightness value [0-255,256]
 
     defaultBrightness := newBrightness
+
+PUB getBrightness() : brightness
+'' Return the global brightness value
+''
+'' @returns brightness - the current brightness value [0-255,256]
+''  - where 256 is NO brightness adjustment
+''  - where 0 is OFF, 205 = 80%, etc.
+
+    brightness := defaultBrightness
 
 PUB isGammaEnabled() : bIsEnabled
 '' Return T/F where T means gamma correction is compiled in.
@@ -44,12 +59,34 @@ PUB isGammaEnabled() : bIsEnabled
 
     bIsEnabled := bGammaEnable
 
-PUB getBrightness() : brightness
-'' Return the global brightness value.
-''
-'' @returns brightness - current global brightness level
+PUB correctedColor(nChainIdx, color) : adjustedColor
+    '' Correct a color using generic gamma
+    adjustedColor := color
+    'return
+    'adjustedColor := byte[@gamma][adjustedColor]
+    'adjustedColor := ((adjustedColor * defaultBrightness) >> 8) & $ff
+    adjustedColor := colorAtDesiredBitWidth(nChainIdx, adjustedColor)
 
-    brightness := defaultBrightness
+PUB correctedSingleColor(nChainIdx, led, colorValue) : adjustedColor | pGammaTable
+    '' Correct the color for a specific LED (R, G, or B)
+    adjustedColor := colorValue
+    case led
+        LED_RED:
+            pGammaTable := @gamma
+        LED_GREEN:
+            pGammaTable := @gamma
+        LED_BLUE:
+            pGammaTable := @gamma
+        other:
+            abort
+
+    ' Apply brightness with proper rounding (add 128 before >>8 for round-to-nearest)
+    ' This ensures brightness=128 gives max color=128 (bit 7 set) instead of 127 (bit 7 clear)
+    ' which prevents Frame 0 (MSB frame) from being black at 50% brightness
+    adjustedColor := ((adjustedColor * defaultBrightness + 128) >> 8) & $ff
+    if bGammaEnable
+        adjustedColor := byte[pGammaTable][adjustedColor]
+    adjustedColor := colorAtDesiredBitWidth(nChainIdx, adjustedColor)
 
 PUB gammaPeek(color) : adjustedColor | gammmaIndex, lowColor, highColor
 '' Return index of nearest matching value in gamma table.
@@ -102,7 +139,10 @@ PUB gammaCorrectedSingleColor(led, colorValue) : adjustedColor | pGammaTable
             pGammaTable := @gamma
         other:
             abort
-    adjustedColor := ((colorValue * defaultBrightness) >> 8) & $ff
+    ' Apply brightness with proper rounding (add 128 before >>8 for round-to-nearest)
+    ' This ensures brightness=128 gives max color=128 (bit 7 set) instead of 127 (bit 7 clear)
+    ' which prevents Frame 0 (MSB frame) from being black at 50% brightness
+    adjustedColor := ((colorValue * defaultBrightness + 128) >> 8) & $ff
     if bGammaEnable
         adjustedColor := byte[@gamma][adjustedColor]
 
@@ -200,8 +240,45 @@ PUB gammaPtrs(): pGammaRed, pGammaGreen, pGammaBlue
     pGammaGreen := @gamma
     pGammaBlue := @gamma
 
+PUB colorAtDesiredBitWidth(nChainIdx, hex8bit) : pwmBits
+    '' CALCULATE: proper duty cycle for intensity of 0-255
+    shiftLtValue := 8 - hub75Bffrs.colorDepth(nChainIdx)
+    nbrPwmFrames := hub75Bffrs.pwmFrameCount(nChainIdx)
+    'debug("- color CFG: ", udec_long(shiftLtValue), udec_long(nbrPwmFrames))
+    '
+    '  (map 8-bit color depth to {compiled}-bit color depth)
+    '  map 0-255 to compiled color depth 0-7,15,31,63,127,255
+    '
+    '  REF: https://www.arduino.cc/reference/en/language/functions/math/map
+    '
+    '  Re-maps a number from one range to another. That is, a value of fromLow would get mapped to toLow,
+    '   a value of fromHigh to toHigh, values in-between to values in-between, etc.
+    '
+    '    y = map(x, 1, 50, 50, 1);
+    '
+    '  PRI map(inValue,  inMin,  inMax,  outMin,  outMax) : outValue
+    '  outValue := (inValue - inMin) * (outMax - outMin) / (inMax - inMin) + outMin
+    '  outValue := (inValue - 0) * (outMax - 0) / (inMax - 0) + 0
+    '  outValue := inValue * outMax / inMax
+    '
+    '               shiftLtValue           5,         4,         3,        2,         1,         0
+    '  map(hex8bit, 0, 255, 0, 7)    7=3-bit,  15=4-bit,  31=5-bit, 63=6-bit, 127=7-bit, 255=8-bit
+    '  outValue := (hex8bit - 0) * (7 - 0) / (255 - 0) + 0
+    '  outValue := hex8bit * 7 / 255
+
+    pwmBits := (hex8bit * nbrPwmFrames) / 255   ' map our value
+    pwmBits <<= shiftLtValue                    ' shift value into our upper COLOR_DEPTH bits
+{
+    if not didShow[hex8bit]
+        debug("clr:dcyc ", uhex_byte(hex8bit), uhex_byte(pwmBits))
+        didShow[hex8bit] := TRUE
+'}
+
 
 DAT ' tables, default values
+
+shiftLtValue        long    0       ' set by init()
+nbrPwmFrames        long    0       ' set by init()
 
 didShow             byte    FALSE[256]
 

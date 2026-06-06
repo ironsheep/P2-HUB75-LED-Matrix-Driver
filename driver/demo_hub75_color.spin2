@@ -138,8 +138,7 @@ PUB main() : ok | demoIndex
     display.commitScreenToPanelSet()
     repeat
 '}
-    pnlRowCount := hub75Bffrs.rowsPerPanel(chainIndex)
-    pnlColCount := hub75Bffrs.columnsPerPanel(chainIndex)
+    pnlRowCount, pnlColCount := hub75Bffrs.panelSizeInPixels(chainIndex)
 
     display.clearScreen()
     'debug("* Hue Groups")

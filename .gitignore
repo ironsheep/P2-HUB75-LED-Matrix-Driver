@@ -66,9 +66,20 @@ driver/.vscode/settings.json
 *.bin
 *.lst
 *.GOLD
+*.diff
 /Docs/procedures
 /driver/scripts
 CLAUDE.md
+
+# Reference code / scratch (not part of project)
+driver/isp_dummy_flash.spin2
+REF-23MB/
+/tasks
+/driver/logs
+/driver/tests
+driver/pnut-term-settings.json
+driver/performance.log
+/.todo-mcp
 
 # Dev container + Claude host-specific (gitignored)
 .mcp.json

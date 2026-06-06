@@ -1,0 +1,142 @@
+'' =================================================================================================
+''
+''   File....... demo_hub75_numberPanels.spin2
+''   Purpose.... Top-level Demonstration - numbering our individual panels on chain
+''   Authors.... Stephen M Moraco
+''               -- Copyright (c) 2021 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... Apr 2021
+''   Updated.... 10 Nov 2022
+''
+'' =================================================================================================
+
+
+CON { timing }
+
+  CLK_FREQ = 335_000_000                                        ' system freq as a constant 2.985 nSec
+  'CLK_FREQ = 250_000_000                                        ' system freq as a constant 2.985 nSec
+  _clkfreq = CLK_FREQ                                           ' set system clock
+
+CON { DEBUG PINs }
+
+'DEBUG_PIN = 0
+DEBUG_COGS = %11111111
+DEBUG_BAUD = 2_000_000
+
+VAR
+
+    long    cog
+    long    chainIndex
+    long    demoPausePeriod
+    long    scrollPeriod
+    long    textSize
+
+OBJ
+
+    color       :   "isp_hub75_color"
+    colorUtils  :   "isp_hub75_colorUtils"
+    pixels      :   "isp_hub75_screenUtils"
+    hub75Bffrs  :   "isp_hub75_hwBufferAccess"
+    display     :   "isp_hub75_display"
+    user        :   "isp_hub75_hwPanelConfig"           ' hardware config common to all demos
+    scrnBuffers :   "isp_hub75_hwBuffers"               ' the large buffers storing pixel data
+
+
+PUB main() : ok | demoIndex
+    '' start underlying drivers and run demo
+
+    'repeat
+    demoPausePeriod := 20   ' seconds
+
+    'debug("`term temp size 82 50 textsize 10")
+    hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
+    chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
+
+    ' startup our backend COG(s)
+    display.setBufferPointers(chainIndex, scrnBuffers.chain0Ptrs())
+    ok := cog := display.start(chainIndex)   ' send buffer to driver
+    if ok == -1
+        debug("- DEMO: underlying driver failed!")
+        abort
+
+
+    idPanelsInChain()
+
+    waitSec(demoPausePeriod)
+
+    stop()
+
+PRI stop()
+    ' Stop the driver
+    if cog
+        display.stop()
+        cog := 0
+
+PRI waitSec(countSeconds)
+    repeat countSeconds
+        waitms(1000)
+
+DAT { panel messages }
+
+lblPnl      byte    "Wx", 0
+
+colorTable  long    color.cGreen, color.cRed, color.cYellow, color.cCyan, color.cOrange, color.cLime
+
+PRI idPanelsInChain() | scrollerID, startTime, maxPanels, panelIndex
+
+    textSize := display.TEXT_FONT_8x8A
+    'textSize := display.TEXT_FONT_8x8B
+    display.setTextFont(textSize)    ' font size
+    display.setTextColor(color.cBlueViolet)
+
+    ' start with blank screen on which to draw
+    display.clearScreenBuffer()
+    maxPanels := hub75Bffrs.maxPanels(chainIndex) <# 6 ' limit to first six if more than that
+    debug("id: maxPanels=", udec_(maxPanels))
+
+    repeat maxPanels with panelIndex     ' repeat panelIndex from 0 to maxPanels - 1
+        display.fillPanel(panelIndex, LONG[@colorTable][panelIndex])
+        display.setCursorOnPanel(4, 3, panelIndex)
+        lblPnl[1] := $30 + panelIndex
+        display.setTextAtCursor(@lblPnl)
+        debug("  -- panelIndex=", udec_(panelIndex), ", color=", uhex_long_(LONG[@colorTable][panelIndex]), ", lblPnl=[", zstr_(@lblPnl), "]")
+
+
+    ' update our screen
+    display.commitScreenToPanelSet()
+
+    ' delay to first movement
+    'wait1000thSecs(scrollPeriod)
+
+
+
+CON { license }
+
+{{
+
+
+ -------------------------------------------------------------------------------------------------
+  MIT License
+
+  Copyright (c) 2021 Iron Sheep Productions, LLC
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+ =================================================================================================
+}}
