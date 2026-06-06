@@ -713,7 +713,7 @@ PUB scrollColoredTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direc
   cColumnIdx :=  0
   widthInChars := ((cPanelCt * columnsPerPanel) - (2 * leftOffsetInPix)) / (charWidthInPix + horizontalGapInPix)
   'panelLine, panelColumn := offsetToTextOnPanel(cLineIdx, cColumnIdx, panelIndex)
-  offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, panelIndex)
+  offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, boundedPanelIdx)
   ' ensure we are asked to use a good location
   ' convert line info to row,col
   ' NOTE: cursor is 0-relative so add in our top/left offset to get row/col and mult by char size in pix

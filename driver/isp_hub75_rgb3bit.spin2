@@ -43,12 +43,12 @@ CON { I/O PINs }
 
 CON ' Data
 
-    PIN_GROUP_P0_P15             = hwEnum.PINS_P0_P15
-    PIN_GROUP_P8_P23             = hwEnum.PINS_P8_P23
-    PIN_GROUP_P16_P31            = hwEnum.PINS_P16_P31
-    PIN_GROUP_P32_P47            = hwEnum.PINS_P32_P47
-    PIN_GROUP_P40_P55            = hwEnum.PINS_P40_P55
-    PIN_GROUP_P48_P63            = hwEnum.PINS_P48_P63
+    PINS_P0_P15             = hwEnum.PINS_P0_P15
+    PINS_P8_P23             = hwEnum.PINS_P8_P23
+    PINS_P16_P31            = hwEnum.PINS_P16_P31
+    PINS_P32_P47            = hwEnum.PINS_P32_P47
+    PINS_P40_P55            = hwEnum.PINS_P40_P55
+    PINS_P48_P63            = hwEnum.PINS_P48_P63
 
     ' driver COG internal buffer size
     'MAX_COG_BUFFER_SIZE_IN_BYTES = 1024
@@ -309,27 +309,27 @@ PUB start(nID, nChainIdx) : ok | tmpVar, panelCt, tmpConstant, widthInPanels, he
 
   ' configure our driver
   case hub75Bffrs.pinBase(chainIndex)
-    PIN_GROUP_P0_P15:
+    PINS_P0_P15:
       debug("- I/O P00 - P15")
       bSetLowPins := TRUE
       modeUsePortA  := TRUE
-    PIN_GROUP_P8_P23:
+    PINS_P8_P23:
       debug("RG3: - I/O P8 - P23")
       bSetMidPins := TRUE
       modeUsePortA  := TRUE
-    PIN_GROUP_P16_P31:
+    PINS_P16_P31:
       debug("RG3: - I/O P16 - P31")
       bSetLowPins := FALSE
       modeUsePortA  := TRUE
-    PIN_GROUP_P32_P47:
+    PINS_P32_P47:
       debug("RG3: - I/O P32 - P47")
       bSetLowPins := TRUE
       modeUsePortA  := FALSE
-    PIN_GROUP_P40_P55:
+    PINS_P40_P55:
       debug("RG3: - I/O P40 - P55")
       bSetMidPins := TRUE
       modeUsePortA  := FALSE
-    PIN_GROUP_P48_P63:
+    PINS_P48_P63:
       debug("RG3: - I/O P48 - P63")
       bSetLowPins := FALSE
       modeUsePortA  := FALSE

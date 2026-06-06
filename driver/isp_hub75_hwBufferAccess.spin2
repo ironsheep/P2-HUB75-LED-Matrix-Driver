@@ -730,7 +730,7 @@ PUB panelPixelOffset(nChainIdx, nDisplayPanelIndex, localRow, localCol) : byteOf
     ' Offset to start of wire panel + offset within panel using rotated coordinates
     byteOffset := (nWirePanelIndex * panelBytes) + ((rotatedRow * colsPerPnl) + rotatedCol) * bytesPerClr
 
-PUB indexToPanel(nChainIdx, nPanelRow, nPanelCol) : nPanelIndex | nBffrR, nBffrC, rowsPerPnl, colsPerPnl, panelsPerRow
+PUB indexToPanel(nChainIdx, nPanelRow, nPanelCol) : nPanelIndex | nBffrR, nBffrC, panelsPerColumn, panelsPerRow
 '' Return the index of the panel within entire display at the specified panel-row and panel-column
 ''
 '' @param nChainIdx - the index of the desired chain
@@ -739,16 +739,14 @@ PUB indexToPanel(nChainIdx, nPanelRow, nPanelCol) : nPanelIndex | nBffrR, nBffrC
 '' @returns nPanelIndex - index of panel within entire display
 
 ' Local Variables:
-' @local nBffrR -
-' @local nBffrC -
-' @local rowsPerPnl -
-' @local colsPerPnl -
-' @local panelsPerRow -
+' @local nBffrR - panel-row index clamped to the panel grid
+' @local nBffrC - panel-column index clamped to the panel grid
+' @local panelsPerColumn - number of panels vertically in the display
+' @local panelsPerRow - number of panels horizontally in the display
 
-    rowsPerPnl, colsPerPnl := panelSizeInPixels(nChainIdx)
-    panelsPerRow, _ := displaySizeInPanels(nChainIdx)
-    nBffrR := 0 #> nPanelRow <# rowsPerPnl - 1
-    nBffrC := 0 #> nPanelCol <# colsPerPnl - 1
+    panelsPerColumn, panelsPerRow := displaySizeInPanels(nChainIdx)
+    nBffrR := 0 #> nPanelRow <# panelsPerColumn - 1
+    nBffrC := 0 #> nPanelCol <# panelsPerRow - 1
     nPanelIndex := (nBffrR * panelsPerRow) + nBffrC
 
 PUB offsetToPanel(nChainIdx, nPanelIndex) : offsetPixelRows, offsetPixelColumns | gridRow, gridColumn, nMaxPanels, panelIndex, rowsPerPnl, colsPerPnl, pnlsPerRow, pnlsPerCol
