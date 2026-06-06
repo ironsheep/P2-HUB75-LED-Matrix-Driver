@@ -59,7 +59,7 @@ The project has two parallel sets of Theory of Operations documentation:
 - `Docs/TheoryOfOperations.md` - Deep dive on system architecture, data flow, PWM mechanism, buffer architecture
 - `Docs/CodeAssessment.md` - Code organization analysis, performance notes, 2D support assessment
 - `Docs/ICN2037/README.md` - Comprehensive chip reference with timing budgets, signal path analysis
-- `Docs/Plans/Sprint-2x2-Panel-Repair.md` - Research findings on refresh loop, orientation system, signal polarity
+- `Docs/plans/Sprint-2x2-Panel-Repair.md` - Research findings on refresh loop, orientation system, signal polarity
 
 **The Gap:**
 
@@ -96,7 +96,7 @@ Deferred until 2x2 panel repair is complete. The Sprint plan contains valuable r
 - `Docs/TheoryOfOperations.md` - Detailed architecture doc
 - `Docs/CodeAssessment.md` - Code analysis doc
 - `Docs/ICN2037/README.md` - Chip reference doc
-- `Docs/Plans/Sprint-2x2-Panel-Repair.md` - Current research (contains extractable reference material)
+- `Docs/plans/Sprint-2x2-Panel-Repair.md` - Current research (contains extractable reference material)
 
 ---
 
