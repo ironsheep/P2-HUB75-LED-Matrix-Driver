@@ -12,13 +12,13 @@
 '' =================================================================================================
 
 
-CON { timing }
+CON ' timing
 
-  CLK_FREQ = 335_000_000                                        ' system freq as a constant 2.985 nSec
-  'CLK_FREQ = 250_000_000                                        ' system freq as a constant 2.985 nSec
-  _clkfreq = CLK_FREQ                                           ' set system clock
+    CLK_FREQ = 335_000_000                                        ' system freq as a constant 2.985 nSec
+    'CLK_FREQ = 250_000_000                                        ' system freq as a constant 2.985 nSec
+    _clkfreq = CLK_FREQ                                           ' set system clock
 
-CON { DEBUG PINs }
+CON ' DEBUG PINs
 
 'DEBUG_PIN = 0
 DEBUG_COGS = %11111111
@@ -26,11 +26,11 @@ DEBUG_BAUD = 2_000_000
 
 VAR
 
-    long    cog
-    long    chainIndex
-    long    demoPausePeriod
-    long    scrollPeriod
-    long    textSize
+    LONG    cog
+    LONG    chainIndex
+    LONG    demoPausePeriod
+    LONG    scrollPeriod
+    LONG    textSize
 
 OBJ
 
@@ -42,7 +42,7 @@ OBJ
     user        :   "isp_hub75_hwPanelConfig"           ' hardware config common to all demos
     scrnBuffers :   "isp_hub75_hwBuffers"               ' the large buffers storing pixel data
 
-CON { DEMO info }
+CON ' DEMO info
 
 ' 11 enables .bmp file display
 DEMO_COUNT = 3
@@ -56,137 +56,137 @@ DEMO_COUNT = 3
 
 DAT
 
-panelIdMessage  byte    "Pn",0
+panelIdMessage  BYTE    "Pn",0
 
 PUB main() : ok | demoIndex, bDidDemo, pnlIdx
-    '' start underlying drivers and run demo
+'' start underlying drivers and run demo
 
-    hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
-    hub75Bffrs.setWireConfig(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_WIRE_ENTRY, user.DISP0_WIRE_TRAVERSE)
-    chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
+  hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
+  hub75Bffrs.setWireConfig(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_WIRE_ENTRY, user.DISP0_WIRE_TRAVERSE)
+  chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
-    ' startup our backend COG(s)
-    display.setBufferPointers(chainIndex, scrnBuffers.chain0Ptrs())
-    ok := cog := display.start(chainIndex)   ' send buffer to driver
-    if ok == -1
-        debug("- DEMO: underlying driver failed!")
-        abort
+  ' startup our backend COG(s)
+  display.setBufferPointers(chainIndex, scrnBuffers.chain0Ptrs())
+  ok := cog := display.start(chainIndex)   ' send buffer to driver
+  if ok == -1
+    debug("- DEMO: underlying driver failed!")
+    abort
 
-    ' ============================================
-    ' PANEL ORIENTATION TEST
-    ' 2x2 grid of 128x64 panels = 256x128 total
-    ' Center at (128, 64) where all 4 panels meet
-    ' ============================================
-    testPanelOrientation()
+  ' ============================================
+  ' PANEL ORIENTATION TEST
+  ' 2x2 grid of 128x64 panels = 256x128 total
+  ' Center at (128, 64) where all 4 panels meet
+  ' ============================================
+  testPanelOrientation()
 
-    stop()
+  stop()
 
 PRI testPanelOrientation() | pnlIdx, centerRow, centerCol, circleRadius
-    '' Test pattern using BOTH coordinate systems:
-    ''
-    '' PANEL-SPECIFIC drawing (panel-local coordinates + panelIndex):
-    ''   - fillPanel() - fills entire panel with color
-    ''   - setCursorOnPanel() - text at panel-local line/column
-    ''   - drawPanelBox() - box at panel-local row/column
-    ''
-    '' DISPLAY-WIDE drawing (absolute display coordinates):
-    ''   - drawCircleOfColor() - circle at display row/column
-    ''   - drawLineOfColor() - line at display coordinates
-    ''   - setCursor() / setColoredTextAtLnCol() - text at display line/column
-    ''
-    '' For 2x2 grid of 128x64 panels:
-    ''   Display size: 256 columns x 128 rows
-    ''   Panel layout: [0=Blue][1=Green]   (top row, rows 0-63)
-    ''                 [2=Red][3=Magenta]  (bottom row, rows 64-127)
+' Test pattern using BOTH coordinate systems:
+'
+' PANEL-SPECIFIC drawing (panel-local coordinates + panelIndex):
+'   - fillPanel() - fills entire panel with color
+'   - setCursorOnPanel() - text at panel-local line/column
+'   - drawPanelBox() - box at panel-local row/column
+'
+' DISPLAY-WIDE drawing (absolute display coordinates):
+'   - drawCircleOfColor() - circle at display row/column
+'   - drawLineOfColor() - line at display coordinates
+'   - setCursor() / setColoredTextAtLnCol() - text at display line/column
+'
+' For 2x2 grid of 128x64 panels:
+'   Display size: 256 columns x 128 rows
+'   Panel layout: [0=Blue][1=Green]   (top row, rows 0-63)
+'                 [2=Red][3=Magenta]  (bottom row, rows 64-127)
 
-    display.clearScreenBuffer()
-    display.setBrightness(128)
+  display.clearScreenBuffer()
+  display.setBrightness(128)
 
-    ' Set up text
-    textSize := display.TEXT_FONT_8x8A
-    display.setTextFont(textSize)
+  ' Set up text
+  textSize := display.TEXT_FONT_8x8A
+  display.setTextFont(textSize)
 
-    ' ========================================
-    ' PANEL-SPECIFIC DRAWING (panel-local coordinates)
-    ' ========================================
+  ' ========================================
+  ' PANEL-SPECIFIC DRAWING (panel-local coordinates)
+  ' ========================================
 
-    ' Panel 0 (display top-left): Blue background
-    display.fillPanel(0, color.cBlue)
-    display.setTextColor(color.cWhite)
-    display.setCursorOnPanel(3, 7, 0)    ' Panel-local: line 3, col 7
-    display.setTextAtCursor(@lblArrow)
-    display.setCursorOnPanel(4, 7, 0)    ' Panel-local: line 4, col 7
-    display.setTextAtCursor(@lbl0)
-    ' Small yellow box in top-left corner of panel 0 (panel-local coords)
-    display.drawPanelBoxOfColor(0, 2, 2, 10, 10, TRUE, color.cYellow)
+  ' Panel 0 (display top-left): Blue background
+  display.fillPanel(0, color.cBlue)
+  display.setTextColor(color.cWhite)
+  display.setCursorOnPanel(3, 7, 0)    ' Panel-local: line 3, col 7
+  display.setTextAtCursor(@lblArrow)
+  display.setCursorOnPanel(4, 7, 0)    ' Panel-local: line 4, col 7
+  display.setTextAtCursor(@lbl0)
+  ' Small yellow box in top-left corner of panel 0 (panel-local coords)
+  display.drawPanelBoxOfColor(0, 2, 2, 10, 10, TRUE, color.cYellow)
 
-    ' Panel 1 (display top-right): Green background
-    display.fillPanel(1, color.cGreen)
-    display.setTextColor(color.cWhite)
-    display.setCursorOnPanel(3, 7, 1)
-    display.setTextAtCursor(@lblArrow)
-    display.setCursorOnPanel(4, 7, 1)
-    display.setTextAtCursor(@lbl1)
-    ' Small yellow box in top-left corner of panel 1
-    display.drawPanelBoxOfColor(1, 2, 2, 10, 10, TRUE, color.cYellow)
+  ' Panel 1 (display top-right): Green background
+  display.fillPanel(1, color.cGreen)
+  display.setTextColor(color.cWhite)
+  display.setCursorOnPanel(3, 7, 1)
+  display.setTextAtCursor(@lblArrow)
+  display.setCursorOnPanel(4, 7, 1)
+  display.setTextAtCursor(@lbl1)
+  ' Small yellow box in top-left corner of panel 1
+  display.drawPanelBoxOfColor(1, 2, 2, 10, 10, TRUE, color.cYellow)
 
-    ' Panel 2 (display bottom-left): Red background
-    display.fillPanel(2, color.cRed)
-    display.setTextColor(color.cWhite)
-    display.setCursorOnPanel(3, 7, 2)
-    display.setTextAtCursor(@lblArrow)
-    display.setCursorOnPanel(4, 7, 2)
-    display.setTextAtCursor(@lbl2)
-    ' Small yellow box in top-left corner of panel 2
-    display.drawPanelBoxOfColor(2, 2, 2, 10, 10, TRUE, color.cYellow)
+  ' Panel 2 (display bottom-left): Red background
+  display.fillPanel(2, color.cRed)
+  display.setTextColor(color.cWhite)
+  display.setCursorOnPanel(3, 7, 2)
+  display.setTextAtCursor(@lblArrow)
+  display.setCursorOnPanel(4, 7, 2)
+  display.setTextAtCursor(@lbl2)
+  ' Small yellow box in top-left corner of panel 2
+  display.drawPanelBoxOfColor(2, 2, 2, 10, 10, TRUE, color.cYellow)
 
-    ' Panel 3 (display bottom-right): Magenta background
-    display.fillPanel(3, color.cMagenta)
-    display.setTextColor(color.cWhite)
-    display.setCursorOnPanel(3, 7, 3)
-    display.setTextAtCursor(@lblArrow)
-    display.setCursorOnPanel(4, 7, 3)
-    display.setTextAtCursor(@lbl3)
-    ' Small yellow box in top-left corner of panel 3
-    display.drawPanelBoxOfColor(3, 2, 2, 10, 10, TRUE, color.cYellow)
+  ' Panel 3 (display bottom-right): Magenta background
+  display.fillPanel(3, color.cMagenta)
+  display.setTextColor(color.cWhite)
+  display.setCursorOnPanel(3, 7, 3)
+  display.setTextAtCursor(@lblArrow)
+  display.setCursorOnPanel(4, 7, 3)
+  display.setTextAtCursor(@lbl3)
+  ' Small yellow box in top-left corner of panel 3
+  display.drawPanelBoxOfColor(3, 2, 2, 10, 10, TRUE, color.cYellow)
 
-    ' ========================================
-    ' DISPLAY-WIDE DRAWING (absolute coordinates)
-    ' ========================================
+  ' ========================================
+  ' DISPLAY-WIDE DRAWING (absolute coordinates)
+  ' ========================================
 
-    ' Cyan circle at display center (where all 4 panels meet)
-    ' Display center: row=64, col=128
-    centerRow := 64
-    centerCol := 128
-    circleRadius := 32
-    display.drawCircleOfColor(centerRow, centerCol, circleRadius, color.cCyan)
+  ' Cyan circle at display center (where all 4 panels meet)
+  ' Display center: row=64, col=128
+  centerRow := 64
+  centerCol := 128
+  circleRadius := 32
+  display.drawCircleOfColor(centerRow, centerCol, circleRadius, color.cCyan)
 
-    ' White crosshairs through the display center (display coordinates)
-    ' Horizontal line: row 64, from col 0 to col 255
-    display.drawLineOfColor(64, 0, 64, 255, color.cWhite)
-    ' Vertical line: col 128, from row 0 to row 127
-    display.drawLineOfColor(0, 128, 127, 128, color.cWhite)
+  ' White crosshairs through the display center (display coordinates)
+  ' Horizontal line: row 64, from col 0 to col 255
+  display.drawLineOfColor(64, 0, 64, 255, color.cWhite)
+  ' Vertical line: col 128, from row 0 to row 127
+  display.drawLineOfColor(0, 128, 127, 128, color.cWhite)
 
-    ' Navy corner markers using display coordinates (dark, contrasts with yellow panel boxes)
-    ' Top-left corner of display (0,0)
-    display.drawBoxOfColor(0, 0, 8, 8, TRUE, color.cNavy)
-    ' Top-right corner of display (0, 248)
-    display.drawBoxOfColor(0, 248, 8, 8, TRUE, color.cNavy)
-    ' Bottom-left corner of display (120, 0)
-    display.drawBoxOfColor(120, 0, 8, 8, TRUE, color.cNavy)
-    ' Bottom-right corner of display (120, 248)
-    display.drawBoxOfColor(120, 248, 8, 8, TRUE, color.cNavy)
+  ' Navy corner markers using display coordinates (dark, contrasts with yellow panel boxes)
+  ' Top-left corner of display (0,0)
+  display.drawBoxOfColor(0, 0, 8, 8, TRUE, color.cNavy)
+  ' Top-right corner of display (0, 248)
+  display.drawBoxOfColor(0, 248, 8, 8, TRUE, color.cNavy)
+  ' Bottom-left corner of display (120, 0)
+  display.drawBoxOfColor(120, 0, 8, 8, TRUE, color.cNavy)
+  ' Bottom-right corner of display (120, 248)
+  display.drawBoxOfColor(120, 248, 8, 8, TRUE, color.cNavy)
 
-    display.commitScreenToPanelSet()
-    debug("=== PANEL-SPECIFIC DRAWING ===")
-    debug("  Colored backgrounds: 0=Blue(TL), 1=Green(TR), 2=Red(BL), 3=Magenta(BR)")
-    debug("  Yellow boxes: panel-local (2,2) on each panel")
-    debug("  White text ^/0-3: panel-local lines 3-4, col 7")
-    debug("=== DISPLAY-WIDE DRAWING ===")
-    debug("  Cyan circle: display center (64,128) r=32")
-    debug("  White crosshairs: row 64, col 128")
-    debug("  Navy corners: display (0,0), (0,248), (120,0), (120,248)")
-    waitSec(120)
+  display.commitScreenToPanelSet()
+  debug("=== PANEL-SPECIFIC DRAWING ===")
+  debug("  Colored backgrounds: 0=Blue(TL), 1=Green(TR), 2=Red(BL), 3=Magenta(BR)")
+  debug("  Yellow boxes: panel-local (2,2) on each panel")
+  debug("  White text ^/0-3: panel-local lines 3-4, col 7")
+  debug("=== DISPLAY-WIDE DRAWING ===")
+  debug("  Cyan circle: display center (64,128) r=32")
+  debug("  White crosshairs: row 64, col 128")
+  debug("  Navy corners: display (0,0), (0,248), (120,0), (120,248)")
+  waitSec(120)
 
 {   ORIGINAL DEMO CODE - COMMENTED OUT
 PUB main_original() : ok | demoIndex, bDidDemo, pnlIdx
@@ -259,221 +259,221 @@ PUB main_original() : ok | demoIndex, bDidDemo, pnlIdx
             if bDidDemo
               waitSec(demoPausePeriod)
 '}
-    stop()
+  stop()
 
 PRI stop()
-    ' Stop the driver
-    if cog
-        display.stop()
-        cog := 0
+' Stop the driver
+  if cog
+    display.stop()
+    cog := 0
 
 PRI waitSec(countSeconds)
-    '' wait for N seconds
-    repeat countSeconds
-        waitms(1000)
+' wait for N seconds
+  repeat countSeconds
+    waitms(1000)
 
 PRI wait1000thSecs(count)
-    '' wait for N 1000ths of a second
-    repeat count
-        waitms(1)  ' 1/100 seconds
+' wait for N 1000ths of a second
+  repeat count
+    waitms(1)  ' 1/100 seconds
 
 PUB placeClock()
 
-    display.setTextColor(color.cYellow)
-    debug("placeClock()")
-    display.clearScreenBuffer()
-    placeDigit(OFS_TOP_PIX, 0)
-    'placeDigit(OFS_TOP_PIX, 64)
-    'placeDigit(OFS_TOP_PIX, 132)
-    'placeDigit(OFS_TOP_PIX, 197)
-    display.commitScreenToPanelSet()
+  display.setTextColor(color.cYellow)
+  debug("placeClock()")
+  display.clearScreenBuffer()
+  placeDigit(OFS_TOP_PIX, 0)
+  'placeDigit(OFS_TOP_PIX, 64)
+  'placeDigit(OFS_TOP_PIX, 132)
+  'placeDigit(OFS_TOP_PIX, 197)
+  display.commitScreenToPanelSet()
 
 PUB placeDigit(rowOffset, colOffset) | row, column
-    debug("placeDigit(", udec_(rowOffset), ", ", udec_(colOffset), ")")
-    row := rowOffset
-    column := colOffset
+  debug("placeDigit(", udec_(rowOffset), ", ", udec_(colOffset), ")")
+  row := rowOffset
+  column := colOffset
 
-    repeat 2
-        debug("box(", udec_(row), ", ", udec_(column), ")")
-        display.drawBox(row, column, CLK_WIDTH, CLK_HEIGHT, false)
-        row += CLK_HEIGHT + 1
-    return
+  repeat 2
+    debug("box(", udec_(row), ", ", udec_(column), ")")
+    display.drawBox(row, column, CLK_WIDTH, CLK_HEIGHT, false)
+    row += CLK_HEIGHT + 1
+  return
 
-    row := rowOffset
-    column += CLK_WIDTH + 1
-    repeat 3
-        debug("box(", udec_(row), ", ", udec_(column), ")")
-        display.drawBox(row, column, CLK_WIDTH, CLK_HEIGHT, false)
-        row += CLK_HEIGHT + 1
+  row := rowOffset
+  column += CLK_WIDTH + 1
+  repeat 3
+    debug("box(", udec_(row), ", ", udec_(column), ")")
+    display.drawBox(row, column, CLK_WIDTH, CLK_HEIGHT, false)
+    row += CLK_HEIGHT + 1
 
 
 PRI demoPanelFillColors()
-    display.clearScreenBuffer()
-    repeat 4
-        display.fillScreenNoPWM(color.BASE_RED)    ' full single color panel NO pwm
-        waitSec(2)
-        display.fillScreenNoPWM(color.BASE_GREEN)    ' full single color panel NO pwm
-        waitSec(2)
-        display.fillScreenNoPWM(color.BASE_BLUE)    ' full single color panel NO pwm
-        waitSec(2)
-        display.fillScreenNoPWM(color.BASE_WHITE)    ' full single color panel NO pwm
-        waitSec(4)
+  display.clearScreenBuffer()
+  repeat 4
+    display.fillScreenNoPWM(color.BASE_RED)    ' full single color panel NO pwm
+    waitSec(2)
+    display.fillScreenNoPWM(color.BASE_GREEN)    ' full single color panel NO pwm
+    waitSec(2)
+    display.fillScreenNoPWM(color.BASE_BLUE)    ' full single color panel NO pwm
+    waitSec(2)
+    display.fillScreenNoPWM(color.BASE_WHITE)    ' full single color panel NO pwm
+    waitSec(4)
 
 
 PRI demoRandomPanelColors() | panelIndex, panelHue, panelColor
 
-    display.clearScreenBuffer()
-    repeat 20
-        repeat hub75Bffrs.maxPanels(chainIndex) with panelIndex
-            panelHue := (getrnd() +// 254) + 1
-            panelColor := colorUtils.rgbColorFromDegrees(panelHue)
-            display.fillPanel(panelIndex, panelColor)
-        ' update our screen
-        display.commitScreenToPanelSet()
-        waitSec(2)
+  display.clearScreenBuffer()
+  repeat 20
+    repeat hub75Bffrs.maxPanels(chainIndex) with panelIndex
+      panelHue := (getrnd() +// 254) + 1
+      panelColor := colorUtils.rgbColorFromDegrees(panelHue)
+      display.fillPanel(panelIndex, panelColor)
+    ' update our screen
+    display.commitScreenToPanelSet()
+    waitSec(2)
 
 DAT { panel messages }
 
-lblTopLt      byte    "TL", 0
-lblBotLt      byte    "BL", 0
-lblTopRt      byte    "TR", 0
-lblBotRt      byte    "BR", 0
-lblZro      byte    "(0)", 0
-lblOne      byte    "(1)", 0
-lblTwo      byte    "(2)", 0
-lblThr      byte    "(3)", 0
+lblTopLt      BYTE    "TL", 0
+lblBotLt      BYTE    "BL", 0
+lblTopRt      BYTE    "TR", 0
+lblBotRt      BYTE    "BR", 0
+lblZro        BYTE    "(0)", 0
+lblOne        BYTE    "(1)", 0
+lblTwo        BYTE    "(2)", 0
+lblThr        BYTE    "(3)", 0
 
 ' Panel orientation test labels
-lbl0          byte    "0", 0
-lbl1          byte    "1", 0
-lbl2          byte    "2", 0
-lbl3          byte    "3", 0
-lblArrow      byte    "^", 0
+lbl0          BYTE    "0", 0
+lbl1          BYTE    "1", 0
+lbl2          BYTE    "2", 0
+lbl3          BYTE    "3", 0
+lblArrow      BYTE    "^", 0
 
 PRI demoColorPanels()
-    ' start with blank screen on which to draw
-    display.clearScreenBuffer()
+' start with blank screen on which to draw
+  display.clearScreenBuffer()
 
-    ' set our font and color
-    textSize := display.TEXT_FONT_5x7_DITH
-    display.setTextFont(textSize)    ' font size
-    display.setTextColor(color.cBlueViolet)
+  ' set our font and color
+  textSize := display.TEXT_FONT_5x7_DITH
+  display.setTextFont(textSize)    ' font size
+  display.setTextColor(color.cBlueViolet)
 
-    display.fillPanel(PNL_BOT_RT, color.cGreen)
-    display.setCursorOnPanel(6, 1, PNL_BOT_RT)
-    display.setTextAtCursor(@lblBotRt)
+  display.fillPanel(PNL_BOT_RT, color.cGreen)
+  display.setCursorOnPanel(6, 1, PNL_BOT_RT)
+  display.setTextAtCursor(@lblBotRt)
 
-    display.fillPanel(PNL_BOT_LT, color.cRed)
-    display.setCursorOnPanel(6, 1, PNL_BOT_LT)
-    display.setTextAtCursor(@lblBotLt)
+  display.fillPanel(PNL_BOT_LT, color.cRed)
+  display.setCursorOnPanel(6, 1, PNL_BOT_LT)
+  display.setTextAtCursor(@lblBotLt)
 
-    display.fillPanel(PNL_TOP_RT, color.cYellow)
-    display.setCursorOnPanel(6, 1, PNL_TOP_RT)
-    display.setTextAtCursor(@lblTopRt)
+  display.fillPanel(PNL_TOP_RT, color.cYellow)
+  display.setCursorOnPanel(6, 1, PNL_TOP_RT)
+  display.setTextAtCursor(@lblTopRt)
 
-    display.fillPanel(PNL_TOP_LT, color.cCyan)
-    display.setCursorOnPanel(6, 1, PNL_TOP_LT)
-    display.setTextAtCursor(@lblTopLt)
+  display.fillPanel(PNL_TOP_LT, color.cCyan)
+  display.setCursorOnPanel(6, 1, PNL_TOP_LT)
+  display.setTextAtCursor(@lblTopLt)
 
-    display.commitScreenToPanelSet()
+  display.commitScreenToPanelSet()
 
 PRI demoTopBottomScroll() | scrollerID, startTime
 
-    textSize := display.TEXT_FONT_8x8A
-    'textSize := display.TEXT_FONT_8x8B
-    display.setTextFont(textSize)    ' font size
-    display.setTextColor(color.cBlueViolet)
+  textSize := display.TEXT_FONT_8x8A
+  'textSize := display.TEXT_FONT_8x8B
+  display.setTextFont(textSize)    ' font size
+  display.setTextColor(color.cBlueViolet)
 
-    ' start with blank screen on which to draw
-    display.clearScreenBuffer()
+  ' start with blank screen on which to draw
+  display.clearScreenBuffer()
 
-    display.fillPanel(PNL_BOT_RT, color.cGreen)
-    display.setCursorOnPanel(6, 1, PNL_BOT_RT)
-    display.setTextAtCursor(@lblBotRt)
+  display.fillPanel(PNL_BOT_RT, color.cGreen)
+  display.setCursorOnPanel(6, 1, PNL_BOT_RT)
+  display.setTextAtCursor(@lblBotRt)
 
-    display.fillPanel(PNL_BOT_LT, color.cRed)
-    display.setCursorOnPanel(6, 1, PNL_BOT_LT)
-    display.setTextAtCursor(@lblBotLt)
+  display.fillPanel(PNL_BOT_LT, color.cRed)
+  display.setCursorOnPanel(6, 1, PNL_BOT_LT)
+  display.setTextAtCursor(@lblBotLt)
 
-    display.fillPanel(PNL_TOP_RT, color.cYellow)
-    display.setCursorOnPanel(6, 1, PNL_TOP_RT)
-    display.setTextAtCursor(@lblTopRt)
+  display.fillPanel(PNL_TOP_RT, color.cYellow)
+  display.setCursorOnPanel(6, 1, PNL_TOP_RT)
+  display.setTextAtCursor(@lblTopRt)
 
-    display.fillPanel(PNL_TOP_LT, color.cCyan)
-    display.setCursorOnPanel(6, 1, PNL_TOP_LT)
-    display.setTextAtCursor(@lblTopLt)
+  display.fillPanel(PNL_TOP_LT, color.cCyan)
+  display.setCursorOnPanel(6, 1, PNL_TOP_LT)
+  display.setTextAtCursor(@lblTopLt)
 
-    ' get scroller initialized with text to scroll and direction
-    scrollerID := display.scrollColoredTextOnLnOfNPanels(4, PNL_TOP_LT, 4, string("Multi-panel long test scroll   "), display.DIR_TO_LEFT, color.cBlue)
-    ' configure scroll repeat count
-    display.configureScrollLoopCount(scrollerID, display.SCROLL_N_TIMES, 2)
+  ' get scroller initialized with text to scroll and direction
+  scrollerID := display.scrollColoredTextOnLnOfNPanels(4, PNL_TOP_LT, 4, string("Multi-panel long test scroll   "), display.DIR_TO_LEFT, color.cBlue)
+  ' configure scroll repeat count
+  display.configureScrollLoopCount(scrollerID, display.SCROLL_N_TIMES, 2)
 
-    ' update our screen
+  ' update our screen
+  display.commitScreenToPanelSet()
+
+  ' delay to first movement
+  'wait1000thSecs(scrollPeriod)
+
+  ' loop while scrolling finishes
+  repeat while NOT display.isScrollingComplete()
+    ' move the text
+    'startTime := getct()
+    display.animateScroll()
+    'showDuration(startTime, string("top:ANI"))
+    ' commit to screen
+    'startTime := getct()
     display.commitScreenToPanelSet()
+    'showDuration(startTime, string("top:ANI-wr"))
 
-    ' delay to first movement
+    ' delay to next movement
     'wait1000thSecs(scrollPeriod)
-
-    ' loop while scrolling finishes
-    repeat while NOT display.isScrollingComplete()
-        ' move the text
-        'startTime := getct()
-        display.animateScroll()
-        'showDuration(startTime, string("top:ANI"))
-        ' commit to screen
-        'startTime := getct()
-        display.commitScreenToPanelSet()
-        'showDuration(startTime, string("top:ANI-wr"))
-
-        ' delay to next movement
-        'wait1000thSecs(scrollPeriod)
 
 
 PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, boxColor, hueIndex, maxPanels
 
-    maxPanels := hub75Bffrs.maxPanels(chainIndex)
-    debug("maxPanels: ", udec_(maxPanels))
-    panelHueWidth := 256 / maxPanels
-    debug("panelHueWidth: ", udec_(panelHueWidth))
-    ' set up text subsystem
-    'textSize := display.TEXT_FONT_5x7
-    textSize := display.TEXT_FONT_8x8A
-    'textSize := display.TEXT_FONT_8x8B
-    display.setTextFont(textSize)    ' font size
-    display.setTextColor(color.cBlueViolet)
-    display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
+  maxPanels := hub75Bffrs.maxPanels(chainIndex)
+  debug("maxPanels: ", udec_(maxPanels))
+  panelHueWidth := 256 / maxPanels
+  debug("panelHueWidth: ", udec_(panelHueWidth))
+  ' set up text subsystem
+  'textSize := display.TEXT_FONT_5x7
+  textSize := display.TEXT_FONT_8x8A
+  'textSize := display.TEXT_FONT_8x8B
+  display.setTextFont(textSize)    ' font size
+  display.setTextColor(color.cBlueViolet)
+  display.setCursor(0, 0)   ' start at top left, with one pixel of spacing
 
-    ' start with blank screen on which to draw
-    display.clearScreenBuffer()
+  ' start with blank screen on which to draw
+  display.clearScreenBuffer()
 
-    panelIndex := 0
+  panelIndex := 0
 
-    repeat panelIndex from 0 to maxPanels - 1
-        ' color the panel
-        hueIndex := panelIndex + 1
-        if hueIndex > maxPanels - 1
-            hueIndex -= maxPanels
-        panelColor := colorUtils.rgbColorFromDegrees(panelHueWidth * hueIndex)
-        display.fillPanel(panelIndex, panelColor)
-        ' number the panel
-        display.setCursorOnPanel(1,1, panelIndex)
-        byte [@panelIdMessage][1] := panelIndex + $30
-        display.setTextAtCursor(@panelIdMessage)
-        ' draw a colored box in panel (don't use panel color)
-        hueIndex := panelIndex + 3
-        if hueIndex > maxPanels - 1
-            hueIndex -= maxPanels
-        boxColor := colorUtils.rgbColorFromDegrees(panelHueWidth * hueIndex)
-        display.drawPanelBoxOfColor(panelIndex, 17, 10, 40, 34, TRUE, boxColor)
-    display.commitScreenToPanelSet()
+  repeat panelIndex from 0 to maxPanels - 1
+    ' color the panel
+    hueIndex := panelIndex + 1
+    if hueIndex > maxPanels - 1
+      hueIndex -= maxPanels
+    panelColor := colorUtils.rgbColorFromDegrees(panelHueWidth * hueIndex)
+    display.fillPanel(panelIndex, panelColor)
+    ' number the panel
+    display.setCursorOnPanel(1,1, panelIndex)
+    BYTE [@panelIdMessage][1] := panelIndex + $30
+    display.setTextAtCursor(@panelIdMessage)
+    ' draw a colored box in panel (don't use panel color)
+    hueIndex := panelIndex + 3
+    if hueIndex > maxPanels - 1
+      hueIndex -= maxPanels
+    boxColor := colorUtils.rgbColorFromDegrees(panelHueWidth * hueIndex)
+    display.drawPanelBoxOfColor(panelIndex, 17, 10, 40, 34, TRUE, boxColor)
+  display.commitScreenToPanelSet()
 
 PRI showDuration(startTimeValue, pFuncTitle) | duration, converted
-    duration := getct() - startTimeValue
-    converted := muldiv64(duration, 1_000_000, clkfreq)
-    debug("- elapsed ", zstr_(pFuncTitle), ": ", udec_(converted), " uSec")
+  duration := getct() - startTimeValue
+  converted := muldiv64(duration, 1_000_000, clkfreq)
+  debug("- elapsed ", zstr_(pFuncTitle), ": ", udec_(converted), " uSec")
 
 
-CON { license }
+CON ' license
 
 {{
 
