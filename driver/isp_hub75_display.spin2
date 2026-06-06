@@ -977,7 +977,7 @@ PUB drawPanelLineOfColor(panelIndex, fmRow, fmColumn, toRow, toColumn, rgbColor)
   toRow :=  0 #> toRow <# rowsPerPanel - 1
   toColumn :=  0 #> toColumn <# columnsPerPanel - 1
   desiredPanelIndex :=  0 #> panelIndex <# maxPanels - 1
-  offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, panelIndex)
+  offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, desiredPanelIndex)
   ' Use FALSE for bUseDisplayCoords - panel routines use wire-order coordinates
   drawLineInternal(fmRow + offsetPixelRows, fmColumn + offsetPixelColumns, toRow + offsetPixelRows, toColumn + offsetPixelColumns, rgbColor, FALSE)
 

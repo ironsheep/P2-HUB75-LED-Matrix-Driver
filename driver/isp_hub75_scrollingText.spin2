@@ -172,7 +172,7 @@ PUB configureScrollLoopCount(loopMode, count) | bValidRequest, validCount
       scrollNbrTimes := 0
     SCROLL_N_TIMES:
       bValidRequest := TRUE
-      scrollNbrTimes := count
+      scrollNbrTimes := validCount
     other:
       bValidRequest := FALSE
 

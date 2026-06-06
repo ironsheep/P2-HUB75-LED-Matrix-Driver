@@ -1,6 +1,6 @@
 '' =================================================================================================
 ''
-''   File....... demo_hub75_multiPanel.spin2
+''   File....... demo_hub75_multi2x2panel.spin2
 ''   Purpose.... Top-level Demonstration - showing off our HUB75 matrix access to individual panels
 ''   Authors.... Stephen M Moraco
 ''               -- Copyright (c) 2021 Iron Sheep Productions, LLC
@@ -294,14 +294,6 @@ PUB placeDigit(rowOffset, colOffset) | row, column
   column := colOffset
 
   repeat 2
-    debug("box(", udec_(row), ", ", udec_(column), ")")
-    display.drawBox(row, column, CLK_WIDTH, CLK_HEIGHT, false)
-    row += CLK_HEIGHT + 1
-  return
-
-  row := rowOffset
-  column += CLK_WIDTH + 1
-  repeat 3
     debug("box(", udec_(row), ", ", udec_(column), ")")
     display.drawBox(row, column, CLK_WIDTH, CLK_HEIGHT, false)
     row += CLK_HEIGHT + 1
