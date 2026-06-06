@@ -13,7 +13,7 @@
 
 OBJ
 
-    hwEnum   : "isp_hub75_hwEnums"  ' hub75 attachment, set up constants
+    hwEnum      : "isp_hub75_hwEnums"                               ' hub75 attachment, set up constants
 
 CON ' User Panel Connection and Configuration
 
@@ -39,29 +39,29 @@ CON ' User Panel Connection and Configuration
     ' |  User configure
 
     ' (1) describe the panel connections, addressing and chips
-    DISP0_ADAPTER_BASE_PIN = hwEnum.PINS_P16_P31
-    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
-    DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
+    DISP0_ADAPTER_BASE_PIN         = hwEnum.PINS_P16_P31
+    DISP0_PANEL_DRIVER_CHIP        = hwEnum.CHIP_ICN2037
+    DISP0_PANEL_ADDR_LINES         = hwEnum.ADDR_ABCDE
 
     ' (2) describe the single panel physical size
-    DISP0_MAX_PANEL_COLUMNS = 128
-    DISP0_MAX_PANEL_ROWS = 64
+    DISP0_MAX_PANEL_COLUMNS        = 128
+    DISP0_MAX_PANEL_ROWS           = 64
 
     ' the organization of the panels: visual layout
     '   [0][1]      2x2 grid of panels
     '   [2][3]
     '
-    DISP0_MAX_PANELS_PER_ROW = 2
-    DISP0_MAX_PANELS_PER_COLUMN = 2
+    DISP0_MAX_PANELS_PER_ROW       = 2
+    DISP0_MAX_PANELS_PER_COLUMN    = 2
 
     ' (3) describe the color depth you want to support [3-8] bits per LED
     '    NOTE full 24bit color is hwEnum.DEPTH_8BIT
     '    NOTE: Screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
-    DISP0_COLOR_DEPTH = hwEnum.DEPTH_5BIT
+    DISP0_COLOR_DEPTH              = hwEnum.DEPTH_5BIT
 
     ' (4) Apply desired rotation to entire display
     ' NOTE: Use ROT_NONE first to verify panel orientation, then adjust if needed
-    DISP0_ROTATION = hwEnum.ROT_NONE
+    DISP0_ROTATION                 = hwEnum.ROT_NONE
     'DISP0_ROTATION = hwEnum.ROT_180  ' uncomment if display is upside-down
 
     ' (5) Describe the wire chain order through your panels
@@ -70,41 +70,41 @@ CON ' User Panel Connection and Configuration
     '     [TL][TR]   Looking at display front
     '     [BL][BR]   Adapter connects at BL, chain ends at TR
     '
-    DISP0_WIRE_ENTRY = hwEnum.WIRE_ENTERS_BOT_LEFT
-    DISP0_WIRE_TRAVERSE = hwEnum.WIRE_ROWS_FIRST
+    DISP0_WIRE_ENTRY               = hwEnum.WIRE_ENTERS_BOT_LEFT
+    DISP0_WIRE_TRAVERSE            = hwEnum.WIRE_ROWS_FIRST
 
     ' (6) Per-panel physical rotation
     '  Use when individual panels are physically rotated differently
     '  Panel indices: [0=TL][1=TR]
     '                 [2=BL][3=BR]
     '
-    DISP0_PANEL0_ROT = hwEnum.ROT_180     ' Panel 0
-    DISP0_PANEL1_ROT = hwEnum.ROT_180     ' Panel 1
-    DISP0_PANEL2_ROT = hwEnum.ROT_180     ' Panel 2
-    DISP0_PANEL3_ROT = hwEnum.ROT_180     ' Panel 3
+    DISP0_PANEL0_ROT               = hwEnum.ROT_180     ' Panel 0
+    DISP0_PANEL1_ROT               = hwEnum.ROT_180     ' Panel 1
+    DISP0_PANEL2_ROT               = hwEnum.ROT_180     ' Panel 2
+    DISP0_PANEL3_ROT               = hwEnum.ROT_180     ' Panel 3
 
     ' |  End User configure
     ' \-------------------------------------------
 
-    DISP0_MAX_DISPLAY_ROWS = DISP0_MAX_PANELS_PER_COLUMN * DISP0_MAX_PANEL_ROWS
-    DISP0_MAX_DISPLAY_COLUMNS = DISP0_MAX_PANELS_PER_ROW * DISP0_MAX_PANEL_COLUMNS
+    DISP0_MAX_DISPLAY_ROWS         = DISP0_MAX_PANELS_PER_COLUMN * DISP0_MAX_PANEL_ROWS
+    DISP0_MAX_DISPLAY_COLUMNS      = DISP0_MAX_PANELS_PER_ROW * DISP0_MAX_PANEL_COLUMNS
 
     ' Screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
     ' Color depth only affects which bits are significant in BCM conversion
-    DISP0_BITS_PER_COLOR = DISP0_COLOR_DEPTH * 3
-    DISP0_BYTES_PER_COLOR = 3
+    DISP0_BITS_PER_COLOR           = DISP0_COLOR_DEPTH * 3
+    DISP0_BYTES_PER_COLOR          = 3
 
-    DISP0_SCRN_SIZE_IN_BYTES = (((DISP0_MAX_DISPLAY_COLUMNS * DISP0_MAX_DISPLAY_ROWS * DISP0_BYTES_PER_COLOR) + 3) / 4) * 4
-    DISP0_SCRN_SIZE_IN_LONGS = (DISP0_SCRN_SIZE_IN_BYTES / 4)
+    DISP0_SCRN_SIZE_IN_BYTES       = (((DISP0_MAX_DISPLAY_COLUMNS * DISP0_MAX_DISPLAY_ROWS * DISP0_BYTES_PER_COLOR) + 3) / 4) * 4
+    DISP0_SCRN_SIZE_IN_LONGS       = (DISP0_SCRN_SIZE_IN_BYTES / 4)
 
-    DISP0_MAX_PANELS = DISP0_MAX_PANELS_PER_ROW * DISP0_MAX_PANELS_PER_COLUMN
+    DISP0_MAX_PANELS               = DISP0_MAX_PANELS_PER_ROW * DISP0_MAX_PANELS_PER_COLUMN
 
     ' what is our PWM frame size
     ' PWM Frames are 4 bits per pixel full display count of pixels
-    DISP0_PWM_FRAME_SIZE_IN_BYTES = (DISP0_MAX_DISPLAY_COLUMNS * DISP0_MAX_DISPLAY_ROWS) / 2
-    DISP0_PWM_FRAME_SIZE_IN_LONGS = (DISP0_PWM_FRAME_SIZE_IN_BYTES + 3) / 4
+    DISP0_PWM_FRAME_SIZE_IN_BYTES  = (DISP0_MAX_DISPLAY_COLUMNS * DISP0_MAX_DISPLAY_ROWS) / 2
+    DISP0_PWM_FRAME_SIZE_IN_LONGS  = (DISP0_PWM_FRAME_SIZE_IN_BYTES + 3) / 4
 
-    DISP0_FRAMESET_SIZE_IN_LONGS = DISP0_COLOR_DEPTH * DISP0_PWM_FRAME_SIZE_IN_LONGS
+    DISP0_FRAMESET_SIZE_IN_LONGS   = DISP0_COLOR_DEPTH * DISP0_PWM_FRAME_SIZE_IN_LONGS
 
 ' -------------------------------------------------------------------
 ' panel set on 2nd HUB75 adapter board - DISP1_* constants
@@ -114,53 +114,53 @@ CON ' User Panel Connection and Configuration
     ' |  User configure
 
     ' (1) describe the panel connections, addressing and chips
-    DISP1_ADAPTER_BASE_PIN = hwEnum.PINS_P16_P31
-    DISP1_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
-    DISP1_PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
+    DISP1_ADAPTER_BASE_PIN         = hwEnum.PINS_P16_P31
+    DISP1_PANEL_DRIVER_CHIP        = hwEnum.CHIP_ICN2037
+    DISP1_PANEL_ADDR_LINES         = hwEnum.ADDR_ABCDE
 
     ' (2) describe the single panel physical size
-    DISP1_MAX_PANEL_COLUMNS = 64
-    DISP1_MAX_PANEL_ROWS = 64
+    DISP1_MAX_PANEL_COLUMNS        = 64
+    DISP1_MAX_PANEL_ROWS           = 64
 
     ' the organization of the panels: visual layout
     '   [1]      1 row of 1 panel
     '
-    DISP1_MAX_PANELS_PER_ROW = 1
-    DISP1_MAX_PANELS_PER_COLUMN = 1
+    DISP1_MAX_PANELS_PER_ROW       = 1
+    DISP1_MAX_PANELS_PER_COLUMN    = 1
 
     ' (3) describe the color depth you want to support [3-8] bits per LED
     '    NOTE full 24bit color is hwEnum.DEPTH_8BIT
     '    NOTE: Screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
-    DISP1_COLOR_DEPTH = hwEnum.DEPTH_6BIT
+    DISP1_COLOR_DEPTH              = hwEnum.DEPTH_6BIT
 
     ' (4) Apply desired rotation to entire display
-    DISP1_ROTATION = hwEnum.ROT_NONE
+    DISP1_ROTATION                 = hwEnum.ROT_NONE
 
     ' (5) Describe the wire chain order (default: Z-pattern from top-left)
-    DISP1_WIRE_ENTRY = hwEnum.WIRE_ENTERS_TOP_LEFT
-    DISP1_WIRE_TRAVERSE = hwEnum.WIRE_ROWS_FIRST
+    DISP1_WIRE_ENTRY               = hwEnum.WIRE_ENTERS_TOP_LEFT
+    DISP1_WIRE_TRAVERSE            = hwEnum.WIRE_ROWS_FIRST
 
     ' |  End User configure
     ' \-------------------------------------------
 
-    DISP1_MAX_DISPLAY_ROWS = DISP1_MAX_PANELS_PER_COLUMN * DISP1_MAX_PANEL_ROWS
-    DISP1_MAX_DISPLAY_COLUMNS = DISP1_MAX_PANELS_PER_ROW * DISP1_MAX_PANEL_COLUMNS
+    DISP1_MAX_DISPLAY_ROWS         = DISP1_MAX_PANELS_PER_COLUMN * DISP1_MAX_PANEL_ROWS
+    DISP1_MAX_DISPLAY_COLUMNS      = DISP1_MAX_PANELS_PER_ROW * DISP1_MAX_PANEL_COLUMNS
 
     ' Screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
-    DISP1_BITS_PER_COLOR = DISP1_COLOR_DEPTH * 3
-    DISP1_BYTES_PER_COLOR = 3
+    DISP1_BITS_PER_COLOR           = DISP1_COLOR_DEPTH * 3
+    DISP1_BYTES_PER_COLOR          = 3
 
-    DISP1_SCRN_SIZE_IN_BYTES = (((DISP1_MAX_DISPLAY_COLUMNS * DISP1_MAX_DISPLAY_ROWS * DISP1_BYTES_PER_COLOR) + 3) / 4) * 4
-    DISP1_SCRN_SIZE_IN_LONGS = (DISP1_SCRN_SIZE_IN_BYTES / 4)
+    DISP1_SCRN_SIZE_IN_BYTES       = (((DISP1_MAX_DISPLAY_COLUMNS * DISP1_MAX_DISPLAY_ROWS * DISP1_BYTES_PER_COLOR) + 3) / 4) * 4
+    DISP1_SCRN_SIZE_IN_LONGS       = (DISP1_SCRN_SIZE_IN_BYTES / 4)
 
-    DISP1_MAX_PANELS = DISP1_MAX_PANELS_PER_ROW * DISP1_MAX_PANELS_PER_COLUMN
+    DISP1_MAX_PANELS               = DISP1_MAX_PANELS_PER_ROW * DISP1_MAX_PANELS_PER_COLUMN
 
     ' what is our PWM frame size
     ' PWM Frames are 4 bits per pixel full display count of pixels
-    DISP1_PWM_FRAME_SIZE_IN_BYTES = (DISP1_MAX_DISPLAY_COLUMNS * DISP1_MAX_DISPLAY_ROWS) / 2
-    DISP1_PWM_FRAME_SIZE_IN_LONGS = (DISP1_PWM_FRAME_SIZE_IN_BYTES + 3) / 4
+    DISP1_PWM_FRAME_SIZE_IN_BYTES  = (DISP1_MAX_DISPLAY_COLUMNS * DISP1_MAX_DISPLAY_ROWS) / 2
+    DISP1_PWM_FRAME_SIZE_IN_LONGS  = (DISP1_PWM_FRAME_SIZE_IN_BYTES + 3) / 4
 
-    DISP1_FRAMESET_SIZE_IN_LONGS = DISP1_COLOR_DEPTH * DISP1_PWM_FRAME_SIZE_IN_LONGS
+    DISP1_FRAMESET_SIZE_IN_LONGS   = DISP1_COLOR_DEPTH * DISP1_PWM_FRAME_SIZE_IN_LONGS
 
 ' -------------------------------------------------------------------
 ' panel set on 3rd HUB75 adapter board - DISP2_* constants
@@ -170,54 +170,53 @@ CON ' User Panel Connection and Configuration
     ' |  User configure
 
     ' (1) describe the panel connections, addressing and chips
-    DISP2_ADAPTER_BASE_PIN = hwEnum.PINS_P16_P31
-    DISP2_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
-    DISP2_PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
+    DISP2_ADAPTER_BASE_PIN         = hwEnum.PINS_P16_P31
+    DISP2_PANEL_DRIVER_CHIP        = hwEnum.CHIP_ICN2037
+    DISP2_PANEL_ADDR_LINES         = hwEnum.ADDR_ABCDE
 
     ' (2) describe the single panel physical size
-    DISP2_MAX_PANEL_COLUMNS = 64
-    DISP2_MAX_PANEL_ROWS = 64
+    DISP2_MAX_PANEL_COLUMNS        = 64
+    DISP2_MAX_PANEL_ROWS           = 64
 
     ' the organization of the panels: visual layout
     '   [1]      1 row of 1 panel
     '
-    DISP2_MAX_PANELS_PER_ROW = 6
-    DISP2_MAX_PANELS_PER_COLUMN = 1
+    DISP2_MAX_PANELS_PER_ROW       = 6
+    DISP2_MAX_PANELS_PER_COLUMN    = 1
 
     ' (3) describe the color depth you want to support [3-8] bits per LED
     '    NOTE full 24bit color is hwEnum.DEPTH_8BIT
     '    NOTE: Screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
-    DISP2_COLOR_DEPTH = hwEnum.DEPTH_4BIT
+    DISP2_COLOR_DEPTH              = hwEnum.DEPTH_4BIT
 
     ' (4) Apply desired rotation to entire display
-    DISP2_ROTATION = hwEnum.ROT_NONE
+    DISP2_ROTATION                 = hwEnum.ROT_NONE
 
     ' (5) Describe the wire chain order (default: Z-pattern from top-left)
-    DISP2_WIRE_ENTRY = hwEnum.WIRE_ENTERS_TOP_LEFT
-    DISP2_WIRE_TRAVERSE = hwEnum.WIRE_ROWS_FIRST
+    DISP2_WIRE_ENTRY               = hwEnum.WIRE_ENTERS_TOP_LEFT
+    DISP2_WIRE_TRAVERSE            = hwEnum.WIRE_ROWS_FIRST
 
     ' |  End User configure
     ' \-------------------------------------------
 
-    DISP2_MAX_DISPLAY_ROWS = DISP2_MAX_PANELS_PER_COLUMN * DISP2_MAX_PANEL_ROWS
-    DISP2_MAX_DISPLAY_COLUMNS = DISP2_MAX_PANELS_PER_ROW * DISP2_MAX_PANEL_COLUMNS
+    DISP2_MAX_DISPLAY_ROWS         = DISP2_MAX_PANELS_PER_COLUMN * DISP2_MAX_PANEL_ROWS
+    DISP2_MAX_DISPLAY_COLUMNS      = DISP2_MAX_PANELS_PER_ROW * DISP2_MAX_PANEL_COLUMNS
 
     ' Screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
-    DISP2_BITS_PER_COLOR = DISP2_COLOR_DEPTH * 3
-    DISP2_BYTES_PER_COLOR = 3
+    DISP2_BITS_PER_COLOR           = DISP2_COLOR_DEPTH * 3
+    DISP2_BYTES_PER_COLOR          = 3
 
-    DISP2_SCRN_SIZE_IN_BYTES = (((DISP2_MAX_DISPLAY_COLUMNS * DISP2_MAX_DISPLAY_ROWS * DISP2_BYTES_PER_COLOR) + 3) / 4) * 4
-    DISP2_SCRN_SIZE_IN_LONGS = (DISP2_SCRN_SIZE_IN_BYTES / 4)
+    DISP2_SCRN_SIZE_IN_BYTES       = (((DISP2_MAX_DISPLAY_COLUMNS * DISP2_MAX_DISPLAY_ROWS * DISP2_BYTES_PER_COLOR) + 3) / 4) * 4
+    DISP2_SCRN_SIZE_IN_LONGS       = (DISP2_SCRN_SIZE_IN_BYTES / 4)
 
-    DISP2_MAX_PANELS = DISP2_MAX_PANELS_PER_ROW * DISP2_MAX_PANELS_PER_COLUMN
+    DISP2_MAX_PANELS               = DISP2_MAX_PANELS_PER_ROW * DISP2_MAX_PANELS_PER_COLUMN
 
     ' what is our PWM frame size
     ' PWM Frames are 4 bits per pixel full display count of pixels
-    DISP2_PWM_FRAME_SIZE_IN_BYTES = (DISP2_MAX_DISPLAY_COLUMNS * DISP2_MAX_DISPLAY_ROWS) / 2
-    DISP2_PWM_FRAME_SIZE_IN_LONGS = (DISP2_PWM_FRAME_SIZE_IN_BYTES + 3) / 4
+    DISP2_PWM_FRAME_SIZE_IN_BYTES  = (DISP2_MAX_DISPLAY_COLUMNS * DISP2_MAX_DISPLAY_ROWS) / 2
+    DISP2_PWM_FRAME_SIZE_IN_LONGS  = (DISP2_PWM_FRAME_SIZE_IN_BYTES + 3) / 4
 
-    DISP2_FRAMESET_SIZE_IN_LONGS = DISP2_COLOR_DEPTH * DISP2_PWM_FRAME_SIZE_IN_LONGS
-
+    DISP2_FRAMESET_SIZE_IN_LONGS   = DISP2_COLOR_DEPTH * DISP2_PWM_FRAME_SIZE_IN_LONGS
 
 PUB null()
 '' Placeholder to prevent this object from being used as a top-level file.

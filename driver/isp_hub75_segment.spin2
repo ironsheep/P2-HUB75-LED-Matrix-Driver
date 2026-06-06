@@ -26,33 +26,32 @@
 
 CON ' segment states, names, orientations and such
 
-#0, SEG_UNKNOWN, SEG_LEFT_E, SEG_LEFT_F, SEG_RIGHT_B, SEG_RIGHT_C, SEG_TOP, SEG_MIDDLE, SEG_BOTTOM
-#0, STATE_UNKNOWN, STATE_OFF, STATE_3RD_ON, STATE_6TH_ON, STATE_ON, STATE_3RD_OFF ,STATE_6TH_OFF
+    #0, SEG_UNKNOWN, SEG_LEFT_E, SEG_LEFT_F, SEG_RIGHT_B, SEG_RIGHT_C, SEG_TOP, SEG_MIDDLE, SEG_BOTTOM
+    #0, STATE_UNKNOWN, STATE_OFF, STATE_3RD_ON, STATE_6TH_ON, STATE_ON, STATE_3RD_OFF, STATE_6TH_OFF
 
-SEG_WIDTH = 3
-SEG_LENGTH = 10
+    SEG_WIDTH   = 3
+    SEG_LENGTH  = 10
 
-
-cBlack = $000000
+    CBLACK      = $000000
 
 OBJ
-    hub75Bffrs  :   "isp_hub75_hwBufferAccess"
-    pixels      :   "isp_hub75_screenUtils"
-    colorUtils  :   "isp_hub75_colorUtils"
+    hub75Bffrs  : "isp_hub75_hwBufferAccess"
+    pixels      : "isp_hub75_screenUtils"
+    colorUtils  : "isp_hub75_colorUtils"
 
 VAR
-  long  chainIndex
-  long  segOrientation
-  long  currentState
-  long  nextState
-  long  segHeight
-  long  segWidth
-  long  segStartX
-  long  segStartY
-  long  segRgbColor    ' TODO add next color for when ea. digit value can be a diff color
-  long  desiredEndState
-  long  maxRows
-  long  maxColumns
+    LONG    chainIndex
+    LONG    segOrientation
+    LONG    currentState
+    LONG    nextState
+    LONG    segHeight
+    LONG    segWidth
+    LONG    segStartX
+    LONG    segStartY
+    LONG    segRgbColor    ' TODO add next color for when ea. digit value can be a diff color
+    LONG    desiredEndState
+    LONG    maxRows
+    LONG    maxColumns
 
 PUB null()
 '' This is NOT a top level object.
@@ -68,104 +67,106 @@ PUB placeSegment(nChainIdx, row, column, orientation, initialState, rgbColor)
 '' @param initialState - initial display state (STATE_ON, STATE_OFF, etc.)
 '' @param rgbColor - 24-bit RGB color for the segment
 
-    chainIndex := nChainIdx
-    'debug("seg:placeSegment rc=(", udec_(row), ",", udec_(column), "), orient=(", udec_(orientation), "), state=(", udec_(initialState), "), RGB=(", uhex_long_(rgbColor),")")
-    ' record settings choices we are given extrapolating some
-    maxRows, maxColumns := hub75Bffrs.displaySizeInPixels(nChainIdx)
+  chainIndex := nChainIdx
+  'debug("seg:placeSegment rc=(", udec_(row), ",", udec_(column), "), orient=(", udec_(orientation), "), state=(", udec_(initialState), "), RGB=(", uhex_long_(rgbColor),")")
+  ' record settings choices we are given extrapolating some
+  maxRows, maxColumns := hub75Bffrs.displaySizeInPixels(nChainIdx)
 
-    desiredEndState := currentState := nextState := STATE_OFF
-    segStartX :=  0 #> column <# maxColumns - 1
-    segStartY :=  0 #> row <# maxRows - 1
-    segOrientation := orientation
-    segRgbColor := rgbColor
-    case orientation
-        SEG_TOP..SEG_BOTTOM:
-            segHeight := 3
-            segWidth := 10
-        SEG_LEFT_E..SEG_RIGHT_C:
-            segHeight := 10
-            segWidth := 3
-        OTHER:
-            debug("SEG: BAD segment type!")
-            abort
-    ' if the segment is initially showing, let's draw it!
-    if initialState <> currentState
-        updateSegmentToState(initialState)
+  desiredEndState := currentState := nextState := STATE_OFF
+  segStartX :=  0 #> column <# maxColumns - 1
+  segStartY :=  0 #> row <# maxRows - 1
+  segOrientation := orientation
+  segRgbColor := rgbColor
+  case orientation
+    SEG_TOP..SEG_BOTTOM:
+      segHeight := 3
+      segWidth := 10
+    SEG_LEFT_E..SEG_RIGHT_C:
+      segHeight := 10
+      segWidth := 3
+    OTHER:
+      debug("SEG: BAD segment type!")
+      abort
+  ' if the segment is initially showing, let's draw it!
+  if initialState <> currentState
+    updateSegmentToState(initialState)
 
 PUB hideSegment()
 '' Start the segment moving to STATE_OFF if not already off.
 ''
 
-    if isMovementComplete()
-        if currentState <> STATE_OFF
-            moveSegmentToState(STATE_OFF)
+  if isMovementComplete()
+    if currentState <> STATE_OFF
+      moveSegmentToState(STATE_OFF)
 
 PUB showSegment()
 '' Start the segment moving to STATE_ON if not already on.
 ''
 
-    'debug("seg:show orient=(", udec_(segOrientation), ")")
-    if isMovementComplete()
-        if currentState <> STATE_ON
-            moveSegmentToState(STATE_ON)
+' debug("seg:show orient=(", udec_(segOrientation), ")")
+
+  if isMovementComplete()
+    if currentState <> STATE_ON
+      moveSegmentToState(STATE_ON)
 
 PUB isMovementComplete() : status
 '' Return T/F where T means that all movement for this segment is complete.
 ''
 '' @returns status - TRUE if the segment has reached its desired end state
 
-    status := (desiredEndState == currentState)
+  status := (desiredEndState == currentState)
 
 PUB animateStep()
 '' Perform one animation step if a movement is pending.
 ''
 
-    if not isMovementComplete()
-        updateSegmentToState(nextState)
+  if NOT isMovementComplete()
+    updateSegmentToState(nextState)
 
 PUB moveSegmentToState(newEndState)
 '' Start the animated transition sequence to move the segment to the desired end state.
 ''
 '' @param newEndState - target state (STATE_ON or STATE_OFF)
 
-    'debug("seg:id(segT", udec_(segOrientation), "), moveTo (st", udec_(desiredEndState), ") -> (st", udec_(newEndState), ")")
-    ' if we are asking to be in a different state then...
-    if desiredEndState <> newEndState
-        ' if we are not yet at an end state (still moving) then abort
-        if currentState <> STATE_OFF && currentState <> STATE_ON
-            debug("SEG: state still in motion, ignoring request")
-            abort
-        if newEndState <> STATE_OFF && newEndState <> STATE_ON
-            debug("SEG: BAD end-state must be ON or OFF!")
-            abort
-        if newEndState == STATE_ON
-            nextState := STATE_3RD_ON
-        else
-            nextState := STATE_3RD_OFF
-        updateSegmentToState(nextState)
-        desiredEndState := newEndState
+'debug("seg:id(segT", udec_(segOrientation), "), moveTo (st", udec_(desiredEndState), ") -> (st", udec_(newEndState), ")")
+' if we are asking to be in a different state then...
+
+  if desiredEndState <> newEndState
+    ' if we are not yet at an end state (still moving) then abort
+    if currentState <> STATE_OFF && currentState <> STATE_ON
+      DEBUG("SEG: state still in motion, ignoring request")
+      abort
+    if newEndState <> STATE_OFF && newEndState <> STATE_ON
+      DEBUG("SEG: BAD end-state must be ON or OFF!")
+      abort
+    if newEndState == STATE_ON
+      nextState := STATE_3RD_ON
     else
-        debug("  -- already in desiredEndState?")
+      nextState := STATE_3RD_OFF
+    updateSegmentToState(nextState)
+    desiredEndState := newEndState
+  else
+    DEBUG("  -- already in desiredEndState?")
 
 PRI updateSegmentToState(newState)
 ' Draw the segment at a specific animation state and mark it as the current state.
 '
 ' @param newState - the animation state to draw (STATE_3RD_ON, STATE_ON, etc.)
 
-    'debug("seg:updSegToSt(segT", udec_(segOrientation), ", st", udec_(currentState), " -> st", udec_(newState), " , end-st", udec_(desiredEndState), ")")
-    case segOrientation
-        SEG_TOP:
-            updateHorizontalSegment(newState)
-        SEG_LEFT_E..SEG_LEFT_F:
-            updateVerticalSegment(newState)
-        SEG_RIGHT_B..SEG_RIGHT_C:
-            updateVerticalSegment(newState)
-        SEG_BOTTOM:
-            updateHorizontalSegment(newState)
-        SEG_MIDDLE:
-            updateMiddleSegment(newState)
-    currentState := newState
+' debug("seg:updSegToSt(segT", udec_(segOrientation), ", st", udec_(currentState), " -> st", udec_(newState), " , end-st", udec_(desiredEndState), ")")
 
+  case segOrientation
+    SEG_TOP:
+      updateHorizontalSegment(newState)
+    SEG_LEFT_E..SEG_LEFT_F:
+      updateVerticalSegment(newState)
+    SEG_RIGHT_B..SEG_RIGHT_C:
+      updateVerticalSegment(newState)
+    SEG_BOTTOM:
+      updateHorizontalSegment(newState)
+    SEG_MIDDLE:
+      updateMiddleSegment(newState)
+  currentState := newState
 
 PRI updateVerticalSegment(newState) | pixInset, columnIndex
 ' Draw a vertical segment (left or right) at the given animation state.
@@ -175,72 +176,73 @@ PRI updateVerticalSegment(newState) | pixInset, columnIndex
 ' @local pixInset - pixel inset from segment edge for tapered drawing
 ' @local columnIndex - current column being drawn
 
-    'debug("seg:updVertSeg()")
-    ' row,col points to upper-left of WIDTH columns by LENGTH rows
-    if segOrientation == SEG_LEFT_E || segOrientation == SEG_LEFT_F
-        ' pointing right
-        if newState <> STATE_ON
-            ' clear the segment
-            pixInset := 0
-            repeat columnIndex from 0 to SEG_WIDTH - 1
-                drawLine(segStartY + pixInset, segStartX + columnIndex, segStartY + SEG_LENGTH - 1 - pixInset, segStartX + columnIndex, cBlack)
-                pixInset++
-        ' now draw segment lines that are showing
-        case newState
-            STATE_3RD_ON:   ' smallest 1 line showing
-                    drawLine(segStartY + 0, segStartX + 0, segStartY + SEG_LENGTH - 1 - 0, segStartX + 0, segRgbColor)   ' shortest
-                    nextState := STATE_6TH_ON
-            STATE_6TH_ON:   ' smallest 2 lines showing
-                    drawLine(segStartY + 0, segStartX + 0, segStartY + SEG_LENGTH - 1 - 0, segStartX + 0, segRgbColor)   ' mid
-                    drawLine(segStartY + 1, segStartX + 1, segStartY + SEG_LENGTH - 1 - 1, segStartX + 1, segRgbColor)   ' shortest
-                    nextState := STATE_ON
-            STATE_ON:   ' all lines showing
-                pixInset := 0
-                repeat columnIndex from 0 to SEG_WIDTH - 1
-                    drawLine(segStartY + pixInset, segStartX + columnIndex, segStartY + SEG_LENGTH - 1 - pixInset, segStartX + columnIndex, segRgbColor)
-                    pixInset++
-            STATE_3RD_OFF:  ' smallest 2 lines showing
-                    drawLine(segStartY + 0, segStartX + 0, segStartY + SEG_LENGTH - 1 - 0, segStartX + 0, segRgbColor)   ' mid
-                    drawLine(segStartY + 1, segStartX + 1, segStartY + SEG_LENGTH - 1 - 1, segStartX + 1, segRgbColor)   ' shortest
-                    nextState := STATE_6TH_OFF
-            STATE_6TH_OFF:  ' smallest 1 line showing
-                    drawLine(segStartY + 0, segStartX + 0, segStartY + SEG_LENGTH - 1 - 0, segStartX + 0, segRgbColor)   ' shortest
-                    nextState := STATE_OFF
-            STATE_OFF:  ' nothing to do since we clear segment first
-            OTHER:
-                debug("STATE(vrtL) not yet implemented (", udec_(newstate), ")")
-    else
-        ' pointing left
-        if newState <> STATE_ON
-            ' clear the segment
-            pixInset := SEG_WIDTH - 1
-                repeat columnIndex from 0 to SEG_WIDTH - 1
-                    drawLine(segStartY + pixInset, segStartX + columnIndex, segStartY + SEG_LENGTH - 1 - pixInset, segStartX + columnIndex, cBlack)
-                    pixInset--
-        ' now draw segment lines that are showing
-        case newState
-            STATE_3RD_ON:   ' smallest 1 line showing
-                    drawLine(segStartY + 2, segStartX + 2, segStartY + SEG_LENGTH - 1 - 2, segStartX + 2, segRgbColor)   ' shortest
-                    nextState := STATE_6TH_ON
-            STATE_6TH_ON:   ' smallest 2 lines showing
-                    drawLine(segStartY + 1, segStartX + 2, segStartY + SEG_LENGTH - 1 - 1, segStartX + 2, segRgbColor)   ' mid
-                    drawLine(segStartY + 2, segStartX + 1, segStartY + SEG_LENGTH - 1 - 2, segStartX + 1, segRgbColor)   ' shortest
-                    nextState := STATE_ON
-            STATE_ON:   ' all lines showing
-                pixInset := SEG_WIDTH - 1
-                repeat columnIndex from 0 to SEG_WIDTH - 1
-                    drawLine(segStartY + pixInset, segStartX + columnIndex, segStartY + SEG_LENGTH - 1 - pixInset, segStartX + columnIndex, segRgbColor)
-                    pixInset--
-            STATE_3RD_OFF:  ' smallest 2 lines showing
-                    drawLine(segStartY + 1, segStartX + 2, segStartY + SEG_LENGTH - 1 - 1, segStartX + 2, segRgbColor)   ' mid
-                    drawLine(segStartY + 2, segStartX + 1, segStartY + SEG_LENGTH - 1 - 2, segStartX + 1, segRgbColor)   ' shortest
-                    nextState := STATE_6TH_OFF
-            STATE_6TH_OFF:  ' smallest 1 line showing
-                    drawLine(segStartY + 2, segStartX + 2, segStartY + SEG_LENGTH - 1 - 2, segStartX + 2, segRgbColor)   ' shortest
-                    nextState := STATE_OFF
-            STATE_OFF:  ' nothing to do since we clear segment first
-            OTHER:
-                debug("STATE(vrtR) not yet implemented (", udec_(newstate), ")")
+'debug("seg:updVertSeg()")
+' row,col points to upper-left of WIDTH columns by LENGTH rows
+
+  if segOrientation == SEG_LEFT_E || segOrientation == SEG_LEFT_F
+    ' pointing right
+    if newState <> STATE_ON
+      ' clear the segment
+      pixInset := 0
+      repeat columnIndex from 0 TO SEG_WIDTH - 1
+        drawLine(segStartY + pixInset, segStartX + columnIndex, segStartY + SEG_LENGTH - 1 - pixInset, segStartX + columnIndex, CBLACK)
+        pixInset++
+    ' now draw segment lines that are showing
+    case newState
+      STATE_3RD_ON:                                                                                         ' smallest 1 line showing
+        drawLine(segStartY + 0, segStartX + 0, segStartY + SEG_LENGTH - 1 - 0, segStartX + 0, segRgbColor)  ' shortest
+        nextState := STATE_6TH_ON
+      STATE_6TH_ON:                                                                                         ' smallest 2 lines showing
+        drawLine(segStartY + 0, segStartX + 0, segStartY + SEG_LENGTH - 1 - 0, segStartX + 0, segRgbColor)  ' mid
+        drawLine(segStartY + 1, segStartX + 1, segStartY + SEG_LENGTH - 1 - 1, segStartX + 1, segRgbColor)  ' shortest
+        nextState := STATE_ON
+      STATE_ON:                                                                                             ' all lines showing
+        pixInset := 0
+        repeat columnIndex from 0 TO SEG_WIDTH - 1
+          drawLine(segStartY + pixInset, segStartX + columnIndex, segStartY + SEG_LENGTH - 1 - pixInset, segStartX + columnIndex, segRgbColor)
+          pixInset++
+      STATE_3RD_OFF:                                                                                        ' smallest 2 lines showing
+        drawLine(segStartY + 0, segStartX + 0, segStartY + SEG_LENGTH - 1 - 0, segStartX + 0, segRgbColor)  ' mid
+        drawLine(segStartY + 1, segStartX + 1, segStartY + SEG_LENGTH - 1 - 1, segStartX + 1, segRgbColor)  ' shortest
+        nextState := STATE_6TH_OFF
+      STATE_6TH_OFF:                                                                                        ' smallest 1 line showing
+        drawLine(segStartY + 0, segStartX + 0, segStartY + SEG_LENGTH - 1 - 0, segStartX + 0, segRgbColor)  ' shortest
+        nextState := STATE_OFF
+      STATE_OFF:                                                                                            ' nothing to do since we clear segment first
+      other:
+        DEBUG("STATE(vrtL) not yet implemented (", udec_(newstate), ")")
+  else
+    ' pointing left
+    if newState <> STATE_ON
+      ' clear the segment
+      pixInset := SEG_WIDTH - 1
+        repeat columnIndex from 0 TO SEG_WIDTH - 1
+          drawLine(segStartY + pixInset, segStartX + columnIndex, segStartY + SEG_LENGTH - 1 - pixInset, segStartX + columnIndex, CBLACK)
+          pixInset--
+    ' now draw segment lines that are showing
+    case newState
+      STATE_3RD_ON:                                                                                         ' smallest 1 line showing
+        drawLine(segStartY + 2, segStartX + 2, segStartY + SEG_LENGTH - 1 - 2, segStartX + 2, segRgbColor)  ' shortest
+        nextState := STATE_6TH_ON
+      STATE_6TH_ON:                                                                                         ' smallest 2 lines showing
+        drawLine(segStartY + 1, segStartX + 2, segStartY + SEG_LENGTH - 1 - 1, segStartX + 2, segRgbColor)  ' mid
+        drawLine(segStartY + 2, segStartX + 1, segStartY + SEG_LENGTH - 1 - 2, segStartX + 1, segRgbColor)  ' shortest
+        nextState := STATE_ON
+      STATE_ON:                                                                                             ' all lines showing
+        pixInset := SEG_WIDTH - 1
+        repeat columnIndex from 0 TO SEG_WIDTH - 1
+          drawLine(segStartY + pixInset, segStartX + columnIndex, segStartY + SEG_LENGTH - 1 - pixInset, segStartX + columnIndex, segRgbColor)
+          pixInset--
+      STATE_3RD_OFF:                                                                                        ' smallest 2 lines showing
+        drawLine(segStartY + 1, segStartX + 2, segStartY + SEG_LENGTH - 1 - 1, segStartX + 2, segRgbColor)  ' mid
+        drawLine(segStartY + 2, segStartX + 1, segStartY + SEG_LENGTH - 1 - 2, segStartX + 1, segRgbColor)  ' shortest
+        nextState := STATE_6TH_OFF
+      STATE_6TH_OFF:                                                                                        ' smallest 1 line showing
+        drawLine(segStartY + 2, segStartX + 2, segStartY + SEG_LENGTH - 1 - 2, segStartX + 2, segRgbColor)  ' shortest
+        nextState := STATE_OFF
+      STATE_OFF:                                                                                            ' nothing to do since we clear segment first
+      other:
+        DEBUG("STATE(vrtR) not yet implemented (", udec_(newstate), ")")
 
 PRI updateHorizontalSegment(newState) | pixInset, rowIndex
 ' Draw a horizontal segment (top or bottom) at the given animation state.
@@ -250,70 +252,71 @@ PRI updateHorizontalSegment(newState) | pixInset, rowIndex
 ' @local pixInset - pixel inset from segment edge for tapered drawing
 ' @local rowIndex - current row being drawn
 
-    'debug("seg:updHorizSeg()")
-    ' row,col points to upper-left of LENGTH columns by WIDTH rows
-    if segOrientation == SEG_TOP
-        ' pointing down
-        if newState <> STATE_ON
-            ' clear the segment
-            pixInset := 0
-            repeat rowIndex from 0 to SEG_WIDTH - 1
-                drawLine(segStartY + rowIndex, segStartX + pixInset, segStartY + rowIndex, segStartX + SEG_LENGTH - 1 - pixInset, cBlack)
-                pixInset++
-        case newState
-            STATE_3RD_ON:   ' smallest 1 line showing
-                    drawLine(segStartY + 0, segStartX + 2, segStartY + 0, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)   ' shortest
-                    nextState := STATE_6TH_ON
-            STATE_6TH_ON:   ' smallest 2 lines showing
-                    drawLine(segStartY + 0, segStartX + 1, segStartY + 0, segStartX + SEG_LENGTH - 1 - 1, segRgbColor)   ' mid
-                    drawLine(segStartY + 1, segStartX + 2, segStartY + 1, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)   ' shortest
-                    nextState := STATE_ON
-            STATE_ON:
-                pixInset := 0
-                repeat rowIndex from 0 to SEG_WIDTH - 1
-                    drawLine(segStartY + rowIndex, segStartX + pixInset, segStartY + rowIndex, segStartX + SEG_LENGTH - 1 - pixInset, segRgbColor)
-                    pixInset++
-            STATE_3RD_OFF:  ' smallest 2 lines showing
-                    drawLine(segStartY + 0, segStartX + 1, segStartY + 0, segStartX + SEG_LENGTH - 1 - 1, segRgbColor)   ' mid
-                    drawLine(segStartY + 1, segStartX + 2, segStartY + 1, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)   ' shortest
-                    nextState := STATE_6TH_OFF
-            STATE_6TH_OFF:  ' smallest 1 line showing
-                    drawLine(segStartY + 0, segStartX + 2, segStartY + 0, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)   ' shortest
-                    nextState := STATE_OFF
-            STATE_OFF:  ' nothing to do since we clear segment first
-            OTHER:
-                debug("STATE(hrzT) not yet implemented (", udec_(newstate), ")")
-    else
-        ' pointing up
-        if newState <> STATE_ON
-            ' clear the segment
-            pixInset := SEG_WIDTH - 1
-            repeat rowIndex from 0 to SEG_WIDTH - 1
-                drawLine(segStartY + rowIndex, segStartX + pixInset, segStartY + rowIndex, segStartX + SEG_LENGTH - 1 - pixInset, cBlack)
-                pixInset --
-        case newState
-            STATE_3RD_ON:   ' smallest 1 line showing
-                    drawLine(segStartY + 2, segStartX + 2, segStartY + 2, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)   ' shortest
-                    nextState := STATE_6TH_ON
-            STATE_6TH_ON:   ' smallest 2 lines showing
-                    drawLine(segStartY + 2, segStartX + 1, segStartY + 2, segStartX + SEG_LENGTH - 1 - 1, segRgbColor)   ' mid
-                    drawLine(segStartY + 1, segStartX + 2, segStartY + 1, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)   ' shortest
-                    nextState := STATE_ON
-            STATE_ON:
-                pixInset := SEG_WIDTH - 1
-                 repeat rowIndex from 0 to SEG_WIDTH - 1
-                    drawLine(segStartY + rowIndex, segStartX + pixInset, segStartY + rowIndex, segStartX + SEG_LENGTH - 1 - pixInset, segRgbColor)
-                    pixInset --
-            STATE_3RD_OFF:  ' smallest 2 lines showing
-                    drawLine(segStartY + 2, segStartX + 1, segStartY + 2, segStartX + SEG_LENGTH - 1 - 1, segRgbColor)   ' mid
-                    drawLine(segStartY + 1, segStartX + 2, segStartY + 1, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)   ' shortest
-                    nextState := STATE_6TH_OFF
-            STATE_6TH_OFF:  ' smallest 1 line showing
-                    drawLine(segStartY + 2, segStartX + 2, segStartY + 2, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)   ' shortest
-                    nextState := STATE_OFF
-            STATE_OFF:  ' nothing to do since we clear segment first
-            OTHER:
-                debug("STATE(hrzB) not yet implemented (", udec_(newstate), ")")
+'debug("seg:updHorizSeg()")
+' row,col points to upper-left of LENGTH columns by WIDTH rows
+
+  if segOrientation == SEG_TOP
+    ' pointing down
+    if newState <> STATE_ON
+      ' clear the segment
+      pixInset := 0
+      repeat rowIndex from 0 TO SEG_WIDTH - 1
+        drawLine(segStartY + rowIndex, segStartX + pixInset, segStartY + rowIndex, segStartX + SEG_LENGTH - 1 - pixInset, CBLACK)
+        pixInset++
+    case newState
+      STATE_3RD_ON:                                                                                         ' smallest 1 line showing
+        drawLine(segStartY + 0, segStartX + 2, segStartY + 0, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)  ' shortest
+        nextState := STATE_6TH_ON
+      STATE_6TH_ON:                                                                                         ' smallest 2 lines showing
+        drawLine(segStartY + 0, segStartX + 1, segStartY + 0, segStartX + SEG_LENGTH - 1 - 1, segRgbColor)  ' mid
+        drawLine(segStartY + 1, segStartX + 2, segStartY + 1, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)  ' shortest
+        nextState := STATE_ON
+      STATE_ON:
+        pixInset := 0
+        repeat rowIndex from 0 TO SEG_WIDTH - 1
+          drawLine(segStartY + rowIndex, segStartX + pixInset, segStartY + rowIndex, segStartX + SEG_LENGTH - 1 - pixInset, segRgbColor)
+          pixInset++
+      STATE_3RD_OFF:                                                                                        ' smallest 2 lines showing
+        drawLine(segStartY + 0, segStartX + 1, segStartY + 0, segStartX + SEG_LENGTH - 1 - 1, segRgbColor)  ' mid
+        drawLine(segStartY + 1, segStartX + 2, segStartY + 1, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)  ' shortest
+        nextState := STATE_6TH_OFF
+      STATE_6TH_OFF:                                                                                        ' smallest 1 line showing
+        drawLine(segStartY + 0, segStartX + 2, segStartY + 0, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)  ' shortest
+        nextState := STATE_OFF
+      STATE_OFF:                                                                                            ' nothing to do since we clear segment first
+      other:
+        DEBUG("STATE(hrzT) not yet implemented (", udec_(newstate), ")")
+  else
+    ' pointing up
+    if newState <> STATE_ON
+      ' clear the segment
+      pixInset := SEG_WIDTH - 1
+      repeat rowIndex from 0 TO SEG_WIDTH - 1
+        drawLine(segStartY + rowIndex, segStartX + pixInset, segStartY + rowIndex, segStartX + SEG_LENGTH - 1 - pixInset, CBLACK)
+        pixInset --
+    case newState
+      STATE_3RD_ON:                                                                                         ' smallest 1 line showing
+        drawLine(segStartY + 2, segStartX + 2, segStartY + 2, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)  ' shortest
+        nextState := STATE_6TH_ON
+      STATE_6TH_ON:                                                                                         ' smallest 2 lines showing
+        drawLine(segStartY + 2, segStartX + 1, segStartY + 2, segStartX + SEG_LENGTH - 1 - 1, segRgbColor)  ' mid
+        drawLine(segStartY + 1, segStartX + 2, segStartY + 1, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)  ' shortest
+        nextState := STATE_ON
+      STATE_ON:
+        pixInset := SEG_WIDTH - 1
+          repeat rowIndex from 0 TO SEG_WIDTH - 1
+            drawLine(segStartY + rowIndex, segStartX + pixInset, segStartY + rowIndex, segStartX + SEG_LENGTH - 1 - pixInset, segRgbColor)
+            pixInset --
+      STATE_3RD_OFF:                                                                                        ' smallest 2 lines showing
+        drawLine(segStartY + 2, segStartX + 1, segStartY + 2, segStartX + SEG_LENGTH - 1 - 1, segRgbColor)  ' mid
+        drawLine(segStartY + 1, segStartX + 2, segStartY + 1, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)  ' shortest
+        nextState := STATE_6TH_OFF
+      STATE_6TH_OFF:                                                                                        ' smallest 1 line showing
+        drawLine(segStartY + 2, segStartX + 2, segStartY + 2, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)  ' shortest
+        nextState := STATE_OFF
+      STATE_OFF:                                                                                            ' nothing to do since we clear segment first
+      other:
+        DEBUG("STATE(hrzB) not yet implemented (", udec_(newstate), ")")
 
 PRI updateMiddleSegment(newState) | pixInset, rowIndex
 ' Draw the middle segment at the given animation state.
@@ -323,34 +326,34 @@ PRI updateMiddleSegment(newState) | pixInset, rowIndex
 ' @local pixInset - pixel inset from segment edge for tapered drawing
 ' @local rowIndex - current row being drawn
 
-    'debug("seg:updMidSeg()")
-    ' row,col points to upper-left of LENGTH columns by WIDTH rows
-    if newState <> STATE_ON
-        ' clear the segment
-        pixInset := 1
-        repeat rowIndex from 0 to SEG_WIDTH - 1
-            drawLine(segStartY + rowIndex, segStartX + pixInset, segStartY + rowIndex, segStartX + SEG_LENGTH - 1 - pixInset, cBlack)
-            pixInset := (pixInset == 1) ? 0 : 1
-    case newState
-        STATE_3RD_ON:   ' smallest 1 line showing
-                nextState := STATE_6TH_ON
-        STATE_6TH_ON:   ' smallest 2 lines showing
-                drawLine(segStartY + 1, segStartX + 2, segStartY + 1, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)   ' shortest
-                nextState := STATE_ON
-        STATE_ON:
-            pixInset := 1
-            repeat rowIndex from 0 to SEG_WIDTH - 1
-                drawLine(segStartY + rowIndex, segStartX + pixInset, segStartY + rowIndex, segStartX + SEG_LENGTH - 1 - pixInset, segRgbColor)
-                pixInset := (pixInset == 1) ? 0 : 1
-        STATE_3RD_OFF:  ' smallest 2 lines showing
-                drawLine(segStartY + 1, segStartX + 2, segStartY + 1, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)   ' shortest
-                nextState := STATE_6TH_OFF
-        STATE_6TH_OFF:  ' smallest 1 line showing
-                nextState := STATE_OFF
-        STATE_OFF:  ' nothing to do since we clear segment first
-        OTHER:
-            debug("STATE(mid) not yet implemented (", udec_(newstate), ")")
+'debug("seg:updMidSeg()")
+' row,col points to upper-left of LENGTH columns by WIDTH rows
 
+  if newState <> STATE_ON
+    ' clear the segment
+    pixInset := 1
+    repeat rowIndex from 0 TO SEG_WIDTH - 1
+      drawLine(segStartY + rowIndex, segStartX + pixInset, segStartY + rowIndex, segStartX + SEG_LENGTH - 1 - pixInset, CBLACK)
+      pixInset := (pixInset == 1) ? 0 : 1
+  case newState
+    STATE_3RD_ON:                                                                                         ' smallest 1 line showing
+      nextState := STATE_6TH_ON
+    STATE_6TH_ON:                                                                                         ' smallest 2 lines showing
+      drawLine(segStartY + 1, segStartX + 2, segStartY + 1, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)  ' shortest
+      nextState := STATE_ON
+    STATE_ON:
+      pixInset := 1
+      repeat rowIndex from 0 TO SEG_WIDTH - 1
+        drawLine(segStartY + rowIndex, segStartX + pixInset, segStartY + rowIndex, segStartX + SEG_LENGTH - 1 - pixInset, segRgbColor)
+        pixInset := (pixInset == 1) ? 0 : 1
+    STATE_3RD_OFF:                                                                                        ' smallest 2 lines showing
+      drawLine(segStartY + 1, segStartX + 2, segStartY + 1, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)  ' shortest
+      nextState := STATE_6TH_OFF
+    STATE_6TH_OFF:                                                                                        ' smallest 1 line showing
+      nextState := STATE_OFF
+    STATE_OFF:                                                                                            ' nothing to do since we clear segment first
+    other:
+      DEBUG("STATE(mid) not yet implemented (", udec_(newstate), ")")
 
 PRI drawLine(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column
 ' Draw a horizontal or vertical line between two points with the given color.
@@ -364,22 +367,22 @@ PRI drawLine(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column
 ' @local row - current row being drawn
 ' @local column - current column being drawn
 
-    'debug("seg:drwLn fmRC=(", udec_(fmRow), ",", udec_(fmColumn), "), toRC=(", udec_(toRow), ",", udec_(toColumn), "), RGB=(", uhex_long(rgbColor), ")")
-    fmRow :=  0 #> fmRow <# maxRows - 1
-    fmColumn :=  0 #> fmColumn <# maxColumns - 1
-    toRow :=  0 #> toRow <# maxRows - 1
-    toColumn :=  0 #> toColumn <# maxColumns - 1
-    if fmRow == toRow
-        ' draw Horizontal Line
-        repeat column from fmColumn to toColumn
-            pixels.drawPixelAtRCwithRGB(chainIndex, fmRow, column, colorUtils.rgbForCValue(rgbColor))
-    elseif fmColumn == toColumn
-        ' draw Vertical Line
-        repeat row from fmRow to toRow
-            pixels.drawPixelAtRCwithRGB(chainIndex, row, fmColumn, colorUtils.rgbForCValue(rgbColor))
-    else
-        debug("DIAG lines not implemented !")
-        abort
+  'debug("seg:drwLn fmRC=(", udec_(fmRow), ",", udec_(fmColumn), "), toRC=(", udec_(toRow), ",", udec_(toColumn), "), RGB=(", uhex_long(rgbColor), ")")
+  fmRow :=  0 #> fmRow <# maxRows - 1
+  fmColumn :=  0 #> fmColumn <# maxColumns - 1
+  toRow :=  0 #> toRow <# maxRows - 1
+  toColumn :=  0 #> toColumn <# maxColumns - 1
+  if fmRow == toRow
+    ' draw Horizontal Line
+    repeat column from fmColumn to toColumn
+      pixels.drawPixelAtRCwithRGB(chainIndex, fmRow, column, colorUtils.rgbForCValue(rgbColor))
+  elseif fmColumn == toColumn
+    ' draw Vertical Line
+    repeat row from fmRow to toRow
+      pixels.drawPixelAtRCwithRGB(chainIndex, row, fmColumn, colorUtils.rgbForCValue(rgbColor))
+  else
+    debug("DIAG lines not implemented !")
+    abort
 
 
 PRI isDebugLocn(nRow, nCol) : status
@@ -389,11 +392,10 @@ PRI isDebugLocn(nRow, nCol) : status
 ' @param nCol - panel column to check
 ' @returns status - TRUE if this is a debug location
 
-    status := FALSE
-    'if (nRow == 31 && nCol < 4) || (nRow < 2 && nCol < 3) || (nRow == 31 && nCol > 61) || (nRow < 2 && nCol > 61)
-    if (nRow  > 29)
-        status := TRUE ' FALSE  ' turn off debug
-
+  status := FALSE
+  ' if (nRow == 31 && nCol < 4) || (nRow < 2 && nCol < 3) || (nRow == 31 && nCol > 61) || (nRow < 2 && nCol > 61)
+  if (nRow  > 29)
+    status := TRUE                                      ' FALSE  ' turn off debug
 
 CON ' license
 

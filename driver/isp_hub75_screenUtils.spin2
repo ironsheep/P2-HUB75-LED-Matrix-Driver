@@ -13,12 +13,11 @@
 
 CON ' Object Interface: PUBLIC ENUMs
 
-
 OBJ ' Objects Used by this Object
 
-    color       :   "isp_hub75_color"
-    colorUtils  :   "isp_hub75_colorUtils"
-    hub75Bffrs  :   "isp_hub75_hwBufferAccess"
+    color       : "isp_hub75_color"
+    colorUtils  : "isp_hub75_colorUtils"
+    hub75Bffrs  : "isp_hub75_hwBufferAccess"
 
 PUB null()
 '' This is not a top level object
@@ -36,52 +35,53 @@ PUB drawPixelAtRC(nChainIdx, row, column, rgbColor) | xlatedColor, fHue
 ' @local xlatedColor - translated color after special-color handling
 ' @local fHue - unused hue variable
 
-    xlatedColor := rgbColor
-    if rgbColor == color.cRainbow
-        xlatedColor := colorUtils.rgbColorFromDegrees(6 * (column + 1))   ' replace '360 / 64' with 6 [was resulting in 5 vs. 6]
-    'elseif rgbColor == cRedWhtBlu
-     '   case column // 3
-     '       0: xlatedColor := cRed
-    '       1: xlatedColor := cWhite
-     '       2: xlatedColor := cBlue
+  xlatedColor := rgbColor
+  if rgbColor == color.cRainbow
+    xlatedColor := colorUtils.rgbColorFromDegrees(6 * (column + 1))             ' replace '360 / 64' with 6 [was resulting in 5 vs. 6]
+  'elseif rgbColor == cRedWhtBlu
+  '   case column // 3
+  '       0: xlatedColor := cRed
+  '       1: xlatedColor := cWhite
+  '       2: xlatedColor := cBlue
 
-    drawPixelAtRCwithRGB(nChainIdx, row, column, colorUtils.rgbForCValue(xlatedColor))
+  drawPixelAtRCwithRGB(nChainIdx, row, column, colorUtils.rgbForCValue(xlatedColor))
 
 PUB drawPixelAtRCwithRGB(nChainIdx, row, column, red, green, blue) | maxRows, maxColumns, rowIndex, columnIndex, colorOffset, pColor, pScreen, nPanelIndex, localRow, localCol, tempIdx
-    '' Place r,g,b color pixel at r,c
-    '' Supports single panels, horizontal chains, vertical stacks, and 2D panel grids
-    maxRows, maxColumns := hub75Bffrs.displaySizeInPixels(nChainIdx)
-    rowIndex := 0 #> row <# maxRows - 1
-    columnIndex :=  0 #> column <# maxColumns - 1
+'' Place r,g,b color pixel at r,c
+'' Supports single panels, horizontal chains, vertical stacks, and 2D panel grids
 
-    ' Apply display-level rotation first (rotates the entire display coordinate system)
-    case hub75Bffrs.panelRotation(nChainIdx)
-        hub75Bffrs.ROT_LEFT_90:
-            tempIdx := rowIndex
-            rowIndex := columnIndex
-            columnIndex := tempIdx
-            rowIndex := (maxColumns - 1) - rowIndex
-        hub75Bffrs.ROT_RIGHT_90:
-            tempIdx := rowIndex
-            rowIndex := columnIndex
-            columnIndex := tempIdx
-            columnIndex := (maxRows - 1) - columnIndex
-        hub75Bffrs.ROT_180:
-            columnIndex := (maxColumns - 1) - columnIndex
-            rowIndex := (maxRows - 1) - rowIndex
+  maxRows, maxColumns := hub75Bffrs.displaySizeInPixels(nChainIdx)
+  rowIndex := 0 #> row <# maxRows - 1
+  columnIndex :=  0 #> column <# maxColumns - 1
 
-    ' Convert display coordinates to panel index and local coordinates
-    ' This handles single panels, horizontal chains, vertical stacks, and 2D grids (Z-pattern)
-    nPanelIndex, localRow, localCol := hub75Bffrs.displayToPanelCoords(nChainIdx, rowIndex, columnIndex)
+  ' Apply display-level rotation first (rotates the entire display coordinate system)
+  case hub75Bffrs.panelRotation(nChainIdx)
+    hub75Bffrs.ROT_LEFT_90:
+      tempIdx := rowIndex
+      rowIndex := columnIndex
+      columnIndex := tempIdx
+      rowIndex := (maxColumns - 1) - rowIndex
+    hub75Bffrs.ROT_RIGHT_90:
+      tempIdx := rowIndex
+      rowIndex := columnIndex
+      columnIndex := tempIdx
+      columnIndex := (maxRows - 1) - columnIndex
+    hub75Bffrs.ROT_180:
+      columnIndex := (maxColumns - 1) - columnIndex
+      rowIndex := (maxRows - 1) - rowIndex
 
-    ' Calculate byte offset into screen buffer using panel-aware calculation
-    colorOffset := hub75Bffrs.panelPixelOffset(nChainIdx, nPanelIndex, localRow, localCol)
+  ' Convert display coordinates to panel index and local coordinates
+  ' This handles single panels, horizontal chains, vertical stacks, and 2D grids (Z-pattern)
+  nPanelIndex, localRow, localCol := hub75Bffrs.displayToPanelCoords(nChainIdx, rowIndex, columnIndex)
 
-    pScreen := hub75Bffrs.displayBufferAddress(nChainIdx)
-    pColor := @byte[pScreen][colorOffset]
-    byte[pColor][0] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_RED, red)
-    byte[pColor][1] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_GREEN, green)
-    byte[pColor][2] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_BLUE, blue)
+  ' Calculate byte offset into screen buffer using panel-aware calculation
+  colorOffset := hub75Bffrs.panelPixelOffset(nChainIdx, nPanelIndex, localRow, localCol)
+
+  pScreen := hub75Bffrs.displayBufferAddress(nChainIdx)
+  pColor := @BYTE[pScreen][colorOffset]
+  BYTE[pColor][0] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_RED, red)
+  BYTE[pColor][1] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_GREEN, green)
+  BYTE[pColor][2] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_BLUE, blue)
 
 CON ' license
 

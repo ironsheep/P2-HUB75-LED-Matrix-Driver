@@ -20,10 +20,10 @@ OBJ ' Objects Used by this Object
 
 VAR ' buffer addresses
 
-  LONG    pBitmapFileInMemory
-  LONG    chainIndex
-  LONG    maxRowPixels
-  LONG    maxColPixels
+    LONG    pBitmapFileInMemory
+    LONG    chainIndex
+    LONG    maxRowPixels
+    LONG    maxColPixels
 
 PUB null()
 '' This is NOT a top level object.
@@ -35,10 +35,10 @@ PUB fillScreenFromBMP(nChainIdx, pBmpFile)
 '' @param nChainIdx - the panel chain index to use
 '' @param pBmpFile - pointer to the in-memory .bmp file data
 
-    chainIndex := nChainIdx
-    maxRowPixels, maxColPixels := hub75Bffrs.displaySizeInPixels(chainIndex)
-    '' Load a 24-bit .bmp file image into screen buffer (panel sized, only!)
-    loadBitmap(pBmpFile)
+  chainIndex := nChainIdx
+  maxRowPixels, maxColPixels := hub75Bffrs.displaySizeInPixels(chainIndex)
+  '' Load a 24-bit .bmp file image into screen buffer (panel sized, only!)
+  loadBitmap(pBmpFile)
 
 PRI loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, haveError, showDebug, bInvalidFileStatus
 ' Load a validated 24-bit .bmp file image into the screen buffer pixel by pixel.
@@ -54,29 +54,29 @@ PRI loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, haveError,
 ' @local showDebug - TRUE if debug output should be shown for this pixel
 ' @local bInvalidFileStatus - FALSE if the .bmp file header is invalid
 
-    ' save address of 24bit file image for use by called routines
-    pBitmapFileInMemory := pBitmapFile
+  ' save address of 24bit file image for use by called routines
+  pBitmapFileInMemory := pBitmapFile
 
-    ' XYZZYpnl debug("- Study BMP")
-    bInvalidFileStatus := validateBmpFile(pBitmapFile)
-    if bInvalidFileStatus == FALSE
-        ' TODO: how do we warn of this?
-        abort
+  ' XYZZYpnl debug("- Study BMP")
+  bInvalidFileStatus := validateBmpFile(pBitmapFile)
+  if bInvalidFileStatus == FALSE
+    ' TODO: how do we warn of this?
+    abort
 
    ' fill screen buffer
-    repeat maxRowPixels with nPanelRow
-        repeat maxColPixels with nPanelCol
-            'debug("loadBitmap() - RC=(", udec_(nPanelRow), ", ", udec_(nPanelCol), ")")
-            showDebug := FALSE
-            if isDebugLocn(nPanelRow, nPanelCol)
-                showDebug := TRUE ' FALSE  ' turn off debug
+  repeat maxRowPixels with nPanelRow
+    repeat maxColPixels with nPanelCol
+      'debug("loadBitmap() - RC=(", udec_(nPanelRow), ", ", udec_(nPanelCol), ")")
+      showDebug := FALSE
+      if isDebugLocn(nPanelRow, nPanelCol)
+        showDebug := TRUE ' FALSE  ' turn off debug
 
-            red, green, blue := get24BitBMPColorForRC(nPanelRow, nPanelCol)
+      red, green, blue := get24BitBMPColorForRC(nPanelRow, nPanelCol)
 
-            if showDebug
-                ' XYZZYpnl debug(" - RC=(", udec_(nPanelRow), ", ", udec_(nPanelCol), "), RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
+      if showDebug
+        ' XYZZYpnl debug(" - RC=(", udec_(nPanelRow), ", ", udec_(nPanelCol), "), RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
 
-            pixels.drawPixelAtRC(chainIndex, nPanelRow, nPanelCol, colorUtils.cValueForRGB(red, green, blue))
+      pixels.drawPixelAtRC(chainIndex, nPanelRow, nPanelCol, colorUtils.cValueForRGB(red, green, blue))
 
 PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader, i, iStart, iEnd, pLastByte
 ' Parse and validate the .BMP file header, returning TRUE if the file is a supported format.
@@ -90,100 +90,100 @@ PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader, i, iStart, iEnd
 ' @local iEnd - pointer to end of image data
 ' @local pLastByte - pointer to the last byte of bitmap pixel data
 
-    ' XYZZYpnl debug("- Studying in-memory file")
-    bValidStatus := TRUE
-    'analyze bitmap image
-    pFileHeader := pBmpFileImage
-    bytemove(@bfType, pFileHeader, 2) 'read bmp header
-    pFileHeader += 2
-    bytemove(@bfSize, pFileHeader, 4) 'read bmp header
-    pFileHeader += 4
-    bytemove(@bfReserved1, pFileHeader, 4) 'read bmp header
-    pFileHeader += 4
-    bytemove(@bfOffBits, pFileHeader, 16) 'read bmp header
-    pFileHeader += 16
-    bytemove(@biPlanes, pFileHeader, 4)
-    pFileHeader += 4
-    bytemove(@biCompression, pFileHeader, 24)
-    pFileHeader += 24
+  ' XYZZYpnl debug("- Studying in-memory file")
+  bValidStatus := TRUE
+  'analyze bitmap image
+  pFileHeader := pBmpFileImage
+  bytemove(@bfType, pFileHeader, 2) 'read bmp header
+  pFileHeader += 2
+  bytemove(@bfSize, pFileHeader, 4) 'read bmp header
+  pFileHeader += 4
+  bytemove(@bfReserved1, pFileHeader, 4) 'read bmp header
+  pFileHeader += 4
+  bytemove(@bfOffBits, pFileHeader, 16) 'read bmp header
+  pFileHeader += 16
+  bytemove(@biPlanes, pFileHeader, 4)
+  pFileHeader += 4
+  bytemove(@biCompression, pFileHeader, 24)
+  pFileHeader += 24
 
-    'calculate actual bytes in palette
-    i := bfOffBits - 54
-    pFileHeader += i
+  'calculate actual bytes in palette
+  i := bfOffBits - 54
+  pFileHeader += i
 
-    iStart := pBmpFileImage + bfOffBits
-    iEnd := iStart + biSizeImage - 1
+  iStart := pBmpFileImage + bfOffBits
+  iEnd := iStart + biSizeImage - 1
 
-    ' return pointer to last BYTE in bitmap
-    pLastByte := pFileHeader + (biHeight * biWidth * 3) - 1
+  ' return pointer to last BYTE in bitmap
+  pLastByte := pFileHeader + (biHeight * biWidth * 3) - 1
 
-    ' XYZZYpnl debug("BitMap file @0x", uhex_(pBmpFileImage))
-    ' XYZZYpnl debug(" - size=", udec_(bfSize))
-    ' XYZZYpnl debug(" - OffsetBits=", udec_(bfOffBits))
-    'debug(" - #planes=", udec_(biPlanes))
-    ' XYZZYpnl debug(" - w,h=", udec_(biWidth), ",", udec_(biHeight))
-    ' XYZZYpnl debug(" - szImage=", udec_(biSizeImage))
-    'debug(" - compression=", udec_(biCompression))
-    ' XYZZYpnl debug(" - bitCount=", udec_(biBitCount))
-    ' XYZZYpnl debug(" - end @0x", uhex_(pLastByte))
+  ' XYZZYpnl debug("BitMap file @0x", uhex_(pBmpFileImage))
+  ' XYZZYpnl debug(" - size=", udec_(bfSize))
+  ' XYZZYpnl debug(" - OffsetBits=", udec_(bfOffBits))
+  'debug(" - #planes=", udec_(biPlanes))
+  ' XYZZYpnl debug(" - w,h=", udec_(biWidth), ",", udec_(biHeight))
+  ' XYZZYpnl debug(" - szImage=", udec_(biSizeImage))
+  'debug(" - compression=", udec_(biCompression))
+  ' XYZZYpnl debug(" - bitCount=", udec_(biBitCount))
+  ' XYZZYpnl debug(" - end @0x", uhex_(pLastByte))
 
-    ' XYZZYpnl debug(" - Img-start @0x", uhex_(iStart))
-    ' XYZZYpnl debug(" - Img-end @0x", uhex_(iEnd))
+  ' XYZZYpnl debug(" - Img-start @0x", uhex_(iStart))
+  ' XYZZYpnl debug(" - Img-end @0x", uhex_(iEnd))
 
-    if biWidth <> maxColPixels or biHeight <> maxRowPixels
-        ' XYZZYpnl debug(" !! invalid BMP size! [NOT 64x32]")
-        bValidStatus := FALSE
+  if biWidth <> maxColPixels or biHeight <> maxRowPixels
+    ' XYZZYpnl debug(" !! invalid BMP size! [NOT 64x32]")
+    bValidStatus := FALSE
 
-    if BYTE[@bfType][0] <> $42 || BYTE[@bfType][1] <> $4d ' B, M
-        ' XYZZYpnl debug(" !! invalid BMP file type! [NOT 'BM']")
-        bValidStatus := FALSE
+  if BYTE[@bfType][0] <> $42 || BYTE[@bfType][1] <> $4d ' B, M
+    ' XYZZYpnl debug(" !! invalid BMP file type! [NOT 'BM']")
+    bValidStatus := FALSE
 
-    if biCompression <> 0
-        ' XYZZYpnl debug(" !! invalid BMP compression! [is compressed]")
-        bValidStatus := FALSE
+  if biCompression <> 0
+    ' XYZZYpnl debug(" !! invalid BMP compression! [is compressed]")
+    bValidStatus := FALSE
 
-    'if bValidStatus == FALSE
-        ' XYZZYpnl debug("- ERROR invalid BMP!")
-    'else
-        ' XYZZYpnl debug("-good BMP size! [64x32]")
+  'if bValidStatus == FALSE
+      ' XYZZYpnl debug("- ERROR invalid BMP!")
+  'else
+      ' XYZZYpnl debug("-good BMP size! [64x32]")
 
-    'hub75Bffrs.dbgMemDump(@fileHeaderMsg, pBmpFileImage, bfOffBits)
-    'hub75Bffrs.dbgMemDump(@fileStartMsg, iStart, 32)
-    'hub75Bffrs.dbgMemDump(@fileEndMsg, iEnd-32-1, 32)
+  'hub75Bffrs.dbgMemDump(@fileHeaderMsg, pBmpFileImage, bfOffBits)
+  'hub75Bffrs.dbgMemDump(@fileStartMsg, iStart, 32)
+  'hub75Bffrs.dbgMemDump(@fileEndMsg, iEnd-32-1, 32)
 
 PRI get24BitBMPColorForRC(nRow, nColumn) : red, green, blue | pixColorAddr
-    if(nRow > maxRowPixels - 1)
-        debug("- ERROR bad nRow value [", udec_(nRow), " > ", udec_(maxRowPixels - 1), "]")
+  if(nRow > maxRowPixels - 1)
+    debug("- ERROR bad nRow value [", udec_(nRow), " > ", udec_(maxRowPixels - 1), "]")
 
-    if(nColumn > maxColPixels - 1)
-        debug("- ERROR bad nColumn value [", udec_(nColumn), " > ", udec_(maxColPixels - 1), "]")
+  if(nColumn > maxColPixels - 1)
+    debug("- ERROR bad nColumn value [", udec_(nColumn), " > ", udec_(maxColPixels - 1), "]")
 
-    pixColorAddr := getPixelAddressForBMPRowColumn(nRow, nColumn)
-    ' our intername .bmp file BYTE order is BGR!
-    blue := BYTE[pixColorAddr][0]
-    green := BYTE[pixColorAddr][1]
-    red := BYTE[pixColorAddr][2]
+  pixColorAddr := getPixelAddressForBMPRowColumn(nRow, nColumn)
+  ' our intername .bmp file BYTE order is BGR!
+  blue := BYTE[pixColorAddr][0]
+  green := BYTE[pixColorAddr][1]
+  red := BYTE[pixColorAddr][2]
 
 PRI getPixelAddressForBMPRowColumn(nRow, nColumn) : pixColorAddr | rowIndex, columnIndex, nOffset, fileBitsBase, showDebug
-    ' Row is inverted in .BMP file...
-    rowIndex := (maxRowPixels - 1) - nRow
+  ' Row is inverted in .BMP file...
+  rowIndex := (maxRowPixels - 1) - nRow
 
-    ' Column is normal in file...
-    columnIndex := nColumn
+  ' Column is normal in file...
+  columnIndex := nColumn
 
-    showDebug := FALSE
-    'if (bitIdx == 0 || bitIdx == 31) && nBffrR < 2
-    if isDebugLocn(nRow, nColumn)
-        showDebug := TRUE ' FALSE  ' turn off debug
+  showDebug := FALSE
+  'if (bitIdx == 0 || bitIdx == 31) && nBffrR < 2
+  if isDebugLocn(nRow, nColumn)
+    showDebug := TRUE ' FALSE  ' turn off debug
 
-        ' now offset is simple (just multiply by 3! [bytes of color])
-    nOffset := ((rowIndex * maxColPixels) + columnIndex) * hub75Bffrs.bytesPerColor(chainIndex)
+      ' now offset is simple (just multiply by 3! [bytes of color])
+  nOffset := ((rowIndex * maxColPixels) + columnIndex) * hub75Bffrs.bytesPerColor(chainIndex)
 
-    fileBitsBase := @BYTE[pBitmapFileInMemory][bfOffBits]   ' get base of image in file (skip header)
-    pixColorAddr := @BYTE[fileBitsBase][nOffset]    ' add in offset to 24-bit color
+  fileBitsBase := @BYTE[pBitmapFileInMemory][bfOffBits]   ' get base of image in file (skip header)
+  pixColorAddr := @BYTE[fileBitsBase][nOffset]    ' add in offset to 24-bit color
 
-    if showDebug
-        debug("- FileOffset=", udec_(nOffset), ", RC=(", udec_(nRow), ",", udec_(nColumn), ", ofst=", uhex_long_(pixColorAddr), ", base=", uhex_long_(fileBitsBase), ")")
+  if showDebug
+    debug("- FileOffset=", udec_(nOffset), ", RC=(", udec_(nRow), ",", udec_(nColumn), ", ofst=", uhex_long_(pixColorAddr), ", base=", uhex_long_(fileBitsBase), ")")
 
 PRI isDebugLocn(nRow, nCol) : status
 ' Return TRUE if the given row and column is a location where debug output should be shown.
@@ -192,10 +192,10 @@ PRI isDebugLocn(nRow, nCol) : status
 ' @param nCol - panel column to check
 ' @returns status - TRUE if this is a debug location
 
-    status := FALSE
-    return
-    'if (nRow == 31 && nCol < 4) || (nRow < 2 && nCol < 3) || (nRow == 31 && nCol > 61) || (nRow < 2 && nCol > 61)
-    '    status := TRUE ' FALSE  ' turn off debug
+  status := FALSE
+  return
+  'if (nRow == 31 && nCol < 4) || (nRow < 2 && nCol < 3) || (nRow == 31 && nCol > 61) || (nRow < 2 && nCol > 61)
+  '    status := TRUE ' FALSE  ' turn off debug
 
 DAT ' .bmp file work area
 

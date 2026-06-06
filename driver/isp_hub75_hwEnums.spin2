@@ -20,19 +20,19 @@ CON ' Hardware Interface Constants
 '   NOTE: The board does NOT run in PINS_P48_P63 (DO NOT USE THIS VALUE - Validation will FAIL!)
 '   NOTE2: We don't provide PINS_P24_P39 value this would span the upper and lower 32 pin groups
 ' =================================================================================================
-#0[8], PINS_P0_P15, PINS_P8_P23, PINS_P16_P31, PINS_P24_P39, PINS_P32_P47, PINS_P40_P55, PINS_P48_P63
+    #0[8], PINS_P0_P15, PINS_P8_P23, PINS_P16_P31, PINS_P24_P39, PINS_P32_P47, PINS_P40_P55, PINS_P48_P63
 
 ' =================================================================================================
 '  (2) how many HUB75 boards are you connecting?
 ' =================================================================================================
     HUB75_ADAPTER_STEP = 10
-#10[10], HUB75_ADAPTER_1, HUB75_ADAPTER_2, HUB75_ADAPTER_3
+    #10[10], HUB75_ADAPTER_1, HUB75_ADAPTER_2, HUB75_ADAPTER_3
     HUB75_ADAPTER_BASE = HUB75_ADAPTER_1
 
 ' =================================================================================================
 '  (3) panel content rotation
 ' =================================================================================================
-#$20, ROT_UNKNOWN, ROT_0, ROT_90, ROT_180, ROT_270
+    #$20, ROT_UNKNOWN, ROT_0, ROT_90, ROT_180, ROT_270
     ' couple more aliases for convenience
     ROT_NONE = ROT_0
     ROT_LEFT_90 = ROT_270
@@ -42,7 +42,7 @@ CON ' Hardware Interface Constants
 '  (4) The Driver Chip on your panels
 ' =================================================================================================
 ' Driver Pre-defined flag combinations (use these unless your hardware is not in this list)
-#0, CHIP_UNKNOWN, CHIP_MANUAL_SPEC, CHIP_FM6126A, CHIP_FM6124, CHIP_UNK_LAT_END_ENCL, CHIP_ICN2037, ...
+    #0, CHIP_UNKNOWN, CHIP_MANUAL_SPEC, CHIP_FM6126A, CHIP_FM6124, CHIP_UNK_LAT_END_ENCL, CHIP_ICN2037, ...
     CHIP_ICN2038S, CHIP_UNK_LAT_END_ENCL_SLO_CLK, CHIP_MBI5124GP, CHIP_GS6238S, CHIP_DP5125D
 
 ' Normal use:
@@ -61,22 +61,21 @@ CON ' Hardware Interface Constants
 '   PANEL_DRIVER_CHIP = CHIP_DP5125D    ' which is: CHIP_MANUAL_SPEC | LAT_STYLE_OFFSET | LAT_POSN_OVERLAP | SCAN_4
 
 ' Driver Manual Config Flags:
-#$100, LAT_STYLE_OFFSET, #$200, LAT_POSN_OVERLAP, #$400, INIT_PANEL_REQUIRED, #$800, CLK_WIDE_PULSE, #$1000, RB_SWAP, #$2000, SCAN_4, #$4000, GB_SWAP
-
+    #$100, LAT_STYLE_OFFSET, #$200, LAT_POSN_OVERLAP, #$400, INIT_PANEL_REQUIRED, #$800, CLK_WIDE_PULSE, #$1000, RB_SWAP, #$2000, SCAN_4, #$4000, GB_SWAP
 
 ' =================================================================================================
 '  (5) Describe the overall layout of your hardware panel(s):
 ' =================================================================================================
 
 ' SUPPORTED address widths:  A-B-C, or A-B-C-D, or A-B-C-D-E
-#2, ADDR_UNKNOWN, ADDR_ABC, ADDR_ABCD, ADDR_ABCDE
+    #2, ADDR_UNKNOWN, ADDR_ABC, ADDR_ABCD, ADDR_ABCDE
 
 ' =================================================================================================
 '  (6) Describe the color depth you'd like to display:
 ' =================================================================================================
 
 ' SUPPORTED depths:  3-8 bits
-#3, DEPTH_3BIT, DEPTH_4BIT, DEPTH_5BIT, DEPTH_6BIT, DEPTH_7BIT, DEPTH_8BIT
+    #3, DEPTH_3BIT, DEPTH_4BIT, DEPTH_5BIT, DEPTH_6BIT, DEPTH_7BIT, DEPTH_8BIT
 
 ' =================================================================================================
 '  (7) Wire ordering for fully populated rectangular grids:
