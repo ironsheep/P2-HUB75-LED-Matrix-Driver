@@ -183,7 +183,7 @@ Deleted with `git push origin --delete feature-clock1` (succeeded).
 - Regenerate `*.bin.GOLD` from the merged, feature-bearing binaries
   (the old GOLD baselines predate develop's features and are now stale).
 - Re-apply the authoring-guide style pass over the unified tree per
-  `DOCs/procedures/SPIN2-AUTHORING-GUIDE.md`:
+  `DOCs/policy/SPIN2-AUTHORING-GUIDE.md`:
   - §1c files: re-apply the shelved reformat patch directly.
   - §1a/§1b files: re-derive the reformat on the merged content.
 - **GOLD verification** (macOS side, `check_reformat.sh`): every restyled

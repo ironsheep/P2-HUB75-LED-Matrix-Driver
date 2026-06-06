@@ -67,7 +67,6 @@ driver/.vscode/settings.json
 *.lst
 *.GOLD
 *.diff
-/DOCs/procedures
 /driver/scripts
 CLAUDE.md
 

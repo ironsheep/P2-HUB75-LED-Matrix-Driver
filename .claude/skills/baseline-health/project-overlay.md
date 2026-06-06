@@ -20,6 +20,6 @@ when handing back container results (per §3 / §7 — green never silently
 means less than it says).
 
 This check is especially load-bearing during the in-progress
-style-audit reformatting pass (see `DOCs/procedures/STYLE-AUDIT-STATUS.md`):
+style-audit reformatting pass (see `DOCs/policy/STYLE-AUDIT-STATUS.md`):
 there, any GOLD drift signals an unintended code change introduced by the
 reformat.
