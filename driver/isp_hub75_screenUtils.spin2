@@ -23,7 +23,7 @@ PUB null()
 '' This is not a top level object
 ''
 
-PUB drawPixelAtRC(nChainIdx, row, column, rgbColor) | xlatedColor, fHue
+PUB drawPixelAtRC(nChainIdx, row, column, rgbColor) | xlatedColor
 '' Place an rgbColor pixel at the specified row and column.
 ''
 '' @param nChainIdx - index of the panel chain
@@ -33,7 +33,6 @@ PUB drawPixelAtRC(nChainIdx, row, column, rgbColor) | xlatedColor, fHue
 
 ' Local Variables:
 ' @local xlatedColor - translated color after special-color handling
-' @local fHue - unused hue variable
 
   xlatedColor := rgbColor
   if rgbColor == color.cRainbow

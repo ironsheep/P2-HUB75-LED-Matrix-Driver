@@ -24,7 +24,6 @@ OBJ ' Objects Needed
 VAR ' driver instance variables
     LONG    instanceID
     LONG    cog
-    LONG    bus                                                     ' ram/flash
     LONG    chainIndex
     LONG    maxChainRows
     LONG    maxChainColumns
@@ -36,7 +35,6 @@ VAR ' driver instance variables
     LONG    nDisplayColumns
     LONG    nColorDepth
     LONG    nBytesPerColor
-    LONG    nDumpPassNbr
     LONG    nPwmFrameSizeInBytes
     LONG    nPwmFrameSizeInLongs
     BYTE    usePwmFrameset1
@@ -97,7 +95,6 @@ PUB start(nID, nChainIdx) : ok | panelCt, wireIdx
   DEBUG("- PNL: BFFR pwm[2][", udec_long_(nPwmFrameSizeInLongs), "] 0x", uhex_long_(pPwmFrame2))
 
   usePwmFrameset1 := TRUE
-  nDumpPassNbr := 0
 
   clearPwmFrameBuffer()                                 ' clear PWM frames  and get pointer to buffer
   clearPwmFrameBuffer()                                 ' this clears 2nd frame-set, too
@@ -246,7 +243,6 @@ currMaskBitIdx      LONG    0
 bitsBGR             LONG    0
 pPwmFrameByte       LONG    0
 currPwmBits         LONG    0
-testBGR             LONG    0
 allOnes             LONG    $ffffffff
 
 startS8
@@ -360,7 +356,6 @@ next8SPwmFrame
 top8SHalf
                 ' bitsBGR := 0
                 XOR         bitsBGR, bitsBGR                        ' clear all bits
-                MOV         testBGR, bitsBGR
                 ' set our RGB1 bits
                 '     bitsBGR |= (rPwm & currBitMask) > 0 ? 1 : 0
                 '     bitsBGR |= (gPwm & currBitMask) > 0 ? 2 : 0
@@ -375,7 +370,6 @@ top8SHalf
 bottom8SHalf
                 '    bitsBGR := BYTE[pPwmFrame][nPwmRGB12ByteIdx]
                 RDBYTE      bitsBGR, pPwmFrameByte                  ' load current value
-                MOV         testBGR, bitsBGR
                 ' NOTE: see if there's a write w/mask so we don't have to read...
                 ' not needed        and     bitsBGR, maskOnlyRGB1bits   ' clear all bits except RGB1 value
                 ' set our RGB2 bits
@@ -742,56 +736,8 @@ PRI getPwmFrameAddressForBit(nBitNumber) : pFrameBuffer | nFrameOfst, frameIdx
 
 VAR ' buffer addresses
 
-    LONG    pBitmapFileInMemory
-    LONG    dvrConfig
-    LONG    driverConfigRaw
     LONG    pScreenInMemory
     LONG    wireToDisplayPanel[16]      ' Inverse lookup: wire position -> display panel index
-    LONG    panelsPerRow
-    LONG    panelsPerColumn
-
-PRI setPanelColorBitsForRC(pPwmFrame, nPanelRow, nPanelCol, rBit, gBit, bBit) | nBffrR, nBffrC, isRGB2, byteIdx, maskBitsBGR, bitsBGR, currPwmColorBits, columnOffsetToPanel, panelIndex
-' Write RGB color bits to a PWM frame at the given row and column (currently unused).
-'
-' @param pPwmFrame - pointer to the PWM frame buffer
-' @param nPanelRow - panel row index
-' @param nPanelCol - panel column index
-' @param rBit - red bit value (0 or 1)
-' @param gBit - green bit value (0 or 1)
-' @param bBit - blue bit value (0 or 1)
-
-' Local Variables:
-' @local nBffrR - clamped buffer row index
-' @local nBffrC - clamped buffer column index
-' @local isRGB2 - TRUE if addressing the bottom half (RGB2)
-' @local byteIdx - byte offset into the PWM frame
-' @local maskBitsBGR - bitmask for the BGR bit position
-' @local bitsBGR - assembled BGR bits to write
-' @local currPwmColorBits - existing PWM byte with target bits cleared
-' @local columnOffsetToPanel - column offset to the start of the target panel
-' @local panelIndex - display panel index for the buffer row/column
-
-  '  write color bits to a PWM frame at frame[r][c]    UNUSED FOR NOW
-  nBffrR := 0 #> nPanelRow <# nPanelRows - 1
-  nBffrC := 0 #> nPanelCol <# nPanelColumns - 1
-  isRGB2 := (nBffrR > 15) ? TRUE : FALSE
-  nBffrR //= 16
-
-  maskBitsBGR := %0000_0111
-  ' NOTE: our hardware uses "00 bgr bgr" for the BYTE value!
-  bitsBGR := ((bBit & $01) << 2) | ((gBit & $01) << 1) | (rBit & $01)
-  if isRGB2
-    bitsBGR <<= 3                                       ' mov color bits into rgb2 position
-    maskBitsBGR <<= 3
-  panelIndex := hub75Bffrs.indexToPanel(chainIndex, nBffrR, nBffrC)
-  columnOffsetToPanel := panelIndex * nPanelColumns
-  byteIdx := (nBffrR * columnOffsetToPanel) + nBffrC
-
-  currPwmColorBits := BYTE[pPwmFrame][byteIdx] & !maskBitsBGR
-  if byteIdx > 1023
-    DEBUG("ERROR! BYTE index calc failure have=(" , udec_(byteIdx), ") of [0-1023]")
-  else
-    BYTE[pPwmFrame][byteIdx] := currPwmColorBits | bitsBGR
 
 PRI markStart()
 ' Record the starting timestamp for an interval measurement.
@@ -818,26 +764,6 @@ PRI markEnd(message) | elapsed
   elapsed := elapsed +/ (clkfreq/1000000)               ' convert to useconds
     'elapsed := elapsed +/ (clkfreq/1000) ' convert to useconds
     debug("- runtime ", zstr_(message), ": ", udec_long(elapsed), " uS")
-
-PRI isDebugLocn(nRow, nCol) : status
-' Determine whether the given row and column fall within a debug-output region.
-'
-' @param nRow - panel row index
-' @param nCol - panel column index
-' @returns status - TRUE if the location is a debug region, FALSE otherwise
-
-  status := FALSE
-  return
-  if (nRow == 31 && nCol < 4) || (nRow < 2 && nCol < 3) || (nRow == 31 && nCol > 61) || (nRow < 2 && nCol > 61)
-    status := TRUE                                      ' FALSE  ' turn off debug
-
-PRI waitSec(countSeconds)
-' Wait for the specified number of seconds.
-'
-' @param countSeconds - number of seconds to wait
-
-  repeat countSeconds
-    waitms(1000)
 
 DAT  ' .bmp file work area
 

@@ -54,7 +54,7 @@ DAT
     panelIdMessage  BYTE    "Pn",0
     panelArrow      BYTE    "^",0
 
-PUB main() : ok | demoIndex
+PUB main() : ok
 '' start underlying drivers and run demo
 ''
 '' @returns ok - cog ID of display driver or -1 on failure
@@ -142,11 +142,8 @@ DAT { panel messages }
     lblBotLt      BYTE    "BotLt", 0
     lblBotRt      BYTE    "BotRt", 0
 
-PRI demoQuadLocations() | scrollerID, startTime
+PRI demoQuadLocations()
 ' Display labeled colored panels at each quadrant location with optional scroll.
-'
-' @local scrollerID - ID of the active scroll region
-' @local startTime - system counter snapshot for timing
 
   textSize := display.TEXT_FONT_8x8A
   'textSize := display.TEXT_FONT_8x8B
@@ -192,16 +189,13 @@ PRI demoQuadLocations() | scrollerID, startTime
     ' delay to next movement
     'wait1000thSecs(scrollPeriod)
 
-PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, boxColor, hueIndex, displayRows, displayColumns
+PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, hueIndex
 ' Color each panel with a distinct hue and display centered panel ID and arrow.
 '
 ' @local panelIndex - index of the current panel
 ' @local panelHueWidth - hue degrees per panel
 ' @local panelColor - RGB color value for panel fill
-' @local boxColor - unused box color placeholder
 ' @local hueIndex - adjusted hue index for color selection
-' @local displayRows - unused display row count
-' @local displayColumns - unused display column count
 
   panelHueWidth := 256 / hub75Bffrs.maxPanels(chainIndex)
 

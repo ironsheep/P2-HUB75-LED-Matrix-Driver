@@ -164,13 +164,12 @@ DAT  ' panel messages
     lblBack     BYTE    "Back", 0
     lblLeft     BYTE    "Left", 0
 
-PRI demoTopBottomScroll() | scrollerID, startTime
+PRI demoTopBottomScroll() | scrollerID
 ' Label each panel face and scroll text across multiple panels.
 '
 
 ' Local Variables:
 ' @local scrollerID - identifier for the active text scroller
-' @local startTime - timestamp for duration measurement
 
   textSize := display.TEXT_FONT_8x8A
   ' textSize := display.TEXT_FONT_8x8B
@@ -273,20 +272,6 @@ PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, boxColor, hueInde
     boxColor := colorUtils.rgbColorFromDegrees(panelHueWidth * hueIndex)
     display.drawPanelBoxOfColor(panelIndex, 17, 10, 40, 34, TRUE, boxColor)
   display.commitScreenToPanelSet()
-
-PRI showDuration(startTimeValue, pFuncTitle) | duration, converted
-' Display the elapsed time in microseconds for a named operation.
-'
-' @param startTimeValue - system counter value at the start of the operation
-' @param pFuncTitle - pointer to a zero-terminated string naming the operation
-
-' Local Variables:
-' @local duration - raw elapsed clock ticks
-' @local converted - elapsed time converted to microseconds
-
-  duration := GETCT() - startTimeValue
-  converted := muldiv64(duration, 1_000_000, clkfreq)
-  DEBUG("- elapsed ", zstr_(pFuncTitle), ": ", udec_(converted), " uSec")
 
 CON ' license
 

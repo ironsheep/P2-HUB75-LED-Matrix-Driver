@@ -504,7 +504,7 @@ PUB setCharAtLnCol(line, column, cChar)
 
   setColoredCharAtLnCol(line, column, cChar, currTextColor)
 
-PUB setColoredCharAtLnCol(line, column, cChar, rgbColor) | pCharBitMap, tlScreenOffset, tlCharOffset, cLineIdx, cColumnIdx, sRowPixIdx, sColumnPixIdx, cColOffset, cRowOffset, cRowBits, pixColumn
+PUB setColoredCharAtLnCol(line, column, cChar, rgbColor) | pCharBitMap, cLineIdx, cColumnIdx, sRowPixIdx, sColumnPixIdx
 '' Write a character to the display at the specified line and column using the given color.
 ''
 '' @param line - zero-based text line number
@@ -514,16 +514,10 @@ PUB setColoredCharAtLnCol(line, column, cChar, rgbColor) | pCharBitMap, tlScreen
 
 ' Local Variables:
 ' @local pCharBitMap - pointer to the character bitmap data
-' @local tlScreenOffset - top-left screen offset
-' @local tlCharOffset - top-left character offset
 ' @local cLineIdx - bounded line index
 ' @local cColumnIdx - bounded column index
 ' @local sRowPixIdx - screen row in pixels
 ' @local sColumnPixIdx - screen column in pixels
-' @local cColOffset - column offset within character bitmap
-' @local cRowOffset - row offset within character bitmap
-' @local cRowBits - bit pattern for current row of character
-' @local pixColumn - pixel column position
 
 ' debug("DSP: setCharAtCursor @LnCol(", udec_(line), ",", udec_(column), "), char=", uhex_(cChar), ", RGB=", uhex_long_(rgbColor), udec(topOffsetInPix), udec(leftOffsetInPix))
 
@@ -595,43 +589,10 @@ PRI placeDitheredCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor) | 
         pixColor := (pixVal == 1) ? ditheredRGBColor : $000000                  ' val == [2,0] = black
       pixels.drawPixelAtRC(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor)
 
-PRI offsetToTextOnPanel(line, column, panelIndex) : panelLine, panelColumn | gridRow, gridColumn, boundedPanelIndex, boundedColumn, tmpCharOffsetInPix, panelOffsetInChars, desiredCharOffsetInPix
-' Calculate text cursor offsets for a specific panel position.
-'
-' @param line - zero-based text line number
-' @param column - zero-based text column number
-' @param panelIndex - zero-based index of the target panel
-' @returns panelLine - bounded line on the panel
-' @returns panelColumn - character column offset including panel offset
-
-' Local Variables:
-' @local gridRow - text grid row position
-' @local gridColumn - text grid column position
-' @local boundedPanelIndex - panel index clamped to valid range
-' @local boundedColumn - column clamped to valid range
-' @local tmpCharOffsetInPix - temporary pixel offset for character position
-' @local panelOffsetInChars - character offset to the target panel
-' @local desiredCharOffsetInPix - desired pixel offset for character position
-
-  boundedPanelIndex := 0 #> panelIndex <# maxPanels - 1
-  boundedColumn := 0 #> column <# maxPanelTextColumns - 1
-  panelLine := 0 #> line <# maxPanelTextLines - 1
-  panelOffsetInChars := (boundedPanelIndex * maxPanelTextColumns) + boundedColumn
-  panelColumn := panelOffsetInChars
-  tmpCharOffsetInPix := leftOffsetInPix + (cursorColumn * (charWidthInPix + horizontalGapInPix))
-  desiredCharOffsetInPix := leftOffsetInPix + (columnsPerPanel * boundedPanelIndex) + (boundedColumn * (charWidthInPix + horizontalGapInPix))
-  'panelFixupOffetInPix := (tmpCharOffsetInPix < desiredCharOffsetInPix) ? desiredCharOffsetInPix - tmpCharOffsetInPix: 0
-
-PRI incrCursorWithWrap() | priorRow, priorCol
+PRI incrCursorWithWrap()
 ' Increment the cursor position, wrapping at end of line and end of screen.
 '
 
-' Local Variables:
-' @local priorRow - cursor row before increment
-' @local priorCol - cursor column before increment
-
-  priorRow := cursorLine
-  priorCol := cursorColumn
   cursorColumn++
   if cursorColumn > maxTextColumns - 1
     cursorColumn := 0
@@ -723,7 +684,7 @@ PUB scrollTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direction) :
 
   indexAllocated := scrollColoredTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direction, currTextColor)
 
-PUB scrollColoredTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direction, rgbColor) : indexAllocated | cLineIdx, cColumnIdx, widthInChars, sRowPixIdx, sColumnPixIdx, panelLine, panelColumn, boundedPanelIdx, cPanelCt, offsetPixelRows, offsetPixelColumns
+PUB scrollColoredTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direction, rgbColor) : indexAllocated | cLineIdx, cColumnIdx, widthInChars, sRowPixIdx, sColumnPixIdx, boundedPanelIdx, cPanelCt, offsetPixelRows, offsetPixelColumns
 '' Place scrolling text across multiple panels on the specified line using the given color.
 ''
 '' @param line - zero-based text line number
@@ -740,8 +701,6 @@ PUB scrollColoredTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direc
 ' @local widthInChars - width of scrolling region in characters
 ' @local sRowPixIdx - screen row in pixels
 ' @local sColumnPixIdx - screen column in pixels
-' @local panelLine - line offset on the target panel
-' @local panelColumn - column offset on the target panel
 ' @local boundedPanelIdx - panel index clamped to valid range
 ' @local cPanelCt - panel count clamped to valid range
 ' @local offsetPixelRows - pixel row offset to the target panel

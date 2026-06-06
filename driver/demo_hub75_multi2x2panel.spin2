@@ -58,7 +58,7 @@ DAT
 
 panelIdMessage  BYTE    "Pn",0
 
-PUB main() : ok | demoIndex, bDidDemo, pnlIdx
+PUB main() : ok
 '' start underlying drivers and run demo
 
   hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
@@ -81,7 +81,7 @@ PUB main() : ok | demoIndex, bDidDemo, pnlIdx
 
   stop()
 
-PRI testPanelOrientation() | pnlIdx, centerRow, centerCol, circleRadius
+PRI testPanelOrientation() | centerRow, centerCol, circleRadius
 ' Test pattern using BOTH coordinate systems:
 '
 ' PANEL-SPECIFIC drawing (panel-local coordinates + panelIndex):
@@ -187,79 +187,6 @@ PRI testPanelOrientation() | pnlIdx, centerRow, centerCol, circleRadius
   debug("  White crosshairs: row 64, col 128")
   debug("  Navy corners: display (0,0), (0,248), (120,0), (120,248)")
   waitSec(120)
-
-{   ORIGINAL DEMO CODE - COMMENTED OUT
-PUB main_original() : ok | demoIndex, bDidDemo, pnlIdx
-
-    hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
-    chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
-
-    display.setBufferPointers(chainIndex, scrnBuffers.chain0Ptrs())
-    ok := cog := display.start(chainIndex)
-    if ok == -1
-        debug("- DEMO: underlying driver failed!")
-        abort
-
-    display.clearScreenBuffer()
-    display.setBrightness(128)
-    display.fillScreen(color.cCyan)
-    display.commitScreenToPanelSet()
-    waitSec(240)
-
-    display.clearScreenBuffer()
-
-    display.setTextColor(color.cRed)
-
-    display.drawCircle(30,30,15)
-    display.setTextColor(color.cYellow)
-    pnlIdx := 0
-    display.drawPanelBox(pnlIdx, 4, 4, 30, 30, FALSE)
-    display.setCursorOnPanel(6, 1, pnlIdx)
-    display.setTextAtCursor(@lblZro)
-    pnlIdx++
-    display.drawPanelBox(pnlIdx, 4, 4, 30, 30, FALSE)
-    display.setCursorOnPanel(6, 1, pnlIdx)
-    display.setTextAtCursor(@lblOne)
-    pnlIdx++
-    display.drawPanelBox(pnlIdx, 4, 4, 30, 30, FALSE)
-    display.setCursorOnPanel(6, 1, pnlIdx)
-    display.setTextAtCursor(@lblTwo)
-    pnlIdx++
-    display.drawPanelBox(pnlIdx, 4, 4, 30, 30, FALSE)
-    display.setCursorOnPanel(6, 1, pnlIdx)
-    display.setTextAtCursor(@lblThr)
-
-    display.commitScreenToPanelSet()
-
-    waitSec(120)
-    stop()
-'}
-
-{x
-    demoPausePeriod := 3   ' seconds
-    scrollPeriod := 1
-
-    repeat 20
-        repeat demoIndex from 0 to DEMO_COUNT - 1
-            'waitSec(1)
-            case demoIndex + 1
-'                1: demoPanelColors()
-'                2: demoTopBottomScroll()
-'                   bDidDemo := TRUE
-'                3: demoRandomPanelColors()
-                4: demoPanelFillColors()
-                   bDidDemo := TRUE
-'                5: demoColorPalette12Panels()
-'                6: showFullColorSweep()
-'                7: demoTest12x9ColorBrightness()
-'                8: colorBlast()
-'                9: demoText()
-'               10: demoScreenBlast()
-'               11: demoBmpFileLoad()
-            if bDidDemo
-              waitSec(demoPausePeriod)
-'}
-  stop()
 
 PRI stop()
 ' Stop the driver
@@ -369,7 +296,7 @@ PRI demoColorPanels()
 
   display.commitScreenToPanelSet()
 
-PRI demoTopBottomScroll() | scrollerID, startTime
+PRI demoTopBottomScroll() | scrollerID
 
   textSize := display.TEXT_FONT_8x8A
   'textSize := display.TEXT_FONT_8x8B

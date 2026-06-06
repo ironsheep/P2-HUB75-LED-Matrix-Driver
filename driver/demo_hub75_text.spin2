@@ -25,7 +25,6 @@ VAR
     LONG    cog
     LONG    chainIndex
     LONG    scrollPeriod
-    LONG    startTime
 
 OBJ
 
@@ -58,10 +57,6 @@ PUB main() : ok
   demoScrollingText()
 
   repeat
-
-  ' shutdown our backend COG(s)
-  if ok <> -1
-    display.stop()
 
 PRI demoScrollingText() | scrollerID, textSize
 ' Display scrolling text demonstration on the LED matrix.
@@ -124,32 +119,17 @@ PRI demoScrollingText() | scrollerID, textSize
     'wait100thSecs(scrollPeriod)
     wait100thSecs(scrollPeriod)
 
-PRI showDuration(startTimeValue, pFuncTitle) | duration, converted
-' Calculate and display elapsed time in microseconds via debug output.
-'
-' @param startTimeValue - system counter value at start of measurement
-' @param pFuncTitle - pointer to zero-terminated function name string
-
-' Local Variables:
-' @local duration - elapsed clock ticks
-' @local converted - elapsed time in microseconds
-
-  duration := GETCT() - startTimeValue
-  converted := muldiv64(duration, 1_000_000, clkfreq)
-  DEBUG("- elapsed ", zstr_(pFuncTitle), ": ", udec_(converted), " uSec")
-
 DAT  ' string data
 
     pwmMsg      BYTE    "XXXfrm pwm",0
     bitMsg      BYTE    "-RGB "
     bitCt       BYTE    "nbit-",0
 
-PRI demoText() | pFrameCountStr, frameCount
+PRI demoText() | frameCount
 ' Display static text and panel info on the LED matrix.
 '
 
 ' Local Variables:
-' @local pFrameCountStr - unused
 ' @local frameCount - number of PWM frames for current color depth
 
   display.clearScreen()

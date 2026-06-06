@@ -40,7 +40,7 @@ PUB fillScreenFromBMP(nChainIdx, pBmpFile)
   '' Load a 24-bit .bmp file image into screen buffer (panel sized, only!)
   loadBitmap(pBmpFile)
 
-PRI loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, haveError, showDebug, bInvalidFileStatus
+PRI loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, haveError, bInvalidFileStatus
 ' Load a validated 24-bit .bmp file image into the screen buffer pixel by pixel.
 '
 ' @param pBitmapFile - pointer to the in-memory .bmp file data
@@ -51,7 +51,6 @@ PRI loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, haveError,
 ' @local green - green channel value of the current pixel
 ' @local red - red channel value of the current pixel
 ' @local haveError - error flag during loading
-' @local showDebug - TRUE if debug output should be shown for this pixel
 ' @local bInvalidFileStatus - FALSE if the .bmp file header is invalid
 
   ' save address of 24bit file image for use by called routines
@@ -67,18 +66,10 @@ PRI loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, haveError,
   repeat maxRowPixels with nPanelRow
     repeat maxColPixels with nPanelCol
       'debug("loadBitmap() - RC=(", udec_(nPanelRow), ", ", udec_(nPanelCol), ")")
-      showDebug := FALSE
-      if isDebugLocn(nPanelRow, nPanelCol)
-        showDebug := TRUE ' FALSE  ' turn off debug
-
       red, green, blue := get24BitBMPColorForRC(nPanelRow, nPanelCol)
-
-      if showDebug
-        ' XYZZYpnl debug(" - RC=(", udec_(nPanelRow), ", ", udec_(nPanelCol), "), RGB=(", uhex_(red), uhex_(green), uhex_(blue), ")")
-
       pixels.drawPixelAtRC(chainIndex, nPanelRow, nPanelCol, colorUtils.cValueForRGB(red, green, blue))
 
-PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader, i, iStart, iEnd, pLastByte
+PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader, i
 ' Parse and validate the .BMP file header, returning TRUE if the file is a supported format.
 '
 ' @param pBmpFileImage - pointer to the in-memory .bmp file data
@@ -86,9 +77,6 @@ PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader, i, iStart, iEnd
 '
 ' @local pFileHeader - moving pointer through header fields during parsing
 ' @local i - computed palette byte count
-' @local iStart - pointer to start of image data
-' @local iEnd - pointer to end of image data
-' @local pLastByte - pointer to the last byte of bitmap pixel data
 
   ' XYZZYpnl debug("- Studying in-memory file")
   bValidStatus := TRUE
@@ -111,12 +99,6 @@ PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader, i, iStart, iEnd
   i := bfOffBits - 54
   pFileHeader += i
 
-  iStart := pBmpFileImage + bfOffBits
-  iEnd := iStart + biSizeImage - 1
-
-  ' return pointer to last BYTE in bitmap
-  pLastByte := pFileHeader + (biHeight * biWidth * 3) - 1
-
   ' XYZZYpnl debug("BitMap file @0x", uhex_(pBmpFileImage))
   ' XYZZYpnl debug(" - size=", udec_(bfSize))
   ' XYZZYpnl debug(" - OffsetBits=", udec_(bfOffBits))
@@ -125,10 +107,6 @@ PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader, i, iStart, iEnd
   ' XYZZYpnl debug(" - szImage=", udec_(biSizeImage))
   'debug(" - compression=", udec_(biCompression))
   ' XYZZYpnl debug(" - bitCount=", udec_(biBitCount))
-  ' XYZZYpnl debug(" - end @0x", uhex_(pLastByte))
-
-  ' XYZZYpnl debug(" - Img-start @0x", uhex_(iStart))
-  ' XYZZYpnl debug(" - Img-end @0x", uhex_(iEnd))
 
   if biWidth <> maxColPixels or biHeight <> maxRowPixels
     ' XYZZYpnl debug(" !! invalid BMP size! [NOT 64x32]")
@@ -148,8 +126,6 @@ PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader, i, iStart, iEnd
       ' XYZZYpnl debug("-good BMP size! [64x32]")
 
   'hub75Bffrs.dbgMemDump(@fileHeaderMsg, pBmpFileImage, bfOffBits)
-  'hub75Bffrs.dbgMemDump(@fileStartMsg, iStart, 32)
-  'hub75Bffrs.dbgMemDump(@fileEndMsg, iEnd-32-1, 32)
 
 PRI get24BitBMPColorForRC(nRow, nColumn) : red, green, blue | pixColorAddr
   if(nRow > maxRowPixels - 1)

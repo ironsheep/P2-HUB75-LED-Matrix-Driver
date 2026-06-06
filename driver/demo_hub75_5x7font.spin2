@@ -24,8 +24,6 @@ VAR
 
     LONG    cog
     LONG    chainIndex
-    LONG    scrollPeriod
-    LONG    startTime
 
 OBJ
 
@@ -103,17 +101,13 @@ PRI initCharacterSet() | nBytesFilled
   ' 2.6 rows
   fillCharSet(9, 0, $61, $7a)                           ' LOWER CASE A-Z
 
-PRI demoFont64x32() | textSize, nChar, nRow, nCol, byteIdx, nCharIdx, nScreenRow
+PRI demoFont64x32() | textSize, nRow, nScreenRow
 ' Display the full 5x7 font character set on a 64x32 panel in multiple screens.
 '
 
 ' Local Variables:
 ' @local textSize - selected font size constant
-' @local nChar - unused
 ' @local nRow - current character row index
-' @local nCol - unused
-' @local byteIdx - unused
-' @local nCharIdx - unused
 ' @local nScreenRow - current screen row position for display output
 
   textSize := display.TEXT_FONT_5x7
@@ -159,17 +153,13 @@ PRI demoFont64x32() | textSize, nChar, nRow, nCol, byteIdx, nCharIdx, nScreenRow
     display.commitScreenToPanelSet()
     waitSec(10)                                         ' seconds
 
-PRI demoFont64x64() | textSize, nChar, nRow, nCol, byteIdx, nCharIdx, nRows1stScreen
+PRI demoFont64x64() | textSize, nRow, nRows1stScreen
 ' Display the full 5x7 font character set on a 64x64 panel in two screens.
 '
 
 ' Local Variables:
 ' @local textSize - selected font size constant
-' @local nChar - unused
 ' @local nRow - current character row index
-' @local nCol - unused
-' @local byteIdx - unused
-' @local nCharIdx - unused
 ' @local nRows1stScreen - number of rows displayed on the first screen
 
   textSize := display.TEXT_FONT_5x7

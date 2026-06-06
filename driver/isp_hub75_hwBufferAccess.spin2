@@ -730,7 +730,7 @@ PUB panelPixelOffset(nChainIdx, nDisplayPanelIndex, localRow, localCol) : byteOf
     ' Offset to start of wire panel + offset within panel using rotated coordinates
     byteOffset := (nWirePanelIndex * panelBytes) + ((rotatedRow * colsPerPnl) + rotatedCol) * bytesPerClr
 
-PUB indexToPanel(nChainIdx, nPanelRow, nPanelCol) : nPanelIndex | nBffrR, nBffrC, rowsPerPnl, colsPerPnl, panelsPerRow, panelsPerColumn
+PUB indexToPanel(nChainIdx, nPanelRow, nPanelCol) : nPanelIndex | nBffrR, nBffrC, rowsPerPnl, colsPerPnl, panelsPerRow
 '' Return the index of the panel within entire display at the specified panel-row and panel-column
 ''
 '' @param nChainIdx - the index of the desired chain
@@ -744,10 +744,9 @@ PUB indexToPanel(nChainIdx, nPanelRow, nPanelCol) : nPanelIndex | nBffrR, nBffrC
 ' @local rowsPerPnl -
 ' @local colsPerPnl -
 ' @local panelsPerRow -
-' @local panelsPerColumn -
 
     rowsPerPnl, colsPerPnl := panelSizeInPixels(nChainIdx)
-    panelsPerRow, panelsPerColumn := displaySizeInPanels(nChainIdx)
+    panelsPerRow, _ := displaySizeInPanels(nChainIdx)
     nBffrR := 0 #> nPanelRow <# rowsPerPnl - 1
     nBffrC := 0 #> nPanelCol <# colsPerPnl - 1
     nPanelIndex := (nBffrR * panelsPerRow) + nBffrC
@@ -908,14 +907,14 @@ PRI buildWireOrderFromEnums(nChainIdx) | eStart, eTraverse, gridRows, gridCols, 
     ' For each wire position, compute which display panel it corresponds to
     ' Then store: wireOrderTable[displayPanelIndex] = wirePosition
     repeat wirePos from 0 to nPanels - 1
-        row, col := wirePositionToGridCoords(wirePos, gridRows, gridCols, eStart, eTraverse)
+        row, col := wirePositionToGridCoords(wirePos, gridRows, gridCols)
         displayIdx := row * gridCols + col
         BYTE[pWireTable][displayIdx] := wirePos
 
     debug("HUB75: Built wire order table for ", udec_(nPanels), " panels, start=", uhex_(eStart), " traverse=", uhex_(eTraverse))
     debug("HUB75: Wire order [disp0..3]->wire: ", udec_(BYTE[pWireTable][0]), udec_(BYTE[pWireTable][1]), udec_(BYTE[pWireTable][2]), udec_(BYTE[pWireTable][3]))
 
-PRI wirePositionToGridCoords(wirePos, gridRows, gridCols, eEntry, eTraverse) : row, col
+PRI wirePositionToGridCoords(wirePos, gridRows, gridCols) : row, col
 '' Convert wire position to display grid coordinates
 ''
 '' This produces an IDENTITY mapping: wirePos N -> displayIdx N
@@ -927,8 +926,6 @@ PRI wirePositionToGridCoords(wirePos, gridRows, gridCols, eEntry, eTraverse) : r
 '' @param wirePos - wire position (0..N-1)
 '' @param gridRows - number of panel rows (panels per column)
 '' @param gridCols - number of panel columns (panels per row)
-'' @param eEntry - wire entry corner enum (WIRE_ENTERS_*) - for documentation
-'' @param eTraverse - wire traversal pattern enum - for documentation
 '' @returns row, col - grid coordinates such that displayIdx = wirePos
 
     ' Identity mapping: wirePos N maps to displayIdx N (row-major from TL)

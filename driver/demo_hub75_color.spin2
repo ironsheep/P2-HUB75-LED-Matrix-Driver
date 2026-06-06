@@ -489,7 +489,7 @@ PRI drawGammaTuneSwatch(width, row, col, red, green, blue) | ltCol, midCol, rtCo
         pixels.drawPixelAtRC(chainIndex, row, midCol + colOffset, midClr)
         pixels.drawPixelAtRC(chainIndex, row, rtCol + colOffset, rtClr)
 
-PRI demoTest12x9ColorBrightness() | red, green, blue, row, col, rowCtr, colCtr, clrLow, clrMed, clrHigh, clrBW, bThirdClr, swatchWidth, swatchHt
+PRI demoTest12x9ColorBrightness() | red, green, blue, row, col, rowCtr, colCtr, clrLow, clrMed, clrHigh, clrBW, swatchWidth, swatchHt
 ' Display a 12x9 grid of color brightness swatches.
 '
 
@@ -505,7 +505,6 @@ PRI demoTest12x9ColorBrightness() | red, green, blue, row, col, rowCtr, colCtr, 
 ' @local clrMed	- medium brightness gamma-corrected value
 ' @local clrHigh - high	brightness gamma-corrected value
 ' @local clrBW - black/white gamma-corrected value
-' @local bThirdClr - unused third color	flag
 ' @local swatchWidth - pixel width of each swatch
 ' @local swatchHt - pixel height of each swatch
 
@@ -670,21 +669,14 @@ PRI demoTest360ColorBrightness() | red, green, blue, row, col, rowCtr, degrees, 
                 row++
     display.commitScreenToPanelSet()
 
-PRI demoTest16ColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex, useRed, useBlue, useGreen, colorValue, colorHue
+PRI demoTest16ColorBrightness() | row, col, rowCtr, colorValue, colorHue
 ' Display 16 hue bands as horizontal color strips.
 '
 
 ' Local	Variables:
-' @local red - red component value
-' @local green - green component value
-' @local blue -	blue component value
 ' @local row - current pixel row
 ' @local col - current pixel column
 ' @local rowCtr	- row counter within each band
-' @local colorIndex - unused color index
-' @local useRed	- unused red flag
-' @local useBlue - unused blue flag
-' @local useGreen - unused green flag
 ' @local colorValue - computed RGB color for current hue
 ' @local colorHue - current hue	value (0-255 step 16)
 

@@ -25,7 +25,6 @@ VAR
     LONG    cog
     LONG    chainIndex
     LONG    scrollPeriod
-    LONG    startTime
 
 OBJ
 
@@ -53,10 +52,6 @@ PUB main() : ok
     demoScrollingText()
 
     repeat
-
-    ' shutdown our backend COG(s)
-    if ok <> -1
-        display.stop()
 
 PRI demoScrollingText() | scrollerID, textSize
 ' Set up and animate multiple scrolling text lines in different directions.
@@ -131,32 +126,17 @@ PRI demoScrollingText() | scrollerID, textSize
         'wait100thSecs(scrollPeriod)
         wait100thSecs(scrollPeriod)
 
-PRI showDuration(startTimeValue, pFuncTitle) | duration, converted
-' Display the elapsed time in microseconds for a named operation.
-'
-' @param startTimeValue - system counter value at the start of the operation
-' @param pFuncTitle - pointer to a zero-terminated string naming the operation
-
-' Local Variables:
-' @local duration - raw elapsed clock ticks
-' @local converted - elapsed time converted to microseconds
-
-    duration := GETCT() - startTimeValue
-    converted := muldiv64(duration, 1_000_000, clkfreq)
-    DEBUG("- elapsed ", zstr_(pFuncTitle), ": ", udec_(converted), " uSec")
-
 DAT  ' string data
 
     pwmMsg      BYTE    "XXXfrm pwm",0
     bitMsg      BYTE    "-RGB "
     bitCt       BYTE    "nbit-",0
 
-PRI demoText() | pFrameCountStr, frameCount
+PRI demoText() | frameCount
 ' Display static text showing driver info including color depth and PWM frame count.
 '
 
 ' Local Variables:
-' @local pFrameCountStr - pointer to frame count string
 ' @local frameCount - number of PWM frames reported by the driver
 
     display.clearScreen()

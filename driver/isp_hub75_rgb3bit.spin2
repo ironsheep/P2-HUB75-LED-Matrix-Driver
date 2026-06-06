@@ -710,7 +710,6 @@ dirInst2of2  if_c  OR                           DIRA, unusedAddr                
                 MOV                             row_addr, addrValueMax                    ' reset address to 31|15|7 - [A-E|D|C] addr: all ones
                 ' write address
                 CALL                            #emitAddr
-' call    #dumpTwinRows
 
 getCommand
                 ' new PWM support
@@ -843,7 +842,6 @@ cmdFillCogBfrWColor                                                             
                 'debug("- (DBG) ", uhex_long(fillLong))
                 ' then fill the COG buffer with the new color
                 CALL                            #writeColorToBuffer
-                ' call    #dumpTwinRows
                 RET
 '
 ' writeColorToBuffer(fillLong=fillValueID)
@@ -856,15 +854,6 @@ writeNextLong
                 MOV                             0-0, fillLong                             '  fill long with value
                 ADD                             fillOffset, #1
                 DJNZ                            fillCount, #writeNextLong
-                RET
-
-dumpTwinRows
-                'debug(" Red TL,R ", uhex_long_(cogBuffer+0), ", ", uhex_long_(cogBuffer+1))
-                'debug(" Red BL,R ", uhex_long_(cogBuffer+62), ", ", uhex_long_(cogBuffer+63))
-                'debug(" Grn TL,R ", uhex_long_(cogBuffer+64), ", ", uhex_long_(cogBuffer+65))
-                'debug(" Grn BL,R ", uhex_long_(cogBuffer+126), ", ", uhex_long_(cogBuffer+127))
-                'debug(" Blu TL,R ", uhex_long_(cogBuffer+128), ", ", uhex_long_(cogBuffer+129))
-                'debug(" Blu BL,R ", uhex_long_(cogBuffer+190), ", ", uhex_long_(cogBuffer+191))
                 RET
 
 chksDone

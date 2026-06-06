@@ -43,7 +43,7 @@ OBJ
     scrnBuffers : "isp_hub75_hwBuffers"                           ' the large buffers storing pixel data
 
 
-PUB main() : ok | demoIndex
+PUB main() : ok
 '' start underlying drivers and run demo
 ''
 
@@ -89,11 +89,9 @@ DAT { panel messages }
 
     colorTable  LONG    color.cGreen, color.cRed, color.cYellow, color.cCyan, color.cOrange, color.cLime
 
-PRI idPanelsInChain() | scrollerID, startTime, maxPanels, panelIndex
+PRI idPanelsInChain() | maxPanels, panelIndex
 ' Identify and label each panel in the chain with its index number.
 '
-' @local scrollerID - unused scroll region ID
-' @local startTime - unused start time marker
 ' @local maxPanels - number of panels in chain (capped at 6)
 ' @local panelIndex - current panel being labeled
 

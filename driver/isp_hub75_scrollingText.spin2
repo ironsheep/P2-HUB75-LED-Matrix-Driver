@@ -59,8 +59,6 @@ VAR ' globals - instance variables
 
     BYTE    maxVisibleChars                                         ' set when scrolling text is specified
 
-    LONG    startTime
-
     LONG    maxTextColumns                                          ' specs from display object
     LONG    maxDisplayColumns                                       ' specs from buffer chain table
     BYTE    charWidthInPix
@@ -196,7 +194,7 @@ PUB configureScrollLoopCount(loopMode, count) | bValidRequest, validCount
             ' BUG: 1 char short font 8A
     'debug("stx:scrlTxt() ", udec(instanceID), ", ", udec(remainingPixToScroll), udec(ctCharsToScroll), udec(maxVisibleChars), udec(charWidthInPix), udec(horizontalGapInPix))
 
-PUB scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbColor) | nextToAppearIndex, colIndex, charColumn
+PUB scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbColor)
 '' Place scrolling text at row, column from a zero-terminated string using the given direction and color.
 ''
 '' @param row - top row of the scrolling region
@@ -205,11 +203,6 @@ PUB scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbCol
 '' @param pZString - pointer to zero-terminated string to scroll
 '' @param direction - scroll direction (DIR_TO_LEFT, DIR_TO_RIGHT, DIR_UP, DIR_DOWN)
 '' @param rgbColor - 24-bit RGB color for the text
-
-' Local Variables:
-' @local nextToAppearIndex - index of next character to appear on screen
-' @local colIndex - column index used during placement
-' @local charColumn - character column tracker
 
   if isIdle()
     DEBUG("stx:starcoc() #", udec_(instanceID), " [", zstr_(pZString), "](", udec_(widthInChars), ")")
@@ -221,9 +214,6 @@ PUB scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbCol
     ' visible chars is our window size constrained by our font max text columns
     maxVisibleChars := 1 #> widthInChars <# maxTextColumns
 
-    ' if our string is shorter than our window then right is string-end, else right is window-end
-    nextToAppearIndex := min(maxVisibleChars, ctCharsToScroll)
-
     ' our pix length is char-width + gap-between-chars
     windowWidthInPix := (maxVisibleChars * (charWidthInPix + horizontalGapInPix)) - horizontalGapInPix
 
@@ -231,8 +221,6 @@ PUB scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbCol
     remainingPixToScroll := ((ctCharsToScroll * (charWidthInPix + horizontalGapInPix)) - horizontalGapInPix) - windowWidthInPix
     if direction == DIR_UP OR direction == DIR_DOWN
       remainingPixToScroll := charHeightInPix           ' + 1 we are doing a blank row of pixels between rows
-
-    ' debug("stx:scrollTxAtRCOfClr() ", udec(instanceID), ", RC=(", udec_(row), udec_(column), "), ", zstr(pZString), ", CT=", udec_(ctCharsToScroll), ", VIS=", udec_(maxVisibleChars), ", NTAI=", udec_(nextToAppearIndex))
 
     if ctCharsToScroll > 0
       bytemove(@scrollChars, pZString, ctCharsToScroll)
@@ -700,19 +688,6 @@ PRI placeColrBitmapVtOffsetAtRC(row, column, vtPxOffset, pChrBitmap, rgbColor) :
       if pixColumn < maxDisplayColumns
         pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
       colOffset--
-
-PRI showDuration(startTimeValue, pFuncTitle) | duration, converted
-' Calculate and optionally display elapsed time since a start timestamp.
-'
-' @param startTimeValue - system counter value at the start of the timed section
-' @param pFuncTitle - pointer to zero-terminated function name string for debug output
-'
-' @local duration - raw clock ticks elapsed
-' @local converted - elapsed time converted to microseconds
-
-  duration := GETCT() - startTimeValue
-  converted := muldiv64(duration, 1_000_000, clkfreq)
-    ' debug("stx:- elapsed ", zstr_(pFuncTitle), ": ", udec_(converted), " uSec")
 
 CON ' license
 
