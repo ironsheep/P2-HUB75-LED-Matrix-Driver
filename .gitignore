@@ -86,3 +86,4 @@ driver/performance.log
 .devcontainer/docker-compose.override.yml
 .devcontainer/*.zip
 .claude/settings.local.json
+DOCs/policy/STYLE-AUDIT-STATUS.md

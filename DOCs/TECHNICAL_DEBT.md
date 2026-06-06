@@ -134,6 +134,35 @@ Deferred. Fix when doing a larger API cleanup pass. Document the standard for ne
 
 ---
 
+## TD-004: 7seg Demo Column Threshold `96` Needs Review
+
+**Date Identified:** June 2026
+
+**Current Implementation:**
+`demo_hub75_7seg.spin2` (~line 96) guards extra-panel digit placement with
+`if hub75Bffrs.maxDisplayColumns(chainIndex) > 96`. The literal `96` is 1.5
+standard 64-column panel widths -- an odd boundary that does not correspond to a
+clean panel-count multiple (unlike the sibling `> 32` and `> 64` guards, which
+are 1x and 2x panel widths). It is unclear whether `96` is intentional or should
+be `columnsPerPanel * N` (e.g., a 3- or 4-panel guard), which would make it a
+latent geometry bug rather than just an unnamed magic number.
+
+**Trade-offs:**
+- Pro (fix): removes an ambiguous boundary; aligns with the `32`/`64` guard pattern
+- Con (defer): no observed misbehavior; only manifests on wide multi-panel chains
+
+**Decision:**
+Deferred (surfaced during the §4c authoring-guide conformance pass, source-
+reconciliation sprint). Left as-is for now; revisit when the 7seg demo is next
+exercised on a 3+ panel chain. Excluded from the §4c magic-number normalization
+pending a geometry-intent confirmation.
+
+**Related Files:**
+- `demo_hub75_7seg.spin2` - the `> 96` guard
+- `isp_hub75_hwBufferAccess.spin2` - `maxDisplayColumns()` / `columnsPerPanel()` accessors
+
+---
+
 ## Template for Future Entries
 
 ```
