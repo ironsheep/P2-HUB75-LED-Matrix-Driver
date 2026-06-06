@@ -236,3 +236,48 @@ The plan is ready to execute (via `sprint-start`).
   regenerated `.bin.GOLD` — zero emitted-code change.
 - **Hardware (macOS):** representative demos run correctly, exercising
   develop's headline features.
+
+---
+
+## Sprint start record (2026-06-06, via `sprint-start`)
+
+The sprint was started on 2026-06-06. The following were pinned at start
+(things that depend on *when* execution begins, not knowable at plan time).
+
+### Build version
+
+**`3.0.3`** — agreed at start. This is a **patch** bump from the `v3.0.2`
+tag (ChangeLog currently heads at `[3.0.1]`, behind the tags). This
+**overrides OQ-4's anticipated `3.1.0`**: the reconciliation is being
+treated as consolidation/fixes rather than a new-feature minor release.
+ChangeLog entry is written at `build-wrapup`.
+
+### Working-tree audit (live re-check)
+
+- **23 `.spin2` style-reformat edits** (the uncommitted authoring-guide
+  pass) were the only blast-radius mid-edits. **Decision: snapshot branch.**
+  Committed to **`wip/reformat-snapshot`** (tip `881cdef`); `main` working
+  tree returned to clean. This preserves the reformat for the §4 restyle
+  pass without letting it land on `main` ahead of the develop merge.
+- **Untracked foundation** (`.claude/` skill harness, `.devcontainer/`,
+  this plan doc, plus host-specific `.gitignore` rules). **Decision: commit
+  all to main now.** Landed as two commits: `b1e5d72` (dev container +
+  skill harness + gitignore rules) and `5c26090` (this plan doc). `main`
+  is ahead of `origin/main` by 2 (not yet pushed).
+- **Branch note (beyond plan §5):** a **local** `develop` exists, in sync
+  with `origin/develop` — post-merge cleanup must delete both local and
+  remote.
+- **`feature-clock1`:** confirmed vestigial (1 commit editing the deleted
+  `isp_hub75_binBit.spin2`, 129 commits behind `main`). §2 is a
+  confirm-and-delete, not open research.
+
+### Entry checks (recorded as the entry baseline)
+
+- **Tracking-readiness: READY.** 0 tasks on the board; 1 stale resume
+  breadcrumb (`temp_resume_2026-06-06`) pruned; auto-memory lean
+  (MEMORY.md 4 lines, 2 load-bearing files). Context now empty.
+- **Baseline-health: GREEN.** All 8 demo top files compile clean under
+  `pnut-ts v1.55.0`, **0 warnings**, on clean `main`. No failure groups.
+  **Not exercised (container limitation):** the golden-binary md5 check
+  (`check_reformat.sh`, macOS-only) — GOLD verification is the §4 macOS
+  step. Exit baseline at closeout asserts no regression vs. this.
