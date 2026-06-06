@@ -193,6 +193,22 @@ Deleted with `git push origin --delete feature-clock1` (succeeded).
 - Container-side case: all demos compile clean under `pnut-ts` (0
   warnings) at every step.
 
+**OUTCOME (2026-06-06, task «#3», §4a — GOLD regen): DONE in container.**
+Finding overturned the planned "macOS-only" placement: `.bin`/`.bin.GOLD`
+are gitignored (local-only) and `pnut-ts` itself emits the `.bin`, so the
+container can both regenerate AND verify GOLD using `cmp`/`sha256sum` in
+place of macOS `md5`. Regenerated the full set from the merged
+(pre-restyle) tree: all **28** `.spin2` compiled clean (0 warnings) and
+each `.bin` was copied to its `.bin.GOLD`. This refreshes the 24 stale
+baselines AND adds 4 new ones for develop's new files
+(`demo_hub75_multi2x2panel`, `demo_hub75_numberPanels`,
+`demo_hub75_quadPanel`, `test_hub75_pin_identify`) — giving whole-tree
+restyle coverage. Self-consistency confirmed: a recompile + `cmp` pass
+matched 28/28 deterministically. Baselines are NOT committed (gitignored);
+they live locally to gate the §4b restyle. The macOS `check_reformat.sh`
+still applies on that side (uses `md5`); §4b container verification will
+use a `cmp`-based equivalent.
+
 ## §5. Documentation, ChangeLog & contribute to main
 
 - Reconcile `ChangeLog.md` across the merge; record the unified feature
@@ -305,7 +321,7 @@ foundational -> dependent by `seq`; declared dependencies are documentary
 | §1 | File-by-file reconciliation analysis | *(none — delivered in plan)* | — | — | — |
 | §2 | Dispose vestigial `feature-clock1` | «#1» | 1 | 20m | container |
 | §3 | develop->main functional merge | «#2» | 2 | 10h | container |
-| §4a | Regenerate GOLD from merged tree | «#3» | 3 | 30m | macOS |
+| §4a | Regenerate GOLD from merged tree | «#3» | 3 | 30m | container (finding: not macOS-only) |
 | §4b | Re-apply/re-derive restyle, GOLD-verified | «#4» | 4 | 6h | container+macOS |
 | §5a | Reconcile ChangeLog & docs | «#5» | 5 | 2h | container |
 | §5b | Hardware verification | «#6» | 6 | 1h30m | macOS |
