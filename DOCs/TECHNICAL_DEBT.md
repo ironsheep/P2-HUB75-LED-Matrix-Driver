@@ -56,10 +56,10 @@ The project has two parallel sets of Theory of Operations documentation:
 - `HUB75-Driver-SWver1.md` - v1.x updated driver settings
 
 **Claude-generated (technically detailed, reference-oriented):**
-- `Docs/TheoryOfOperations.md` - Deep dive on system architecture, data flow, PWM mechanism, buffer architecture
-- `Docs/CodeAssessment.md` - Code organization analysis, performance notes, 2D support assessment
-- `Docs/ICN2037/README.md` - Comprehensive chip reference with timing budgets, signal path analysis
-- `Docs/plans/Sprint-2x2-Panel-Repair.md` - Research findings on refresh loop, orientation system, signal polarity
+- `DOCs/TheoryOfOperations.md` - Deep dive on system architecture, data flow, PWM mechanism, buffer architecture
+- `DOCs/CodeAssessment.md` - Code organization analysis, performance notes, 2D support assessment
+- `DOCs/ICN2037/README.md` - Comprehensive chip reference with timing budgets, signal path analysis
+- `DOCs/plans/Sprint-2x2-Panel-Repair.md` - Research findings on refresh loop, orientation system, signal polarity
 
 **The Gap:**
 
@@ -68,18 +68,18 @@ The project has two parallel sets of Theory of Operations documentation:
 2. **Version Drift:** User docs reference older file names (`isp_hub75_hwGeometry.spin2`) and may not reflect current architecture changes (2D grid support, wire order enums, per-panel rotation).
 
 3. **Fragmentation:** Related information is scattered across multiple files. For example:
-   - PWM/BCM explanation partially in THEOPS.md, fully detailed in Docs/TheoryOfOperations.md
-   - Chip timing in HUB75-Driver-SWver1.md AND Docs/ICN2037/README.md
+   - PWM/BCM explanation partially in THEOPS.md, fully detailed in DOCs/TheoryOfOperations.md
+   - Chip timing in HUB75-Driver-SWver1.md AND DOCs/ICN2037/README.md
    - Orientation system only documented in Sprint-2x2-Panel-Repair.md
 
-4. **Discoverability:** New users would find THEOPS.md but miss the detailed chip references and architecture docs in Docs/ subdirectory.
+4. **Discoverability:** New users would find THEOPS.md but miss the detailed chip references and architecture docs in DOCs/ subdirectory.
 
 **Recommended Consolidation:**
 
 1. **Update THEOPS.md** with current file names and 2D grid support information
-2. **Cross-reference** user docs to detailed Docs/ references where appropriate
+2. **Cross-reference** user docs to detailed DOCs/ references where appropriate
 3. **Extract permanent reference material** from Sprint-2x2-Panel-Repair.md (e.g., three-tier orientation system, timing calculations) into appropriate permanent docs
-4. **Create Docs/README.md** index file describing available documentation and recommended reading order
+4. **Create DOCs/README.md** index file describing available documentation and recommended reading order
 
 **Trade-offs:**
 - Pro: Unified documentation improves maintainability
@@ -93,10 +93,10 @@ Deferred until 2x2 panel repair is complete. The Sprint plan contains valuable r
 **Related Files:**
 - `THEOPS.md` - Primary user-facing theory doc
 - `HUB75-Driver-SWver0.md`, `HUB75-Driver-SWver1.md` - Version-specific timing docs
-- `Docs/TheoryOfOperations.md` - Detailed architecture doc
-- `Docs/CodeAssessment.md` - Code analysis doc
-- `Docs/ICN2037/README.md` - Chip reference doc
-- `Docs/plans/Sprint-2x2-Panel-Repair.md` - Current research (contains extractable reference material)
+- `DOCs/TheoryOfOperations.md` - Detailed architecture doc
+- `DOCs/CodeAssessment.md` - Code analysis doc
+- `DOCs/ICN2037/README.md` - Chip reference doc
+- `DOCs/plans/Sprint-2x2-Panel-Repair.md` - Current research (contains extractable reference material)
 
 ---
 

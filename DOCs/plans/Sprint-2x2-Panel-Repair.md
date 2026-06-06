@@ -99,7 +99,7 @@ Physical HUB75 output
 
 ### Task A: Panel Chip Technical Documentation [COMPLETED]
 - **Goal:** Create Markdown README for ICN2037 chip
-- **Deliverable:** `Docs/ICN2037/README.md`
+- **Deliverable:** `DOCs/ICN2037/README.md`
 - **Status:** COMPLETED 2025-01-06
 - **Key Findings:**
   - ICN2037 max clock: 30 MHz (datasheet), 25 MHz (practical max from timing PDF)
@@ -232,7 +232,7 @@ TYPICAL:     13ns    +     2ns     +    7ns   + 5ns = 27ns
 - Address line behavior (working correctly at 20 kHz) suggests the underlying timing infrastructure exists
 - The problem is specifically in: data output rate, clock generation, control signal sequencing
 - Symptoms could be: regressions breaking 1×N support, issues in new 2D support, or both
-- Technical reference created: `Docs/ICN2037/README.md`
+- Technical reference created: `DOCs/ICN2037/README.md`
 
 ---
 
@@ -2057,7 +2057,7 @@ Investigate the **103ms burst pattern** (Phase 2C) to understand where time is b
 **Research Date:** 2025-01-06
 **Status:** COMPLETED
 
-### ICN2037 Requirements (from Docs/ICN2037/README.md)
+### ICN2037 Requirements (from DOCs/ICN2037/README.md)
 
 | Signal | Active Level | Purpose | Min Timing |
 |--------|--------------|---------|------------|
@@ -2794,7 +2794,7 @@ The 128×64 panel (P2-1515-128X64-32S-S2) has a **74HC04D hex inverter** (U5) in
 
 #### ICN2037 Native Signal Requirements
 
-*Source: Docs/ICN2037/README.md*
+*Source: DOCs/ICN2037/README.md*
 
 | Signal | Active State | Description |
 |--------|-------------|-------------|
@@ -3236,7 +3236,7 @@ Fix Clock Speed -> Test Polarity -> Fix Other Issues
    - Text on panels displays correctly ✓
 
 5. **Documentation Added:**
-   - Created `Docs/TECHNICAL_DEBT.md` with:
+   - Created `DOCs/TECHNICAL_DEBT.md` with:
      - TD-001: Wire order table preprocessor optimization (deferred)
      - TD-002: Documentation consolidation (deferred)
      - TD-003: Panel routine parameter order inconsistency (deferred)
@@ -3310,7 +3310,7 @@ Files committed:
 - driver/demo_hub75_multi2x2panel.spin2
 - driver/demo_hub75_quadPanel.spin2
 - driver/demo_hub75_color.spin2
-- Docs/TECHNICAL_DEBT.md
+- DOCs/TECHNICAL_DEBT.md
 
 ---
 

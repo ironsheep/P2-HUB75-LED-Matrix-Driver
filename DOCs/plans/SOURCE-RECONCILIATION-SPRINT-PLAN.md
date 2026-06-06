@@ -128,7 +128,7 @@ file — develop did not touch it, so its large reformat re-applies.)*
 |---|---|---|
 | `demo_hub75_multi2x2panel.spin2`, `demo_hub75_numberPanels.spin2`, `demo_hub75_quadPanel.spin2` | New demos — land, then include in compile/restyle sweep | Light |
 | `test_hub75_pin_identify.spin2` | New test top file — land (keep, OQ-2) | Light |
-| `Docs/` additions: `FutureDirections-ImageAndColor.md`, `MultiPanelConfiguration.md`, `PSRAMExpansion.md`, `TheoryOfOperations.md`, `TECHNICAL_DEBT.md`, `Docs/Plans/*`, new chip dirs (`GS6238S`, `RUC7258`, `TC7262`, `MW245`, `TC7258EN`), `ICN2037/*` | Land as history/reference | Trivial |
+| `DOCs/` additions: `FutureDirections-ImageAndColor.md`, `MultiPanelConfiguration.md`, `PSRAMExpansion.md`, `TheoryOfOperations.md`, `TECHNICAL_DEBT.md`, `DOCs/Plans/*`, new chip dirs (`GS6238S`, `RUC7258`, `TC7262`, `MW245`, `TC7258EN`), `ICN2037/*` | Land as history/reference | Trivial |
 | `driver/chk`, `driver/chk.diff` | Temp debug artifacts — **exclude** from final main (OQ-1) | Trivial |
 
 ### 1e. Trivial conflict
@@ -166,7 +166,7 @@ Deleted with `git push origin --delete feature-clock1` (succeeded).
 ## §3. Execute the develop→main merge (functional only)
 
 - Preserve the uncommitted reformat first: stash it **and** export a
-  reference patch to `Docs/analysis/` (or a `wip/reformat-snapshot`
+  reference patch to `DOCs/analysis/` (or a `wip/reformat-snapshot`
   branch) so the in-progress style work is never lost.
 - Merge `origin/develop` into `main`. Auto-merging files (§1b–1e) need
   no hand work; resolve the 9 conflicts (§1a) **functionally**, ignoring
@@ -183,7 +183,7 @@ Deleted with `git push origin --delete feature-clock1` (succeeded).
 - Regenerate `*.bin.GOLD` from the merged, feature-bearing binaries
   (the old GOLD baselines predate develop's features and are now stale).
 - Re-apply the authoring-guide style pass over the unified tree per
-  `Docs/procedures/SPIN2-AUTHORING-GUIDE.md`:
+  `DOCs/procedures/SPIN2-AUTHORING-GUIDE.md`:
   - §1c files: re-apply the shelved reformat patch directly.
   - §1a/§1b files: re-derive the reformat on the merged content.
 - **GOLD verification** (macOS side, `check_reformat.sh`): every restyled
@@ -216,7 +216,7 @@ use a `cmp`-based equivalent.
   (§OQ-4).
 - Update `THEOPS.md` / `README.md` if the merged feature set (2×2 grids,
   rotation, clock-independent timing) changed documented behavior.
-- Move develop's `Docs/Plans/` content down into `Docs/plans/`
+- Move develop's `DOCs/Plans/` content down into `DOCs/plans/`
   (lowercase, per OQ-3) and confirm no case-collision remains.
 - Final state: one unified, compile-clean, GOLD-stable, authoring-guide-
   compliant `main`; `develop` and (pending §2) `feature-clock1`
@@ -236,15 +236,15 @@ use a `cmp`-based equivalent.
    `demo_hub75_multi2x2panel`, `demo_hub75_numberPanels`,
    `demo_hub75_quadPanel`, `test_hub75_pin_identify` — landed and included
    in the compile/restyle sweep.
-3. **OQ-3 — `Docs/` plans casing:** Standardize on **`Docs/plans/`**
-   (lowercase). develop's `Docs/Plans/` content is moved down into
-   `Docs/plans/` during the merge; the `PLAN_DIR` convention is unchanged.
+3. **OQ-3 — `DOCs/` plans casing:** Standardize on **`DOCs/plans/`**
+   (lowercase). develop's `DOCs/Plans/` content is moved down into
+   `DOCs/plans/` during the merge; the `PLAN_DIR` convention is unchanged.
 4. **OQ-4 — Version after reconciliation:** Deferred to `build-wrapup`
    (anticipated `3.1.0` for the new 2×2-grid / rotation / timing feature
    set). ChangeLog work in §5 anticipates a minor-version bump.
 5. **OQ-5 — develop's historical sprint docs** (Sprint-2x2-Panel-Repair,
    Sprint-Performance-Upgrade, THEORY_OF_OPERATIONS_SIGNALING): **Keep as
-   history**, relocated into `Docs/plans/` (lowercase) per OQ-3.
+   history**, relocated into `DOCs/plans/` (lowercase) per OQ-3.
 
 All open questions resolved — research and questions passes are empty.
 The plan is ready to execute (via `sprint-start`).

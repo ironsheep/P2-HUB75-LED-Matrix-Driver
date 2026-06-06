@@ -60,14 +60,14 @@ Module.symvers
 Mkfile.old
 dkms.conf
 driver/get
-Docs/ICN2037/ICN2037-EN-f1.pdf
+DOCs/ICN2037/ICN2037-EN-f1.pdf
 .vscode/settings.json
 driver/.vscode/settings.json
 *.bin
 *.lst
 *.GOLD
 *.diff
-/Docs/procedures
+/DOCs/procedures
 /driver/scripts
 CLAUDE.md
 

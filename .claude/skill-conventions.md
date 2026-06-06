@@ -43,11 +43,11 @@ RELEASE_NOTES_DOC:  ChangeLog.md                 # Keep-a-Changelog format, SemV
 SPEC_DOC:           THEOPS.md                     # theory of operations (closest to a spec)
 
 # Proposed homes for sprint artifacts (created on first use; the project
-# keeps reference docs under Docs/ today, no plans/ tree yet):
-PLAN_DIR:           Docs/plans/
-PLAN_ARCHIVE_DIR:   Docs/plans/archive/
-ANALYSIS_DIR:       Docs/analysis/
-PUNCH_LIST_DOC:     Docs/plans/PUNCH-LIST.md
+# keeps reference docs under DOCs/ today, no plans/ tree yet):
+PLAN_DIR:           DOCs/plans/
+PLAN_ARCHIVE_DIR:   DOCs/plans/archive/
+ANALYSIS_DIR:       DOCs/analysis/
+PUNCH_LIST_DOC:     DOCs/plans/PUNCH-LIST.md
 ```
 
 ## P2 development cycle
