@@ -154,6 +154,15 @@ salvageable before disposing.
 - **Verification:** the disposition decision is recorded; if deleted, the
   deletion is intentional and noted.
 
+**OUTCOME (2026-06-06, task «#1»): (a) confirmed vestigial — DELETED.**
+`git log main..origin/feature-clock1` showed exactly one commit (`37d932e`,
+2020-12-01) editing a single line of `driver/isp_hub75_binBit.spin2` — a
+file that is ABSENT from `main` (removed in `fc3cd59` "remove clock demo
+for now"). The branch sat 129 commits behind `main`; nothing salvageable.
+Deleted with `git push origin --delete feature-clock1` (succeeded).
+**Restore (if ever needed):**
+`git push origin 37d932e4a8e67e9412f19d599150b8a67f197b05:refs/heads/feature-clock1`.
+
 ## §3. Execute the develop→main merge (functional only)
 
 - Preserve the uncommitted reformat first: stash it **and** export a
