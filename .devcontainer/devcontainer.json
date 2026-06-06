@@ -1,0 +1,43 @@
+// See https://aka.ms/vscode-remote/devcontainer.json for format details.
+{
+  "name": "p2-HUB75-LED-Matrix-Driver Development",
+  "dockerComposeFile": ["docker-compose.yml", "docker-compose.override.yml"],
+  "service": "dev",
+  "workspaceFolder": "/workspaces/p2-HUB75-LED-Matrix-Driver",
+  "containerEnv": {
+    "LANG": "en_US.UTF-8",
+    "LC_ALL": "en_US.UTF-8",
+    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
+  },
+  "initializeCommand": "test -f .devcontainer/docker-compose.override.yml || echo 'services: {}' > .devcontainer/docker-compose.override.yml",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": false,
+      "configureZshAsDefaultShell": false,
+      "installOhMyZsh": false,
+      "installOhMyZshConfig": false,
+      "upgradePackages": false,
+      "username": "vscode",
+      "userUid": "automatic",
+      "userGid": "automatic"
+    }
+  },
+  "remoteUser": "vscode",
+  "postCreateCommand": "sudo mkdir -p /Users/stephen && sudo ln -sfn /opt/container-tools /Users/stephen/container-tools; sudo chown -R vscode:vscode /home/vscode/.local 2>/dev/null || true; cat /workspaces/p2-HUB75-LED-Matrix-Driver/.bashrc >> ~/.bashrc && cd /tmp && unzip -o /workspaces/p2-HUB75-LED-Matrix-Driver/.devcontainer/pnut-ts-linux-arm64-015500.zip && sudo cp /tmp/pnut-ts-linux-arm64-015500/pnut_ts/pnut-ts /usr/local/bin/pnut-ts && sudo chmod +x /usr/local/bin/pnut-ts && rm -rf /tmp/pnut-ts-linux-arm64-015500 || true; curl -fsSL https://claude.ai/install.sh | bash || true; grep -q '$HOME/.local/bin' ~/.bashrc 2>/dev/null || echo 'export PATH=\"$HOME/.local/bin:$PATH\"' >> ~/.bashrc; export PATH=\"$HOME/.local/bin:$PATH\"; claude --update || true;",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "github.vscode-pull-request-github",
+        "eamodio.gitlens",
+        "davidanson.vscode-markdownlint",
+        "redhat.vscode-yaml"
+      ],
+      "settings": {
+        "files.eol": "\n",
+        "editor.tabSize": 4,
+        "terminal.integrated.shell.linux": "/bin/bash",
+        "files.trimTrailingWhitespace": true
+      }
+    }
+  }
+}

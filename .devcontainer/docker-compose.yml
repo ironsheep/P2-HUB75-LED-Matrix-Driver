@@ -1,0 +1,12 @@
+services:
+  dev:
+    image: mcr.microsoft.com/devcontainers/javascript-node:24-bookworm
+    volumes:
+      - ..:/workspaces/p2-HUB75-LED-Matrix-Driver:cached
+      - todo-mcp-data:/home/vscode/.local/share/todo-mcp
+    command: sleep infinity
+    # Note: features, postCreateCommand, extensions, and settings
+    # are handled in devcontainer.json, not here
+
+volumes:
+  todo-mcp-data:
