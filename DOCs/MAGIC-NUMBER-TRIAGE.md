@@ -1,6 +1,10 @@
 # Magic-Number Triage — §4c Conformance Wave 4
 
-**Sprint:** source-reconciliation (build 3.0.3) · **Date:** 2026-06-07 · **Status:** DRIVER FILES APPLIED + VERIFIED. Demos pending.
+**Sprint:** source-reconciliation (build 3.0.3) · **Date:** 2026-06-07 · **Status:** WAVE 4 COMPLETE — driver files applied + binary-verified; demos audited (already clean, 0 changes).
+
+**Demo audit result (lenient tier):** all 11 `demo_*.spin2` already route every color through the
+`color.cXxx` object alias (no raw `$RRGGBB` literals matching named constants); remaining literals are
+ASCII char codes, coordinates, and loop bounds — correctly left at demo tier. No demo edits required.
 
 **Sign-off (Stephen, 2026-06-07):** (1) B aggressiveness = FULL STRICT; (2) include category C = YES;
 (3) audit demos = YES (lenient tier); (4) anomalies = FIX BOTH NOW (`36`/comment + remove `<>10` debug check).
