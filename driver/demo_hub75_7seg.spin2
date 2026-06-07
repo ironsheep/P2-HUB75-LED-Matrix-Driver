@@ -159,6 +159,24 @@ PUB start() : ok | hours24
   DEBUG("DEMO: done")
   repeat
 
+PUB wait100thSecs(count)
+'' Wait for the specified number of hundredths of a second.
+''
+'' @param count - number of hundredths of a second to wait
+
+  repeat count
+    waitms(10)                                          ' 1/100 seconds
+
+PUB stop()
+'' Stop the display driver and release the cog.
+''
+
+  if cog
+    display.stop()
+    cog := 0
+
+CON ' --------------     Private Methods     --------------
+
 PRI showSecondsDots(lightDark) | red, green, blue, targetColor
 ' Draw the colon dots between hour and minute digits.
 '
@@ -224,22 +242,6 @@ PRI loopUntilSegmentsFinish() | didAnimate
 
     if allDigitAnimationsComplete()
       quit
-
-PUB wait100thSecs(count)
-'' Wait for the specified number of hundredths of a second.
-''
-'' @param count - number of hundredths of a second to wait
-
-  repeat count
-    waitms(10)                                          ' 1/100 seconds
-
-PUB stop()
-'' Stop the display driver and release the cog.
-''
-
-  if cog
-    display.stop()
-    cog := 0
 
 CON ' license
 

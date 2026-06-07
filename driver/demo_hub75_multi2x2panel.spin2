@@ -86,6 +86,48 @@ PUB main() : ok
 
   stop()
 
+PUB placeClock()
+
+  display.setTextColor(color.cYellow)
+  debug("placeClock()")
+  display.clearScreenBuffer()
+  placeDigit(OFS_TOP_PIX, 0)
+  'placeDigit(OFS_TOP_PIX, 64)
+  'placeDigit(OFS_TOP_PIX, 132)
+  'placeDigit(OFS_TOP_PIX, 197)
+  display.commitScreenToPanelSet()
+
+PUB placeDigit(rowOffset, colOffset) | row, column
+  debug("placeDigit(", udec_(rowOffset), ", ", udec_(colOffset), ")")
+  row := rowOffset
+  column := colOffset
+
+  repeat 2
+    debug("box(", udec_(row), ", ", udec_(column), ")")
+    display.drawBox(row, column, CLK_WIDTH, CLK_HEIGHT, false)
+    row += CLK_HEIGHT + 1
+
+
+DAT { panel messages }
+
+lblTopLt      BYTE    "TL", 0
+lblBotLt      BYTE    "BL", 0
+lblTopRt      BYTE    "TR", 0
+lblBotRt      BYTE    "BR", 0
+lblZro        BYTE    "(0)", 0
+lblOne        BYTE    "(1)", 0
+lblTwo        BYTE    "(2)", 0
+lblThr        BYTE    "(3)", 0
+
+' Panel orientation test labels
+lbl0          BYTE    "0", 0
+lbl1          BYTE    "1", 0
+lbl2          BYTE    "2", 0
+lbl3          BYTE    "3", 0
+lblArrow      BYTE    "^", 0
+
+CON ' --------------     Private Methods     --------------
+
 PRI testPanelOrientation() | centerRow, centerCol, circleRadius
 ' Test pattern using BOTH coordinate systems:
 '
@@ -209,28 +251,6 @@ PRI wait1000thSecs(count)
   repeat count
     waitms(1)  ' 1/100 seconds
 
-PUB placeClock()
-
-  display.setTextColor(color.cYellow)
-  debug("placeClock()")
-  display.clearScreenBuffer()
-  placeDigit(OFS_TOP_PIX, 0)
-  'placeDigit(OFS_TOP_PIX, 64)
-  'placeDigit(OFS_TOP_PIX, 132)
-  'placeDigit(OFS_TOP_PIX, 197)
-  display.commitScreenToPanelSet()
-
-PUB placeDigit(rowOffset, colOffset) | row, column
-  debug("placeDigit(", udec_(rowOffset), ", ", udec_(colOffset), ")")
-  row := rowOffset
-  column := colOffset
-
-  repeat 2
-    debug("box(", udec_(row), ", ", udec_(column), ")")
-    display.drawBox(row, column, CLK_WIDTH, CLK_HEIGHT, false)
-    row += CLK_HEIGHT + 1
-
-
 PRI demoPanelFillColors()
   display.clearScreenBuffer()
   repeat 4
@@ -255,24 +275,6 @@ PRI demoRandomPanelColors() | panelIndex, panelHue, panelColor
     ' update our screen
     display.commitScreenToPanelSet()
     waitSec(2)
-
-DAT { panel messages }
-
-lblTopLt      BYTE    "TL", 0
-lblBotLt      BYTE    "BL", 0
-lblTopRt      BYTE    "TR", 0
-lblBotRt      BYTE    "BR", 0
-lblZro        BYTE    "(0)", 0
-lblOne        BYTE    "(1)", 0
-lblTwo        BYTE    "(2)", 0
-lblThr        BYTE    "(3)", 0
-
-' Panel orientation test labels
-lbl0          BYTE    "0", 0
-lbl1          BYTE    "1", 0
-lbl2          BYTE    "2", 0
-lbl3          BYTE    "3", 0
-lblArrow      BYTE    "^", 0
 
 PRI demoColorPanels()
 ' start with blank screen on which to draw
