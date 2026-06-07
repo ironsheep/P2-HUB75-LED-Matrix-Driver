@@ -15,7 +15,8 @@ OBJ
 
     hwEnum      : "isp_hub75_hwEnums"                               ' hub75 attachment, set up constants
 
-CON ' User Panel Connection and Configuration
+CON ' ---- User Panel Connection and Configuration ----
+    {Spin2_Doc_CON}
 
 ' Reference: addr width for known chips:
 '
@@ -29,14 +30,11 @@ CON ' User Panel Connection and Configuration
 '       ICN2037                 ABCDE
 '       ICN2038S                ABCDE
 
-''  User customized section describing the memory allocated to our matrix panel displays
+'  User customized section describing the memory allocated to our matrix panel displays
 
-' -------------------------------------------------------------------
 ' panel set on 1st HUB75 adapter board - DISP0_* constants
-' -------------------------------------------------------------------
 
-    ' /-------------------------------------------
-    ' |  User configure
+    ' User configure
 
     ' (1) describe the panel connections, addressing and chips
     DISP0_ADAPTER_BASE_PIN         = hwEnum.PIN_GROUP_P16_P31
@@ -83,8 +81,7 @@ CON ' User Panel Connection and Configuration
     DISP0_PANEL2_ROT               = hwEnum.ROT_180     ' Panel 2
     DISP0_PANEL3_ROT               = hwEnum.ROT_180     ' Panel 3
 
-    ' |  End User configure
-    ' \-------------------------------------------
+    ' End User configure
 
     DISP0_MAX_DISPLAY_ROWS         = DISP0_MAX_PANELS_PER_COLUMN * DISP0_MAX_PANEL_ROWS
     DISP0_MAX_DISPLAY_COLUMNS      = DISP0_MAX_PANELS_PER_ROW * DISP0_MAX_PANEL_COLUMNS
@@ -106,12 +103,9 @@ CON ' User Panel Connection and Configuration
 
     DISP0_FRAMESET_SIZE_IN_LONGS   = DISP0_COLOR_DEPTH * DISP0_PWM_FRAME_SIZE_IN_LONGS
 
-' -------------------------------------------------------------------
 ' panel set on 2nd HUB75 adapter board - DISP1_* constants
-' -------------------------------------------------------------------
 
-    ' /-------------------------------------------
-    ' |  User configure
+    ' User configure
 
     ' (1) describe the panel connections, addressing and chips
     DISP1_ADAPTER_BASE_PIN         = hwEnum.PIN_GROUP_P16_P31
@@ -140,8 +134,7 @@ CON ' User Panel Connection and Configuration
     DISP1_WIRE_ENTRY               = hwEnum.WIRE_ENTERS_TOP_LEFT
     DISP1_WIRE_TRAVERSE            = hwEnum.WIRE_ROWS_FIRST
 
-    ' |  End User configure
-    ' \-------------------------------------------
+    ' End User configure
 
     DISP1_MAX_DISPLAY_ROWS         = DISP1_MAX_PANELS_PER_COLUMN * DISP1_MAX_PANEL_ROWS
     DISP1_MAX_DISPLAY_COLUMNS      = DISP1_MAX_PANELS_PER_ROW * DISP1_MAX_PANEL_COLUMNS
@@ -162,12 +155,9 @@ CON ' User Panel Connection and Configuration
 
     DISP1_FRAMESET_SIZE_IN_LONGS   = DISP1_COLOR_DEPTH * DISP1_PWM_FRAME_SIZE_IN_LONGS
 
-' -------------------------------------------------------------------
 ' panel set on 3rd HUB75 adapter board - DISP2_* constants
-' -------------------------------------------------------------------
 
-    ' /-------------------------------------------
-    ' |  User configure
+    ' User configure
 
     ' (1) describe the panel connections, addressing and chips
     DISP2_ADAPTER_BASE_PIN         = hwEnum.PIN_GROUP_P16_P31
@@ -196,8 +186,7 @@ CON ' User Panel Connection and Configuration
     DISP2_WIRE_ENTRY               = hwEnum.WIRE_ENTERS_TOP_LEFT
     DISP2_WIRE_TRAVERSE            = hwEnum.WIRE_ROWS_FIRST
 
-    ' |  End User configure
-    ' \-------------------------------------------
+    ' End User configure
 
     DISP2_MAX_DISPLAY_ROWS         = DISP2_MAX_PANELS_PER_COLUMN * DISP2_MAX_PANEL_ROWS
     DISP2_MAX_DISPLAY_COLUMNS      = DISP2_MAX_PANELS_PER_ROW * DISP2_MAX_PANEL_COLUMNS

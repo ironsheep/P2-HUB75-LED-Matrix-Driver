@@ -47,7 +47,12 @@ CON ' DEMO info
 ' 11 enables .bmp file display
 DEMO_COUNT = 3
 
-#0, PNL_BOT_LT, PNL_BOT_RT, PNL_TOP_LT, PNL_TOP_RT
+    ' Panel-position indices for the 2x2 grid (display order):
+    '  PNL_BOT_LT - bottom-left panel  (index 0)
+    '  PNL_BOT_RT - bottom-right panel (index 1)
+    '  PNL_TOP_LT - top-left panel     (index 2)
+    '  PNL_TOP_RT - top-right panel    (index 3)
+    #0, PNL_BOT_LT, PNL_BOT_RT, PNL_TOP_LT, PNL_TOP_RT
 
     OFS_TOP_PIX = 20
 

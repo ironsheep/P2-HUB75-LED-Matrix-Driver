@@ -25,6 +25,10 @@ CON ' I/O PINs
 ' New P2 Eval Board HUB75 Adapter (16-pin board; mounts on one 16-pin group).
 '  The pin range is in each name, so no math is needed to know which pins are involved.
 '  PIN_GROUP_P48_P63 is NOT provided: pins 48-63 overlap the P2's predefined (reserved) pins.
+' HUB75 adapter base-pin groups (each value is the group's first pin number):
+'  PIN_GROUP_P0_P15   - adapter mounted on pins 0..15  (base 0)
+'  PIN_GROUP_P16_P31  - adapter mounted on pins 16..31 (base 16)
+'  PIN_GROUP_P32_P47  - adapter mounted on pins 32..47 (base 32)
 #0[16], PIN_GROUP_P0_P15, PIN_GROUP_P16_P31, PIN_GROUP_P32_P47
 
     ' the user-selected location: one of P0_P15, P16_P31, P32_P47

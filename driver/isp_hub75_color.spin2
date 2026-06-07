@@ -11,7 +11,8 @@
 ''
 '' =================================================================================================
 
-CON ' test colorset
+CON ' ---- Color Constants ----
+    {Spin2_Doc_CON}
 
     CBLACK        = $000000
     CWHITE        = $FFFFFF
@@ -37,11 +38,19 @@ CON ' test colorset
     CFULLGREEN    = $00FF00
     CFULLBLUE     = $0000FF
 
-    ' SPECIAL non-colors - invoke alforithm to gerate actual color used'
+    ' SPECIAL non-colors - invoke algorithm to generate actual color used
     CREDWHTBLU    = $deadf0
     CRAINBOW      = $deadf1
 
-    ' our 3-bit colors
+    ' our 3-bit colors (one bit per RGB channel):
+    '  BASE_BLACK   - $00 all channels off
+    '  BASE_RED     - $01 red only
+    '  BASE_GREEN   - $02 green only
+    '  BASE_YELLOW  - $03 red + green
+    '  BASE_BLUE    - $04 blue only
+    '  BASE_MAGENTA - $05 red + blue
+    '  BASE_CYAN    - $06 green + blue
+    '  BASE_WHITE   - $07 all channels on
     BASE_BLACK    = $00
     BASE_RED      = $01
     BASE_GREEN    = $02

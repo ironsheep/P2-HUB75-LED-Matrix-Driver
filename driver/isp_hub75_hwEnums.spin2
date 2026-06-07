@@ -14,6 +14,7 @@
 '  Interface constants used to describe HUB75 panel connection and configuration
 
 CON ' Hardware Interface Constants
+    {Spin2_Doc_CON}
 
 ' ---- (1) HUB75 Pin Group: where the P2 EVAL HUB75 Adapter is plugged in ----
 '  A HUB75 adapter is a 16-pin board; it mounts on one 16-pin group. The pin range
@@ -21,26 +22,42 @@ CON ' Hardware Interface Constants
 '  PIN_GROUP_P48_P63 is NOT provided: pins 48-63 overlap the P2's predefined (reserved) pins.
     #0[16], PIN_GROUP_P0_P15, PIN_GROUP_P16_P31, PIN_GROUP_P32_P47
 
-' =================================================================================================
 '  (2) how many HUB75 boards are you connecting?
-' =================================================================================================
+'  HUB75 adapter identifiers (each step is HUB75_ADAPTER_STEP apart):
+'   HUB75_ADAPTER_1 - first  HUB75 adapter card
+'   HUB75_ADAPTER_2 - second HUB75 adapter card
+'   HUB75_ADAPTER_3 - third  HUB75 adapter card
     HUB75_ADAPTER_STEP = 10
     #10[10], HUB75_ADAPTER_1, HUB75_ADAPTER_2, HUB75_ADAPTER_3
     HUB75_ADAPTER_BASE = HUB75_ADAPTER_1
 
-' =================================================================================================
 '  (3) panel content rotation
-' =================================================================================================
+'  Rotation applied to panel content (clockwise degrees):
+'   ROT_UNKNOWN - rotation not yet specified
+'   ROT_0       - no rotation (0 degrees)
+'   ROT_90      - rotate content 90 degrees clockwise
+'   ROT_180     - rotate content 180 degrees
+'   ROT_270     - rotate content 270 degrees clockwise
     #$20, ROT_UNKNOWN, ROT_0, ROT_90, ROT_180, ROT_270
     ' couple more aliases for convenience
     ROT_NONE = ROT_0
     ROT_LEFT_90 = ROT_270
     ROT_RIGHT_90 = ROT_90
 
-' =================================================================================================
 '  (4) The Driver Chip on your panels
-' =================================================================================================
 ' Driver Pre-defined flag combinations (use these unless your hardware is not in this list)
+'  Panel driver chip selections:
+'   CHIP_UNKNOWN                 - driver chip not yet specified
+'   CHIP_MANUAL_SPEC             - manual specification base (OR with config flags below)
+'   CHIP_FM6126A                 - FM6126A driver chip
+'   CHIP_FM6124                  - FM6124 driver chip
+'   CHIP_UNK_LAT_END_ENCL        - unknown chip, latch-at-end-enclosed style
+'   CHIP_ICN2037                 - ICN2037 driver chip
+'   CHIP_ICN2038S                - ICN2038S driver chip
+'   CHIP_UNK_LAT_END_ENCL_SLO_CLK - unknown chip, latch-at-end-enclosed, slow clock
+'   CHIP_MBI5124GP               - MBI5124GP driver chip
+'   CHIP_GS6238S                 - GS6238S driver chip
+'   CHIP_DP5125D                 - DP5125D driver chip
     #0, CHIP_UNKNOWN, CHIP_MANUAL_SPEC, CHIP_FM6126A, CHIP_FM6124, CHIP_UNK_LAT_END_ENCL, CHIP_ICN2037, ...
     CHIP_ICN2038S, CHIP_UNK_LAT_END_ENCL_SLO_CLK, CHIP_MBI5124GP, CHIP_GS6238S, CHIP_DP5125D
 
@@ -60,25 +77,37 @@ CON ' Hardware Interface Constants
 '   PANEL_DRIVER_CHIP = CHIP_DP5125D    ' which is: CHIP_MANUAL_SPEC | LAT_STYLE_OFFSET | LAT_POSN_OVERLAP | SCAN_4
 
 ' Driver Manual Config Flags:
+'  Bit flags OR'd onto CHIP_MANUAL_SPEC to describe non-listed hardware:
+'   LAT_STYLE_OFFSET    ($100)  - latch pulse uses offset style
+'   LAT_POSN_OVERLAP    ($200)  - latch position overlaps last clock
+'   INIT_PANEL_REQUIRED ($400)  - panel requires power-on init sequence
+'   CLK_WIDE_PULSE      ($800)  - clock uses wide pulse timing
+'   RB_SWAP             ($1000) - swap red and blue color channels
+'   SCAN_4              ($2000) - 1/4 scan panel addressing
+'   GB_SWAP             ($4000) - swap green and blue color channels
     #$100, LAT_STYLE_OFFSET, #$200, LAT_POSN_OVERLAP, #$400, INIT_PANEL_REQUIRED, #$800, CLK_WIDE_PULSE, #$1000, RB_SWAP, #$2000, SCAN_4, #$4000, GB_SWAP
 
-' =================================================================================================
 '  (5) Describe the overall layout of your hardware panel(s):
-' =================================================================================================
-
 ' SUPPORTED address widths:  A-B-C, or A-B-C-D, or A-B-C-D-E
+'  Row-address line widths:
+'   ADDR_UNKNOWN - address width not yet specified
+'   ADDR_ABC     - 3 address lines (A-B-C)
+'   ADDR_ABCD    - 4 address lines (A-B-C-D)
+'   ADDR_ABCDE   - 5 address lines (A-B-C-D-E)
     #2, ADDR_UNKNOWN, ADDR_ABC, ADDR_ABCD, ADDR_ABCDE
 
-' =================================================================================================
 '  (6) Describe the color depth you'd like to display:
-' =================================================================================================
-
 ' SUPPORTED depths:  3-8 bits
+'  Color depth per channel:
+'   DEPTH_3BIT - 3 bits per color channel
+'   DEPTH_4BIT - 4 bits per color channel
+'   DEPTH_5BIT - 5 bits per color channel
+'   DEPTH_6BIT - 6 bits per color channel
+'   DEPTH_7BIT - 7 bits per color channel
+'   DEPTH_8BIT - 8 bits per color channel
     #3, DEPTH_3BIT, DEPTH_4BIT, DEPTH_5BIT, DEPTH_6BIT, DEPTH_7BIT, DEPTH_8BIT
 
-' =================================================================================================
 '  (7) Wire ordering for fully populated rectangular grids:
-' =================================================================================================
 '
 '  Use these enums when all grid positions have panels (no gaps).
 '  The driver computes the wire order table from these two settings.
@@ -90,14 +119,20 @@ CON ' Hardware Interface Constants
 '             [6][7][8]
 
 ' Wire entry position: which display grid corner the adapter cable connects to
+'   WIRE_ENTERS_TOP_LEFT  - cable enters at top-left corner
+'   WIRE_ENTERS_TOP_RIGHT - cable enters at top-right corner
+'   WIRE_ENTERS_BOT_LEFT  - cable enters at bottom-left corner
+'   WIRE_ENTERS_BOT_RIGHT - cable enters at bottom-right corner
 #$40, WIRE_ENTERS_TOP_LEFT, WIRE_ENTERS_TOP_RIGHT, WIRE_ENTERS_BOT_LEFT, WIRE_ENTERS_BOT_RIGHT
 
 ' Wire traversal pattern: how the chain progresses through the grid
+'   WIRE_ROWS_FIRST       - traverse one full row, then next row (same direction)
+'   WIRE_COLS_FIRST       - traverse one full column, then next column (same direction)
+'   WIRE_SERPENTINE_ROWS  - traverse rows, alternating direction each row
+'   WIRE_SERPENTINE_COLS  - traverse columns, alternating direction each column
 #$48, WIRE_ROWS_FIRST, WIRE_COLS_FIRST, WIRE_SERPENTINE_ROWS, WIRE_SERPENTINE_COLS
 
-' =================================================================================================
 '  (8) Explicit grid layout for non-rectangular shapes (+ shape, L shape, etc.):
-' =================================================================================================
 '
 '  Use these values when grid has gaps (some positions have no panel).
 '  User provides a grid table with position values.
@@ -111,16 +146,24 @@ CON ' Hardware Interface Constants
     PNL_FIRST = 1       ' First panel in chain (alias for 1, improves readability)
     ' Remaining panels use values 2, 3, 4, ... in chain order
 
-' =================================================================================================
 '  (9) Cube face identification (for 6-panel cube configurations):
-' =================================================================================================
 '
 '  Specify cube orientation with three values: TOP, FRONT, and LEFT wire positions.
 '  The driver derives BOTTOM, BACK, and RIGHT from geometry.
-
+'  Cube face identifiers:
+'   FACE_TOP    - top face of the cube
+'   FACE_BOTTOM - bottom face of the cube
+'   FACE_FRONT  - front face of the cube
+'   FACE_BACK   - back face of the cube
+'   FACE_LEFT   - left face of the cube
+'   FACE_RIGHT  - right face of the cube
 #$50, FACE_TOP, FACE_BOTTOM, FACE_FRONT, FACE_BACK, FACE_LEFT, FACE_RIGHT
 
 ' Cube image unwrap patterns: how 2D images map onto cube faces
+'   CUBE_UNWRAP_HSTRIP_LFRB - horizontal strip, faces ordered Left-Front-Right-Back
+'   CUBE_UNWRAP_HSTRIP_FRBL - horizontal strip, faces ordered Front-Right-Back-Left
+'   CUBE_UNWRAP_CROSS       - cross/cruciform unwrap layout
+'   CUBE_UNWRAP_CUSTOM      - caller-supplied custom face mapping
 #$58, CUBE_UNWRAP_HSTRIP_LFRB, CUBE_UNWRAP_HSTRIP_FRBL, CUBE_UNWRAP_CROSS, CUBE_UNWRAP_CUSTOM
 
 PUB null()

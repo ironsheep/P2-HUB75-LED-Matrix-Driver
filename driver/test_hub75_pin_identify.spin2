@@ -64,16 +64,12 @@ CON { timing }
 
 CON { configuration }
 
-    ' =========================================================================
     '  USER CONFIG: Set your HUB75 adapter base pin here
-    ' =========================================================================
     BASE_PIN = 16                   ' Change to match your setup: 0, 16, 32, or 48
 
     ' Base toggle frequency for bit 0 (P8 - fastest pin)
     ' Each subsequent bit toggles at half the previous bit's rate
     BASE_FREQ_HZ = 100_000          ' 100 kHz base - adjust if needed
-
-    ' =========================================================================
 
     ' Calculate delay between counter increments
     ' Counter increments cause bit 0 to toggle, so delay = 1/(2*BASE_FREQ)
@@ -141,6 +137,13 @@ VAR
     LONG    counter
 
 PUB main() | nextTime, laBits, hub75Bits
+'' Run a 20-bit binary counter onto the LA and HUB75 pin groups for frequency identification.
+''
+
+' Local Variables:
+' @local nextTime - next system-counter tick to wait for
+' @local laBits - low 4 counter bits routed to the LA pins
+' @local hub75Bits - 16 counter bits routed to the HUB75 pins
 
   ' Initialize all pins as outputs, start LOW
   pinlow(LA_PIN_GROUP)        ' P8-P11

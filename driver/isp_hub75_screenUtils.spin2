@@ -54,8 +54,28 @@ PUB drawPixelAtRC(nChainIdx, row, column, rgbColor) | xlatedColor
   drawPixelAtRCwithRGB(nChainIdx, row, column, colorUtils.rgbForCValue(xlatedColor))
 
 PUB drawPixelAtRCwithRGB(nChainIdx, row, column, red, green, blue) | maxRows, maxColumns, rowIndex, columnIndex, colorOffset, pColor, pScreen, nPanelIndex, localRow, localCol, tempIdx
-'' Place r,g,b color pixel at r,c
-'' Supports single panels, horizontal chains, vertical stacks, and 2D panel grids
+'' Place an r,g,b color pixel at the specified row and column.
+'' Supports single panels, horizontal chains, vertical stacks, and 2D panel grids.
+''
+'' @param nChainIdx - index of the panel chain
+'' @param row - pixel row on the display
+'' @param column - pixel column on the display
+'' @param red - red channel value
+'' @param green - green channel value
+'' @param blue - blue channel value
+
+' Local Variables:
+' @local maxRows - total display rows
+' @local maxColumns - total display columns
+' @local rowIndex - clamped/rotated pixel row
+' @local columnIndex - clamped/rotated pixel column
+' @local colorOffset - byte offset into the screen buffer
+' @local pColor - pointer to the pixel within the screen buffer
+' @local pScreen - pointer to the display screen buffer
+' @local nPanelIndex - target panel index for the pixel
+' @local localRow - row within the target panel
+' @local localCol - column within the target panel
+' @local tempIdx - scratch value used while swapping coordinates
 
   maxRows, maxColumns := hub75Bffrs.displaySizeInPixels(nChainIdx)
   rowIndex := 0 #> row <# maxRows - 1

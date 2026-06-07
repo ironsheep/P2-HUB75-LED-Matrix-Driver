@@ -12,11 +12,9 @@
 '' =================================================================================================
 
 CON ' Object Interface: PUBLIC ENUMs
+    {Spin2_Doc_CON}
 
-    NOT_FOUND                 = -1
-
-    ' supported Text Fonts
-
+    ' supported Text Fonts (forwarded from fonts object for external consumers)
     TEXT_FONT_DEFAULT         = fonts.TEXT_FONT_DEFAULT
     TEXT_FONT_5X7             = fonts.TEXT_FONT_5X7
     TEXT_FONT_5X7_DITH        = fonts.TEXT_FONT_5X7_DITH
@@ -24,23 +22,40 @@ CON ' Object Interface: PUBLIC ENUMs
     TEXT_FONT_8X8A            = fonts.TEXT_FONT_8X8A
     TEXT_FONT_8X8B            = fonts.TEXT_FONT_8X8B
 
-    ' scrolling support
-    '  enum: scrolling direction (these start from 10 decimal)
+    ' scrolling direction (forwarded from scroller object; these start from 10 decimal):
+    '  DIR_UNKNOWN  - direction not yet set
+    '  DIR_TO_LEFT  - scroll text toward the left
+    '  DIR_TO_RIGHT - scroll text toward the right
+    '  DIR_DOWN     - scroll text downward
+    '  DIR_UP       - scroll text upward
     DIR_UNKNOWN               = scroller.DIR_UNKNOWN
     DIR_TO_LEFT               = scroller.DIR_TO_LEFT
     DIR_TO_RIGHT              = scroller.DIR_TO_RIGHT
     DIR_DOWN                  = scroller.DIR_DOWN
     DIR_UP                    = scroller.DIR_UP
 
-    ' enum: scrolling duration
+    ' scrolling duration (forwarded from scroller object):
+    '  SCROLL_UNKNOWN       - duration mode not yet set
+    '  SCROLL_FOREVER       - scroll continuously
+    '  SCROLL_ONCE          - scroll one pass then stop
+    '  SCROLL_ONCE_TO_CLEAR - scroll one pass to clear the region
+    '  SCROLL_N_TIMES       - scroll a specified number of passes
     SCROLL_UNKNOWN            = scroller.SCROLL_UNKNOWN
     SCROLL_FOREVER            = scroller.SCROLL_FOREVER
     SCROLL_ONCE               = scroller.SCROLL_ONCE
     SCROLL_ONCE_TO_CLEAR      = scroller.SCROLL_ONCE_TO_CLEAR
     SCROLL_N_TIMES            = scroller.SCROLL_N_TIMES
 
-    ' enum: text alignment (these start from 0 decimal)
+    ' text alignment (these start from 0 decimal):
+    '  ALIGN_UNKNOWN - alignment not specified
+    '  ALIGN_RIGHT   - align text to the right edge
+    '  ALIGN_CENTER  - center text within the field
+    '  ALIGN_LEFT    - align text to the left edge
     #0, ALIGN_UNKNOWN, ALIGN_RIGHT, ALIGN_CENTER, ALIGN_LEFT
+
+CON ' Object Interface: PRIVATE ENUMs
+
+    NOT_FOUND                 = -1
 
     ' FIXME: UNDONE make this user configurable
     MAX_SCROLLING_REGIONS     = 4
@@ -132,20 +147,20 @@ PUB null()
 '' This is not a top level object.
 ''
 
-PUB start(nChainIdx) : ok
+PUB start(nChainIdx) : workerCog
 '' Start the underlying driver(s).
 ''
 '' @param nChainIdx - the index of the desired chain
-'' @returns ok - cog ID or -1 on failure
+'' @returns workerCog - cog ID or -1 on failure
 
-  ok := startWithId(0, nChainIdx)
+  workerCog := startWithId(0, nChainIdx)
 
-PUB startWithId(nId, nChainIdx) : ok | scrollerIndex, dvrConfig, eChipType
+PUB startWithId(nId, nChainIdx) : workerCog | scrollerIndex, dvrConfig, eChipType
 '' Start the underlying driver(s) with a debug instance ID for multi-hub75 card configurations.
 ''
 '' @param nId - debug instance identifier
 '' @param nChainIdx - the index of the desired chain
-'' @returns ok - cog ID or -1 on failure
+'' @returns workerCog - cog ID or -1 on failure
 
 ' Local Variables:
 ' @local scrollerIndex - loop index for scroller initialization
@@ -157,11 +172,11 @@ PUB startWithId(nId, nChainIdx) : ok | scrollerIndex, dvrConfig, eChipType
   bDidShowOnce := FALSE
   bytefill(@padBuffer, 0, MAX_PAD_BUFFER_BYTES)
 
-  ok := cog := -1                                       ' mark as failed, initially
+  workerCog := cog := -1                                 ' mark as failed, initially
 
   DEBUG("DSP: start() #", udec_(instanceID))
-  ok := cog := panelSet.start(instanceID, chainIndex)   ' send buffer to driver
-  if ok == -1
+  workerCog := cog := panelSet.start(instanceID, chainIndex)   ' send buffer to driver
+  if workerCog == -1
     DEBUG("DSP: underlying drivers failed!")
     abort
 
@@ -239,6 +254,12 @@ PUB getBrightness() : brightness
 PUB fillScreen(rgbColor) | row, column
 '' Fill the display with 24-bit color value
 '' Uses display coordinates (applies panel column swap if needed)
+''
+'' @param rgbColor - 24-bit RGB color value
+
+' Local Variables:
+' @local row - display row loop index
+' @local column - display column loop index
 
   repeat maxDisplayRows with row
     repeat maxDisplayColumns with column
@@ -250,6 +271,15 @@ PUB fillPanel(panelIndex, rgbColor) | row, column, offsetPixelRows, offsetPixelC
 ''   2x2 grid: [0][1]    3x3 grid: [0][1][2]
 ''             [2][3]              [3][4][5]
 ''                                 [6][7][8]
+''
+'' @param panelIndex - zero-based index of the target panel
+'' @param rgbColor - 24-bit RGB color value
+
+' Local Variables:
+' @local row - panel row loop index
+' @local column - panel column loop index
+' @local offsetPixelRows - pixel row offset to the target panel
+' @local offsetPixelColumns - pixel column offset to the target panel
 
   offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, panelIndex)
   debug("fillPanel(", udec_(panelIndex), ") ", udec_(columnsPerPanel), "x", udec_(rowsPerPanel), " @ row=", udec_(offsetPixelRows), " col=", udec_(offsetPixelColumns))
@@ -773,24 +803,24 @@ PUB scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbCol
   ' debug("DSP: scrollTextAtRCOfColor() ", udec(indexAllocated))
   scroller[indexAllocated].scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbColor)
 
-PUB isScrollingComplete() : status | scrollerIndex
+PUB isScrollingComplete() : bComplete | scrollerIndex
 '' Return TRUE if all scrolling text region movements are complete.
 ''
-'' @returns status - TRUE when all scrollers are idle or finished
+'' @returns bComplete - TRUE when all scrollers are idle or finished
 
 ' Local Variables:
 ' @local scrollerIndex - loop index for checking each scroller
 
-  status := TRUE
+  bComplete := TRUE
   ' if one or more scrollers are still moving we are not done!
   repeat scrollerIndex from 0 TO MAX_SCROLLING_REGIONS - 1
     ' is this scroller active?
     if NOT scroller[scrollerIndex].isIdle()
       ' is its' scrolling complete?
       if NOT scroller[scrollerIndex].isScrollingComplete()
-        status := FALSE
+        bComplete := FALSE
         quit                                            ' outta here we have our answer
-    'if status
+    'if bComplete
     '    debug("DSP: isScrollingComplete() TRUE")
 
 PUB animateScroll() | scrollerIndex
@@ -857,9 +887,9 @@ PUB drawBoxOfColor(topRow, leftColumn, width, height, filled, rgbColor) | rightC
 '' @param rgbColor - the 24-bit color value to use for the box & fill
 
 ' Local Variables:
-' @local rightColumn -
-' @local bottomRow -
-' @local rowIndex -
+' @local rightColumn - column number of the right edge
+' @local bottomRow - row number of the bottom edge
+' @local rowIndex - row loop index when filling
 
   rightColumn := leftColumn + width - 1
   bottomRow := topRow + height - 1
@@ -897,11 +927,11 @@ PUB drawPanelBoxOfColor(panelIndex, topRow, leftColumn, width, height, filled, r
 '' @param rgbColor - the 24-bit color value to use for the box & fill
 
 ' Local Variables:
-' @local rightColumn -
-' @local bottomRow -
-' @local rowIndex -
-' @local offsetPixelRows -
-' @local offsetPixelColumns -
+' @local rightColumn - column number of the right edge
+' @local bottomRow - row number of the bottom edge
+' @local rowIndex - row loop index when filling
+' @local offsetPixelRows - pixel row offset to the target panel
+' @local offsetPixelColumns - pixel column offset to the target panel
 
   offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, panelIndex)
   topRow :=  0 #> topRow <# rowsPerPanel - 1
@@ -938,6 +968,12 @@ PUB drawLine(fmRow, fmColumn, toRow, toColumn)
 PUB drawLineOfColor(fmRow, fmColumn, toRow, toColumn, rgbColor)
 '' Draw line fromRC -> toRC using rgbColor
 '' Uses display coordinates (applies panel column swap if needed)
+''
+'' @param fmRow - starting pixel row
+'' @param fmColumn - starting pixel column
+'' @param toRow - ending pixel row
+'' @param toColumn - ending pixel column
+'' @param rgbColor - 24-bit RGB color value
 
   drawLineInternal(fmRow, fmColumn, toRow, toColumn, rgbColor, TRUE)
 
@@ -955,6 +991,18 @@ PUB drawPanelLine(panelIndex, fmRow, fmColumn, toRow, toColumn)
 PUB drawPanelLineOfColor(panelIndex, fmRow, fmColumn, toRow, toColumn, rgbColor) | desiredPanelIndex, offsetPixelRows, offsetPixelColumns
 '' Draw line fromRC -> toRC using rgbColor within a specific panel
 '' Uses panel coordinates (no panel column swap - direct wire-order drawing)
+''
+'' @param panelIndex - zero-based index of the target panel
+'' @param fmRow - starting pixel row relative to the panel
+'' @param fmColumn - starting pixel column relative to the panel
+'' @param toRow - ending pixel row relative to the panel
+'' @param toColumn - ending pixel column relative to the panel
+'' @param rgbColor - 24-bit RGB color value
+
+' Local Variables:
+' @local desiredPanelIndex - panel index clamped to valid range
+' @local offsetPixelRows - pixel row offset to the target panel
+' @local offsetPixelColumns - pixel column offset to the target panel
 
   fmRow :=  0 #> fmRow <# rowsPerPanel - 1
   fmColumn :=  0 #> fmColumn <# columnsPerPanel - 1
@@ -966,9 +1014,19 @@ PUB drawPanelLineOfColor(panelIndex, fmRow, fmColumn, toRow, toColumn, rgbColor)
   drawLineInternal(fmRow + offsetPixelRows, fmColumn + offsetPixelColumns, toRow + offsetPixelRows, toColumn + offsetPixelColumns, rgbColor, FALSE)
 
 PRI drawLineInternal(fmRow, fmColumn, toRow, toColumn, rgbColor, bUseDisplayCoords) | row, column
-    '' Internal line drawing with control over coordinate system
-    '' @param bUseDisplayCoords - TRUE for display routines (applies panel column swap)
-    ''                          - FALSE for panel routines (direct wire-order drawing)
+' Internal line drawing with control over coordinate system
+'
+' @param fmRow - starting pixel row
+' @param fmColumn - starting pixel column
+' @param toRow - ending pixel row
+' @param toColumn - ending pixel column
+' @param rgbColor - 24-bit RGB color value
+' @param bUseDisplayCoords - TRUE for display routines (applies panel column swap), FALSE for panel routines (direct wire-order drawing)
+
+' Local Variables:
+' @local row - pixel row loop index
+' @local column - pixel column loop index
+
     fmRow :=  0 #> fmRow <# maxDisplayRows - 1
     fmColumn :=  0 #> fmColumn <# maxDisplayColumns - 1
     toRow :=  0 #> toRow <# maxDisplayRows - 1
@@ -996,7 +1054,22 @@ PRI drawLineInternal(fmRow, fmColumn, toRow, toColumn, rgbColor, bUseDisplayCoor
 
 
 PRI plotLineLowInternal(x0, y0, x1, y1, rgbColor, bUseDisplayCoords) | row, column, dy, dx, D, yi
-'' Bresenham line algorithm for shallow slopes
+' Bresenham line algorithm for shallow slopes
+'
+' @param x0 - starting pixel column
+' @param y0 - starting pixel row
+' @param x1 - ending pixel column
+' @param y1 - ending pixel row
+' @param rgbColor - 24-bit RGB color value
+' @param bUseDisplayCoords - TRUE applies panel column swap, FALSE uses wire-order drawing
+
+' Local Variables:
+' @local row - current pixel row
+' @local column - current pixel column loop index
+' @local dy - delta in row
+' @local dx - delta in column
+' @local D - Bresenham decision accumulator
+' @local yi - row step direction
 
   dx := x1 - x0
   dy := y1 - y0
@@ -1016,7 +1089,22 @@ PRI plotLineLowInternal(x0, y0, x1, y1, rgbColor, bUseDisplayCoords) | row, colu
       D := D + BRESENHAM_TWO * dy
 
 PRI plotLineHighInternal(x0, y0, x1, y1, rgbColor, bUseDisplayCoords) | row, column, dy, dx, D, xi
-'' Bresenham line algorithm for steep slopes
+' Bresenham line algorithm for steep slopes
+'
+' @param x0 - starting pixel column
+' @param y0 - starting pixel row
+' @param x1 - ending pixel column
+' @param y1 - ending pixel row
+' @param rgbColor - 24-bit RGB color value
+' @param bUseDisplayCoords - TRUE applies panel column swap, FALSE uses wire-order drawing
+
+' Local Variables:
+' @local row - current pixel row loop index
+' @local column - current pixel column
+' @local dy - delta in row
+' @local dx - delta in column
+' @local D - Bresenham decision accumulator
+' @local xi - column step direction
 
   dx := x1 - x0
   dy := y1 - y0
@@ -1036,9 +1124,13 @@ PRI plotLineHighInternal(x0, y0, x1, y1, rgbColor, bUseDisplayCoords) | row, col
       D := D + BRESENHAM_TWO*dx
 
 PRI drawPixelInternal(row, column, rgbColor, bUseDisplayCoords)
-    '' Draw a single pixel with coordinate system control
-    '' @param bUseDisplayCoords - TRUE applies panel column swap (for display routines)
-    ''                          - FALSE uses direct wire-order (for panel routines)
+' Draw a single pixel with coordinate system control
+'
+' @param row - pixel row position
+' @param column - pixel column position
+' @param rgbColor - 24-bit RGB color value
+' @param bUseDisplayCoords - TRUE applies panel column swap (for display routines), FALSE uses direct wire-order (for panel routines)
+
     if bUseDisplayCoords
         drawDisplayPixel(row, column, rgbColor)
     else
@@ -1058,15 +1150,15 @@ PUB drawCircle(row, column, radius)
 PUB drawCircleOfColor(ctrRow, ctrColumn, radius, rgbColor) | column, row, decision
 '' Draw circle centered at R,C of radius using rgbColor
 ''
-'' @param row - row number of center-point
-'' @param column - column number of center-point
+'' @param ctrRow - row number of center-point
+'' @param ctrColumn - column number of center-point
 '' @param radius - radius of circle
 '' @param rgbColor - draw outline using this 24-bit color value
 
 ' Local Variables:
-' @local column -
-' @local row -
-' @local decision -
+' @local column - current column offset from center
+' @local row - current row offset from center
+' @local decision - Bresenham circle decision accumulator
 
     ' Function for circle-generation
     ' using Bresenham's algorithm
@@ -1088,6 +1180,14 @@ PUB drawCircleOfColor(ctrRow, ctrColumn, radius, rgbColor) | column, row, decisi
 
 
 PRI drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor)
+' Draw the eight symmetric points of a circle for the given octant offsets.
+'
+' @param ctrRow - row number of center-point
+' @param ctrColumn - column number of center-point
+' @param row - row offset from center
+' @param column - column offset from center
+' @param rgbColor - 24-bit RGB color value
+
     ' for each pixel we will
     ' draw all eight pixels
     ' NOTE: row/column here are offsets from center, not absolute coordinates
@@ -1103,8 +1203,21 @@ PRI drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor)
 
 
 PRI drawDisplayPixel(row, column, rgbColor) | panelCols, pnlsPerCol, pnlsPerRow, panelColIdx, localColInPanel, swappedColumn
-    '' Draw pixel at display coordinates, applying panel column swap if needed
-    '' This is used by display-level routines only (not panel routines)
+' Draw pixel at display coordinates, applying panel column swap if needed
+' This is used by display-level routines only (not panel routines)
+'
+' @param row - pixel row position
+' @param column - pixel column position
+' @param rgbColor - 24-bit RGB color value
+
+' Local Variables:
+' @local panelCols - columns per panel
+' @local pnlsPerCol - number of panel rows in the display
+' @local pnlsPerRow - number of panel columns in the display
+' @local panelColIdx - panel column index of the target pixel
+' @local localColInPanel - column position within the panel
+' @local swappedColumn - column after panel column swap
+
     swappedColumn := column
     if hub75Bffrs.needsPanelColumnSwap(chainIndex)
         panelCols := columnsPerPanel

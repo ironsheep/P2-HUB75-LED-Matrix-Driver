@@ -11,10 +11,19 @@
 ''
 '' =================================================================================================
 
-CON ' Object Interface: PUBLIC ENUMs
+CON ' ---- Font Selectors ----
+    {Spin2_Doc_CON}
 
-' supported fonts:
+    ' supported fonts (selector passed to text APIs):
+    '  TEXT_FONT_DEFAULT        - default font (same as 5x7)
+    '  TEXT_FONT_5X7            - 5x7 fixed font
+    '  TEXT_FONT_8X8A           - 8x8 font, variant A
+    '  TEXT_FONT_8X8B           - 8x8 font, variant B
+    '  TEXT_FONT_5X7_DITH       - 5x7 dithered (2 bits per pixel)
+    '  TEXT_FONT_5X7_DITH_DCNDR - 5x7 dithered with descenders
     #0, TEXT_FONT_DEFAULT, TEXT_FONT_5X7, TEXT_FONT_8X8A, TEXT_FONT_8X8B, TEXT_FONT_5X7_DITH, TEXT_FONT_5X7_DITH_DCNDR
+
+CON ' ---- Font Geometry / Sizing ----
 
     FONT_8X8A_BYTES_PER_CHAR      = 8
     FONT_8X8B_BYTES_PER_CHAR      = 8

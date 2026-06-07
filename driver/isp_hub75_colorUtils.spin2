@@ -11,11 +11,18 @@
 ''
 '' =================================================================================================
 
-CON
+CON ' ---- LED Color Channel IDs ----
+    {Spin2_Doc_CON}
 
+    ' LED color-channel selectors (passed as the led parameter):
+    '  LED_UNKNOWN - no/unknown channel
+    '  LED_RED     - red channel
+    '  LED_GREEN   - green channel
+    '  LED_BLUE    - blue channel
     #0, LED_UNKNOWN, LED_RED, LED_GREEN, LED_BLUE
 
-    ' --- color channel scaling / masks / shifts ---
+CON ' ---- Color Scaling / Masks / Shifts ----
+
     MAX_COLOR_VALUE         = 255           ' 8-bit channel full-scale
     CHANNEL_MASK            = $ff           ' single 8-bit channel
     RED_MASK                = $ff0000       ' red channel within combined RGB
@@ -24,16 +31,16 @@ CON
     GREEN_SHIFT             = 8             ' green channel bit position (== BITS_PER_CHANNEL)
     BITS_PER_CHANNEL        = 8             ' bits in a single color channel
 
-    ' --- brightness scaling ---
+    ' brightness scaling
     FULL_BRIGHTNESS         = 256           ' "no reduction" sentinel (DAT default 256)
     BRIGHTNESS_SHIFT        = 8             ' divide-by-256
     BRIGHTNESS_ROUND_BIAS   = 128           ' +half-divisor for round-to-nearest
 
-    ' --- bit-width remap / gamma table ---
+    ' bit-width remap / gamma table
     SOURCE_COLOR_BITS       = 8             ' 8-bit input depth
     GAMMA_TABLE_MAX_IDX     = 255           ' 256-entry table last index
 
-    ' --- HSV hue-wheel math ---
+    ' HSV hue-wheel math
     DEGREES_PER_CIRCLE      = 360
     DEGREES_PER_HUE_SEGMENT = 60            ' 6 sextants
     HUE_SEGMENT_MAX_IDX     = 59            ' 60-step segment last index
@@ -90,7 +97,9 @@ PUB isGammaEnabled() : bIsEnabled
   bIsEnabled := bGammaEnable
 
 PUB correctedColor(nChainIdx, color) : adjustedColor
-    '' Correct a color using generic gamma
+'' Correct a color using generic gamma
+''
+
     adjustedColor := color
     'return
     'adjustedColor := byte[@gamma][adjustedColor]
@@ -98,7 +107,9 @@ PUB correctedColor(nChainIdx, color) : adjustedColor
     adjustedColor := colorAtDesiredBitWidth(nChainIdx, adjustedColor)
 
 PUB correctedSingleColor(nChainIdx, led, colorValue) : adjustedColor | pGammaTable
-    '' Correct the color for a specific LED (R, G, or B)
+'' Correct the color for a specific LED (R, G, or B)
+''
+
     adjustedColor := colorValue
     case led
         LED_RED:
@@ -271,7 +282,9 @@ PUB gammaPtrs(): pGammaRed, pGammaGreen, pGammaBlue
   pGammaBlue := @gamma
 
 PUB colorAtDesiredBitWidth(nChainIdx, hex8bit) : pwmBits
-    '' CALCULATE: proper duty cycle for intensity of 0-255
+'' CALCULATE: proper duty cycle for intensity of 0-255
+''
+
     shiftLtValue := SOURCE_COLOR_BITS - hub75Bffrs.colorDepth(nChainIdx)
     nbrPwmFrames := hub75Bffrs.pwmFrameCount(nChainIdx)
     'debug("- color CFG: ", udec_long(shiftLtValue), udec_long(nbrPwmFrames))

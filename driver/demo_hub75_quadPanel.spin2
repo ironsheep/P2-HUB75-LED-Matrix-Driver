@@ -47,6 +47,11 @@ CON ' DEMO info
     ' 11 enables .bmp file display
     DEMO_COUNT = 3
 
+    ' Panel-position indices for the quad-panel display (display order):
+    '  PNL_TOPLEFT  - top-left panel     (index 0)
+    '  PNL_TOPRIGHT - top-right panel    (index 1)
+    '  PNL_BOTLEFT  - bottom-left panel  (index 2)
+    '  PNL_BOTRIGHT - bottom-right panel (index 3)
     #0, PNL_TOPLEFT, PNL_TOPRIGHT, PNL_BOTLEFT, PNL_BOTRIGHT
 
 DAT

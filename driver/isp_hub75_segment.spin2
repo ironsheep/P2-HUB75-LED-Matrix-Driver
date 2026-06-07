@@ -24,13 +24,34 @@
 '     E   C
 '       D
 
-CON ' segment states, names, orientations and such
-
+CON ' ---- Segment Orientation and State ----
+    {Spin2_Doc_CON}
+    ' Segment orientations (which of the seven segments this instance draws):
+    '  SEG_UNKNOWN - orientation not yet set
+    '  SEG_LEFT_E  - lower-left vertical segment (E)
+    '  SEG_LEFT_F  - upper-left vertical segment (F)
+    '  SEG_RIGHT_B - upper-right vertical segment (B)
+    '  SEG_RIGHT_C - lower-right vertical segment (C)
+    '  SEG_TOP     - top horizontal segment (A)
+    '  SEG_MIDDLE  - middle horizontal segment (G)
+    '  SEG_BOTTOM  - bottom horizontal segment (D)
     #0, SEG_UNKNOWN, SEG_LEFT_E, SEG_LEFT_F, SEG_RIGHT_B, SEG_RIGHT_C, SEG_TOP, SEG_MIDDLE, SEG_BOTTOM
+    ' Segment animation states (slide-on / slide-off progression):
+    '  STATE_UNKNOWN - state not yet set
+    '  STATE_OFF     - fully retracted (not showing)
+    '  STATE_3RD_ON  - one-third of the way on
+    '  STATE_6TH_ON  - further on (two lines showing)
+    '  STATE_ON      - fully extended (showing)
+    '  STATE_3RD_OFF - retracting (two lines showing)
+    '  STATE_6TH_OFF - nearly retracted (one line showing)
     #0, STATE_UNKNOWN, STATE_OFF, STATE_3RD_ON, STATE_6TH_ON, STATE_ON, STATE_3RD_OFF, STATE_6TH_OFF
 
+CON ' ---- Segment Dimensions ----
+    {Spin2_Doc_CON}
     SEG_WIDTH   = 3
     SEG_LENGTH  = 10
+
+CON ' ---- Internal Drawing Constants ----
 
     ' taper insets: a segment is SEG_WIDTH (3) pixels across; each drawn line steps
     '  one pixel further in so the segment ends come to a point (0=outer, 2=innermost)

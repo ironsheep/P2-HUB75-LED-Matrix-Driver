@@ -72,6 +72,13 @@ CON ' Data
     YELLOW                        = $06
     WHITE                         = $07
 
+' Driver command codes (internal cog dispatch, caller writes one into dvrCommand):
+'  CMD_DONE            - no command pending / command completed
+'  CMD_CLEAR           - clear the display buffer
+'  CMD_SHOW_BUFFER     - copy and display caller buffer (no PWM)
+'  CMD_FILL_COLOR      - fill the cog buffer with a 3-bit color
+'  CMD_SHOW_PWM_BUFFER - display a PWM frame set
+'  CMD_STOP            - stop the driver cog
     #0, CMD_DONE, CMD_CLEAR, CMD_SHOW_BUFFER, CMD_FILL_COLOR, CMD_SHOW_PWM_BUFFER, CMD_STOP
 
 CON { HUB75 pin layout offsets (relative to adapter base pin) }
@@ -254,12 +261,12 @@ PUB null()
 '' This is not a top level object.
 ''
 
-PUB start(nID, nChainIdx) : ok | tmpVar, panelCt, tmpConstant, widthInPanels, heightInPanels, pwmRowSizeInLongs, pwmRowsInCogBuffer
+PUB start(nID, nChainIdx) : startedCog | tmpVar, panelCt, tmpConstant, widthInPanels, heightInPanels, pwmRowSizeInLongs, pwmRowsInCogBuffer
 '' Set up PASM2 driver variables and start a new cog running the matrix driver.
 ''
-'' @param nId - debug instance id
+'' @param nID - debug instance id
 '' @param nChainIdx - index of the desired chain
-'' @returns ok - cogID() of driver cog if successful, -1 if not
+'' @returns startedCog - cogID() of driver cog if successful, -1 if not
 
 ' Local Variables:
 ' @local tmpVar - temporary value for debug output
@@ -557,8 +564,8 @@ PUB start(nID, nChainIdx) : ok | tmpVar, panelCt, tmpConstant, widthInPanels, he
   ptrArgument := @dvrArgument
   dvrCommand := CMD_DONE                                                        ' ensure we start here
 
-  ok := cog := COGINIT(COGINIT_FREE_COG, @drive_matrix, @ptrCommand) + 1
-  if ok == -1
+  startedCog := cog := COGINIT(COGINIT_FREE_COG, @drive_matrix, @ptrCommand) + 1
+  if startedCog == -1
     DEBUG("- Matrix: pasm cog start failed!")
     abort
   ' repeat        ' do nothing, forever (lock us up) -- for TESTING ONLY
@@ -586,7 +593,16 @@ PUB stop()
 
 ' --------------------------------------------------------------------------------------------------
 PUB cmdFillScreenNoPWM(color3bit) | cValue, redBit, greenBit, blueBit
-  '' Request that driver fill the buffer with {3bitColor} value (no PWM)
+'' Request that the driver fill the buffer with a 3-bit color value (no PWM).
+''
+'' @param color3bit - 3-bit RGB color value to fill
+
+' Local Variables:
+' @local cValue - clamped, swap-corrected 3-bit color value
+' @local redBit - extracted red channel bit
+' @local greenBit - extracted green channel bit
+' @local blueBit - extracted blue channel bit
+
   cValue := 0 #> color3bit <# WHITE
   if bSwapRB
     ' if our driver says Red and Blue are swapped let's do so!
@@ -600,16 +616,25 @@ PUB cmdFillScreenNoPWM(color3bit) | cValue, redBit, greenBit, blueBit
   repeat while (dvrCommand <> CMD_DONE)
 
 PUB cmdClearPanel()
-  '' Request that driver fill the buffer with 0's - black
+'' Request that the driver fill the buffer with 0's - black.
+''
+
   cmdFillScreenNoPWM(BLACK)
 
 PUB cmdWriteBuffer(pBuffer)
-  '' Request that driver copy our buffer to its buffer and display it (no PWM)
+'' Request that the driver copy our buffer to its buffer and display it (no PWM).
+''
+'' @param pBuffer - pointer to the buffer to display
+
   dvrArgument := pBuffer
   dvrCommand := CMD_SHOW_BUFFER
   repeat while (dvrCommand <> CMD_DONE)
 
 PUB cmdWritePwmBuffer(pBuffer)
+'' Request that the driver display the given PWM frame set (returns immediately).
+''
+'' @param pBuffer - pointer to the PWM frame set to display
+
   'debug("- r3b:wrtPwmBuffer ")
   dvrArgument := pBuffer
   dvrCommand := CMD_SHOW_PWM_BUFFER

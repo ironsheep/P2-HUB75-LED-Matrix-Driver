@@ -105,12 +105,12 @@ PUB null()
 '' Placeholder to prevent this object from being used as a top-level file.
 ''
 
-PUB start(nID, nChainIdx) : ok | panelCt, wireIdx
+PUB start(nID, nChainIdx) : startedCog | panelCt, wireIdx
 '' Start the backend PASM2 driver for the matrix.
 ''
 '' @param nID - panel instance identifier
 '' @param nChainIdx - index of this panel in the daisy-chain
-'' @returns ok - cog ID on success or -1 on failure
+'' @returns startedCog - cog ID on success or -1 on failure
 
 ' Local Variables:
 ' @local panelCt - number of panels in this chain
@@ -151,8 +151,8 @@ PUB start(nID, nChainIdx) : ok | panelCt, wireIdx
   clearPwmFrameBuffer()                                 ' clear PWM frames  and get pointer to buffer
   clearPwmFrameBuffer()                                 ' this clears 2nd frame-set, too
 
-  ok := cog := matrix.start(instanceID, chainIndex)     ' send buffer to driver
-  if ok == -1
+  startedCog := cog := matrix.start(instanceID, chainIndex)     ' send buffer to driver
+  if startedCog == -1
     DEBUG("- PNL: underlying drivers failed!")
     abort
 
@@ -460,11 +460,26 @@ doneS8
 ' -----------------------------------------------------------------------------
 
 PUB convertScreen2PWM(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet, lChainCols, lPanelCols, lHalfPanelRows, lPanelPixels, lDisplayBytesPerColor, lPwmFrameSizeInBytes, lMaxPwmBuffers
+'' Load a 24-bit image into PWM frame buffers at 16s, 32s (2 scan-lines at a time) using inline PASM.
+'' Screen buffer is in wire-panel-major order (pixels stored sequentially per wire panel).
+'' This reads directly by chain position - no wire->display mapping needed.
+''
+'' @param p24bitScreen - pointer to 24-bit screen buffer
+'' @param bSwapRB - TRUE to swap red and blue channels
+'' @param bSwapGB - TRUE to swap green and blue channels
+
+' Local Variables:
+' @local pPwmFrameSet - pointer to active PWM frame set
+' @local lChainCols - total columns in the physical chain
+' @local lPanelCols - columns per panel
+' @local lHalfPanelRows - half panel height for RGB1/RGB2 split
+' @local lPanelPixels - pixels per panel
+' @local lDisplayBytesPerColor - bytes per color in the display buffer
+' @local lPwmFrameSizeInBytes - size of one PWM frame in bytes
+' @local lMaxPwmBuffers - number of PWM buffers (color depth)
+
 ' NOTE: 16 longs total avail to inline pasm: params + return + local
 '  --> 11/16 used
-'' Load a 24-bit image into PWM frame buffers at 16s, 32s (2 scan-lines at a time) [PASM]
-'' Screen buffer is in wire-panel-major order (pixels stored sequentially per wire panel)
-'' This reads directly by chain position - no wire->display mapping needed
 
   ' save address of 24bit screen for use by called routines
   pScreenInMemory := p24bitScreen

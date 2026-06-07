@@ -11,14 +11,27 @@
 ''
 '' =================================================================================================
 
-CON ' public control values
-
-' scrolling support
-'  enum: scrolling direction
+CON ' ---- Scroll Direction ----
+    {Spin2_Doc_CON}
+    ' Scrolling direction values:
+    '  DIR_UNKNOWN  - direction not yet set
+    '  DIR_TO_LEFT  - scroll text toward the left
+    '  DIR_TO_RIGHT - scroll text toward the right
+    '  DIR_UP       - scroll text upward
+    '  DIR_DOWN     - scroll text downward
     #10, DIR_UNKNOWN, DIR_TO_LEFT, DIR_TO_RIGHT, DIR_UP, DIR_DOWN
 
-' enum: scrolling duration
+CON ' ---- Scroll Duration ----
+    {Spin2_Doc_CON}
+    ' Scrolling duration modes:
+    '  SCROLL_UNKNOWN       - duration mode not yet set
+    '  SCROLL_FOREVER       - scroll continuously
+    '  SCROLL_ONCE          - scroll one pass then stop
+    '  SCROLL_ONCE_TO_CLEAR - scroll one pass to clear the region
+    '  SCROLL_N_TIMES       - scroll a specified number of passes
     #0, SCROLL_UNKNOWN, SCROLL_FOREVER, SCROLL_ONCE, SCROLL_ONCE_TO_CLEAR, SCROLL_N_TIMES
+
+CON ' ---- Internal Sizing ----
 
     MAX_CHARS_PER_LINE           = 10                               ' max 10 chars per line
     MAX_SCROLL_LINES             = 3                                 ' 3 lines wide
@@ -472,14 +485,14 @@ PRI placeColrCharsVtOfstAtRC(row, column, vtPxOffset, windowWidth, rgbColor) | e
     'debug("stx:plcChr ", udec(charIndex), udec(endColumn), udec(headWidthInPix), udec(tailWidthInPix))
     endColumn := placeColrBitmapVtOffsetAtRC(row, endColumn, vtPxOffset, pChrBitmap, rgbColor)
 
-PRI min(a, b) : smallerNumber
+PRI min(firstValue, secondValue) : smallerNumber
 ' Return the smaller of two numbers.
 '
-' @param a - first value to compare
-' @param b - second value to compare
-' @returns smallerNumber - the lesser of a and b
+' @param firstValue - first value to compare
+' @param secondValue - second value to compare
+' @returns smallerNumber - the lesser of firstValue and secondValue
 
-  smallerNumber := (a < b) ? a : b
+  smallerNumber := (firstValue < secondValue) ? firstValue : secondValue
 
 PRI placeSpaceAtRC(row, column, widthInPix) : endColumn | colIndex, rowIndex
 ' Write blank pixels for inter-character spacing at the given position.

@@ -64,7 +64,7 @@ PUB fillScreenFromBMP(nChainIdx, pBmpFile)
 
   chainIndex := nChainIdx
   maxRowPixels, maxColPixels := hub75Bffrs.displaySizeInPixels(chainIndex)
-  '' Load a 24-bit .bmp file image into screen buffer (panel sized, only!)
+  ' Load a 24-bit .bmp file image into screen buffer (panel sized, only!)
   loadBitmap(pBmpFile)
 
 PRI loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, haveError, bInvalidFileStatus
@@ -96,14 +96,14 @@ PRI loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, haveError,
       red, green, blue := get24BitBMPColorForRC(nPanelRow, nPanelCol)
       pixels.drawPixelAtRC(chainIndex, nPanelRow, nPanelCol, colorUtils.cValueForRGB(red, green, blue))
 
-PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader, i
+PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader, paletteByteCount
 ' Parse and validate the .BMP file header, returning TRUE if the file is a supported format.
 '
 ' @param pBmpFileImage - pointer to the in-memory .bmp file data
 ' @returns bValidStatus - TRUE if the file is a valid uncompressed 24-bit BMP of panel size
 '
 ' @local pFileHeader - moving pointer through header fields during parsing
-' @local i - computed palette byte count
+' @local paletteByteCount - computed palette byte count
 
   ' XYZZYpnl debug("- Studying in-memory file")
   bValidStatus := TRUE
@@ -123,8 +123,8 @@ PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader, i
   pFileHeader += BMP_DIB_TAIL_BYTES
 
   'calculate actual bytes in palette
-  i := bfOffBits - BMP_HEADER_SIZE
-  pFileHeader += i
+  paletteByteCount := bfOffBits - BMP_HEADER_SIZE
+  pFileHeader += paletteByteCount
 
   ' XYZZYpnl debug("BitMap file @0x", uhex_(pBmpFileImage))
   ' XYZZYpnl debug(" - size=", udec_(bfSize))
@@ -155,6 +155,16 @@ PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader, i
   'hub75Bffrs.dbgMemDump(@fileHeaderMsg, pBmpFileImage, bfOffBits)
 
 PRI get24BitBMPColorForRC(nRow, nColumn) : red, green, blue | pixColorAddr
+' Return the red, green, and blue channel values for the pixel at the given row and column.
+'
+' @param nRow - panel row of the pixel
+' @param nColumn - panel column of the pixel
+' @returns red - red channel value of the pixel
+' @returns green - green channel value of the pixel
+' @returns blue - blue channel value of the pixel
+'
+' @local pixColorAddr - address of the pixel color bytes within the file image
+
   if(nRow > maxRowPixels - 1)
     debug("- ERROR bad nRow value [", udec_(nRow), " > ", udec_(maxRowPixels - 1), "]")
 
@@ -168,6 +178,18 @@ PRI get24BitBMPColorForRC(nRow, nColumn) : red, green, blue | pixColorAddr
   red := BYTE[pixColorAddr][BMP_RED_OFST]
 
 PRI getPixelAddressForBMPRowColumn(nRow, nColumn) : pixColorAddr | rowIndex, columnIndex, nOffset, fileBitsBase, showDebug
+' Compute the in-memory address of the pixel color bytes for the given row and column.
+'
+' @param nRow - panel row of the pixel
+' @param nColumn - panel column of the pixel
+' @returns pixColorAddr - address of the pixel color bytes within the file image
+'
+' @local rowIndex - file row index (inverted from panel row)
+' @local columnIndex - file column index
+' @local nOffset - byte offset of the pixel within the image data
+' @local fileBitsBase - base address of the image data (past the header)
+' @local showDebug - TRUE when debug output is enabled for this location
+
   ' Row is inverted in .BMP file...
   rowIndex := (maxRowPixels - 1) - nRow
 

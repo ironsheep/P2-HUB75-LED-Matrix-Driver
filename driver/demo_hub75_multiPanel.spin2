@@ -46,6 +46,13 @@ CON ' DEMO info
 ' 11 enables .bmp file display
     DEMO_COUNT  = 3
 
+    ' Panel-position indices for the multi-panel (cube-face) layout:
+    '  PNL_TOP    - top face panel    (index 0)
+    '  PNL_FRONT  - front face panel  (index 1)
+    '  PNL_RIGHT  - right face panel  (index 2)
+    '  PNL_BACK   - back face panel   (index 3)
+    '  PNL_LEFT   - left face panel   (index 4)
+    '  PNL_BOTTOM - bottom face panel (index 5)
     #0, PNL_TOP, PNL_FRONT, PNL_RIGHT, PNL_BACK, PNL_LEFT, PNL_BOTTOM
 
 DAT
