@@ -15,12 +15,11 @@
 
 CON ' Hardware Interface Constants
 
-' =================================================================================================
-'  (1) here the P2 EVAL HUB75 Adapter is plugged in
-'   NOTE: The board does NOT run in PINS_P48_P63 (DO NOT USE THIS VALUE - Validation will FAIL!)
-'   NOTE2: We don't provide PINS_P24_P39 value this would span the upper and lower 32 pin groups
-' =================================================================================================
-    #0[8], PINS_P0_P15, PINS_P8_P23, PINS_P16_P31, PINS_P24_P39, PINS_P32_P47, PINS_P40_P55, PINS_P48_P63
+' ---- (1) HUB75 Pin Group: where the P2 EVAL HUB75 Adapter is plugged in ----
+'  A HUB75 adapter is a 16-pin board; it mounts on one 16-pin group. The pin range
+'  is carried in each name, so no math is needed to know which pins are involved.
+'  PIN_GROUP_P48_P63 is NOT provided: pins 48-63 overlap the P2's predefined (reserved) pins.
+    #0[16], PIN_GROUP_P0_P15, PIN_GROUP_P16_P31, PIN_GROUP_P32_P47
 
 ' =================================================================================================
 '  (2) how many HUB75 boards are you connecting?

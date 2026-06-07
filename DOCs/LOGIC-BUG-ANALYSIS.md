@@ -102,35 +102,57 @@ forwarding blocks already matched. **Status: FIXED (this work).**
 
 ---
 
-## PG-1 - Pin-group enum structure (PROPOSED - needs Stephen's decision)
+## PG-1 - Pin-group enum structure (APPLIED)
 
-- **Status:** PROPOSED. Not applied -- it changes hardware-validation semantics and
-  the `rgb3bit` pin-base dispatch, so it needs confirmation.
+- **Status:** APPLIED (this work). Decided with Stephen: keep a stride enum and carry
+  the pin range in each name (no comments needed for the names; less developer math).
+  Final names: `PIN_GROUP_P0_P15`, `PIN_GROUP_P16_P31`, `PIN_GROUP_P32_P47` (stride
+  16). `P48_P63` dropped (reserved pins) with a single comment by the enum explaining
+  why. Touched files: `hwEnums` (enum), `rgb3bit` (forwarding defs + dispatch `case`,
+  3 arms), `hwBufferAccess` (pin-base **validation** `case` -- now correctly rejects
+  the previously-accepted P8_P23/P40_P55), `hwPanelConfig` + `hwGeometry` (config
+  refs, also fixed a `PINs` casing typo), `anlyCheck` (its standalone local copy).
+  All 28 compile clean. **Note:** valid configs are functionally unchanged (the kept
+  groups keep values 0/16/32); only invalid options were removed. **Hardware-verify**
+  on macOS (§5b): a card on each of the 3 groups drives correctly; an invalid pin base
+  aborts with the validation message.
+- **Follow-on (not done):** `rgb3bit` `bSetMidPins` is now never set TRUE (it only
+  served the removed 8-offset groups). The `elseif bSetMidPins` branch and its PASM
+  check are harmlessly never-taken dead logic; removing them is cog-code surgery best
+  done with hardware in hand -- left for a later careful pass.
 - **Domain facts (from Stephen):** P2 Eval add-on boards consume either **8 adjacent
   pins** (one header) or **16 adjacent pins** (two adjacent headers). Pin groups are
-  fixed, starting at pin 0: **8-pin groups** every 8 (P0_P7, P8_P15, ...), **16-pin
+  fixed, anchored at pin 0: **8-pin groups** every 8 (P0_P7, P8_P15, ...), **16-pin
   groups** every 16 (P0_P15, P16_P31, P32_P47, P48_P63). **HUB75 boards are 16-pin
-  boards**, so the only valid pin groups for this driver are the four 16-pin groups:
-  `PINS_P0_P15`, `PINS_P16_P31`, `PINS_P32_P47`, `PINS_P48_P63`.
+  boards.** The fourth 16-pin group, **P48_P63, lands on RESERVED P2 pins and is NOT
+  usable** by HUB75. So there are exactly **three valid pin groups** -- P0_P15,
+  P16_P31, P32_P47 -- and the driver supports one HUB75 card per group (up to 3 cards,
+  matching the documented "up to 3 HUB75 adapters"). This is why the config files
+  reject P48 ("validation will FAIL") and why P24_P39 was never offered.
 - **Current state:** `isp_hub75_hwEnums.spin2` defines a 7-entry enum with stride 8:
   ```
   #0[8], PINS_P0_P15, PINS_P8_P23, PINS_P16_P31, PINS_P24_P39, PINS_P32_P47, PINS_P40_P55, PINS_P48_P63
   ```
-  This mixes the four valid 16-pin groups (bases 0/16/32/48) with three **8-offset
-  16-spans** (`PINS_P8_P23`=8, `PINS_P24_P39`=24, `PINS_P40_P55`=40) that are not valid
-  16-pin mounting positions for a HUB75 board. The file's own comments are already
-  inconsistent with the list ("we don't provide PINS_P24_P39"; "PINS_P48_P63 ... DO NOT
-  USE - validation will fail").
-- **Proposed fix:** reduce the enum to the four valid 16-pin groups with stride 16:
+  This mixes the valid groups with three **8-offset 16-spans** (`PINS_P8_P23`=8,
+  `PINS_P24_P39`=24, `PINS_P40_P55`=40) that are not valid 16-pin mount positions, and
+  it still lists the reserved `PINS_P48_P63`. The names also read as raw pin numbers --
+  nothing signals "pin-group selector," and the always-16 span is spelled redundantly.
+- **Proposed fix (naming + structure):** define only the three valid groups, named by a
+  group prefix + base pin (span implied, value = base pin); drop the reserved P48:
   ```
-  #0[16], PINS_P0_P15, PINS_P16_P31, PINS_P32_P47, PINS_P48_P63
+  PIN_GROUP_P0   = 0     ' HUB75 card on pins P0..P15
+  PIN_GROUP_P16  = 16    ' HUB75 card on pins P16..P31
+  PIN_GROUP_P32  = 32    ' HUB75 card on pins P32..P47
   ```
-  and update the dependent `case` in `isp_hub75_rgb3bit.spin2` (drop the three removed
-  cases) plus any pin-base validation. Reconcile the stale NOTE comments (is
-  `PINS_P48_P63` actually usable, or should it stay rejected?).
-- **Why deferred:** removing enum entries can break validation logic and any config that
-  references the removed names; and whether `PINS_P48_P63` is physically valid is a
-  hardware question only Stephen can settle. **Decision needed before applying.**
+  Then update the dependent `case` in `isp_hub75_rgb3bit.spin2` (which forwards the
+  same names per the name-match rule) and the `ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_*`
+  references in `isp_hub75_hwPanelConfig.spin2` and `demo_hub75_hwGeometry.spin2`.
+  Optional: keep a `PIN_GROUP_P48_RESERVED` sentinel only if validation should emit a
+  friendly "reserved pins" message.
+- **Why deferred:** coordinated rename across ~4 files that touches pin-base validation;
+  also confirm whether a P48 sentinel is wanted for validation messaging. **Decision
+  needed before applying.** (Supersedes the earlier `PINS_*` rename in rgb3bit, which
+  was an interim name-match fix.)
 
 ---
 

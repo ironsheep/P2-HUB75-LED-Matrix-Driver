@@ -208,13 +208,11 @@ PUB configure(eHub75Chain, ePinBase, eChipType, eAddrLines) | pEntry, nChainIdx,
   pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
   bValidPins := TRUE
   case ePinBase
-    hwEnum.PINS_P0_P15:
-    hwEnum.PINS_P8_P23:
-    hwEnum.PINS_P16_P31:
-    hwEnum.PINS_P32_P47:
-    hwEnum.PINS_P40_P55:
+    hwEnum.PIN_GROUP_P0_P15:
+    hwEnum.PIN_GROUP_P16_P31:
+    hwEnum.PIN_GROUP_P32_P47:
     other:
-      bValidPins := FALSE                               ' this is not a ligit base number PINS_P24_P39
+      bValidPins := FALSE                               ' only the 3 valid 16-pin groups; P48_P63 overlaps the P2's reserved pins
 
   if NOT bValidPins
     DEBUG("HUB75: configure() Invalid PinBase/PinGroup specfied: [isp_hub75_hwBufferAccess.spin2] Aborted!")

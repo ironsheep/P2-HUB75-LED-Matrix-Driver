@@ -34,7 +34,7 @@ CON ' Hardware Description
 '    max clock rate of 30MHz - [16.5ns hi/16.5ns lo]   TESTED NEW
 ' ----------------------------------------------------------
 {
-    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+    ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
 
     ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6126A
@@ -57,7 +57,7 @@ CON ' Hardware Description
 '     bottom half (lines 16-31) driven by R2,G2,B2 pins
 ' ----------------------------------------------------------
 {
-    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+    ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
 
     ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6126A
@@ -80,7 +80,7 @@ CON ' Hardware Description
 '     bottom half (lines 16-31) driven by R2,G2,B2 pins
 ' ----------------------------------------------------------
 {
-    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+    ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
 
     ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6126A
@@ -105,7 +105,7 @@ CON ' Hardware Description
 '    max clock rate of 30MHz - [16.5ns hi/16.5ns lo]   TESTED NEW
 ' ----------------------------------------------------------
 {
-    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+    ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
 
     ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6124
@@ -131,7 +131,7 @@ CON ' Hardware Description
 '    max clock rate of 20MHz - [25ns hi/25ns lo]
 ' ----------------------------------------------------------
 {
-    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+    ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
 
     ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
@@ -156,7 +156,7 @@ CON ' Hardware Description
 '    max clock rate of 20MHz - [25ns hi/25ns lo]   TESTED NEW
 ' ----------------------------------------------------------
 {
-    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+    ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
 
     ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
@@ -181,7 +181,7 @@ CON ' Hardware Description
 '    max clock rate of 20MHz - [25ns hi/25ns lo]   TESTED NEW
 ' ----------------------------------------------------------
 {
-    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+    ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
 
     ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = hwEnum.CHIP_MBI5124_8S
@@ -206,7 +206,7 @@ CON ' Hardware Description
 '    max clock rate of 30MHz - [16.5ns hi/16.5ns lo]   TESTED NEW
 ' ----------------------------------------------------------
 {
-    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+    ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
 
     ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = hwEnum.CHIP_GS6238S ' hwEnum.CHIP_UNKNOWN
@@ -231,7 +231,7 @@ CON ' Hardware Description
 '    max clock rate of 20MHz - [25ns hi/25ns lo]   TESTED NEW
 ' ----------------------------------------------------------
 {
-    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+    ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
 
     ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
@@ -256,7 +256,7 @@ CON ' Hardware Description
 '    max clock rate of 20MHz - [25ns hi/25ns lo]   TESTED NEW
 ' ----------------------------------------------------------
 {
-    ADAPTER_BASE_PIN = hwEnum.PINs_P16_P31
+    ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
 
     ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037_B
@@ -281,7 +281,7 @@ CON ' Hardware Description
 '    max clock rate of 20MHz - [25ns hi/25ns lo]   TESTED NEW
 ' ----------------------------------------------------------
 '{
-    ADAPTER_BASE_PIN   = hwEnum.PINs_P16_P31
+    ADAPTER_BASE_PIN   = hwEnum.PIN_GROUP_P16_P31
 
     ' (1) determine what form of signalling the driver should use
     PANEL_DRIVER_CHIP  = hwEnum.CHIP_ICN2037
