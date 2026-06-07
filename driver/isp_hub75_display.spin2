@@ -591,71 +591,6 @@ PUB setColoredCharAtLnCol(line, column, cChar, rgbColor) | pCharBitMap, cLineIdx
   else
     placeCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor)
 
-PRI placeCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor) | cRowOffset, cRowBits, cColOffset, pixColor, cBitOffset
-' Render a non-dithered character bitmap to the screen buffer.
-'
-' @param pCharBitMap - pointer to the character bitmap data
-' @param sRowPixIdx - screen row in pixels for top of character
-' @param sColumnPixIdx - screen column in pixels for left of character
-' @param rgbColor - 24-bit RGB color value
-
-' Local Variables:
-' @local cRowOffset - row offset within character bitmap
-' @local cRowBits - bit pattern for current row of character
-' @local cColOffset - column offset within character bitmap
-' @local pixColor - resolved pixel color (foreground or black)
-' @local cBitOffset - bit position within the row byte
-
-  repeat cRowOffset from 0 TO charHeightInPix - 1
-    cRowBits := BYTE[pCharBitMap][cRowOffset]
-    repeat cColOffset from 0 TO charWidthInPix - 1
-      cBitOffset := (charWidthInPix - 1) - cColOffset
-      pixColor := ((cRowBits & (1 << cBitOffset)) > 0) ? rgbColor : color.CBLACK
-      pixels.drawPixelAtRC(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor)
-
-PRI placeDitheredCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor) | cRowOffset, cRowBits, cColOffset, ditheredRGBColor, cBitOffset, pixVal, pixColor
-' Render a dithered character bitmap to the screen buffer using two brightness levels.
-'
-' @param pCharBitMap - pointer to the character bitmap data
-' @param sRowPixIdx - screen row in pixels for top of character
-' @param sColumnPixIdx - screen column in pixels for left of character
-' @param rgbColor - 24-bit RGB color value
-
-' Local Variables:
-' @local cRowOffset - row offset within character bitmap
-' @local cRowBits - word-sized bit pattern for current row
-' @local cColOffset - column offset within character bitmap
-' @local ditheredRGBColor - reduced brightness color for dithered pixels
-' @local cBitOffset - bit position within the row word
-' @local pixVal - 2-bit pixel value from the dithered font
-' @local pixColor - resolved pixel color for this position
-
-  ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, DITHER_BRIGHTNESS_PCT)  ' half-pixel brightness arg (36, not 50)
-  ' debug(" COLOR PERCENT ", uhex_long_(rgbColor), " -> ", uhex_long_(ditheredRGBColor))
-  repeat cRowOffset from 0 TO charHeightInPix - 1
-    cRowBits := WORD[pCharBitMap][cRowOffset]                                   ' ms 12 bits are char def'n (of the 16bits)
-    ' debug(" FONT row ", ubin_word_(cRowBits))
-    repeat cColOffset from 0 TO charWidthInPix - 1
-      cBitOffset := cColOffset * DITH_BITS_PER_PIX
-      pixVal := ((cRowBits << cBitOffset) & DITH_PIX_MASK) >> DITH_PIX_TOP_SHIFT
-      ' debug("   PIX ", ubin_(pixVal))
-      pixColor := rgbColor
-      if pixVal <> DITH_PIX_FULL
-        pixColor := (pixVal == DITH_PIX_HALF) ? ditheredRGBColor : color.CBLACK  ' val == [2,0] = black
-      pixels.drawPixelAtRC(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor)
-
-PRI incrCursorWithWrap()
-' Increment the cursor position, wrapping at end of line and end of screen.
-'
-
-  cursorColumn++
-  if cursorColumn > maxTextColumns - 1
-    cursorColumn := 0
-    cursorLine++
-    if cursorLine > maxTextLines - 1
-      cursorLine := 0
-    ' debug("incr curPOS RC(", udec_(priorRow), ",", udec_(priorCol), ") -> RC(", udec_(cursorLine), ",", udec_(cursorColumn), ")")
-
 CON ' --------------     Scrolling Text     --------------
 ' EXAMPLES
 '    configureScrollLoopMode(scrollerID, display.SCROLL_ONCE)
@@ -844,24 +779,6 @@ PUB releaseScroller(indexAllocated)
     ' make this once again avial for reuse
     scroller[indexAllocated].release()
 
-PRI nextFreeScroller() : scrollerIndexToUse | scrollerIndex
-' Find and return the index of the next available idle scroller region.
-'
-' @returns scrollerIndexToUse - index of the free scroller or NOT_FOUND
-
-' Local Variables:
-' @local scrollerIndex - loop index for searching scrollers
-
-  scrollerIndexToUse := NOT_FOUND
-  repeat scrollerIndex from 0 TO MAX_SCROLLING_REGIONS - 1
-    if scroller[scrollerIndex].isIdle()
-      scrollerIndexToUse := scrollerIndex
-      quit
-  if scrollerIndexToUse == NOT_FOUND
-    DEBUG("Failed to locate free scroller!")
-    abort
-    ' debug("DSP: nextFreeScroller() ", udec(scrollerIndexToUse))
-
 CON ' --------------     Basic Graphics     --------------
 
 PUB drawBox(topRow, leftColumn, width, height, filled)
@@ -1013,6 +930,134 @@ PUB drawPanelLineOfColor(panelIndex, fmRow, fmColumn, toRow, toColumn, rgbColor)
   ' Use FALSE for bUseDisplayCoords - panel routines use wire-order coordinates
   drawLineInternal(fmRow + offsetPixelRows, fmColumn + offsetPixelColumns, toRow + offsetPixelRows, toColumn + offsetPixelColumns, rgbColor, FALSE)
 
+PUB drawCircle(row, column, radius)
+'' Draw circle centered at R,C of radius using current text color
+''   - use preceeding setTextColor() to set the outline color
+''
+'' @param row - row number of center-point
+'' @param column - column number of center-point
+'' @param radius - radius of circle
+
+    drawCircleOfColor(row, column, radius, currTextColor)
+
+
+PUB drawCircleOfColor(ctrRow, ctrColumn, radius, rgbColor) | column, row, decision
+'' Draw circle centered at R,C of radius using rgbColor
+''
+'' @param ctrRow - row number of center-point
+'' @param ctrColumn - column number of center-point
+'' @param radius - radius of circle
+'' @param rgbColor - draw outline using this 24-bit color value
+
+' Local Variables:
+' @local column - current column offset from center
+' @local row - current row offset from center
+' @local decision - Bresenham circle decision accumulator
+
+    ' Function for circle-generation
+    ' using Bresenham's algorithm
+    column := 0
+    row := radius
+    decision := CIRCLE_DECISION_INIT - CIRCLE_DECISION_RADIUS_MUL * radius
+    drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor)
+    repeat while (row >= column)
+        column++
+        ' check for decision parameter
+        ' and correspondingly
+        ' update decision, column, row
+        if (decision > 0)
+            row--
+            decision := decision + CIRCLE_DELTA_MUL * (column - row) + CIRCLE_DELTA_DIAG_ADD
+        else
+            decision := decision + CIRCLE_DELTA_MUL * column + CIRCLE_DELTA_AXIS_ADD
+        drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor)
+
+
+CON ' --------------     Private Methods     --------------
+
+PRI placeCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor) | cRowOffset, cRowBits, cColOffset, pixColor, cBitOffset
+' Render a non-dithered character bitmap to the screen buffer.
+'
+' @param pCharBitMap - pointer to the character bitmap data
+' @param sRowPixIdx - screen row in pixels for top of character
+' @param sColumnPixIdx - screen column in pixels for left of character
+' @param rgbColor - 24-bit RGB color value
+
+' Local Variables:
+' @local cRowOffset - row offset within character bitmap
+' @local cRowBits - bit pattern for current row of character
+' @local cColOffset - column offset within character bitmap
+' @local pixColor - resolved pixel color (foreground or black)
+' @local cBitOffset - bit position within the row byte
+
+  repeat cRowOffset from 0 TO charHeightInPix - 1
+    cRowBits := BYTE[pCharBitMap][cRowOffset]
+    repeat cColOffset from 0 TO charWidthInPix - 1
+      cBitOffset := (charWidthInPix - 1) - cColOffset
+      pixColor := ((cRowBits & (1 << cBitOffset)) > 0) ? rgbColor : color.CBLACK
+      pixels.drawPixelAtRC(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor)
+
+PRI placeDitheredCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor) | cRowOffset, cRowBits, cColOffset, ditheredRGBColor, cBitOffset, pixVal, pixColor
+' Render a dithered character bitmap to the screen buffer using two brightness levels.
+'
+' @param pCharBitMap - pointer to the character bitmap data
+' @param sRowPixIdx - screen row in pixels for top of character
+' @param sColumnPixIdx - screen column in pixels for left of character
+' @param rgbColor - 24-bit RGB color value
+
+' Local Variables:
+' @local cRowOffset - row offset within character bitmap
+' @local cRowBits - word-sized bit pattern for current row
+' @local cColOffset - column offset within character bitmap
+' @local ditheredRGBColor - reduced brightness color for dithered pixels
+' @local cBitOffset - bit position within the row word
+' @local pixVal - 2-bit pixel value from the dithered font
+' @local pixColor - resolved pixel color for this position
+
+  ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, DITHER_BRIGHTNESS_PCT)  ' half-pixel brightness arg (36, not 50)
+  ' debug(" COLOR PERCENT ", uhex_long_(rgbColor), " -> ", uhex_long_(ditheredRGBColor))
+  repeat cRowOffset from 0 TO charHeightInPix - 1
+    cRowBits := WORD[pCharBitMap][cRowOffset]                                   ' ms 12 bits are char def'n (of the 16bits)
+    ' debug(" FONT row ", ubin_word_(cRowBits))
+    repeat cColOffset from 0 TO charWidthInPix - 1
+      cBitOffset := cColOffset * DITH_BITS_PER_PIX
+      pixVal := ((cRowBits << cBitOffset) & DITH_PIX_MASK) >> DITH_PIX_TOP_SHIFT
+      ' debug("   PIX ", ubin_(pixVal))
+      pixColor := rgbColor
+      if pixVal <> DITH_PIX_FULL
+        pixColor := (pixVal == DITH_PIX_HALF) ? ditheredRGBColor : color.CBLACK  ' val == [2,0] = black
+      pixels.drawPixelAtRC(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor)
+
+PRI incrCursorWithWrap()
+' Increment the cursor position, wrapping at end of line and end of screen.
+'
+
+  cursorColumn++
+  if cursorColumn > maxTextColumns - 1
+    cursorColumn := 0
+    cursorLine++
+    if cursorLine > maxTextLines - 1
+      cursorLine := 0
+    ' debug("incr curPOS RC(", udec_(priorRow), ",", udec_(priorCol), ") -> RC(", udec_(cursorLine), ",", udec_(cursorColumn), ")")
+
+PRI nextFreeScroller() : scrollerIndexToUse | scrollerIndex
+' Find and return the index of the next available idle scroller region.
+'
+' @returns scrollerIndexToUse - index of the free scroller or NOT_FOUND
+
+' Local Variables:
+' @local scrollerIndex - loop index for searching scrollers
+
+  scrollerIndexToUse := NOT_FOUND
+  repeat scrollerIndex from 0 TO MAX_SCROLLING_REGIONS - 1
+    if scroller[scrollerIndex].isIdle()
+      scrollerIndexToUse := scrollerIndex
+      quit
+  if scrollerIndexToUse == NOT_FOUND
+    DEBUG("Failed to locate free scroller!")
+    abort
+    ' debug("DSP: nextFreeScroller() ", udec(scrollerIndexToUse))
+
 PRI drawLineInternal(fmRow, fmColumn, toRow, toColumn, rgbColor, bUseDisplayCoords) | row, column
 ' Internal line drawing with control over coordinate system
 '
@@ -1135,49 +1180,6 @@ PRI drawPixelInternal(row, column, rgbColor, bUseDisplayCoords)
         drawDisplayPixel(row, column, rgbColor)
     else
         pixels.drawPixelAtRC(chainIndex, row, column, rgbColor)
-
-PUB drawCircle(row, column, radius)
-'' Draw circle centered at R,C of radius using current text color
-''   - use preceeding setTextColor() to set the outline color
-''
-'' @param row - row number of center-point
-'' @param column - column number of center-point
-'' @param radius - radius of circle
-
-    drawCircleOfColor(row, column, radius, currTextColor)
-
-
-PUB drawCircleOfColor(ctrRow, ctrColumn, radius, rgbColor) | column, row, decision
-'' Draw circle centered at R,C of radius using rgbColor
-''
-'' @param ctrRow - row number of center-point
-'' @param ctrColumn - column number of center-point
-'' @param radius - radius of circle
-'' @param rgbColor - draw outline using this 24-bit color value
-
-' Local Variables:
-' @local column - current column offset from center
-' @local row - current row offset from center
-' @local decision - Bresenham circle decision accumulator
-
-    ' Function for circle-generation
-    ' using Bresenham's algorithm
-    column := 0
-    row := radius
-    decision := CIRCLE_DECISION_INIT - CIRCLE_DECISION_RADIUS_MUL * radius
-    drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor)
-    repeat while (row >= column)
-        column++
-        ' check for decision parameter
-        ' and correspondingly
-        ' update decision, column, row
-        if (decision > 0)
-            row--
-            decision := decision + CIRCLE_DELTA_MUL * (column - row) + CIRCLE_DELTA_DIAG_ADD
-        else
-            decision := decision + CIRCLE_DELTA_MUL * column + CIRCLE_DELTA_AXIS_ADD
-        drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor)
-
 
 PRI drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor)
 ' Draw the eight symmetric points of a circle for the given octant offsets.
