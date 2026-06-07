@@ -893,8 +893,6 @@ PUB offsetToPanel(nChainIdx, nPanelIndex) : offsetPixelRows, offsetPixelColumns 
       offsetPixelRows := gridRow * rowsPerPnl
       offsetPixelColumns := gridColumn * colsPerPnl
 
-  return offsetPixelRows, offsetPixelColumns
-
 PUB getDriverFlags(nChainIdx) : desiredFlags, eChipType
 '' Return flags describing the compiled driver configuration for the specified adapter.
 ''
@@ -995,24 +993,25 @@ PRI buildWireOrderFromEnums(nChainIdx) | eStart, eTraverse, gridRows, gridCols, 
 
     ' Check if using enum-based configuration (values >= $40)
     ' If using explicit grid mode (values 0-16), the user has already set disp#WireOrder directly
+    ' Skip when using explicit grid mode (values 0-16): the user has already set disp#WireOrder
+    ' directly. Only enum-based configuration (values >= $40) computes the wire order here.
     if eStart < hwEnum.WIRE_ENTERS_TOP_LEFT or eTraverse < hwEnum.WIRE_ROWS_FIRST
         debug("HUB75: Using explicit wire order table (not enum-based)")
-        return
+    else
+        gridRows, gridCols := displaySizeInPanels(nChainIdx)  ' gridRows=panelsPerColumn, gridCols=panelsPerRow
+        nPanels := gridRows * gridCols
 
-    gridRows, gridCols := displaySizeInPanels(nChainIdx)  ' gridRows=panelsPerColumn, gridCols=panelsPerRow
-    nPanels := gridRows * gridCols
+        pWireTable := @@LONG[@wireOrderTable][nChainIdx]
 
-    pWireTable := @@LONG[@wireOrderTable][nChainIdx]
+        ' For each wire position, compute which display panel it corresponds to
+        ' Then store: wireOrderTable[displayPanelIndex] = wirePosition
+        repeat wirePos from 0 to nPanels - 1
+            row, col := wirePositionToGridCoords(wirePos, gridRows, gridCols)
+            displayIdx := row * gridCols + col
+            BYTE[pWireTable][displayIdx] := wirePos
 
-    ' For each wire position, compute which display panel it corresponds to
-    ' Then store: wireOrderTable[displayPanelIndex] = wirePosition
-    repeat wirePos from 0 to nPanels - 1
-        row, col := wirePositionToGridCoords(wirePos, gridRows, gridCols)
-        displayIdx := row * gridCols + col
-        BYTE[pWireTable][displayIdx] := wirePos
-
-    debug("HUB75: Built wire order table for ", udec_(nPanels), " panels, start=", uhex_(eStart), " traverse=", uhex_(eTraverse))
-    debug("HUB75: Wire order [disp0..3]->wire: ", udec_(BYTE[pWireTable][0]), udec_(BYTE[pWireTable][1]), udec_(BYTE[pWireTable][2]), udec_(BYTE[pWireTable][3]))
+        debug("HUB75: Built wire order table for ", udec_(nPanels), " panels, start=", uhex_(eStart), " traverse=", uhex_(eTraverse))
+        debug("HUB75: Wire order [disp0..3]->wire: ", udec_(BYTE[pWireTable][0]), udec_(BYTE[pWireTable][1]), udec_(BYTE[pWireTable][2]), udec_(BYTE[pWireTable][3]))
 
 PRI wirePositionToGridCoords(wirePos, gridRows, gridCols) : row, col
 ' Convert wire position to display grid coordinates

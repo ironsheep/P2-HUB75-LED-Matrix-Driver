@@ -218,7 +218,6 @@ PRI isDebugLocn(nRow, nCol) : status
 ' @returns status - TRUE if this is a debug location
 
   status := FALSE
-  return
   'if (nRow == 31 && nCol < 4) || (nRow < 2 && nCol < 3) || (nRow == 31 && nCol > 61) || (nRow < 2 && nCol > 61)
   '    status := TRUE ' FALSE  ' turn off debug
 
