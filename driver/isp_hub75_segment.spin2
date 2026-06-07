@@ -136,12 +136,12 @@ PUB showSegment()
     if currentState <> STATE_ON
       moveSegmentToState(STATE_ON)
 
-PUB isMovementComplete() : status
+PUB isMovementComplete() : bComplete
 '' Return T/F where T means that all movement for this segment is complete.
 ''
-'' @returns status - TRUE if the segment has reached its desired end state
+'' @returns bComplete - TRUE if the segment has reached its desired end state
 
-  status := (desiredEndState == currentState)
+  bComplete := (desiredEndState == currentState)
 
 PUB animateStep()
 '' Perform one animation step if a movement is pending.

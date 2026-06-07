@@ -118,18 +118,18 @@ PUB incrementValue(shouldWrap) | nextValue
       nextValue := MIN_DIGIT_VALUE
   setValue(nextValue)
 
-PUB isAnimationComplete() : status | segmentIndex
+PUB isAnimationComplete() : bComplete | segmentIndex
 '' Return T/F where T means all segment animations are complete.
 ''
-'' @returns status - TRUE if all seven segment animations are complete
+'' @returns bComplete - TRUE if all seven segment animations are complete
 
 ' Local Variables:
 ' @local segmentIndex - loop index over the seven segments
 
-  status := TRUE
+  bComplete := TRUE
   repeat segmentIndex from 0 TO SEGMENTS_PER_DIGIT - 1
     if NOT segments[segmentIndex].isMovementComplete()
-      status := FALSE
+      bComplete := FALSE
       quit                                              ' we have our answer, abort loop
 
 PUB animateStep() | segmentIndex

@@ -74,10 +74,10 @@ CON ' pin-exercise sweep limits and timing
     HOLD_DELAY_MS        = 1000                                     ' hold time at each passthrough extreme (ms)
     CYCLE_DELAY_MS       = 3                                        ' settle time between signal-group cycles (ms)
 
-PUB start() : ok | addr, rgb1, rgb2, ctl, ctr
+PUB start() | addr, rgb1, rgb2, ctl, ctr
 '' Exercise all HUB75 adapter pins in groups to verify logic analyzer connections.
+'' This top-level entry never returns (it loops the pin exercises forever).
 ''
-'' @returns ok - completion status
 
 ' Local Variables:
 ' @local addr - current row address value being output

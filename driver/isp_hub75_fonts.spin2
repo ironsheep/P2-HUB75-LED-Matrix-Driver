@@ -57,6 +57,8 @@ PUB getGeometryOfFont(selectdFont) : nWidth, nHeight
 '' @returns nWidth - character width in pixels
 '' @returns nHeight - character height in pixels
 
+  nWidth := FONT_5X7_WIDTH                                  ' default to 5x7 geometry for unknown fonts
+  nHeight := FONT_5X7_HEIGHT
   case selectdFont
     TEXT_FONT_DEFAULT..TEXT_FONT_5X7:
       nWidth := FONT_5X7_WIDTH
