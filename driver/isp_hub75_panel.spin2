@@ -16,6 +16,58 @@ CON ' I/O PINs
 
 ' None
 
+CON ' Magic-number vocabulary (per SPIN2-AUTHORING-GUIDE.md 5.7)
+
+' RGB1/RGB2 plane bit values (panel BGR byte layout)
+    RGB1_RED_BIT            = $01
+    RGB1_GREEN_BIT          = $02
+    RGB1_BLUE_BIT           = $04
+    RGB2_RED_BIT            = $08
+    RGB2_GREEN_BIT          = $10
+    RGB2_BLUE_BIT           = $20
+
+' RGB plane masks
+    MASK_RGB1               = $07
+    MASK_RGB2               = $38
+    MASK_RGB12              = $3F
+
+' Scan-geometry split divisors
+    HALF_DIVISOR            = 2
+    QUARTER_DIVISOR         = 4
+
+' Byte/long geometry
+    MSBIT_OF_BYTE           = 7
+    BITS_PER_BYTE           = 8
+    BYTES_PER_LONG          = 4
+
+' ASCII digit/letter build
+    ASCII_SPACE             = $20
+    ASCII_DIGIT_ZERO        = $30
+    ASCII_UPPER_A           = $41
+    MAX_DECIMAL_DIGIT       = 9
+    DECIMAL_BASE            = 10
+
+' Color byte indices within a 24-bit RGB long
+    RED_BYTE_IDX            = 0
+    GREEN_BYTE_IDX          = 1
+    BLUE_BYTE_IDX           = 2
+
+' Debug-dump head byte count
+    DUMP_HEAD_BYTES         = 48
+
+' RGB2 empty-check scan span (first 32 bytes)
+    RGB2_CHECK_BYTE_COUNT   = 32
+
+' Clock-tick conversion
+    TICKS_PER_USEC_DIVISOR  = 1_000_000
+
+' Test sentinel
+    ALL_ONES                = $ffffffff
+
+' "Pwm0 " dump-label byte positions (frame index char, RGB2-present flag)
+    MSG_PWM_INDEX_POS       = 3
+    MSG_PWM_FLAG_POS        = 4
+
 OBJ ' Objects Needed
 
     hub75Bffrs  : "isp_hub75_hwBufferAccess"
@@ -203,10 +255,10 @@ PUB convertScreen2PWM_14(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet, pPwmFra
   pPwmFrameSet            := getActivePwmBuffer()
   lPhyRows                := maxChainRows
   lPysColumns             := maxChainColumns
-  lOne4thLineCt           := lPhyRows / 4
-  lOneHalfLineCt          := lPhyRows / 2
-  lThree4thsLineCt        := (lPhyRows / 4) * 3
-  lMmaskModHalfScreen     := ((lPhyRows * lPysColumns) / 2) - 1
+  lOne4thLineCt           := lPhyRows / QUARTER_DIVISOR
+  lOneHalfLineCt          := lPhyRows / HALF_DIVISOR
+  lThree4thsLineCt        := (lPhyRows / QUARTER_DIVISOR) * 3
+  lMmaskModHalfScreen     := ((lPhyRows * lPysColumns) / HALF_DIVISOR) - 1
   lDisplayBytesPerColor   := nBytesPerColor
   lMaxPwmBuffers          := nColorDepth
   lPwmFrameSizeInBytes    := nPwmFrameSizeInBytes
@@ -224,15 +276,15 @@ bIsBottomHalf       LONG    0
 nRGBColorOfst       LONG    0
 maskQtrRowsModulus  LONG    0
 pRGBPixAddr         LONG    0
-redBitRGB1Value     LONG    $01
-greenBitRGB1Value   LONG    $02
-blueBitRGB1Value    LONG    $04
-redBitRGB2Value     LONG    $08
-greenBitRGB2Value   LONG    $10
-blueBitRGB2Value    LONG    $20
-maskOnlyRGB1bits    LONG    $07
-maskOnlyRGB2bits    LONG    $38
-maskRGB1nRGB2bits   LONG    $3F
+redBitRGB1Value     LONG    RGB1_RED_BIT
+greenBitRGB1Value   LONG    RGB1_GREEN_BIT
+blueBitRGB1Value    LONG    RGB1_BLUE_BIT
+redBitRGB2Value     LONG    RGB2_RED_BIT
+greenBitRGB2Value   LONG    RGB2_GREEN_BIT
+blueBitRGB2Value    LONG    RGB2_BLUE_BIT
+maskOnlyRGB1bits    LONG    MASK_RGB1
+maskOnlyRGB2bits    LONG    MASK_RGB2
+maskRGB1nRGB2bits   LONG    MASK_RGB12
 redPwmBits          LONG    0
 greenPwmBits        LONG    0
 bluePwmBits         LONG    0
@@ -243,30 +295,30 @@ currMaskBitIdx      LONG    0
 bitsBGR             LONG    0
 pPwmFrameByte       LONG    0
 currPwmBits         LONG    0
-allOnes             LONG    $ffffffff
+allOnes             LONG    ALL_ONES
 
 startS8
                 ' init variables
-                MOV         redBitRGB1Value, #$01
-                MOV         greenBitRGB1Value, #$02
-                MOV         blueBitRGB1Value, #$04
-                MOV         redBitRGB2Value, #$08
-                MOV         greenBitRGB2Value, #$10
-                MOV         blueBitRGB2Value, #$20
+                MOV         redBitRGB1Value, #RGB1_RED_BIT
+                MOV         greenBitRGB1Value, #RGB1_GREEN_BIT
+                MOV         blueBitRGB1Value, #RGB1_BLUE_BIT
+                MOV         redBitRGB2Value, #RGB2_RED_BIT
+                MOV         greenBitRGB2Value, #RGB2_GREEN_BIT
+                MOV         blueBitRGB2Value, #RGB2_BLUE_BIT
                 ' setup for red/blue flip if needed
                 OR          bSwapRB, bSwapRB                wz      ' T/F where: T=nz, F=z
     ' T/nz = is Swapped
-    if_nz       MOV         redBitRGB1Value, #$04                   ' red1 gets blue
-    if_nz       MOV         blueBitRGB1Value, #$01                  ' blue1 gets red
-    if_nz       MOV         redBitRGB2Value, #$20                   ' red2 gets blue
-    if_nz       MOV         blueBitRGB2Value, #$08                  ' blue2 gets red
+    if_nz       MOV         redBitRGB1Value, #RGB1_BLUE_BIT         ' red1 gets blue
+    if_nz       MOV         blueBitRGB1Value, #RGB1_RED_BIT         ' blue1 gets red
+    if_nz       MOV         redBitRGB2Value, #RGB2_BLUE_BIT         ' red2 gets blue
+    if_nz       MOV         blueBitRGB2Value, #RGB2_RED_BIT         ' blue2 gets red
                 ' setup for blue/green flip if needed
                 OR          bSwapGB, bSwapGB                wz      ' T/F where: T=nz, F=z
     ' T/nz = is Swapped
-    if_nz       MOV         greenBitRGB1Value, #$04                 ' green1 gets blue
-    if_nz       MOV         blueBitRGB1Value, #$02                  ' blue1 gets green
-    if_nz       MOV         greenBitRGB2Value, #$20                 ' green2 gets blue
-    if_nz       MOV         blueBitRGB2Value, #$10                  ' blue2 gets green
+    if_nz       MOV         greenBitRGB1Value, #RGB1_BLUE_BIT       ' green1 gets blue
+    if_nz       MOV         blueBitRGB1Value, #RGB1_GREEN_BIT       ' blue1 gets green
+    if_nz       MOV         greenBitRGB2Value, #RGB2_BLUE_BIT       ' green2 gets blue
+    if_nz       MOV         blueBitRGB2Value, #RGB2_GREEN_BIT       ' blue2 gets green
 for8SScreen
                 ' for all pixels of the screen buffer
                 'repeat nPhysLineIdx from 0 to screen.MAX_PHYSICAL_ROWS - 1             ' [0-31]
@@ -322,11 +374,11 @@ next8SColumn
                 ' locate and load color for scanline
                 RDLONG      colorValue24bit, pRGBPixAddr
                 ' red := BYTE[pRGBPixAddr][0]
-                GETBYTE     redPwmBits, colorValue24bit, #0
+                GETBYTE     redPwmBits, colorValue24bit, #RED_BYTE_IDX
                 ' green := BYTE[pRGBPixAddr][1]
-                GETBYTE     greenPwmBits, colorValue24bit, #1
+                GETBYTE     greenPwmBits, colorValue24bit, #GREEN_BYTE_IDX
                 ' blue := BYTE[pRGBPixAddr][2]
-                GETBYTE     bluePwmBits, colorValue24bit, #2
+                GETBYTE     bluePwmBits, colorValue24bit, #BLUE_BYTE_IDX
 
                 ' write color information to our PWM buffers
                 ' expand PWM-Bit-width bits into N pwm frames of 3-bit pixels two pixels/BYTE
@@ -335,7 +387,7 @@ next8SColumn
                 ' repeat currPwmBffrIdx from 0 to screen.MAX_PWM_BUFFERS - 1 (there's PWM_BUFFER for ea. bit in color depth)
                 XOR         currPwmBffrIdx, currPwmBffrIdx          ' start with buffer[0] of [0-MAX_PWM_BUFFERS - 1]
                 ' NOTE: PWM def'n bits are org'd at MSBit and are COLOR_DEPTH in width (3-8 bits depth)
-                MOV         currMaskBitIdx, #7                      ' start bitmask is always msBit of BYTE
+                MOV         currMaskBitIdx, #MSBIT_OF_BYTE         ' start bitmask is always msBit of BYTE
                 MOV         pwmBitCtr, lMaxPwmBuffers               ' MAX PWM FRAME bits to scan in LONG
 
 next8SPwmFrame
@@ -423,7 +475,7 @@ PUB convertScreen2PWM(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet, lChainCols
   pPwmFrameSet            := getActivePwmBuffer()
   lChainCols              := maxChainColumns          ' Total columns in physical chain (e.g., 512 for 4x128)
   lPanelCols              := nPanelColumns            ' Columns per panel (e.g., 128)
-  lHalfPanelRows          := nPanelRows / 2           ' Half panel height for RGB1/RGB2 split (e.g., 32)
+  lHalfPanelRows          := nPanelRows / HALF_DIVISOR    ' Half panel height for RGB1/RGB2 split (e.g., 32)
   lPanelPixels            := nPanelRows * nPanelColumns   ' Pixels per panel (e.g., 8192 for 128x64)
   lPwmFrameSizeInBytes    := nPwmFrameSizeInBytes
   lMaxPwmBuffers          := nColorDepth
@@ -439,12 +491,12 @@ PUB convertScreen2PWM(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet, lChainCols
                 JMP         #start16s
 
 ' Initialized values copied into PASM area
-redBitTopValue      LONG    $01
-greenBitTopValue    LONG    $02
-blueBitTopValue     LONG    $04
-redBitBotValue      LONG    $08
-greenBitBotValue    LONG    $10
-blueBitBotValue     LONG    $20
+redBitTopValue      LONG    RGB1_RED_BIT
+greenBitTopValue    LONG    RGB1_GREEN_BIT
+blueBitTopValue     LONG    RGB1_BLUE_BIT
+redBitBotValue      LONG    RGB2_RED_BIT
+greenBitBotValue    LONG    RGB2_GREEN_BIT
+blueBitBotValue     LONG    RGB2_BLUE_BIT
 redPwmBitsTop       LONG    0
 greenPwmBitsTop     LONG    0
 bluePwmBitsTop      LONG    0
@@ -475,24 +527,24 @@ tempDiv             LONG    0
 
 start16s
                     ' Initialize color bit values
-                    mov     redBitTopValue, #$01
-                    mov     greenBitTopValue, #$02
-                    mov     blueBitTopValue, #$04
-                    mov     redBitBotValue, #$08
-                    mov     greenBitBotValue, #$10
-                    mov     blueBitBotValue, #$20
+                    mov     redBitTopValue, #RGB1_RED_BIT
+                    mov     greenBitTopValue, #RGB1_GREEN_BIT
+                    mov     blueBitTopValue, #RGB1_BLUE_BIT
+                    mov     redBitBotValue, #RGB2_RED_BIT
+                    mov     greenBitBotValue, #RGB2_GREEN_BIT
+                    mov     blueBitBotValue, #RGB2_BLUE_BIT
                     ' Setup for red/blue swap if needed
                     or      bSwapRB, bSwapRB   wz
-    if_nz           mov     redBitTopValue, #$04
-    if_nz           mov     blueBitTopValue, #$01
-    if_nz           mov     redBitBotValue, #$20
-    if_nz           mov     blueBitBotValue, #$08
+    if_nz           mov     redBitTopValue, #RGB1_BLUE_BIT
+    if_nz           mov     blueBitTopValue, #RGB1_RED_BIT
+    if_nz           mov     redBitBotValue, #RGB2_BLUE_BIT
+    if_nz           mov     blueBitBotValue, #RGB2_RED_BIT
                     ' Setup for green/blue swap if needed
                     or      bSwapGB, bSwapGB   wz
-    if_nz           mov     greenBitTopValue, #$04
-    if_nz           mov     blueBitTopValue, #$02
-    if_nz           mov     greenBitBotValue, #$20
-    if_nz           mov     blueBitBotValue, #$10
+    if_nz           mov     greenBitTopValue, #RGB1_BLUE_BIT
+    if_nz           mov     blueBitTopValue, #RGB1_GREEN_BIT
+    if_nz           mov     greenBitBotValue, #RGB2_BLUE_BIT
+    if_nz           mov     blueBitBotValue, #RGB2_GREEN_BIT
 
                     ' Initialize PWM byte index
                     xor     pwmByteIndex, pwmByteIndex
@@ -558,20 +610,20 @@ nextChainCol
 
                     ' Load top pixel color (RGB1)
                     rdlong  colorValue24bit, pTopPixelAddr
-                    getbyte redPwmBitsTop, colorValue24bit, #0
-                    getbyte greenPwmBitsTop, colorValue24bit, #1
-                    getbyte bluePwmBitsTop, colorValue24bit, #2
+                    getbyte redPwmBitsTop, colorValue24bit, #RED_BYTE_IDX
+                    getbyte greenPwmBitsTop, colorValue24bit, #GREEN_BYTE_IDX
+                    getbyte bluePwmBitsTop, colorValue24bit, #BLUE_BYTE_IDX
 
                     ' Load bottom pixel color (RGB2)
                     rdlong  colorValue24bit, pBotPixelAddr
-                    getbyte redPwmBitsBot, colorValue24bit, #0
-                    getbyte greenPwmBitsBot, colorValue24bit, #1
-                    getbyte bluePwmBitsBot, colorValue24bit, #2
+                    getbyte redPwmBitsBot, colorValue24bit, #RED_BYTE_IDX
+                    getbyte greenPwmBitsBot, colorValue24bit, #GREEN_BYTE_IDX
+                    getbyte bluePwmBitsBot, colorValue24bit, #BLUE_BYTE_IDX
 
                     ' Write to PWM buffers for each bit plane
                     xor     currPwmBffrIdx, currPwmBffrIdx
                     mov     bitCount, lMaxPwmBuffers
-                    mov     currMaskBitIdx, #7
+                    mov     currMaskBitIdx, #MSBIT_OF_BYTE
 nextBit
                     ' Calculate PWM frame byte address
                     mov     pPwmFrameByt, currPwmBffrIdx
@@ -636,8 +688,8 @@ PRI dumpBufferHeads(pSCreenBuffer,pPwmBuffer)
 ' @param pSCreenBuffer - pointer to screen buffer
 ' @param pPwmBuffer - pointer to PWM buffer
 
-  hub75Bffrs.dbgMemDump(@bufferMsg, pSCreenBuffer, 48)
-  hub75Bffrs.dbgMemDump(@frameMsg, pPwmBuffer, 48)
+  hub75Bffrs.dbgMemDump(@bufferMsg, pSCreenBuffer, DUMP_HEAD_BYTES)
+  hub75Bffrs.dbgMemDump(@frameMsg, pPwmBuffer, DUMP_HEAD_BYTES)
 
 PRI dumpFrameAddrs(pPwmFrameSet) | pFrameBuffer, frameIndex
 ' Display the hub address of each PWM frame in the frame set.
@@ -674,15 +726,15 @@ PRI dumpFrame(frameIdx, pFrameBuffer) | frameASCII
 ' Local Variables:
 ' @local frameASCII - ASCII character representing the frame index
 
-  frameASCII := frameIdx | $30
-  if frameIdx > 9
-    frameASCII := frameIdx - 10 + $41
-  BYTE[@msgPwm][3] := frameASCII
+  frameASCII := frameIdx | ASCII_DIGIT_ZERO
+  if frameIdx > MAX_DECIMAL_DIGIT
+    frameASCII := frameIdx - DECIMAL_BASE + ASCII_UPPER_A
+  BYTE[@msgPwm][MSG_PWM_INDEX_POS] := frameASCII
 
   if emptyRgb2(pFrameBuffer)
-    BYTE[@msgPwm][4] := "*"
+    BYTE[@msgPwm][MSG_PWM_FLAG_POS] := "*"
   else
-    BYTE[@msgPwm][4] := $20                             ' space
+    BYTE[@msgPwm][MSG_PWM_FLAG_POS] := ASCII_SPACE     ' space
 
   hub75Bffrs.dbgMemDump(@msgPwm, pFrameBuffer, 32)
 
@@ -696,8 +748,8 @@ PRI emptyRgb2(pFrameBuffer) : isEmpty | byteIdx
 ' @local byteIdx - loop index over frame bytes
 
   isEmpty := TRUE
-  repeat byteIdx from 0 TO 31
-    if BYTE[pFrameBuffer][byteIdx] & $38 > 0
+  repeat byteIdx from 0 TO RGB2_CHECK_BYTE_COUNT - 1
+    if BYTE[pFrameBuffer][byteIdx] & MASK_RGB2 > 0
       isEmpty := FALSE
       quit
 
@@ -761,7 +813,7 @@ PRI markEnd(message) | elapsed
   'pinl(46)    ' for timing
   elapsed := intrvlStop - intrvlStart                   ' compute elapsed ticks, no need to worry about timer wrap here
   ' elapsed := elapsed +/ (clkfreq/1000) ' convert to milliseconds
-  elapsed := elapsed +/ (clkfreq/1000000)               ' convert to useconds
+  elapsed := elapsed +/ (clkfreq/TICKS_PER_USEC_DIVISOR) ' convert to useconds
     'elapsed := elapsed +/ (clkfreq/1000) ' convert to useconds
     debug("- runtime ", zstr_(message), ": ", udec_long(elapsed), " uS")
 

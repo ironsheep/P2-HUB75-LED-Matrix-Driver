@@ -15,6 +15,37 @@ CON
 
     #0, LED_UNKNOWN, LED_RED, LED_GREEN, LED_BLUE
 
+    ' --- color channel scaling / masks / shifts ---
+    MAX_COLOR_VALUE         = 255           ' 8-bit channel full-scale
+    CHANNEL_MASK            = $ff           ' single 8-bit channel
+    RED_MASK                = $ff0000       ' red channel within combined RGB
+    GREEN_MASK              = $ff00         ' green channel within combined RGB
+    RED_SHIFT               = 16            ' red channel bit position
+    GREEN_SHIFT             = 8             ' green channel bit position (== BITS_PER_CHANNEL)
+    BITS_PER_CHANNEL        = 8             ' bits in a single color channel
+
+    ' --- brightness scaling ---
+    FULL_BRIGHTNESS         = 256           ' "no reduction" sentinel (DAT default 256)
+    BRIGHTNESS_SHIFT        = 8             ' divide-by-256
+    BRIGHTNESS_ROUND_BIAS   = 128           ' +half-divisor for round-to-nearest
+
+    ' --- bit-width remap / gamma table ---
+    SOURCE_COLOR_BITS       = 8             ' 8-bit input depth
+    GAMMA_TABLE_MAX_IDX     = 255           ' 256-entry table last index
+
+    ' --- HSV hue-wheel math ---
+    DEGREES_PER_CIRCLE      = 360
+    DEGREES_PER_HUE_SEGMENT = 60            ' 6 sextants
+    HUE_SEGMENT_MAX_IDX     = 59            ' 60-step segment last index
+    PERCENT_SCALE           = 100
+    PERCENT_SCALE_F         = 100.0
+    HUE_SEXTANT_1           = 1 * DEGREES_PER_HUE_SEGMENT   ' 60  - red->yellow
+    HUE_SEXTANT_2           = 2 * DEGREES_PER_HUE_SEGMENT   ' 120 - yellow->green
+    HUE_SEXTANT_3           = 3 * DEGREES_PER_HUE_SEGMENT   ' 180 - green->cyan
+    HUE_SEXTANT_4           = 4 * DEGREES_PER_HUE_SEGMENT   ' 240 - cyan->blue
+    HUE_SEXTANT_5           = 5 * DEGREES_PER_HUE_SEGMENT   ' 300 - blue->magenta
+    HUE_FRACT_SCALE         = (MAX_COLOR_VALUE * PERCENT_SCALE) / DEGREES_PER_HUE_SEGMENT   ' 425 - per-degree fraction
+
 OBJ
 
     hub75Bffrs  :   "isp_hub75_hwBufferAccess"
@@ -82,7 +113,7 @@ PUB correctedSingleColor(nChainIdx, led, colorValue) : adjustedColor | pGammaTab
     ' Apply brightness with proper rounding (add 128 before >>8 for round-to-nearest)
     ' This ensures brightness=128 gives max color=128 (bit 7 set) instead of 127 (bit 7 clear)
     ' which prevents Frame 0 (MSB frame) from being black at 50% brightness
-    adjustedColor := ((adjustedColor * defaultBrightness + 128) >> 8) & $ff
+    adjustedColor := ((adjustedColor * defaultBrightness + BRIGHTNESS_ROUND_BIAS) >> BRIGHTNESS_SHIFT) & CHANNEL_MASK
     if bGammaEnable
         adjustedColor := byte[pGammaTable][adjustedColor]
     adjustedColor := colorAtDesiredBitWidth(nChainIdx, adjustedColor)
@@ -100,7 +131,7 @@ PUB gammaPeek(color) : adjustedColor | gammmaIndex, lowColor, highColor
 
   if bGammaEnable
     adjustedColor := BYTE[@gamma][color]
-    repeat gammmaIndex from 0 TO 255
+    repeat gammmaIndex from 0 TO GAMMA_TABLE_MAX_IDX
       if BYTE[@gamma][gammmaIndex] > color
         quit
     if gammmaIndex == 0
@@ -141,7 +172,7 @@ PUB gammaCorrectedSingleColor(led, colorValue) : adjustedColor | pGammaTable
   ' Apply brightness with proper rounding (add 128 before >>8 for round-to-nearest)
   ' This ensures brightness=128 gives max color=128 (bit 7 set) instead of 127 (bit 7 clear)
   ' which prevents Frame 0 (MSB frame) from being black at 50% brightness
-  adjustedColor := ((colorValue * defaultBrightness + 128) >> 8) & $ff
+  adjustedColor := ((colorValue * defaultBrightness + BRIGHTNESS_ROUND_BIAS) >> BRIGHTNESS_SHIFT) & CHANNEL_MASK
   if bGammaEnable
     adjustedColor := BYTE[@gamma][adjustedColor]
 
@@ -158,28 +189,28 @@ PUB rgbColorFromDegrees(degrees) : rcbColor | offset60, fract60, red, green, blu
 ' @local green - computed green component
 ' @local blue - computed blue component
 
-  degrees := degrees // 360                             ' ensure 0-359
+  degrees := degrees // DEGREES_PER_CIRCLE              ' ensure 0-359
   red := green := blue:= 0
-  offset60 := degrees // 60                             ' 0-59
-  fract60 := (255 * 100) / 60
-  if degrees >= 300
-    red := 255
-    blue := ((59 - offset60) * fract60) / 100
-  elseif degrees >= 240
-    blue := 255
-    red := (offset60 * fract60) / 100
-  elseif degrees >= 180
-    blue := 255
-    green := ((59 - offset60) * fract60) / 100
-  elseif degrees >= 120
-    green := 255
-    blue := (offset60 * fract60) / 100
-  elseif degrees >= 60
-    green := 255
-    red := ((59 - offset60) * fract60) / 100
+  offset60 := degrees // DEGREES_PER_HUE_SEGMENT        ' 0-59
+  fract60 := HUE_FRACT_SCALE
+  if degrees >= HUE_SEXTANT_5
+    red := MAX_COLOR_VALUE
+    blue := ((HUE_SEGMENT_MAX_IDX - offset60) * fract60) / PERCENT_SCALE
+  elseif degrees >= HUE_SEXTANT_4
+    blue := MAX_COLOR_VALUE
+    red := (offset60 * fract60) / PERCENT_SCALE
+  elseif degrees >= HUE_SEXTANT_3
+    blue := MAX_COLOR_VALUE
+    green := ((HUE_SEGMENT_MAX_IDX - offset60) * fract60) / PERCENT_SCALE
+  elseif degrees >= HUE_SEXTANT_2
+    green := MAX_COLOR_VALUE
+    blue := (offset60 * fract60) / PERCENT_SCALE
+  elseif degrees >= HUE_SEXTANT_1
+    green := MAX_COLOR_VALUE
+    red := ((HUE_SEGMENT_MAX_IDX - offset60) * fract60) / PERCENT_SCALE
   else
-    red := 255
-    green := (offset60 * fract60) / 100
+    red := MAX_COLOR_VALUE
+    green := (offset60 * fract60) / PERCENT_SCALE
 
   rcbColor := cValueForRGB(red, green, blue)
     ' debug("- degrees=", udec_(degrees), ", color=", uhex_long_(rcbColor), " RGB=", udec_(red), ", ", udec_(green), ", ", udec_(blue), ")" )
@@ -198,9 +229,9 @@ PUB reducedBrightnessOfCValue(combinedValue, percent): reducedCValue | red, gree
 ' @local adjPercent - clamped percentage value
 ' @local fPercent - floating-point percentage divisor
 
-  adjPercent := 0 #> percent <# 100
+  adjPercent := 0 #> percent <# PERCENT_SCALE
   red, green, blue := rgbForCValue(combinedValue)
-  fPercent := float(adjPercent) /. 100.0
+  fPercent := float(adjPercent) /. PERCENT_SCALE_F
   red := trunc(float(red) *. fPercent)
   green := trunc(float(green) *. fPercent)
   blue := trunc(float(blue) *. fPercent)
@@ -214,9 +245,9 @@ PUB rgbForCValue(combinedValue) : red, green, blue
 '' @returns green - green component (0-255)
 '' @returns blue - blue component (0-255)
 
-  red := (combinedValue & $ff0000) >> 16
-  green := (combinedValue & $ff00) >> 8
-  blue := (combinedValue & $ff)
+  red := (combinedValue & RED_MASK) >> RED_SHIFT
+  green := (combinedValue & GREEN_MASK) >> GREEN_SHIFT
+  blue := (combinedValue & CHANNEL_MASK)
 
 PUB cValueForRGB(red, green, blue) : combinedValue
 '' Convert separate red, green, and blue components to a combined RGB color value.
@@ -226,7 +257,7 @@ PUB cValueForRGB(red, green, blue) : combinedValue
 '' @param blue - blue component (0-255)
 '' @returns combinedValue - combined RGB color value
 
-  combinedValue := ((red & $ff) << 16) | ((green & $ff) << 8) | (blue & $ff)
+  combinedValue := ((red & CHANNEL_MASK) << RED_SHIFT) | ((green & CHANNEL_MASK) << GREEN_SHIFT) | (blue & CHANNEL_MASK)
 
 PUB gammaPtrs(): pGammaRed, pGammaGreen, pGammaBlue
 '' Return pointers to the gamma tables for each color channel.
@@ -241,7 +272,7 @@ PUB gammaPtrs(): pGammaRed, pGammaGreen, pGammaBlue
 
 PUB colorAtDesiredBitWidth(nChainIdx, hex8bit) : pwmBits
     '' CALCULATE: proper duty cycle for intensity of 0-255
-    shiftLtValue := 8 - hub75Bffrs.colorDepth(nChainIdx)
+    shiftLtValue := SOURCE_COLOR_BITS - hub75Bffrs.colorDepth(nChainIdx)
     nbrPwmFrames := hub75Bffrs.pwmFrameCount(nChainIdx)
     'debug("- color CFG: ", udec_long(shiftLtValue), udec_long(nbrPwmFrames))
     '
@@ -265,7 +296,7 @@ PUB colorAtDesiredBitWidth(nChainIdx, hex8bit) : pwmBits
     '  outValue := (hex8bit - 0) * (7 - 0) / (255 - 0) + 0
     '  outValue := hex8bit * 7 / 255
 
-    pwmBits := (hex8bit * nbrPwmFrames) / 255   ' map our value
+    pwmBits := (hex8bit * nbrPwmFrames) / MAX_COLOR_VALUE   ' map our value
     pwmBits <<= shiftLtValue                    ' shift value into our upper COLOR_DEPTH bits
 {
     if not didShow[hex8bit]
@@ -278,7 +309,7 @@ DAT  ' tables, default values
     shiftLtValue        LONG    0       ' set by init()
     nbrPwmFrames        LONG    0       ' set by init()
 
-    defaultBrightness   WORD                    256  ' 256      ' 205 = 80%  [0-255,256]   where 256 is NO brightness adjustment
+    defaultBrightness   WORD                    FULL_BRIGHTNESS  ' 256      ' 205 = 80%  [0-255,256]   where 256 is NO brightness adjustment
 
 ' Gamma curve (lookup table)
 

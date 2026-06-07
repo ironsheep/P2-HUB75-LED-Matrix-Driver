@@ -61,6 +61,15 @@ CON ' I/O PINs
 
     MTX_16PINS           = MTX_LED_BASE_PIN ADDPINS 15
 
+CON ' pin-exercise sweep limits and timing
+
+    MAX_16PIN_VALUE      = 65535                                    ' max value for 16-pin passthrough sweep
+    MAX_CTL_VALUE        = 7                                        ' max value for 3 control pins
+    MAX_ADDR_VALUE       = 31                                       ' max value for 5 row-address pins
+    MAX_RGB_VALUE        = 7                                        ' max value for 3 RGB color pins
+    HOLD_DELAY_MS        = 1000                                     ' hold time at each passthrough extreme (ms)
+    CYCLE_DELAY_MS       = 3                                        ' settle time between signal-group cycles (ms)
+
 PUB start() : ok | addr, rgb1, rgb2, ctl, ctr
 '' Exercise all HUB75 adapter pins in groups to verify logic analyzer connections.
 ''
@@ -79,36 +88,36 @@ PUB start() : ok | addr, rgb1, rgb2, ctl, ctr
   '{
   ' check all pins for passthru on hub75 card
   repeat
-    repeat ctr from 0 to 65535
+    repeat ctr from 0 to MAX_16PIN_VALUE
       pinwrite(MTX_16PINS, ctr)
     pinwrite(MTX_16PINS, 0)
-    waitms(1000)  ' 1 second
-    pinwrite(MTX_16PINS, 65535)
-    waitms(1000)  ' 1 second
+    waitms(HOLD_DELAY_MS)  ' 1 second
+    pinwrite(MTX_16PINS, MAX_16PIN_VALUE)
+    waitms(HOLD_DELAY_MS)  ' 1 second
 
   '}
 
   ' check all hub75 signal pins by group
   repeat
     ' burst our control signals
-    repeat ctl from 0 to 7
+    repeat ctl from 0 to MAX_CTL_VALUE
       pinwrite(MTX_CTL_PINS, ctl)
     pinfloat(MTX_CTL_PINS)
 
     ' step thru addresses
-    repeat addr from 0 to 31
+    repeat addr from 0 to MAX_ADDR_VALUE
       pinwrite(MTX_ROW_ADDR_PINS, addr)
     pinfloat(MTX_ROW_ADDR_PINS)
 
     ' step thru colors
-    repeat rgb1 from 0 to 7
-      rgb2 := 7 - rgb1
+    repeat rgb1 from 0 to MAX_RGB_VALUE
+      rgb2 := MAX_RGB_VALUE - rgb1
       pinwrite(MTX_COLOR_RGB1_PINS, rgb1)
       pinwrite(MTX_COLOR_RGB2_PINS, rgb2)
     pinfloat(MTX_COLOR_RGB1_PINS)
     pinfloat(MTX_COLOR_RGB2_PINS)
 
-    waitms(3)  ' 3/1000 seconds
+    waitms(CYCLE_DELAY_MS)  ' 3/1000 seconds
 
 
 

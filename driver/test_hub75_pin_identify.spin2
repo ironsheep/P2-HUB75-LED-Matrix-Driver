@@ -109,6 +109,33 @@ CON { pin names for reference }
     PIN_SPARE1 = BASE_PIN + 14  ' bit 18
     PIN_SPARE2 = BASE_PIN + 15  ' bit 19
 
+CON { counter bit-split masks }
+
+    ' The 20-bit counter splits into the 4 LA pins (low) and 16 HUB75 pins (high)
+    LA_BIT_COUNT    = 4         ' number of low counter bits routed to the LA pins
+    LA_BITS_MASK    = $F        ' mask isolating the LA_BIT_COUNT low bits
+    HUB75_BITS_MASK = $FFFF     ' mask isolating the 16 HUB75 bits (after >> LA_BIT_COUNT)
+
+CON { per-bit frequency divisors }
+
+    ' Each counter bit toggles at BASE_FREQ_HZ divided by a power of two.
+    ' Divisor for bit N is 2^N; named per bit so the printed frequencies stay self-documenting.
+    BIT1_DIV  = 2              ' bit 1  divisor (P9  LA_FRMSET)
+    BIT2_DIV  = 4              ' bit 2  divisor (P10 LA_SAME)
+    BIT3_DIV  = 8              ' bit 3  divisor (P11 LA_NEW)
+    BIT4_DIV  = 16             ' bit 4  divisor (+0  CLK)
+    BIT5_DIV  = 32             ' bit 5  divisor (+1  OE)
+    BIT6_DIV  = 64             ' bit 6  divisor (+2  LATCH)
+    BIT7_DIV  = 128            ' bit 7  divisor (+3  A)
+    BIT8_DIV  = 256            ' bit 8  divisor (+4  B)
+    BIT9_DIV  = 512            ' bit 9  divisor (+5  C)
+    BIT10_DIV = 1024           ' bit 10 divisor (+6  D)
+    BIT11_DIV = 2048           ' bit 11 divisor (+7  E)
+    BIT12_DIV = 4096           ' bit 12 divisor (+8  R1)
+    BIT13_DIV = 8192           ' bit 13 divisor (+9  G1)
+    BIT14_DIV = 16384          ' bit 14 divisor (+10 B1)
+    BIT15_DIV = 32768          ' bit 15 divisor (+11 R2)
+
 VAR
 
     LONG    counter
@@ -124,28 +151,28 @@ PUB main() | nextTime, laBits, hub75Bits
   debug("==============================================")
   debug("LA Pins: P8-P11 (bits 0-3)")
   debug("HUB75 Base Pin: ", udec_(BASE_PIN))
-  debug("HUB75 Range: P", udec_(BASE_PIN), " - P", udec_(BASE_PIN + 15), " (bits 4-19)")
+  debug("HUB75 Range: P", udec_(BASE_PIN), " - P", udec_(PIN_SPARE2), " (bits 4-19)")
   debug("Base Frequency: ", udec_(BASE_FREQ_HZ), " Hz")
   debug(" ")
   debug("Expected frequencies (20-bit counter):")
   debug("--- LA INSTRUMENTATION PINS ---")
   debug("  P8  (LA_CMD):    ", udec_(BASE_FREQ_HZ), " Hz      bit 0")
-  debug("  P9  (LA_FRMSET): ", udec_(BASE_FREQ_HZ / 2), " Hz     bit 1")
-  debug("  P10 (LA_SAME):   ", udec_(BASE_FREQ_HZ / 4), " Hz     bit 2")
-  debug("  P11 (LA_NEW):    ", udec_(BASE_FREQ_HZ / 8), " Hz    bit 3")
+  debug("  P9  (LA_FRMSET): ", udec_(BASE_FREQ_HZ / BIT1_DIV), " Hz     bit 1")
+  debug("  P10 (LA_SAME):   ", udec_(BASE_FREQ_HZ / BIT2_DIV), " Hz     bit 2")
+  debug("  P11 (LA_NEW):    ", udec_(BASE_FREQ_HZ / BIT3_DIV), " Hz    bit 3")
   debug("--- HUB75 CONNECTOR PINS ---")
-  debug("  +0  (CLK):       ", udec_(BASE_FREQ_HZ / 16), " Hz    bit 4")
-  debug("  +1  (OE):        ", udec_(BASE_FREQ_HZ / 32), " Hz    bit 5")
-  debug("  +2  (LATCH):     ", udec_(BASE_FREQ_HZ / 64), " Hz    bit 6")
-  debug("  +3  (A):         ", udec_(BASE_FREQ_HZ / 128), " Hz      bit 7")
-  debug("  +4  (B):         ", udec_(BASE_FREQ_HZ / 256), " Hz      bit 8")
-  debug("  +5  (C):         ", udec_(BASE_FREQ_HZ / 512), " Hz      bit 9")
-  debug("  +6  (D):         ", udec_(BASE_FREQ_HZ / 1024), " Hz       bit 10")
-  debug("  +7  (E):         ", udec_(BASE_FREQ_HZ / 2048), " Hz       bit 11")
-  debug("  +8  (R1):        ", udec_(BASE_FREQ_HZ / 4096), " Hz       bit 12")
-  debug("  +9  (G1):        ", udec_(BASE_FREQ_HZ / 8192), " Hz       bit 13")
-  debug("  +10 (B1):        ", udec_(BASE_FREQ_HZ / 16384), " Hz        bit 14")
-  debug("  +11 (R2):        ", udec_(BASE_FREQ_HZ / 32768), " Hz        bit 15")
+  debug("  +0  (CLK):       ", udec_(BASE_FREQ_HZ / BIT4_DIV), " Hz    bit 4")
+  debug("  +1  (OE):        ", udec_(BASE_FREQ_HZ / BIT5_DIV), " Hz    bit 5")
+  debug("  +2  (LATCH):     ", udec_(BASE_FREQ_HZ / BIT6_DIV), " Hz    bit 6")
+  debug("  +3  (A):         ", udec_(BASE_FREQ_HZ / BIT7_DIV), " Hz      bit 7")
+  debug("  +4  (B):         ", udec_(BASE_FREQ_HZ / BIT8_DIV), " Hz      bit 8")
+  debug("  +5  (C):         ", udec_(BASE_FREQ_HZ / BIT9_DIV), " Hz      bit 9")
+  debug("  +6  (D):         ", udec_(BASE_FREQ_HZ / BIT10_DIV), " Hz       bit 10")
+  debug("  +7  (E):         ", udec_(BASE_FREQ_HZ / BIT11_DIV), " Hz       bit 11")
+  debug("  +8  (R1):        ", udec_(BASE_FREQ_HZ / BIT12_DIV), " Hz       bit 12")
+  debug("  +9  (G1):        ", udec_(BASE_FREQ_HZ / BIT13_DIV), " Hz       bit 13")
+  debug("  +10 (B1):        ", udec_(BASE_FREQ_HZ / BIT14_DIV), " Hz        bit 14")
+  debug("  +11 (R2):        ", udec_(BASE_FREQ_HZ / BIT15_DIV), " Hz        bit 15")
   debug("  +12 (G2):        ~1.5 Hz        bit 16")
   debug("  +13 (B2):        ~0.76 Hz       bit 17")
   debug("  +14 (SP1):       ~0.38 Hz       bit 18")
@@ -160,8 +187,8 @@ PUB main() | nextTime, laBits, hub75Bits
   ' Run forever, outputting counter value to both pin groups
   repeat
     ' Split counter: bits 0-3 go to P8-P11, bits 4-19 go to HUB75 pins
-    laBits := counter & $F              ' lower 4 bits for LA pins
-    hub75Bits := (counter >> 4) & $FFFF ' upper 16 bits for HUB75 pins
+    laBits := counter & LA_BITS_MASK                       ' lower 4 bits for LA pins
+    hub75Bits := (counter >> LA_BIT_COUNT) & HUB75_BITS_MASK ' upper 16 bits for HUB75 pins
 
     ' Output to both pin groups
     pinwrite(LA_PIN_GROUP, laBits)

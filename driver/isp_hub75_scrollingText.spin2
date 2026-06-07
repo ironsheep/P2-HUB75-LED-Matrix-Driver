@@ -20,7 +20,9 @@ CON ' public control values
 ' enum: scrolling duration
     #0, SCROLL_UNKNOWN, SCROLL_FOREVER, SCROLL_ONCE, SCROLL_ONCE_TO_CLEAR, SCROLL_N_TIMES
 
-    MAX_SCROLL_CHARS_TO_BUFFER   = 10 * 3                           ' 3 lines wide, max 10 chars per line
+    MAX_CHARS_PER_LINE           = 10                               ' max 10 chars per line
+    MAX_SCROLL_LINES             = 3                                 ' 3 lines wide
+    MAX_SCROLL_CHARS_TO_BUFFER   = MAX_CHARS_PER_LINE * MAX_SCROLL_LINES
     MAX_SCROLL_COLORS_TO_BUFFER  = MAX_SCROLL_CHARS_TO_BUFFER       ' one color per character
 
     MAX_SCROLL_CHAR_BYTES        = (((MAX_SCROLL_CHARS_TO_BUFFER + 3) / 4) * 4)
@@ -29,6 +31,26 @@ CON ' public control values
     MAX_LONGS_PER_CHAR_BITMAP    = 2
 
     NO_LEADING_CHAR_DISPLAY      = -1
+
+' loop-count clamp for repeated scrolling
+    MAX_SCROLL_LOOP_COUNT        = 10                               ' max repeat count for SCROLL_N_TIMES
+
+' character/color literals
+    SPACE_CHAR                   = $20                              ' ASCII space
+    BLACK_COLOR                  = $000000                          ' background / off pixel
+
+' inter-row blank pixel (one blank row of pixels between rows)
+    BLANK_ROW_PIX                = 1
+
+' dithered-font pixel codec (2 bits per pixel, MSB pair first)
+    DITH_BITS_PER_PIX            = 2                                ' bits per dithered pixel
+    DITH_PIX_MASK                = $c000                            ' top pixel-pair mask
+    DITH_PIX_TOP_SHIFT           = 14                               ' shift to right-align top pixel-pair
+    DITH_PIX_FULL                = 3                                ' full-brightness pixel value
+    DITH_PIX_HALF                = 1                                ' half-brightness (dithered) pixel value
+
+' dithered-font brightness reduction
+    DITHER_BRIGHTNESS_PCT        = 36                               ' brightness percent for dithered pixels
 
 OBJ
 
@@ -161,7 +183,7 @@ PUB configureScrollLoopCount(loopMode, count) | bValidRequest, validCount
 
   DEBUG("cslm() #", udec_(instanceID), " mode=", udec_(loopMode))
   bValidRequest := TRUE
-  validCount := 0 #> count <# 10
+  validCount := 0 #> count <# MAX_SCROLL_LOOP_COUNT
   case loopMode
     SCROLL_FOREVER:
     SCROLL_ONCE:
@@ -186,11 +208,11 @@ PUB configureScrollLoopCount(loopMode, count) | bValidRequest, validCount
     elseif loopMode == SCROLL_N_TIMES
       remainingPixToScroll := (((ctCharsToScroll * (charWidthInPix + horizontalGapInPix)) * scrollNbrTimes) - horizontalGapInPix) - windowWidthInPix
       if eScrollDirection == DIR_UP OR eScrollDirection == DIR_DOWN
-        remainingPixToScroll := (charHeightInPix + 1) * scrollNbrTimes          ' + 1 we are doing a blank row of pixels between rows
+        remainingPixToScroll := (charHeightInPix + BLANK_ROW_PIX) * scrollNbrTimes  ' blank row of pixels between rows
     else
       remainingPixToScroll := ((ctCharsToScroll * (charWidthInPix + horizontalGapInPix)) - horizontalGapInPix) - windowWidthInPix
       if eScrollDirection == DIR_UP OR eScrollDirection == DIR_DOWN
-        remainingPixToScroll := charHeightInPix + 1                             ' + 1 we are doing a blank row of pixels between rows
+        remainingPixToScroll := charHeightInPix + BLANK_ROW_PIX                 ' blank row of pixels between rows
             ' BUG: 1 char short font 8A
     'debug("stx:scrlTxt() ", udec(instanceID), ", ", udec(remainingPixToScroll), udec(ctCharsToScroll), udec(maxVisibleChars), udec(charWidthInPix), udec(horizontalGapInPix))
 
@@ -269,7 +291,7 @@ PUB scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbCol
       placeColrCharsVtOfstAtRC(topRow, leftColumn, charVtPixOffset, windowWidthInPix, scrollTextColor)
       charVtPixOffset--                                 ' we showed first window content just now
       if charVtPixOffset < 0
-        charVtPixOffset := charHeightInPix - 1 + 1      ' + 1 we are doing a blank row of pixels between rows
+        charVtPixOffset := charHeightInPix - 1 + BLANK_ROW_PIX  ' blank row of pixels between rows
   else
     DEBUG("stx:scrollTxAtRCOfClr() - NOT IDLE!")
 
@@ -312,14 +334,14 @@ PUB animateScroll()
     elseif eScrollDirection == DIR_UP
       placeColrCharsVtOfstAtRC(topRow, leftColumn, charVtPixOffset, windowWidthInPix, scrollTextColor)
       charVtPixOffset++                                 ' we showed one just now
-      if charVtPixOffset >= charHeightInPix - 1 + 1     ' + 1 we are doing a blank row of pixels between rows
+      if charVtPixOffset >= charHeightInPix - 1 + BLANK_ROW_PIX  ' blank row of pixels between rows
         charVtPixOffset := 0
 
     elseif eScrollDirection == DIR_DOWN
       placeColrCharsVtOfstAtRC(topRow, leftColumn, charVtPixOffset, windowWidthInPix, scrollTextColor)
       charVtPixOffset--                                 ' we showed one just now
       if charVtPixOffset < 0
-        charVtPixOffset := charHeightInPix - 1 + 1      ' + 1 we are doing a blank row of pixels between rows
+        charVtPixOffset := charHeightInPix - 1 + BLANK_ROW_PIX  ' blank row of pixels between rows
 
     if eScrollMode <> SCROLL_FOREVER
       if remainingPixToScroll > 0
@@ -401,7 +423,7 @@ PRI placeColrCharsHzOfstAtRC(row, column, charHzPxOffset, windowWidth, startChar
     cChar := BYTE[@scrollChars][actCharIndex]
     ' if we are scrolling end of text off screen then chars beyond text are ' ' chars
     if actCharIndex > ctCharsToScroll - 1
-      cChar := $20                                      '  TEST use $30 ' space char (zero for TESTing)
+      cChar := SPACE_CHAR                               '  TEST use $30 ' space char (zero for TESTing)
     ' get pointer to character bitmap
     pChrBitmap := fonts.getCharAddrForFont(selectedTextFont, cChar)
     ' if we've some character to show, then draw full or partial character
@@ -443,7 +465,7 @@ PRI placeColrCharsVtOfstAtRC(row, column, vtPxOffset, windowWidth, rgbColor) | e
     cChar := BYTE[@scrollChars][charIndex]
     ' if we are scrolling end of text off screen then chars beyond text are ' ' chars
     if charIndex > ctCharsToScroll - 1
-      cChar := $20                                      '  TEST use $30 ' space char (zero for TESTing)
+      cChar := SPACE_CHAR                               '  TEST use $30 ' space char (zero for TESTing)
     ' get pointer to character bitmap
     pChrBitmap := fonts.getCharAddrForFont(selectedTextFont, cChar)
     ' draw full character but vertical pixels rotated
@@ -475,7 +497,7 @@ PRI placeSpaceAtRC(row, column, widthInPix) : endColumn | colIndex, rowIndex
 
   repeat colIndex from column TO widthInPix - 1 + column
     repeat rowIndex from row TO charHeightInPix - 1 + row
-      pixels.drawPixelAtRC(chainIndex, rowIndex, colIndex, $000000)
+      pixels.drawPixelAtRC(chainIndex, rowIndex, colIndex, BLACK_COLOR)
 
   endColumn := column + widthInPix
 
@@ -512,18 +534,18 @@ PRI placeBitmapFrontAtRCWithColor(row, column, bitInset, nbrFieldBits, pChrBitma
   endColumn := column + nbrCharBits                                             ' point to gap locn
   if nbrCharBits > 0
     if bFontIsDithered
-      ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, 36)    ' 50% brightness
+      ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, DITHER_BRIGHTNESS_PCT)  ' dithered-pixel brightness
       repeat cByteIdx from 0 TO charHeightInPix - 1
         cRowBits := WORD[pChrBitmap][cByteIdx]
         pixRow := row + cByteIdx
         ' from right edge of char to left
         colOffset := 0
         repeat cBitIdx from bitInset TO bitInset + charWidthInPix - 1           ' 4-0, 4-1, 4-2, 4-3, 4-4
-          cBitOffset := cBitIdx * 2
-          pixVal := (cRowBits & ($c000 >> cBitOffset)) >> (14 - cBitOffset)
+          cBitOffset := cBitIdx * DITH_BITS_PER_PIX
+          pixVal := (cRowBits & (DITH_PIX_MASK >> cBitOffset)) >> (DITH_PIX_TOP_SHIFT - cBitOffset)
           pixColor := rgbColor
-          if pixVal <> 3
-            pixColor := (pixVal == 1) ? ditheredRGBColor : $000000
+          if pixVal <> DITH_PIX_FULL
+            pixColor := (pixVal == DITH_PIX_HALF) ? ditheredRGBColor : BLACK_COLOR
           pixColumn := column + colOffset
           ' dont paint beyond our left edge
           if pixColumn >= leftColumn
@@ -537,7 +559,7 @@ PRI placeBitmapFrontAtRCWithColor(row, column, bitInset, nbrFieldBits, pChrBitma
       colOffset := 0
       repeat cBitIdx from bitInset TO bitInset + charWidthInPix - 1             ' 4-0, 4-1, 4-2, 4-3, 4-4
         cBitOffset := (charWidthInPix - 1) - cBitIdx
-        pixColor := cRowBits & (1 << cBitOffset) > 0 ? rgbColor : $000000
+        pixColor := cRowBits & (1 << cBitOffset) > 0 ? rgbColor : BLACK_COLOR
         pixColumn := column + colOffset
         ' dont paint beyond our left edge
         if pixColumn >= leftColumn
@@ -578,18 +600,18 @@ PRI placeBitmapBackAtRCWithColor(row, column, bitInset, nbrCharBits, pChrBitmap,
   endColumn := column + nbrCharBits
   if nbrCharBits > 0
     if bFontIsDithered
-      ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, 36)    ' 50% brightness
+      ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, DITHER_BRIGHTNESS_PCT)  ' dithered-pixel brightness
       repeat cByteIdx from 0 TO charHeightInPix - 1
         cRowBits := WORD[pChrBitmap][cByteIdx]
         pixRow := row + cByteIdx
         ' from right edge of char to left
         colOffset := nbrCharBits - 1
         repeat cBitIdx from bitInset TO bitInset + nbrCharBits - 1              ' 4-0, 4-1, 4-2, 4-3, 4-4
-          cBitOffset := cBitIdx * 2
-          pixVal := (cRowBits & ($c000 >> cBitOffset)) >> (14 - cBitOffset)
+          cBitOffset := cBitIdx * DITH_BITS_PER_PIX
+          pixVal := (cRowBits & (DITH_PIX_MASK >> cBitOffset)) >> (DITH_PIX_TOP_SHIFT - cBitOffset)
           pixColor := rgbColor
-          if pixVal <> 3
-            pixColor := (pixVal == 1) ? ditheredRGBColor : $000000
+          if pixVal <> DITH_PIX_FULL
+            pixColor := (pixVal == DITH_PIX_HALF) ? ditheredRGBColor : BLACK_COLOR
           pixColumn := column + (nbrCharBits - 1) - colOffset
           ' dont paint off edge of matrix
           if pixColumn < maxDisplayColumns
@@ -603,7 +625,7 @@ PRI placeBitmapBackAtRCWithColor(row, column, bitInset, nbrCharBits, pChrBitmap,
       colOffset := nbrCharBits - 1
       repeat cBitIdx from bitInset TO bitInset + nbrCharBits - 1                ' 4-0, 4-1, 4-2, 4-3, 4-4
         cBitOffset := (charWidthInPix - 1) - cBitIdx
-        pixColor := cRowBits & (1 << cBitOffset) > 0 ? rgbColor : $000000
+        pixColor := cRowBits & (1 << cBitOffset) > 0 ? rgbColor : BLACK_COLOR
         pixColumn := column + (nbrCharBits - 1) - colOffset
         ' dont paint off edge of matrix
         if pixColumn < maxDisplayColumns
@@ -641,10 +663,10 @@ PRI placeColrBitmapVtOffsetAtRC(row, column, vtPxOffset, pChrBitmap, rgbColor) :
 ' @local ditheredRGBColor - reduced brightness color for dithered pixels
   endColumn := column + charWidthInPix
   if bFontIsDithered
-    ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, 36)      ' 50% brightness
+    ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, DITHER_BRIGHTNESS_PCT)  ' dithered-pixel brightness
     repeat rowIdx from 0 TO charHeightInPix - 1
       pixRow := row + rowIdx
-      cByteIdx := (rowIdx + vtPxOffset) +// (charHeightInPix + 1)               ' [0-(charHeight-1), and charHeight] where charHeight means black row of pixels
+      cByteIdx := (rowIdx + vtPxOffset) +// (charHeightInPix + BLANK_ROW_PIX)   ' [0-(charHeight-1), and charHeight] where charHeight means black row of pixels
       if cByteIdx > charHeightInPix - 1
         cRowBits := 0                                                           ' no 1 bits (all BG color)
       else
@@ -656,11 +678,11 @@ PRI placeColrBitmapVtOffsetAtRC(row, column, vtPxOffset, pChrBitmap, rgbColor) :
       ' from right edge of char to left
       colOffset := charWidthInPix - 1
       repeat cBitIdx from 0 TO charWidthInPix - 1                               ' 4-0, 4-1, 4-2, 4-3, 4-4
-        cBitOffset := cBitIdx * 2
-        pixVal := (cRowBits & ($c000 >> cBitOffset)) >> (14 - cBitOffset)
+        cBitOffset := cBitIdx * DITH_BITS_PER_PIX
+        pixVal := (cRowBits & (DITH_PIX_MASK >> cBitOffset)) >> (DITH_PIX_TOP_SHIFT - cBitOffset)
         pixColor := rgbColor
-        if pixVal <> 3
-          pixColor := (pixVal == 1) ? ditheredRGBColor : $000000
+        if pixVal <> DITH_PIX_FULL
+          pixColor := (pixVal == DITH_PIX_HALF) ? ditheredRGBColor : BLACK_COLOR
         pixColumn := column + (charWidthInPix - 1) - colOffset
         ' dont paint off edge of matrix
         if pixColumn < maxDisplayColumns
@@ -669,7 +691,7 @@ PRI placeColrBitmapVtOffsetAtRC(row, column, vtPxOffset, pChrBitmap, rgbColor) :
   else
   repeat rowIdx from 0 TO charHeightInPix - 1
     pixRow := row + rowIdx
-    cByteIdx := (rowIdx + vtPxOffset) +// (charHeightInPix + 1)                 ' [0-(charHeight-1), and charHeight] where charHeight means black row of pixels
+    cByteIdx := (rowIdx + vtPxOffset) +// (charHeightInPix + BLANK_ROW_PIX)     ' [0-(charHeight-1), and charHeight] where charHeight means black row of pixels
     if cByteIdx > charHeightInPix - 1
       cRowBits := 0                                                             ' no 1 bits (all BG color)
     else
@@ -682,7 +704,7 @@ PRI placeColrBitmapVtOffsetAtRC(row, column, vtPxOffset, pChrBitmap, rgbColor) :
     colOffset := charWidthInPix - 1
     repeat cBitIdx from 0 TO charWidthInPix - 1                                 ' 4-0, 4-1, 4-2, 4-3, 4-4
       cBitOffset := (charWidthInPix - 1) - cBitIdx
-      pixColor := cRowBits & (1 << cBitOffset) > 0 ? rgbColor : $000000
+      pixColor := cRowBits & (1 << cBitOffset) > 0 ? rgbColor : BLACK_COLOR
       pixColumn := column + (charWidthInPix - 1) - colOffset
       ' dont paint off edge of matrix
       if pixColumn < maxDisplayColumns

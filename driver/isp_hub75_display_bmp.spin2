@@ -12,6 +12,33 @@
 ''  This object adds .bmp file loading support
 '' =================================================================================================
 
+CON ' .bmp file-format protocol constants
+
+    ' BMP file-type signature bytes ("BM")
+    BMP_SIG_B               = $42         ' 'B'
+    BMP_SIG_M               = $4d         ' 'M'
+
+    ' BMP header sizes (bytes)
+    BMP_HEADER_SIZE         = 54          ' BITMAPFILEHEADER + BITMAPINFOHEADER
+    BMP_DIB_HEADER_SIZE     = 40          ' BITMAPINFOHEADER (DIB header)
+
+    ' Header field-span byte counts used while parsing (bytemove lengths)
+    BMP_TYPE_BYTES          = 2           ' bfType field span
+    BMP_RESERVED_BYTES      = 4           ' bfReserved1 field span
+    BMP_LONG_FIELD_BYTES    = 4           ' single LONG header field span
+    BMP_OFFBITS_BLOCK_BYTES = 16          ' bfSize..bfOffBits block span
+    BMP_DIB_TAIL_BYTES      = 24          ' biCompression..biClrImportant block span
+
+    ' BMP DIB header expected values
+    BMP_BIT_COUNT_24        = 24          ' 24-bit (BGR) pixel depth
+    BMP_PLANES              = 1           ' color planes (always 1)
+    BMP_COMPRESSION_NONE    = 0           ' BI_RGB (uncompressed)
+
+    ' In-memory BMP pixel BYTE order is BGR
+    BMP_BLUE_OFST           = 0           ' blue channel byte offset
+    BMP_GREEN_OFST          = 1           ' green channel byte offset
+    BMP_RED_OFST            = 2           ' red channel byte offset
+
 OBJ ' Objects Used by this Object
 
     hub75Bffrs  :   "isp_hub75_hwBufferAccess"
@@ -82,21 +109,21 @@ PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader, i
   bValidStatus := TRUE
   'analyze bitmap image
   pFileHeader := pBmpFileImage
-  bytemove(@bfType, pFileHeader, 2) 'read bmp header
-  pFileHeader += 2
-  bytemove(@bfSize, pFileHeader, 4) 'read bmp header
-  pFileHeader += 4
-  bytemove(@bfReserved1, pFileHeader, 4) 'read bmp header
-  pFileHeader += 4
-  bytemove(@bfOffBits, pFileHeader, 16) 'read bmp header
-  pFileHeader += 16
-  bytemove(@biPlanes, pFileHeader, 4)
-  pFileHeader += 4
-  bytemove(@biCompression, pFileHeader, 24)
-  pFileHeader += 24
+  bytemove(@bfType, pFileHeader, BMP_TYPE_BYTES) 'read bmp header
+  pFileHeader += BMP_TYPE_BYTES
+  bytemove(@bfSize, pFileHeader, BMP_LONG_FIELD_BYTES) 'read bmp header
+  pFileHeader += BMP_LONG_FIELD_BYTES
+  bytemove(@bfReserved1, pFileHeader, BMP_RESERVED_BYTES) 'read bmp header
+  pFileHeader += BMP_RESERVED_BYTES
+  bytemove(@bfOffBits, pFileHeader, BMP_OFFBITS_BLOCK_BYTES) 'read bmp header
+  pFileHeader += BMP_OFFBITS_BLOCK_BYTES
+  bytemove(@biPlanes, pFileHeader, BMP_LONG_FIELD_BYTES)
+  pFileHeader += BMP_LONG_FIELD_BYTES
+  bytemove(@biCompression, pFileHeader, BMP_DIB_TAIL_BYTES)
+  pFileHeader += BMP_DIB_TAIL_BYTES
 
   'calculate actual bytes in palette
-  i := bfOffBits - 54
+  i := bfOffBits - BMP_HEADER_SIZE
   pFileHeader += i
 
   ' XYZZYpnl debug("BitMap file @0x", uhex_(pBmpFileImage))
@@ -112,11 +139,11 @@ PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader, i
     ' XYZZYpnl debug(" !! invalid BMP size! [NOT 64x32]")
     bValidStatus := FALSE
 
-  if BYTE[@bfType][0] <> $42 || BYTE[@bfType][1] <> $4d ' B, M
+  if BYTE[@bfType][0] <> BMP_SIG_B || BYTE[@bfType][1] <> BMP_SIG_M ' B, M
     ' XYZZYpnl debug(" !! invalid BMP file type! [NOT 'BM']")
     bValidStatus := FALSE
 
-  if biCompression <> 0
+  if biCompression <> BMP_COMPRESSION_NONE
     ' XYZZYpnl debug(" !! invalid BMP compression! [is compressed]")
     bValidStatus := FALSE
 
@@ -136,9 +163,9 @@ PRI get24BitBMPColorForRC(nRow, nColumn) : red, green, blue | pixColorAddr
 
   pixColorAddr := getPixelAddressForBMPRowColumn(nRow, nColumn)
   ' our intername .bmp file BYTE order is BGR!
-  blue := BYTE[pixColorAddr][0]
-  green := BYTE[pixColorAddr][1]
-  red := BYTE[pixColorAddr][2]
+  blue := BYTE[pixColorAddr][BMP_BLUE_OFST]
+  green := BYTE[pixColorAddr][BMP_GREEN_OFST]
+  red := BYTE[pixColorAddr][BMP_RED_OFST]
 
 PRI getPixelAddressForBMPRowColumn(nRow, nColumn) : pixColorAddr | rowIndex, columnIndex, nOffset, fileBitsBase, showDebug
   ' Row is inverted in .BMP file...
@@ -192,13 +219,13 @@ bfType              BYTE "B","M"
 bfSize              LONG 0
 bfReserved1         WORD 0
 bfReserved2         WORD 0
-bfOffBits           LONG 54
-biSize              LONG 40
+bfOffBits           LONG BMP_HEADER_SIZE
+biSize              LONG BMP_DIB_HEADER_SIZE
 biWidth             LONG 0
 biHeight            LONG 10
-biPlanes            WORD 1
-biBitCount          WORD 24
-biCompression       LONG 0
+biPlanes            WORD BMP_PLANES
+biBitCount          WORD BMP_BIT_COUNT_24
+biCompression       LONG BMP_COMPRESSION_NONE
 biSizeImage         LONG 0
 
 biXPelsPerMeter     LONG 0

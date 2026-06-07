@@ -52,6 +52,7 @@ OBJ ' Objects Used by this Object
     panelSet                                : "isp_hub75_panel"
     fonts                                   : "isp_hub75_fonts"
     hwEnum                                  : "isp_hub75_hwEnums"   ' hub75 attachment, set up constants
+    color                                   : "isp_hub75_color"
     colorUtils                              : "isp_hub75_colorUtils"
     scroller[MAX_SCROLLING_REGIONS]         : "isp_hub75_scrollingText"
 
@@ -94,6 +95,38 @@ VAR ' Object Instance Variables
 CON ' PRIVATE Constants
 
     MAX_PAD_BUFFER_BYTES  = 30
+
+    DEFAULT_TEXT_COLOR    = $AAAAAA           ' light-grey default text color
+    PAD_CHAR_SPACE        = $20               ' ASCII space used for field padding
+
+    FONT_CELL_PADDING     = 1                 ' extra pix added to char cell (height/bitmap correction)
+
+    HOME_LINE             = 0                 ' top-left cursor home line
+    HOME_COLUMN           = 0                 ' top-left cursor home column
+
+    CENTER_DIVISOR        = 2                 ' halve free space when centering text
+    ROUND_HALF_BIAS       = 1                 ' +1 before >>1 for round-to-nearest
+
+    MARGIN_SIDE_COUNT     = 2                 ' left+right (or top+bottom) margins
+
+    MIN_PANEL_COUNT       = 1                 ' fewest panels a span may cover
+
+    ' dithered-font pixel codec (LOCAL to this file; mirrors scrollingText's vocabulary)
+    DITH_BITS_PER_PIX     = 2                 ' 2 bits per pixel in dithered font word
+    DITH_PIX_MASK         = $c000            ' mask for the top pixel in the row word
+    DITH_PIX_TOP_SHIFT    = 14                ' shift to right-align the masked top pixel
+    DITH_PIX_FULL         = 3                 ' codec value -> full brightness
+    DITH_PIX_HALF         = 1                 ' codec value -> reduced brightness
+
+    DITHER_BRIGHTNESS_PCT = 36                ' brightness arg for dithered (half) pixels
+
+    ' Bresenham line/circle integer coefficients (algorithm-inherent; named per FULL-STRICT)
+    BRESENHAM_TWO         = 2                 ' 2*dy / 2*dx slope-error doubling
+    CIRCLE_DECISION_INIT  = 3                 ' initial decision: 3 - 2*radius
+    CIRCLE_DECISION_RADIUS_MUL = 2           ' radius multiplier in initial decision
+    CIRCLE_DELTA_MUL      = 4                 ' 4*(column-row) / 4*column decision delta
+    CIRCLE_DELTA_DIAG_ADD = 10               ' decision add when stepping diagonally
+    CIRCLE_DELTA_AXIS_ADD = 6                ' decision add when stepping along axis
 
 PUB null()
 '' This is not a top level object.
@@ -151,7 +184,7 @@ PUB startWithId(nId, nChainIdx) : ok | scrollerIndex, dvrConfig, eChipType
   setTextFont(TEXT_FONT_DEFAULT)
 
   homeCursor()
-  setTextColor($AAAAAA)
+  setTextColor(DEFAULT_TEXT_COLOR)
   clearScreen()
 
 PUB stop()
@@ -261,7 +294,7 @@ PUB homeCursor()
 '' Return the cursor to the top left corner of the display.
 ''
 
-  setCursor(0, 0)
+  setCursor(HOME_LINE, HOME_COLUMN)
 
 PUB setCursorOnPanel(line, column, panelIndex) | boundedPanelIndex, boundedLine, boundedColumn, panelGridRow, panelGridCol, panelsPerRow, panelsPerCol
 '' Position the text cursor to line, column within the selected panel
@@ -294,7 +327,7 @@ PUB homeCursorOnPanel(panelIndex)
 ''
 '' @param panelIndex - zero-based index of the target panel
 
-  setCursorOnPanel(0, 0, panelIndex)
+  setCursorOnPanel(HOME_LINE, HOME_COLUMN, panelIndex)
 
 PUB setTextFont(newFont) | scrollerIndex, hUnusedPix, vUnusedPix, heightCorrection
 '' Select the text font and recalculate the text grid size.
@@ -313,13 +346,13 @@ PUB setTextFont(newFont) | scrollerIndex, hUnusedPix, vUnusedPix, heightCorrecti
   hBitmapOffsetInPix := 0
   case newFont
     TEXT_FONT_DEFAULT..TEXT_FONT_5x7:
-      heightCorrection := 1
+      heightCorrection := FONT_CELL_PADDING
     TEXT_FONT_5x7_DITH:
-      heightCorrection := 1
+      heightCorrection := FONT_CELL_PADDING
     TEXT_FONT_5x7_DITH_DCNDR:
-      heightCorrection := 1
+      heightCorrection := FONT_CELL_PADDING
     TEXT_FONT_8x8A:
-      hBitmapOffsetInPix := 1
+      hBitmapOffsetInPix := FONT_CELL_PADDING
     TEXT_FONT_8x8B:
     OTHER:
       debug("*ERROR* unknown text size*")
@@ -338,8 +371,8 @@ PUB setTextFont(newFont) | scrollerIndex, hUnusedPix, vUnusedPix, heightCorrecti
   horizontalGapInPix := hUnusedPix / maxTextColumns
   vUnusedPix := maxDisplayRows - (maxTextLines * (charHeightInPix + verticalGapInPix))
   hUnusedPix := maxDisplayColumns - (maxTextColumns * (charWidthInPix + horizontalGapInPix))
-  topOffsetInPix := (vUnusedPix + 1) >> 1
-  leftOffsetInPix := (hUnusedPix + 1) >> 1
+  topOffsetInPix := (vUnusedPix + ROUND_HALF_BIAS) >> 1
+  leftOffsetInPix := (hUnusedPix + ROUND_HALF_BIAS) >> 1
 
   maxPanelTextLines := ((rowsPerPanel - topOffsetInPix) / (charHeightInPix + verticalGapInPix))
   maxPanelTextColumns := ((columnsPerPanel - leftOffsetInPix) / (charWidthInPix + horizontalGapInPix))
@@ -410,12 +443,9 @@ PUB centerColoredTextAtLn(line, pZString, rgbColor) | textLen, desiredCol
 ' @local desiredCol - calculated column for centering
 
   textLen := strsize(pZString)
-  desiredCol := (numberTextColumns() - textLen) / 2     ' Calc centering value for clock
+  desiredCol := (numberTextColumns() - textLen) / CENTER_DIVISOR     ' Calc centering value for clock
   ' debug("DSP: cctal() ", udec(desiredCol), udec(textLen), zstr(pZString))
   setColoredTextAtLnCol(line, desiredCol, pZString, rgbColor)
-
-VAR
-    LONG    lastColumn
 
 PUB setColoredTextAtLnWithAlignPad(line, pZString, rgbColor, alignment, padLen) | offset, valLen, lineWidth, paddedStr, padOffset
 '' Align and pad text on the specified line using the given color.
@@ -445,15 +475,10 @@ PUB setColoredTextAtLnWithAlignPad(line, pZString, rgbColor, alignment, padLen) 
       offset := lineWidth - valLen
     ALIGN_CENTER:
       ' 1/2 padLen on left
-      offset := (lineWidth - valLen) / 2
+      offset := (lineWidth - valLen) / CENTER_DIVISOR
     other:
       ' ALIGN_CENTER - pad on right
       offset := 0
-
-  ' if padLen == 5 and offset <> 5
-  lastColumn := offset + padLen
-  if lastColumn <> 10
-    DEBUG("DSP: ERROR1: off Edge? r,c=[", udec_(line), ",", udec_(offset), "] ", udec(padLen), udec(valLen), ", [", zstr_(pZString), "] endCol=", udec_(lastColumn))
 
   ' if we need to pad...
   if valLen < padLen
@@ -462,14 +487,14 @@ PUB setColoredTextAtLnWithAlignPad(line, pZString, rgbColor, alignment, padLen) 
       ALIGN_RIGHT:
         ' pad on left
         padOffset := padLen - valLen
-        bytefill(@padBuffer, $20, padOffset)
+        bytefill(@padBuffer, PAD_CHAR_SPACE, padOffset)
       ALIGN_CENTER:
         ' 1/2 padLen on left
-        padOffset := (padLen - valLen) / 2
-        bytefill(@padBuffer, $20, padOffset)
+        padOffset := (padLen - valLen) / CENTER_DIVISOR
+        bytefill(@padBuffer, PAD_CHAR_SPACE, padOffset)
       other:
         ' ALIGN_CENTER - pad on right
-        bytefill(@padBuffer, $20, padLen)
+        bytefill(@padBuffer, PAD_CHAR_SPACE, padLen)
         padOffset := 0
     bytemove(@BYTE[@padBuffer][padOffset], pZString, valLen)
     paddedStr := @padBuffer
@@ -555,7 +580,7 @@ PRI placeCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor) | cRowOffs
     cRowBits := BYTE[pCharBitMap][cRowOffset]
     repeat cColOffset from 0 TO charWidthInPix - 1
       cBitOffset := (charWidthInPix - 1) - cColOffset
-      pixColor := ((cRowBits & (1 << cBitOffset)) > 0) ? rgbColor : $000000
+      pixColor := ((cRowBits & (1 << cBitOffset)) > 0) ? rgbColor : color.CBLACK
       pixels.drawPixelAtRC(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor)
 
 PRI placeDitheredCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor) | cRowOffset, cRowBits, cColOffset, ditheredRGBColor, cBitOffset, pixVal, pixColor
@@ -575,18 +600,18 @@ PRI placeDitheredCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor) | 
 ' @local pixVal - 2-bit pixel value from the dithered font
 ' @local pixColor - resolved pixel color for this position
 
-  ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, 36)        ' 50% brightness
+  ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, DITHER_BRIGHTNESS_PCT)  ' half-pixel brightness arg (36, not 50)
   ' debug(" COLOR PERCENT ", uhex_long_(rgbColor), " -> ", uhex_long_(ditheredRGBColor))
   repeat cRowOffset from 0 TO charHeightInPix - 1
     cRowBits := WORD[pCharBitMap][cRowOffset]                                   ' ms 12 bits are char def'n (of the 16bits)
     ' debug(" FONT row ", ubin_word_(cRowBits))
     repeat cColOffset from 0 TO charWidthInPix - 1
-      cBitOffset := cColOffset * 2
-      pixVal := ((cRowBits << cBitOffset) & $c000) >> 14
+      cBitOffset := cColOffset * DITH_BITS_PER_PIX
+      pixVal := ((cRowBits << cBitOffset) & DITH_PIX_MASK) >> DITH_PIX_TOP_SHIFT
       ' debug("   PIX ", ubin_(pixVal))
       pixColor := rgbColor
-      if pixVal <> 3
-        pixColor := (pixVal == 1) ? ditheredRGBColor : $000000                  ' val == [2,0] = black
+      if pixVal <> DITH_PIX_FULL
+        pixColor := (pixVal == DITH_PIX_HALF) ? ditheredRGBColor : color.CBLACK  ' val == [2,0] = black
       pixels.drawPixelAtRC(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor)
 
 PRI incrCursorWithWrap()
@@ -708,10 +733,10 @@ PUB scrollColoredTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direc
 
   'debug("DSP: scrollColoredTextOnLnOfNPanels()")
   boundedPanelIdx := 0 #> panelIndex <# maxPanels - 1
-  cPanelCt := 1 #> panelCount <# maxPanels
+  cPanelCt := MIN_PANEL_COUNT #> panelCount <# maxPanels
   cLineIdx := 0 #> line <# maxTextLines - 1
   cColumnIdx :=  0
-  widthInChars := ((cPanelCt * columnsPerPanel) - (2 * leftOffsetInPix)) / (charWidthInPix + horizontalGapInPix)
+  widthInChars := ((cPanelCt * columnsPerPanel) - (MARGIN_SIDE_COUNT * leftOffsetInPix)) / (charWidthInPix + horizontalGapInPix)
   'panelLine, panelColumn := offsetToTextOnPanel(cLineIdx, cColumnIdx, panelIndex)
   offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, boundedPanelIdx)
   ' ensure we are asked to use a good location
@@ -979,16 +1004,16 @@ PRI plotLineLowInternal(x0, y0, x1, y1, rgbColor, bUseDisplayCoords) | row, colu
   if dy < 0
     yi := -1
     dy := -dy
-  D := (2 * dy) - dx
+  D := (BRESENHAM_TWO * dy) - dx
   row := y0
 
   repeat column from x0 to x1
     drawPixelInternal(row, column, rgbColor, bUseDisplayCoords)
     if D > 0
       row := row + yi
-      D := D + (2 * (dy - dx))
+      D := D + (BRESENHAM_TWO * (dy - dx))
     else
-      D := D + 2 * dy
+      D := D + BRESENHAM_TWO * dy
 
 PRI plotLineHighInternal(x0, y0, x1, y1, rgbColor, bUseDisplayCoords) | row, column, dy, dx, D, xi
 '' Bresenham line algorithm for steep slopes
@@ -999,16 +1024,16 @@ PRI plotLineHighInternal(x0, y0, x1, y1, rgbColor, bUseDisplayCoords) | row, col
   if dx < 0
     xi := -1
     dx := -dx
-  D := (2 * dx) - dy
+  D := (BRESENHAM_TWO * dx) - dy
   column := x0
 
   repeat row from y0 to y1
     drawPixelInternal(row, column, rgbColor, bUseDisplayCoords)
     if D > 0
       column := column + xi
-      D := D + (2 * (dx - dy))
+      D := D + (BRESENHAM_TWO * (dx - dy))
     else
-      D := D + 2*dx
+      D := D + BRESENHAM_TWO*dx
 
 PRI drawPixelInternal(row, column, rgbColor, bUseDisplayCoords)
     '' Draw a single pixel with coordinate system control
@@ -1047,7 +1072,7 @@ PUB drawCircleOfColor(ctrRow, ctrColumn, radius, rgbColor) | column, row, decisi
     ' using Bresenham's algorithm
     column := 0
     row := radius
-    decision := 3 - 2 * radius
+    decision := CIRCLE_DECISION_INIT - CIRCLE_DECISION_RADIUS_MUL * radius
     drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor)
     repeat while (row >= column)
         column++
@@ -1056,9 +1081,9 @@ PUB drawCircleOfColor(ctrRow, ctrColumn, radius, rgbColor) | column, row, decisi
         ' update decision, column, row
         if (decision > 0)
             row--
-            decision := decision + 4 * (column - row) + 10
+            decision := decision + CIRCLE_DELTA_MUL * (column - row) + CIRCLE_DELTA_DIAG_ADD
         else
-            decision := decision + 4 * column + 6
+            decision := decision + CIRCLE_DELTA_MUL * column + CIRCLE_DELTA_AXIS_ADD
         drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor)
 
 

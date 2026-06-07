@@ -178,6 +178,29 @@ CON { PRIVATE internal constants }
     PLACEHOLDER_ADDR_LINES  = 0
     PLACEHOLDER_ADDRESS     = $0DF0ADDE
 
+    ' PWM frame counts per color depth: (1 << depth) - 1
+    PWM_FRAMES_3BIT         = 7
+    PWM_FRAMES_4BIT         = 15
+    PWM_FRAMES_5BIT         = 31
+    PWM_FRAMES_6BIT         = 63
+    PWM_FRAMES_7BIT         = 127
+    PWM_FRAMES_8BIT         = 255
+
+    ' number of leading buffer-address LONGs in a chain descriptor entry
+    ENTR_ADDR_LONGS_COUNT   = 3
+
+    ' chip-type field width within the combined driver-flags value
+    CHIP_TYPE_MASK          = $ff
+
+    ' debug memory-dump (dbgMemDump) row geometry and pacing delays
+    DUMP_BYTES_PER_ROW      = 16
+    DUMP_MAX_COL            = DUMP_BYTES_PER_ROW - 1
+    DUMP_SINGLE_DIGIT_LIMIT = 10
+    DUMP_HALF_ROW_IDX       = 7
+    DUMP_HDR_DELAY_US       = 35
+    DUMP_ROW_DELAY_US       = 85
+    DUMP_END_DELAY_MS       = 2
+
 
 ' offsets to each entry in our chain descriptor table
     #0, ENTR_SCRN_BUFFER_ADDR_OFST, ENTR_FRM1_BUFFER_ADDR_OFST, ENTR_FRM2_BUFFER_ADDR_OFST, ...
@@ -265,8 +288,8 @@ PUB setBufferPointers(nChainIdx, pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2) | pE
   LONG[pEntry][ENTR_FRM2_BUFFER_ADDR_OFST] := pPwmFrameSet2
   DEBUG("HUB75: setBufferPointers() idx[", udec_(nChainIdx), "] ", uhex_long(pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2))
   longsInEntry := tableSizeInBytes / 4
-  DEBUG("HUB75: chain table size=", udec_(tableSizeInBytes), " entries [0-2]", uhex_long_array(@screenTableEnt0, 3))
-  DEBUG("HUB75: chain table values[3-13]: ", udec_long_array(@LONG[@screenTableEnt0][3], longsInEntry - 3 ))
+  DEBUG("HUB75: chain table size=", udec_(tableSizeInBytes), " entries [0-2]", uhex_long_array(@screenTableEnt0, ENTR_ADDR_LONGS_COUNT))
+  DEBUG("HUB75: chain table values[3-13]: ", udec_long_array(@LONG[@screenTableEnt0][ENTR_ADDR_LONGS_COUNT], longsInEntry - ENTR_ADDR_LONGS_COUNT ))
 
 PUB maxDisplayColumns(nChainIdx) : nMaxColumns | pEntry
 '' Return the number of pixels in a horizontal display row for the nChainIdx HUB75 adapter
@@ -541,7 +564,7 @@ PUB indexForHub75ChainId(eHub75Chain) : nChainIdx | bValidChain
       DEBUG("ERROR: unknown chain id (", udec_(eHub75Chain), ") must be [10, 20, or 30]")
       abort
   if bValidChain
-    nChainIdx := (eHub75Chain / 10) - 1                 ' 10, 20, 30 -> 1,2,3 -> 0,1,2
+    nChainIdx := (eHub75Chain / hwEnum.HUB75_ADAPTER_STEP) - 1   ' 10, 20, 30 -> 1,2,3 -> 0,1,2
 
 PUB pwmFrameCount(nChainIdx) : nbrPwmFrames | nColorDepth
 '' Return the number of PWM frames to display for the selected bit depth.
@@ -555,19 +578,19 @@ PUB pwmFrameCount(nChainIdx) : nbrPwmFrames | nColorDepth
   nColorDepth := colorDepth(nChainIdx)
   case nColorDepth
     hwEnum.DEPTH_3BIT:
-      nbrPwmFrames := 7
+      nbrPwmFrames := PWM_FRAMES_3BIT
     hwEnum.DEPTH_4BIT:
-      nbrPwmFrames := 15
+      nbrPwmFrames := PWM_FRAMES_4BIT
     hwEnum.DEPTH_5BIT:
-      nbrPwmFrames := 31
+      nbrPwmFrames := PWM_FRAMES_5BIT
     hwEnum.DEPTH_6BIT:
-      nbrPwmFrames := 63
+      nbrPwmFrames := PWM_FRAMES_6BIT
     hwEnum.DEPTH_7BIT:
-      nbrPwmFrames := 127
+      nbrPwmFrames := PWM_FRAMES_7BIT
     hwEnum.DEPTH_8BIT:
-      nbrPwmFrames := 255
+      nbrPwmFrames := PWM_FRAMES_8BIT
     other:
-      nbrPwmFrames := 15                                ' default to DEPTH_4BIT if set badly
+      nbrPwmFrames := PWM_FRAMES_4BIT                  ' default to DEPTH_4BIT if set badly
 
 PUB wireStart(nChainIdx) : eWireStart | pEntry
 '' Return the wire start position enum for the nChainIdx HUB75 adapter
@@ -815,7 +838,7 @@ PUB getDriverFlags(nChainIdx) : desiredFlags, eChipType
       desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.CLK_WIDE_PULSE | hwEnum.RB_SWAP
     elseif eChipType == hwEnum.CHIP_ICN2038S
       desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.CLK_WIDE_PULSE | hwEnum.SCAN_4
-  elseif eChipType & $ff <> hwEnum.CHIP_MANUAL_SPEC
+  elseif eChipType & CHIP_TYPE_MASK <> hwEnum.CHIP_MANUAL_SPEC
     ' report ERROR and exit
     DEBUG("- have unknown CHIP ", ubin_word(desiredFlags))
     abort
@@ -836,19 +859,19 @@ PUB dbgMemDump(pMessage, pBytes, lenBytes) | bytBffr, colIdx, rowIdx, maxCol, ma
 ' @local dispLen - running count of bytes displayed so far
 
   DEBUG("`temp '", zstr_(pMessage), ": bffr=", uhex_long_(pBytes), "(", udec_(lenBytes), ")' 13")
-  maxCol := lenBytes >= 16 ? 15 : lenBytes
-  maxRow := (lenBytes / 16)
-  if maxRow * 16 < lenBytes
+  maxCol := lenBytes >= DUMP_BYTES_PER_ROW ? DUMP_MAX_COL : lenBytes
+  maxRow := (lenBytes / DUMP_BYTES_PER_ROW)
+  if maxRow * DUMP_BYTES_PER_ROW < lenBytes
     maxRow++
   if maxRow == 0
     maxRow := 1
 
   bytBffr := pBytes
-  waitus(35)
+  waitus(DUMP_HDR_DELAY_US)
   ' returns
   dispLen := 0
   repeat rowIdx from 1 TO maxRow
-    if rowIdx < 10
+    if rowIdx < DUMP_SINGLE_DIGIT_LIMIT
       DEBUG("`temp ' '")                                ' space
     DEBUG("`temp '  ", uhex_long_(bytBffr), ": '")
     repeat colIdx from 0 TO maxCol
@@ -856,13 +879,13 @@ PUB dbgMemDump(pMessage, pBytes, lenBytes) | bytBffr, colIdx, rowIdx, maxCol, ma
       dispLen++
       if dispLen >= lenBytes
         quit
-      if colIdx == 7
+      if colIdx == DUMP_HALF_ROW_IDX
         DEBUG("`temp ' '")                              ' space
 
-    bytBffr += 16
+    bytBffr += DUMP_BYTES_PER_ROW
     DEBUG("`temp 13")                                   ' newline
-    waitus(85)                                          ' 50 too short, 70 less issue, 75 better,
-  waitms(2)
+    waitus(DUMP_ROW_DELAY_US)                           ' 50 too short, 70 less issue, 75 better,
+  waitms(DUMP_END_DELAY_MS)
 
 PRI ptrTableEntry(nChainIdx) : pEntry | validScreenIdx
 ' Return the hub address of the chain descriptor table entry for the given index.

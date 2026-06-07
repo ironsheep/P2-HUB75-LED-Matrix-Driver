@@ -32,6 +32,12 @@ CON ' segment states, names, orientations and such
     SEG_WIDTH   = 3
     SEG_LENGTH  = 10
 
+    ' taper insets: a segment is SEG_WIDTH (3) pixels across; each drawn line steps
+    '  one pixel further in so the segment ends come to a point (0=outer, 2=innermost)
+    INSET_OUTER = 0                                                 ' outermost (longest) line
+    INSET_MID   = 1                                                 ' middle line
+    INSET_INNER = 2                                                 ' innermost (shortest) line, == SEG_WIDTH - 1
+
     CBLACK      = $000000
 
 OBJ
@@ -79,11 +85,11 @@ PUB placeSegment(nChainIdx, row, column, orientation, initialState, rgbColor)
   segRgbColor := rgbColor
   case orientation
     SEG_TOP..SEG_BOTTOM:
-      segHeight := 3
-      segWidth := 10
+      segHeight := SEG_WIDTH
+      segWidth := SEG_LENGTH
     SEG_LEFT_E..SEG_RIGHT_C:
-      segHeight := 10
-      segWidth := 3
+      segHeight := SEG_LENGTH
+      segWidth := SEG_WIDTH
     OTHER:
       debug("SEG: BAD segment type!")
       abort
@@ -190,11 +196,11 @@ PRI updateVerticalSegment(newState) | pixInset, columnIndex
     ' now draw segment lines that are showing
     case newState
       STATE_3RD_ON:                                                                                         ' smallest 1 line showing
-        drawLine(segStartY + 0, segStartX + 0, segStartY + SEG_LENGTH - 1 - 0, segStartX + 0, segRgbColor)  ' shortest
+        drawLine(segStartY + INSET_OUTER, segStartX + INSET_OUTER, segStartY + SEG_LENGTH - 1 - INSET_OUTER, segStartX + INSET_OUTER, segRgbColor)  ' shortest
         nextState := STATE_6TH_ON
       STATE_6TH_ON:                                                                                         ' smallest 2 lines showing
-        drawLine(segStartY + 0, segStartX + 0, segStartY + SEG_LENGTH - 1 - 0, segStartX + 0, segRgbColor)  ' mid
-        drawLine(segStartY + 1, segStartX + 1, segStartY + SEG_LENGTH - 1 - 1, segStartX + 1, segRgbColor)  ' shortest
+        drawLine(segStartY + INSET_OUTER, segStartX + INSET_OUTER, segStartY + SEG_LENGTH - 1 - INSET_OUTER, segStartX + INSET_OUTER, segRgbColor)  ' mid
+        drawLine(segStartY + INSET_MID, segStartX + INSET_MID, segStartY + SEG_LENGTH - 1 - INSET_MID, segStartX + INSET_MID, segRgbColor)  ' shortest
         nextState := STATE_ON
       STATE_ON:                                                                                             ' all lines showing
         pixInset := 0
@@ -202,11 +208,11 @@ PRI updateVerticalSegment(newState) | pixInset, columnIndex
           drawLine(segStartY + pixInset, segStartX + columnIndex, segStartY + SEG_LENGTH - 1 - pixInset, segStartX + columnIndex, segRgbColor)
           pixInset++
       STATE_3RD_OFF:                                                                                        ' smallest 2 lines showing
-        drawLine(segStartY + 0, segStartX + 0, segStartY + SEG_LENGTH - 1 - 0, segStartX + 0, segRgbColor)  ' mid
-        drawLine(segStartY + 1, segStartX + 1, segStartY + SEG_LENGTH - 1 - 1, segStartX + 1, segRgbColor)  ' shortest
+        drawLine(segStartY + INSET_OUTER, segStartX + INSET_OUTER, segStartY + SEG_LENGTH - 1 - INSET_OUTER, segStartX + INSET_OUTER, segRgbColor)  ' mid
+        drawLine(segStartY + INSET_MID, segStartX + INSET_MID, segStartY + SEG_LENGTH - 1 - INSET_MID, segStartX + INSET_MID, segRgbColor)  ' shortest
         nextState := STATE_6TH_OFF
       STATE_6TH_OFF:                                                                                        ' smallest 1 line showing
-        drawLine(segStartY + 0, segStartX + 0, segStartY + SEG_LENGTH - 1 - 0, segStartX + 0, segRgbColor)  ' shortest
+        drawLine(segStartY + INSET_OUTER, segStartX + INSET_OUTER, segStartY + SEG_LENGTH - 1 - INSET_OUTER, segStartX + INSET_OUTER, segRgbColor)  ' shortest
         nextState := STATE_OFF
       STATE_OFF:                                                                                            ' nothing to do since we clear segment first
       other:
@@ -222,11 +228,11 @@ PRI updateVerticalSegment(newState) | pixInset, columnIndex
     ' now draw segment lines that are showing
     case newState
       STATE_3RD_ON:                                                                                         ' smallest 1 line showing
-        drawLine(segStartY + 2, segStartX + 2, segStartY + SEG_LENGTH - 1 - 2, segStartX + 2, segRgbColor)  ' shortest
+        drawLine(segStartY + INSET_INNER, segStartX + INSET_INNER, segStartY + SEG_LENGTH - 1 - INSET_INNER, segStartX + INSET_INNER, segRgbColor)  ' shortest
         nextState := STATE_6TH_ON
       STATE_6TH_ON:                                                                                         ' smallest 2 lines showing
-        drawLine(segStartY + 1, segStartX + 2, segStartY + SEG_LENGTH - 1 - 1, segStartX + 2, segRgbColor)  ' mid
-        drawLine(segStartY + 2, segStartX + 1, segStartY + SEG_LENGTH - 1 - 2, segStartX + 1, segRgbColor)  ' shortest
+        drawLine(segStartY + INSET_MID, segStartX + INSET_INNER, segStartY + SEG_LENGTH - 1 - INSET_MID, segStartX + INSET_INNER, segRgbColor)  ' mid
+        drawLine(segStartY + INSET_INNER, segStartX + INSET_MID, segStartY + SEG_LENGTH - 1 - INSET_INNER, segStartX + INSET_MID, segRgbColor)  ' shortest
         nextState := STATE_ON
       STATE_ON:                                                                                             ' all lines showing
         pixInset := SEG_WIDTH - 1
@@ -234,11 +240,11 @@ PRI updateVerticalSegment(newState) | pixInset, columnIndex
           drawLine(segStartY + pixInset, segStartX + columnIndex, segStartY + SEG_LENGTH - 1 - pixInset, segStartX + columnIndex, segRgbColor)
           pixInset--
       STATE_3RD_OFF:                                                                                        ' smallest 2 lines showing
-        drawLine(segStartY + 1, segStartX + 2, segStartY + SEG_LENGTH - 1 - 1, segStartX + 2, segRgbColor)  ' mid
-        drawLine(segStartY + 2, segStartX + 1, segStartY + SEG_LENGTH - 1 - 2, segStartX + 1, segRgbColor)  ' shortest
+        drawLine(segStartY + INSET_MID, segStartX + INSET_INNER, segStartY + SEG_LENGTH - 1 - INSET_MID, segStartX + INSET_INNER, segRgbColor)  ' mid
+        drawLine(segStartY + INSET_INNER, segStartX + INSET_MID, segStartY + SEG_LENGTH - 1 - INSET_INNER, segStartX + INSET_MID, segRgbColor)  ' shortest
         nextState := STATE_6TH_OFF
       STATE_6TH_OFF:                                                                                        ' smallest 1 line showing
-        drawLine(segStartY + 2, segStartX + 2, segStartY + SEG_LENGTH - 1 - 2, segStartX + 2, segRgbColor)  ' shortest
+        drawLine(segStartY + INSET_INNER, segStartX + INSET_INNER, segStartY + SEG_LENGTH - 1 - INSET_INNER, segStartX + INSET_INNER, segRgbColor)  ' shortest
         nextState := STATE_OFF
       STATE_OFF:                                                                                            ' nothing to do since we clear segment first
       other:
@@ -265,11 +271,11 @@ PRI updateHorizontalSegment(newState) | pixInset, rowIndex
         pixInset++
     case newState
       STATE_3RD_ON:                                                                                         ' smallest 1 line showing
-        drawLine(segStartY + 0, segStartX + 2, segStartY + 0, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)  ' shortest
+        drawLine(segStartY + INSET_OUTER, segStartX + INSET_INNER, segStartY + INSET_OUTER, segStartX + SEG_LENGTH - 1 - INSET_INNER, segRgbColor)  ' shortest
         nextState := STATE_6TH_ON
       STATE_6TH_ON:                                                                                         ' smallest 2 lines showing
-        drawLine(segStartY + 0, segStartX + 1, segStartY + 0, segStartX + SEG_LENGTH - 1 - 1, segRgbColor)  ' mid
-        drawLine(segStartY + 1, segStartX + 2, segStartY + 1, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)  ' shortest
+        drawLine(segStartY + INSET_OUTER, segStartX + INSET_MID, segStartY + INSET_OUTER, segStartX + SEG_LENGTH - 1 - INSET_MID, segRgbColor)  ' mid
+        drawLine(segStartY + INSET_MID, segStartX + INSET_INNER, segStartY + INSET_MID, segStartX + SEG_LENGTH - 1 - INSET_INNER, segRgbColor)  ' shortest
         nextState := STATE_ON
       STATE_ON:
         pixInset := 0
@@ -277,11 +283,11 @@ PRI updateHorizontalSegment(newState) | pixInset, rowIndex
           drawLine(segStartY + rowIndex, segStartX + pixInset, segStartY + rowIndex, segStartX + SEG_LENGTH - 1 - pixInset, segRgbColor)
           pixInset++
       STATE_3RD_OFF:                                                                                        ' smallest 2 lines showing
-        drawLine(segStartY + 0, segStartX + 1, segStartY + 0, segStartX + SEG_LENGTH - 1 - 1, segRgbColor)  ' mid
-        drawLine(segStartY + 1, segStartX + 2, segStartY + 1, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)  ' shortest
+        drawLine(segStartY + INSET_OUTER, segStartX + INSET_MID, segStartY + INSET_OUTER, segStartX + SEG_LENGTH - 1 - INSET_MID, segRgbColor)  ' mid
+        drawLine(segStartY + INSET_MID, segStartX + INSET_INNER, segStartY + INSET_MID, segStartX + SEG_LENGTH - 1 - INSET_INNER, segRgbColor)  ' shortest
         nextState := STATE_6TH_OFF
       STATE_6TH_OFF:                                                                                        ' smallest 1 line showing
-        drawLine(segStartY + 0, segStartX + 2, segStartY + 0, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)  ' shortest
+        drawLine(segStartY + INSET_OUTER, segStartX + INSET_INNER, segStartY + INSET_OUTER, segStartX + SEG_LENGTH - 1 - INSET_INNER, segRgbColor)  ' shortest
         nextState := STATE_OFF
       STATE_OFF:                                                                                            ' nothing to do since we clear segment first
       other:
@@ -296,11 +302,11 @@ PRI updateHorizontalSegment(newState) | pixInset, rowIndex
         pixInset --
     case newState
       STATE_3RD_ON:                                                                                         ' smallest 1 line showing
-        drawLine(segStartY + 2, segStartX + 2, segStartY + 2, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)  ' shortest
+        drawLine(segStartY + INSET_INNER, segStartX + INSET_INNER, segStartY + INSET_INNER, segStartX + SEG_LENGTH - 1 - INSET_INNER, segRgbColor)  ' shortest
         nextState := STATE_6TH_ON
       STATE_6TH_ON:                                                                                         ' smallest 2 lines showing
-        drawLine(segStartY + 2, segStartX + 1, segStartY + 2, segStartX + SEG_LENGTH - 1 - 1, segRgbColor)  ' mid
-        drawLine(segStartY + 1, segStartX + 2, segStartY + 1, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)  ' shortest
+        drawLine(segStartY + INSET_INNER, segStartX + INSET_MID, segStartY + INSET_INNER, segStartX + SEG_LENGTH - 1 - INSET_MID, segRgbColor)  ' mid
+        drawLine(segStartY + INSET_MID, segStartX + INSET_INNER, segStartY + INSET_MID, segStartX + SEG_LENGTH - 1 - INSET_INNER, segRgbColor)  ' shortest
         nextState := STATE_ON
       STATE_ON:
         pixInset := SEG_WIDTH - 1
@@ -308,11 +314,11 @@ PRI updateHorizontalSegment(newState) | pixInset, rowIndex
             drawLine(segStartY + rowIndex, segStartX + pixInset, segStartY + rowIndex, segStartX + SEG_LENGTH - 1 - pixInset, segRgbColor)
             pixInset --
       STATE_3RD_OFF:                                                                                        ' smallest 2 lines showing
-        drawLine(segStartY + 2, segStartX + 1, segStartY + 2, segStartX + SEG_LENGTH - 1 - 1, segRgbColor)  ' mid
-        drawLine(segStartY + 1, segStartX + 2, segStartY + 1, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)  ' shortest
+        drawLine(segStartY + INSET_INNER, segStartX + INSET_MID, segStartY + INSET_INNER, segStartX + SEG_LENGTH - 1 - INSET_MID, segRgbColor)  ' mid
+        drawLine(segStartY + INSET_MID, segStartX + INSET_INNER, segStartY + INSET_MID, segStartX + SEG_LENGTH - 1 - INSET_INNER, segRgbColor)  ' shortest
         nextState := STATE_6TH_OFF
       STATE_6TH_OFF:                                                                                        ' smallest 1 line showing
-        drawLine(segStartY + 2, segStartX + 2, segStartY + 2, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)  ' shortest
+        drawLine(segStartY + INSET_INNER, segStartX + INSET_INNER, segStartY + INSET_INNER, segStartX + SEG_LENGTH - 1 - INSET_INNER, segRgbColor)  ' shortest
         nextState := STATE_OFF
       STATE_OFF:                                                                                            ' nothing to do since we clear segment first
       other:
@@ -331,23 +337,23 @@ PRI updateMiddleSegment(newState) | pixInset, rowIndex
 
   if newState <> STATE_ON
     ' clear the segment
-    pixInset := 1
+    pixInset := INSET_MID
     repeat rowIndex from 0 TO SEG_WIDTH - 1
       drawLine(segStartY + rowIndex, segStartX + pixInset, segStartY + rowIndex, segStartX + SEG_LENGTH - 1 - pixInset, CBLACK)
-      pixInset := (pixInset == 1) ? 0 : 1
+      pixInset := (pixInset == INSET_MID) ? INSET_OUTER : INSET_MID
   case newState
     STATE_3RD_ON:                                                                                         ' smallest 1 line showing
       nextState := STATE_6TH_ON
     STATE_6TH_ON:                                                                                         ' smallest 2 lines showing
-      drawLine(segStartY + 1, segStartX + 2, segStartY + 1, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)  ' shortest
+      drawLine(segStartY + INSET_MID, segStartX + INSET_INNER, segStartY + INSET_MID, segStartX + SEG_LENGTH - 1 - INSET_INNER, segRgbColor)  ' shortest
       nextState := STATE_ON
     STATE_ON:
-      pixInset := 1
+      pixInset := INSET_MID
       repeat rowIndex from 0 TO SEG_WIDTH - 1
         drawLine(segStartY + rowIndex, segStartX + pixInset, segStartY + rowIndex, segStartX + SEG_LENGTH - 1 - pixInset, segRgbColor)
-        pixInset := (pixInset == 1) ? 0 : 1
+        pixInset := (pixInset == INSET_MID) ? INSET_OUTER : INSET_MID
     STATE_3RD_OFF:                                                                                        ' smallest 2 lines showing
-      drawLine(segStartY + 1, segStartX + 2, segStartY + 1, segStartX + SEG_LENGTH - 1 - 2, segRgbColor)  ' shortest
+      drawLine(segStartY + INSET_MID, segStartX + INSET_INNER, segStartY + INSET_MID, segStartX + SEG_LENGTH - 1 - INSET_INNER, segRgbColor)  ' shortest
       nextState := STATE_6TH_OFF
     STATE_6TH_OFF:                                                                                        ' smallest 1 line showing
       nextState := STATE_OFF

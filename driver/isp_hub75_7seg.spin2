@@ -19,10 +19,27 @@ CON ' public control values
     WITH_WRAP       = TRUE
     WITHOUT_WRAP    = FALSE
 
+    SEGMENTS_PER_DIGIT  = 7                                         ' a 7-segment digit has 7 segments
+    MAX_DIGIT_VALUE     = 9                                         ' decimal digits run 0..9
+    MIN_DIGIT_VALUE     = 0                                         ' decimal digits run 0..9
+
+    ' segment-index assignments (loop index -> which of the 7 segments)
+    SEG_IDX_A_TOP       = 6                                         ' segment A (top)
+    SEG_IDX_B_RIGHT     = 5                                         ' segment B (right-upper)
+    SEG_IDX_C_RIGHT     = 4                                         ' segment C (right-lower)
+    SEG_IDX_D_BOTTOM    = 3                                         ' segment D (bottom)
+    SEG_IDX_E_LEFT      = 2                                         ' segment E (left-lower)
+    SEG_IDX_F_LEFT      = 1                                         ' segment F (left-upper)
+    SEG_IDX_G_MIDDLE    = 0                                         ' segment G (middle)
+
+    ' digit-layout insets (offsets in pixels from the digit top-left origin)
+    LAYOUT_EDGE_INSET   = 1                                         ' single-pixel inset from a digit edge
+    STACKED_SEG_COUNT   = 2                                         ' two segment lengths stacked vertically (upper + lower)
+
 OBJ
 
     hub75Bffrs      : "isp_hub75_hwBufferAccess"
-    segments[7]     : "isp_hub75_segment"
+    segments[SEGMENTS_PER_DIGIT]     : "isp_hub75_segment"
 
 DAT  ' initialized data
 
@@ -94,11 +111,11 @@ PUB incrementValue(shouldWrap) | nextValue
 ' @local nextValue - the computed next digit value
 
   nextValue := currValue + 1
-  if nextValue > 9
+  if nextValue > MAX_DIGIT_VALUE
     if shouldWrap <> WITH_WRAP
-      nextValue := 9
+      nextValue := MAX_DIGIT_VALUE
     else
-      nextValue := 0
+      nextValue := MIN_DIGIT_VALUE
   setValue(nextValue)
 
 PUB isAnimationComplete() : status | segmentIndex
@@ -110,7 +127,7 @@ PUB isAnimationComplete() : status | segmentIndex
 ' @local segmentIndex - loop index over the seven segments
 
   status := TRUE
-  repeat segmentIndex from 0 TO 6
+  repeat segmentIndex from 0 TO SEGMENTS_PER_DIGIT - 1
     if NOT segments[segmentIndex].isMovementComplete()
       status := FALSE
       quit                                              ' we have our answer, abort loop
@@ -123,7 +140,7 @@ PUB animateStep() | segmentIndex
 ' @local segmentIndex - loop index over the seven segments
 
   if NOT isAnimationComplete()
-    repeat segmentIndex from 0 TO 6
+    repeat segmentIndex from 0 TO SEGMENTS_PER_DIGIT - 1
       if NOT segments[segmentIndex].isMovementComplete()
         segments[segmentIndex].animateStep()
 
@@ -145,36 +162,36 @@ PRI initialSetup() | segIndex, orientation, segRow, segCol
 'debug("7s:initialSetup")
 ' initialize all segments with type, color, location and set to hidden
 
-  repeat segIndex from 0 TO 6
+  repeat segIndex from 0 TO SEGMENTS_PER_DIGIT - 1
     case segIndex
-      6:                                                ' A TOP
+      SEG_IDX_A_TOP:                                    ' A TOP
         orientation := segments.SEG_TOP
         segRow := topY
-        segCol := leftX + 1
-      5:                                                ' B RIGHT-upper
+        segCol := leftX + LAYOUT_EDGE_INSET
+      SEG_IDX_B_RIGHT:                                  ' B RIGHT-upper
         orientation := segments.SEG_RIGHT_B
-        segRow := topY + 1
-        segCol := leftX + 1 + segments.SEG_LENGTH + 1 - segments.SEG_WIDTH
-      4:                                                ' C RIGHT-lower
+        segRow := topY + LAYOUT_EDGE_INSET
+        segCol := leftX + LAYOUT_EDGE_INSET + segments.SEG_LENGTH + LAYOUT_EDGE_INSET - segments.SEG_WIDTH
+      SEG_IDX_C_RIGHT:                                  ' C RIGHT-lower
         orientation := segments.SEG_RIGHT_C
-        segRow := topY + 1 + segments.SEG_LENGTH + 1
-        segCol := leftX + 1 + segments.SEG_LENGTH + 1 - segments.SEG_WIDTH
-      3:                                                ' D BOTTOM
+        segRow := topY + LAYOUT_EDGE_INSET + segments.SEG_LENGTH + LAYOUT_EDGE_INSET
+        segCol := leftX + LAYOUT_EDGE_INSET + segments.SEG_LENGTH + LAYOUT_EDGE_INSET - segments.SEG_WIDTH
+      SEG_IDX_D_BOTTOM:                                 ' D BOTTOM
         orientation := segments.SEG_BOTTOM
-        segRow := topY + 1 + (segments.SEG_LENGTH * 2) + 1 + 1 - segments.SEG_WIDTH
-        segCol := leftX + 1
-      2:                                                ' E LEFT-lower
+        segRow := topY + LAYOUT_EDGE_INSET + (segments.SEG_LENGTH * STACKED_SEG_COUNT) + LAYOUT_EDGE_INSET + LAYOUT_EDGE_INSET - segments.SEG_WIDTH
+        segCol := leftX + LAYOUT_EDGE_INSET
+      SEG_IDX_E_LEFT:                                   ' E LEFT-lower
         orientation := segments.SEG_LEFT_E
-        segRow := topY + 1 + segments.SEG_LENGTH + 1
+        segRow := topY + LAYOUT_EDGE_INSET + segments.SEG_LENGTH + LAYOUT_EDGE_INSET
         segCol := leftX
-      1:                                                ' F LEFT-upper
+      SEG_IDX_F_LEFT:                                   ' F LEFT-upper
         orientation := segments.SEG_LEFT_F
-        segRow := topY + 1
+        segRow := topY + LAYOUT_EDGE_INSET
         segCol := leftX
-      0:                                                ' G MIDDLE
+      SEG_IDX_G_MIDDLE:                                 ' G MIDDLE
         orientation := segments.SEG_MIDDLE
-        segRow := topY + 1 + segments.SEG_LENGTH + 0 - 1
-        segCol := leftX + 1
+        segRow := topY + LAYOUT_EDGE_INSET + segments.SEG_LENGTH + 0 - LAYOUT_EDGE_INSET
+        segCol := leftX + LAYOUT_EDGE_INSET
 
     segments[segIndex].placeSegment(chainIndex, segRow, segCol, orientation, segments.STATE_OFF, currRgbColor)
 
@@ -200,7 +217,7 @@ PRI reconfigureForDigit(digit) | BYTE fromSegments, BYTE toSegments, bitIndex
         fromSegments := BYTE[@segmentsByDigit][currValue]                       ' currValue [0-9]
       toSegments := BYTE[@segmentsByDigit][digit]                               ' digit [0-9]
       ' debug(" -- table:",ubin(fromSegments),ubin(toSegments))
-      repeat bitIndex from 6 TO 0
+      repeat bitIndex from SEGMENTS_PER_DIGIT - 1 TO 0
         if fromSegments & (1 << bitIndex) > 0
           ' from segment is showing
           if toSegments & (1 << bitIndex) > 0

@@ -13,6 +13,14 @@
 
 CON ' Object Interface: PUBLIC ENUMs
 
+    ' rainbow mapping: spread 360 degrees across 60 columns (6 deg/column)
+    DEGREES_PER_COLUMN  = 6
+
+    ' RGB channel byte offsets within a packed pixel triple
+    RED_BYTE_OFST       = 0
+    GREEN_BYTE_OFST     = 1
+    BLUE_BYTE_OFST      = 2
+
 OBJ ' Objects Used by this Object
 
     color       : "isp_hub75_color"
@@ -36,7 +44,7 @@ PUB drawPixelAtRC(nChainIdx, row, column, rgbColor) | xlatedColor
 
   xlatedColor := rgbColor
   if rgbColor == color.cRainbow
-    xlatedColor := colorUtils.rgbColorFromDegrees(6 * (column + 1))             ' replace '360 / 64' with 6 [was resulting in 5 vs. 6]
+    xlatedColor := colorUtils.rgbColorFromDegrees(DEGREES_PER_COLUMN * (column + 1))             ' replace '360 / 64' with 6 [was resulting in 5 vs. 6]
   'elseif rgbColor == cRedWhtBlu
   '   case column // 3
   '       0: xlatedColor := cRed
@@ -78,9 +86,9 @@ PUB drawPixelAtRCwithRGB(nChainIdx, row, column, red, green, blue) | maxRows, ma
 
   pScreen := hub75Bffrs.displayBufferAddress(nChainIdx)
   pColor := @BYTE[pScreen][colorOffset]
-  BYTE[pColor][0] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_RED, red)
-  BYTE[pColor][1] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_GREEN, green)
-  BYTE[pColor][2] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_BLUE, blue)
+  BYTE[pColor][RED_BYTE_OFST] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_RED, red)
+  BYTE[pColor][GREEN_BYTE_OFST] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_GREEN, green)
+  BYTE[pColor][BLUE_BYTE_OFST] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_BLUE, blue)
 
 CON ' license
 
