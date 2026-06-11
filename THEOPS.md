@@ -74,7 +74,7 @@ Now let's see how to configure the driver.
 
 To this driver the panels look like the following:
 
-**NOTE:** keep in mind, we only support a single panel for this first release. Multi-panel is in progress and will be release shortly!
+**NOTE:** the driver supports single panels, horizontal/vertical multi-panel chains, and 2-D panel grids (e.g., a 2x2 arrangement), with per-panel rotation and configurable wire-order. Multi-panel behavior continues to be refined for some driver chips (see the [Change Log](ChangeLog.md) Known Issues).
 
 ![Driver panel Setup](images/hub75-driver-board-layout.png)
 
@@ -94,7 +94,12 @@ Once you haave the driver source files added to your project you will first need
 | `DISPx_MAX_DISPLAY_COLUMNS` | {none} | The number of LEDs in each ROW of your multi-panel display |
 | `DISPx_MAX_DISPLAY_ROWS` | {none} | The number of LEDs in each COLUMN of your multi-panel display |
 | `DISPx_COLOR_DEPTH` | {none} | The color depth you wish to display on your panels (compile-time selectable from 3-bit to 8-bit) |
-| `DISPx_ROTATION` | {none} | The color depth you wish to display on your panels (compile-time selectable from 3-bit to 8-bit) |
+| `DISPx_MAX_PANELS_PER_ROW` | 1 | Number of panels chained horizontally across the display (e.g., 2 for a 2x2 grid) |
+| `DISPx_MAX_PANELS_PER_COLUMN` | 1 | Number of panels stacked vertically in the display (e.g., 2 for a 2x2 grid) |
+| `DISPx_ROTATION` | ROT\_NONE | Rotation applied to the whole display: `ROT_NONE` and `ROT_180` work on all panels; `ROT_LEFT_90` / `ROT_RIGHT_90` work best on square displays |
+| `DISPx_PANELn_ROT` | ROT\_NONE | Per-panel rotation for panel `n` within a grid (`ROT_NONE` / `ROT_180` / `ROT_LEFT_90` / `ROT_RIGHT_90`) |
+| `DISPx_WIRE_ENTRY` | {none} | Corner where the HUB75 cable enters the panel grid (e.g., `WIRE_ENTERS_BOT_LEFT`) |
+| `DISPx_WIRE_TRAVERSE` | {none} | How the cable traverses the grid (e.g., `WIRE_ROWS_FIRST`) |
 
 **NOTE**: the DISPx_ is a place holder for DISP0\_\*, DISP1\_\* and DISP2\_\* constants indicating the 1st, 2nd, and 3rd HUB75 cards.
 
@@ -109,6 +114,8 @@ Here's a quick diagram you can use to gain a general understanding of how this d
 Basically, this image shows that the user code draws in 24-bit color values. As these are written to the screen buffer they are translated into PWM values. When the screen is committed (the image is transferred to the display) the screen image is split out into individual PWM buffers one for each of the 16 sub-frames which together comprise one full color video frame being displayed at roughtly 60 fps.
 
 The storage format is shown in the diagram at the various points of translation.
+
+The PASM2 HUB75 driver derives its signal timing from the configured system clock (`_clkfreq`) rather than assuming a fixed frequency. This clock-frequency-independent timing means a demo can change its `_clkfreq` and the panel CLK/latch/blanking pulses continue to meet the panel's timing requirements without hand-tuning the driver.
 
 Another view we'll later be adding to this page is how we allocate and use memory for these buffers as our display sizes change (these sizes are what you configured before you compiled the driver.)  This is only now being decided as we begin to add the multi-panel support.
 

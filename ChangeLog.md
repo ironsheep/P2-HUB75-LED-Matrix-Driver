@@ -15,6 +15,45 @@ Work to appear in upcoming releases:
 - Morphing digits Matrix displays can be found at [P2 LED-Matrix Morphing Digits](https://github.com/ironsheep/P2-LED-Matrix-Morphing-Digits) Repository.
 
 
+## [3.0.3] 11 Jun 2026
+
+### Clock-independent timing, 2x2 panel grids, per-panel rotation, color fixes
+
+This release unifies the `develop` feature branch into `main`. (Version numbering
+catches up here: the prior heading was `[3.0.1]` while release tags had reached
+`v3.0.2`; this `[3.0.3]` entry both reconciles that gap and records the unified build.)
+
+#### Added
+
+- **Clock-frequency-independent panel timing** - HUB75 signal timing is now derived
+  from the system clock, so panels drive correctly across different `_clkfreq`
+  settings instead of assuming a fixed frequency.
+- **2x2 panel-grid support** - display-level drawing now spans 2-D panel grids
+  (e.g., four panels in a 2x2 arrangement), with Z-pattern / serpentine wire-order
+  mapping from display coordinates to physical panel wiring.
+- **Per-panel rotation and wire-order** - individual panels within a grid can be
+  rotated (`ROT_NONE` / `ROT_180` / `ROT_LEFT_90` / `ROT_RIGHT_90`) and remapped to
+  physical wire order, in addition to the existing whole-display rotation.
+- **New demos** - `demo_hub75_quadPanel.spin2`, `demo_hub75_multi2x2panel.spin2`,
+  `demo_hub75_numberPanels.spin2`, and the `test_hub75_pin_identify.spin2` bring-up
+  utility.
+
+#### Fixed
+
+- **5-bit color depth** rendering corrected.
+- **MSB-black artifact** - colors missing the most-significant bit no longer render
+  black at certain brightness levels (brightness rounding now rounds to nearest).
+
+#### Changed
+
+- Repo-wide conformance to the project Spin2 authoring guide (no change to emitted
+  behavior), and consolidation of the documentation tree under `DOCs/`.
+
+### Known Issues v3.0.3
+
+- Multi-panel support for some driver chips (e.g., MBI5124GP, FM6126A) is still being
+  worked out; single-panel use of these chips works.
+
 ## [3.0.1] 15 Jan 2024
 
 ### New chip support and new fonts

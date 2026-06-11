@@ -82,6 +82,8 @@ What's working today with the current driver:
 - PWM'ing images to achieve 3-bit to 8-bit color per LED (9-bit to 24-bit color per pixel)
 - Displaying text in both 5x7 and 8x8 fonts
 - Initial version of scrolling text - will get more performant in future updates (now up, down, right, and left scroll!)
+- 2-D panel-grid support (e.g., 2x2) with per-panel rotation and configurable wire-order
+- Clock-frequency-independent panel timing (signal timing derived from `_clkfreq`)
 - Basic color pixel placement at row, column (whole panel-set and Single-panel-of-set forms)
 - Basic drawing primitives (whole panel-set and Single-panel-of-set forms)
 - Loading and displaying images from .bmp files (that are identically sized to your single panel)  *This demonstration is built for 64x32 panels only, any other will require code rework. This is here to demonstrate how it can be done. The rework should be simple work within this example*
@@ -107,7 +109,7 @@ This driver works with the following chips. Other chips may well work since the 
 Upcoming work on the driver:
 
 - Finishing work on initialization of panel chips that require it (MBI5124GP). It's working for single panels but not multiple panels in the chain. *There's a lot of information that is just not readily found on this panels making continuing this "kind of hit-or-miss".*
-- Finishing implementation of 2-dimentional panel-set support. Today the driver can handle a single row of multiple panels, but handling N-rows of N-columns of panels needs to be implemented/tested.
+- 2-dimensional panel-set support (N-rows by N-columns of panels, e.g. a 2x2 grid) is now implemented, including per-panel rotation and configurable wire-order; we continue to verify and refine it across the various driver chips on hardware.
 
 ## Driver Setup and Configuration
 
