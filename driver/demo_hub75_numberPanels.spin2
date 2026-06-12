@@ -47,10 +47,8 @@ PUB main() : ok
 '' start underlying drivers and run demo
 ''
 
-  'repeat
   demoPausePeriod := 20   ' seconds
 
-  'debug("`term temp size 82 50 textsize 10")
   hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
   chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
@@ -96,7 +94,6 @@ PRI idPanelsInChain() | maxPanels, panelIndex
 ' @local panelIndex - current panel being labeled
 
   textSize := display.TEXT_FONT_8x8A
-  'textSize := display.TEXT_FONT_8x8B
   display.setTextFont(textSize)    ' font size
   display.setTextColor(color.cBlueViolet)
 
@@ -115,9 +112,6 @@ PRI idPanelsInChain() | maxPanels, panelIndex
 
   ' update our screen
   display.commitScreenToPanelSet()
-
-  ' delay to first movement
-  'wait1000thSecs(scrollPeriod)
 
 
 

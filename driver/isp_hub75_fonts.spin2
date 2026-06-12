@@ -121,8 +121,6 @@ PUB getAddrFor5x7DithChar(asciiByte) : p5x7DithCharBitmap
   if(asciiByte >= ASCII_FIRST_PRINTABLE && asciiByte <= ASCII_LAST_PRINTABLE)
     ' NOTE: add + 1 to skip top blank row of char
     p5x7DithCharBitmap := @BYTE[@font5x7dith][((asciiByte - ASCII_FIRST_PRINTABLE) * FONT_5X7_DITH_BYTES_PER_CHAR)]
-    'if asciiByte == $20
-    '    debug("FONT: ar=", uhex_long_(@font5x7dith), uhex_byte_(asciiByte), " at @", uhex_long_(p5x7DithCharBitmap))
 
 PUB getAddrFor5x7DithDcndrChar(asciiByte) : p8x8CharBitmap
 '' Return the address of a 5x7 dithered descender character bitmap.

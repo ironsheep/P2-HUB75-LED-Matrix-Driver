@@ -104,7 +104,6 @@ VAR ' Object Instance Variables
     BYTE    bSwapRB
     BYTE    bSwapGB
 
-    LONG    bDidShowOnce
     BYTE    padBuffer[MAX_PAD_BUFFER_BYTES]
 
 CON ' PRIVATE Constants
@@ -169,7 +168,6 @@ PUB startWithId(nId, nChainIdx) : workerCog | scrollerIndex, dvrConfig, eChipTyp
 
   chainIndex := nChainIdx
   instanceID := nId
-  bDidShowOnce := FALSE
   bytefill(@padBuffer, 0, MAX_PAD_BUFFER_BYTES)
 
   workerCog := cog := -1                                 ' mark as failed, initially
@@ -702,7 +700,6 @@ PUB scrollColoredTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direc
   cLineIdx := 0 #> line <# maxTextLines - 1
   cColumnIdx :=  0
   widthInChars := ((cPanelCt * columnsPerPanel) - (MARGIN_SIDE_COUNT * leftOffsetInPix)) / (charWidthInPix + horizontalGapInPix)
-  'panelLine, panelColumn := offsetToTextOnPanel(cLineIdx, cColumnIdx, panelIndex)
   offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, boundedPanelIdx)
   ' ensure we are asked to use a good location
   ' convert line info to row,col

@@ -99,34 +99,31 @@ PUB isGammaEnabled() : bIsEnabled
 PUB correctedColor(nChainIdx, color) : adjustedColor
 '' Correct a color using generic gamma
 ''
+'' @param nChainIdx - zero-based index of the panel chain
+'' @param color - raw 8-bit color value to correct
+'' @returns adjustedColor - bit-width-adjusted color value
 
     adjustedColor := color
-    'return
-    'adjustedColor := byte[@gamma][adjustedColor]
-    'adjustedColor := ((adjustedColor * defaultBrightness) >> 8) & $ff
     adjustedColor := colorAtDesiredBitWidth(nChainIdx, adjustedColor)
 
-PUB correctedSingleColor(nChainIdx, led, colorValue) : adjustedColor | pGammaTable
+PUB correctedSingleColor(nChainIdx, led, colorValue) : adjustedColor
 '' Correct the color for a specific LED (R, G, or B)
 ''
+'' @param nChainIdx - zero-based index of the panel chain
+'' @param led - LED color channel identifier (LED_RED, LED_GREEN, or LED_BLUE)
+'' @param colorValue - raw color value for the channel (0-255)
+'' @returns adjustedColor - brightness-scaled, gamma-corrected, bit-width-adjusted color
 
     adjustedColor := colorValue
-    case led
-        LED_RED:
-            pGammaTable := @gamma
-        LED_GREEN:
-            pGammaTable := @gamma
-        LED_BLUE:
-            pGammaTable := @gamma
-        other:
-            abort
+    if led < LED_RED or led > LED_BLUE
+        abort
 
     ' Apply brightness with proper rounding (add 128 before >>8 for round-to-nearest)
     ' This ensures brightness=128 gives max color=128 (bit 7 set) instead of 127 (bit 7 clear)
     ' which prevents Frame 0 (MSB frame) from being black at 50% brightness
     adjustedColor := ((adjustedColor * defaultBrightness + BRIGHTNESS_ROUND_BIAS) >> BRIGHTNESS_SHIFT) & CHANNEL_MASK
     if bGammaEnable
-        adjustedColor := byte[pGammaTable][adjustedColor]
+        adjustedColor := byte[@gamma][adjustedColor]
     adjustedColor := colorAtDesiredBitWidth(nChainIdx, adjustedColor)
 
 PUB gammaPeek(color) : adjustedColor | gammmaIndex, lowColor, highColor
@@ -161,25 +158,15 @@ PUB gammaPeek(color) : adjustedColor | gammmaIndex, lowColor, highColor
   else
     adjustedColor := color
 
-PUB gammaCorrectedSingleColor(led, colorValue) : adjustedColor | pGammaTable
+PUB gammaCorrectedSingleColor(led, colorValue) : adjustedColor
 '' Gamma-correct the color for a specific LED (R, G, or B).
 ''
 '' @param led - LED color channel identifier (LED_RED, LED_GREEN, or LED_BLUE)
 '' @param colorValue - raw color value for the channel (0-255)
 '' @returns adjustedColor - brightness-scaled and gamma-corrected color value
 
-' Local Variables:
-' @local pGammaTable - pointer to the selected gamma lookup table
-
-  case led
-    LED_RED:
-      pGammaTable := @gamma
-    LED_GREEN:
-      pGammaTable := @gamma
-    LED_BLUE:
-      pGammaTable := @gamma
-    other:
-      abort
+  if led < LED_RED or led > LED_BLUE
+    abort
   ' Apply brightness with proper rounding (add 128 before >>8 for round-to-nearest)
   ' This ensures brightness=128 gives max color=128 (bit 7 set) instead of 127 (bit 7 clear)
   ' which prevents Frame 0 (MSB frame) from being black at 50% brightness
@@ -284,6 +271,9 @@ PUB gammaPtrs(): pGammaRed, pGammaGreen, pGammaBlue
 PUB colorAtDesiredBitWidth(nChainIdx, hex8bit) : pwmBits
 '' CALCULATE: proper duty cycle for intensity of 0-255
 ''
+'' @param nChainIdx - zero-based index of the panel chain
+'' @param hex8bit - 8-bit intensity value (0-255)
+'' @returns pwmBits - duty-cycle value mapped into the compiled color depth
 
     shiftLtValue := SOURCE_COLOR_BITS - hub75Bffrs.colorDepth(nChainIdx)
     nbrPwmFrames := hub75Bffrs.pwmFrameCount(nChainIdx)
@@ -311,11 +301,6 @@ PUB colorAtDesiredBitWidth(nChainIdx, hex8bit) : pwmBits
 
     pwmBits := (hex8bit * nbrPwmFrames) / MAX_COLOR_VALUE   ' map our value
     pwmBits <<= shiftLtValue                    ' shift value into our upper COLOR_DEPTH bits
-{
-    if not didShow[hex8bit]
-        debug("clr:dcyc ", uhex_byte(hex8bit), uhex_byte(pwmBits))
-        didShow[hex8bit] := TRUE
-'}
 
 DAT  ' tables, default values
 
@@ -327,7 +312,6 @@ DAT  ' tables, default values
 ' Gamma curve (lookup table)
 
 ' REF https://gist.github.com/hexagon5un/3df734ad08d8dc8d9ace0491ef97cc58
-'{
     gamma               BYTE                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
                         BYTE                    0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2
                         BYTE                    2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5
@@ -344,63 +328,7 @@ DAT  ' tables, default values
                         BYTE                    160, 161, 163, 165, 167, 169, 170, 172, 174, 176, 178, 180, 182, 183, 185, 187
                         BYTE                    189, 191, 193, 195, 197, 199, 201, 203, 205, 207, 209, 211, 213, 215, 218, 220
                         BYTE                    222, 224, 226, 228, 230, 233, 235, 237, 239, 241, 244, 246, 248, 250, 253, 255
-' }
 
-gammaRed
-    ' 256-step brightness table: gamma = 2.2
-                        BYTE                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
-                        BYTE                    1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2
-                        BYTE                    3, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6
-                        BYTE                    6, 7, 7, 7, 8, 8, 8, 9, 9, 9, 10, 10, 11, 11, 11, 12
-                        BYTE                    12, 13, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 18, 19, 19
-                        BYTE                    20, 20, 21, 22, 22, 23, 23, 24, 25, 25, 26, 26, 27, 28, 28, 29
-                        BYTE                    30, 30, 31, 32, 33, 33, 34, 35, 35, 36, 37, 38, 39, 39, 40, 41
-                        BYTE                    42, 43, 43, 44, 45, 46, 47, 48, 49, 49, 50, 51, 52, 53, 54, 55
-                        BYTE                    56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71
-                        BYTE                    73, 74, 75, 76, 77, 78, 79, 81, 82, 83, 84, 85, 87, 88, 89, 90
-                        BYTE                    91, 93, 94, 95, 97, 98, 99, 100, 102, 103, 105, 106, 107, 109, 110, 111
-                        BYTE                    113, 114, 116, 117, 119, 120, 121, 123, 124, 126, 127, 129, 130, 132, 133, 135
-                        BYTE                    137, 138, 140, 141, 143, 145, 146, 148, 149, 151, 153, 154, 156, 158, 159, 161
-                        BYTE                    163, 165, 166, 168, 170, 172, 173, 175, 177, 179, 181, 182, 184, 186, 188, 190
-                        BYTE                    192, 194, 196, 197, 199, 201, 203, 205, 207, 209, 211, 213, 215, 217, 219, 221
-                        BYTE                    223, 225, 227, 229, 231, 234, 236, 238, 240, 242, 244, 246, 248, 251, 253, 255
-
-gammaGreen
-    ' 256-step brightness table: gamma = 2.0
-                        BYTE                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1
-                        BYTE                    1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4
-                        BYTE                    4, 4, 5, 5, 5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 8, 9
-                        BYTE                    9, 9, 10, 10, 11, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16
-                        BYTE                    16, 17, 17, 18, 18, 19, 19, 20, 20, 21, 21, 22, 23, 23, 24, 24
-                        BYTE                    25, 26, 26, 27, 28, 28, 29, 30, 30, 31, 32, 32, 33, 34, 35, 35
-                        BYTE                    36, 37, 38, 38, 39, 40, 41, 42, 42, 43, 44, 45, 46, 47, 47, 48
-                        BYTE                    49, 50, 51, 52, 53, 54, 55, 56, 56, 57, 58, 59, 60, 61, 62, 63
-                        BYTE                    64, 65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 78, 79, 80
-                        BYTE                    81, 82, 84, 85, 86, 87, 88, 89, 91, 92, 93, 94, 95, 97, 98, 99
-                        BYTE                    100, 102, 103, 104, 105, 107, 108, 109, 111, 112, 113, 115, 116, 117, 119, 120
-                        BYTE                    121, 123, 124, 126, 127, 128, 130, 131, 133, 134, 136, 137, 139, 140, 142, 143
-                        BYTE                    145, 146, 148, 149, 151, 152, 154, 155, 157, 158, 160, 162, 163, 165, 166, 168
-                        BYTE                    170, 171, 173, 175, 176, 178, 180, 181, 183, 185, 186, 188, 190, 192, 193, 195
-                        BYTE                    197, 199, 200, 202, 204, 206, 207, 209, 211, 213, 215, 217, 218, 220, 222, 224
-                        BYTE                    226, 228, 230, 232, 233, 235, 237, 239, 241, 243, 245, 247, 249, 251, 253, 255
-gammaBlue
-    ' 256-step brightness table: gamma = 2.0
-                        BYTE                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1
-                        BYTE                    1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4
-                        BYTE                    4, 4, 5, 5, 5, 5, 6, 6, 6, 7, 7, 7, 8, 8, 8, 9
-                        BYTE                    9, 9, 10, 10, 11, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16
-                        BYTE                    16, 17, 17, 18, 18, 19, 19, 20, 20, 21, 21, 22, 23, 23, 24, 24
-                        BYTE                    25, 26, 26, 27, 28, 28, 29, 30, 30, 31, 32, 32, 33, 34, 35, 35
-                        BYTE                    36, 37, 38, 38, 39, 40, 41, 42, 42, 43, 44, 45, 46, 47, 47, 48
-                        BYTE                    49, 50, 51, 52, 53, 54, 55, 56, 56, 57, 58, 59, 60, 61, 62, 63
-                        BYTE                    64, 65, 66, 67, 68, 69, 70, 71, 73, 74, 75, 76, 77, 78, 79, 80
-                        BYTE                    81, 82, 84, 85, 86, 87, 88, 89, 91, 92, 93, 94, 95, 97, 98, 99
-                        BYTE                    100, 102, 103, 104, 105, 107, 108, 109, 111, 112, 113, 115, 116, 117, 119, 120
-                        BYTE                    121, 123, 124, 126, 127, 128, 130, 131, 133, 134, 136, 137, 139, 140, 142, 143
-                        BYTE                    145, 146, 148, 149, 151, 152, 154, 155, 157, 158, 160, 162, 163, 165, 166, 168
-                        BYTE                    170, 171, 173, 175, 176, 178, 180, 181, 183, 185, 186, 188, 190, 192, 193, 195
-                        BYTE                    197, 199, 200, 202, 204, 206, 207, 209, 211, 213, 215, 217, 218, 220, 222, 224
-                        BYTE                    226, 228, 230, 232, 233, 235, 237, 239, 241, 243, 245, 247, 249, 251, 253, 255
 CON ' license
 
 {{

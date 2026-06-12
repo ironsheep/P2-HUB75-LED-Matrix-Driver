@@ -64,10 +64,8 @@ PUB main() : ok
 ''
 '' @returns ok - cog ID of display driver or -1 on failure
 
-  'repeat
   debug("Demo: HUB75 Quad Panel Demo")
 
-  'debug(`term temp size 82 50 textsize 10)
   hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
   chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
@@ -138,7 +136,6 @@ PRI demoRandomPanelColors() | panelIndex, panelHue, panelColor
       display.fillPanel(panelIndex, panelColor)
     ' update our screen
     display.commitScreenToPanelSet()
-    'wait1000thSecs(10)
 
 DAT { panel messages }
 
@@ -177,22 +174,12 @@ PRI demoQuadLocations()
   ' update our screen
   display.commitScreenToPanelSet()
 
-  ' delay to first movement
-  'wait1000thSecs(scrollPeriod)
-
   ' loop while scrolling finishes
   repeat while NOT display.isScrollingComplete()
     ' move the text
-    'startTime := getct()
     display.animateScroll()
-    'showDuration(startTime, string("top:ANI"))
     ' commit to screen
-    'startTime := getct()
     display.commitScreenToPanelSet()
-    'showDuration(startTime, string("top:ANI-wr"))
-
-    ' delay to next movement
-    'wait1000thSecs(scrollPeriod)
 
 PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, hueIndex
 ' Color each panel with a distinct hue and display centered panel ID and arrow.

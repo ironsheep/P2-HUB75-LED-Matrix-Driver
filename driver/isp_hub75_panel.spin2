@@ -834,10 +834,6 @@ PRI markEnd(message) | elapsed
 
 DAT  ' .bmp file work area
 
-    testValue       LONG    $87654321
-    testValueMsg    BYTE    "Test value",0
-
-    msgScrnHd       BYTE    "Screen",0
     msgPwm          BYTE    "Pwm0 ", 0
 
     bufferMsg       BYTE    "SCREEN",0

@@ -62,8 +62,6 @@ VAR ' globals
     LONG    topY
     LONG    leftX
 
-    LONG    defaultColor
-
     BYTE    isSetup
 
 PUB null()

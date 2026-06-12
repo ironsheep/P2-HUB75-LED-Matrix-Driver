@@ -43,17 +43,10 @@ CON ' DEMO info
 ' 11 enables .bmp file display
     DEMO_COUNT  = 11
 
-PUB main() : ok | demoIndex
+PUB main() : ok
 '' Start underlying drivers and run demo.
 ''
 '' @returns ok - cog ID of the display driver or -1 on failure
-
-' Local Variables:
-' @local demoIndex - index of current demo routine
-
-' repeat
-
-' debug("`term temp size 82 50 textsize 10")
 
   hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
   chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
@@ -138,26 +131,6 @@ PUB main() : ok | demoIndex
     display.drawLineOfColor(31, 0, 63, 63, color.cLime)
     display.commitScreenToPanelSet()
     repeat
-  '}
-{
-    repeat 20
-        repeat demoIndex from 0 to DEMO_COUNT - 1
-            display.clearScreen()
-  'waitSec(1)
-            case demoIndex + 1
-                1: demoText()
-                2: demoParallax()
-                3: demoHueGroups()  ' needs fixing
-                4: demoHueLines()
-                5: demoColorPalette12Panels()
-                6: showFullColorSweep()
-                7: demoTest12x9ColorBrightness()
-                8: colorBlast()
-                9: demoText()
-               10: demoScreenBlast()
-
-            if demoIndex + 1 <> 10
-                waitSec(demoPausePeriod)
   '}
 
   stop()
@@ -632,14 +605,11 @@ PRI drawSwatch(width, height, row, col, rgbColor) | rowOffset, colOffset
     repeat colOffset from 0 TO width - 1
       pixels.drawPixelAtRC(chainIndex, row + rowOffset, col + colOffset, rgbColor)
 
-PRI demoTest360ColorBrightness() | red, green, blue, row, col, rowCtr, degrees, colorValue
+PRI demoTest360ColorBrightness() | row, col, rowCtr, degrees, colorValue
 ' Draw all 360 hue degrees as pixel rows across the display.
 '
 
 ' Local Variables:
-' @local red - red channel value
-' @local green - green channel value
-' @local blue - blue channel value
 ' @local row - current row position
 ' @local col - current column position
 ' @local rowCtr - row counter within each degree band
@@ -787,7 +757,6 @@ PRI demoTest256ColorBrightness() | red, green, blue, row, col, rowCtr, colorInde
 
   display.commitScreenToPanelSet()
 
-    ' repeat  ' hold here!
 PRI demoColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex, useRed, useBlue, useGreen
 ' Draw continuous brightness gradient bands for eight color channels.
 '
@@ -837,8 +806,6 @@ PRI demoColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex, useR
       row++
 
   display.commitScreenToPanelSet()
-
-    ' repeat  ' hold here!
 
 PRI demoHueLines() | row, col, colorOffset
 ' Draw hue-based color lines across the display panel.
@@ -1122,9 +1089,6 @@ PRI demoScreenBlastWhite() | color3bit
   display.fillScreenNoPWM(color3bit)
 
 DAT
-
-' bmpFile1    FILE    "TstBGCol.bmp"
-bmpFile1    FILE    "TstBG-Up.bmp"
 
 CON ' license
 

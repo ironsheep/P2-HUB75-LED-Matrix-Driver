@@ -947,7 +947,6 @@ PUB dbgMemDump(pMessage, pBytes, lenBytes) | bytBffr, colIdx, rowIdx, maxCol, ma
 
   bytBffr := pBytes
   waitus(DUMP_HDR_DELAY_US)
-  ' returns
   dispLen := 0
   repeat rowIdx from 1 TO maxRow
     if rowIdx < DUMP_SINGLE_DIGIT_LIMIT
@@ -993,8 +992,6 @@ PRI buildWireOrderFromEnums(nChainIdx) | eStart, eTraverse, gridRows, gridCols, 
 
     ' Check if using enum-based configuration (values >= $40)
     ' If using explicit grid mode (values 0-16), the user has already set disp#WireOrder directly
-    ' Skip when using explicit grid mode (values 0-16): the user has already set disp#WireOrder
-    ' directly. Only enum-based configuration (values >= $40) computes the wire order here.
     if eStart < hwEnum.WIRE_ENTERS_TOP_LEFT or eTraverse < hwEnum.WIRE_ROWS_FIRST
         debug("HUB75: Using explicit wire order table (not enum-based)")
     else

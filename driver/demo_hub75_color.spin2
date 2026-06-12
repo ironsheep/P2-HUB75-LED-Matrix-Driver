@@ -55,10 +55,6 @@ PUB main() : ok | demoIndex
 ' Local	Variables:
 ' @local demoIndex - current demo sequence index
 
-' repeat
-
-' debug("`term temp size 82 50 textsize 10")
-
     hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
     chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
@@ -139,24 +135,10 @@ PUB main() : ok | demoIndex
     pnlRowCount, pnlColCount := hub75Bffrs.panelSizeInPixels(chainIndex)
 
     display.clearScreen()
-    'debug("*	Hue	Groups")
-    'demoHueGroups()
-    'debug("*	Hue	Lines")
-    'demoHueLines()
-    'debug("*	Palette	12	Panels")
-    'demoColorPalette12Panels()
-    'debug("*	Full Color	Sweep")
-    'showFullColorSweep()
-    'debug("*	12x9 Color	Brightness")
-    'demoTest12x9ColorBrightness()
-    'debug("*	Color Blast")
-    'colorBlast()
-    'repeat
 
     repeat 20
         repeat demoIndex from 0 TO DEMO_COUNT - 1
             display.clearScreen()
-            ' waitSec(1)
             case demoIndex + 1
                 1: demoText()
                 2: demoParallax()
@@ -644,14 +626,11 @@ PRI drawSwatch(width, height, row, col, rgbColor) | rowOffset, colOffset
         repeat colOffset from 0 TO width - 1
             pixels.drawPixelAtRC(chainIndex, row + rowOffset, col + colOffset, rgbColor)
 
-PRI demoTest360ColorBrightness() | red, green, blue, row, col, rowCtr, degrees, colorValue
+PRI demoTest360ColorBrightness() | row, col, rowCtr, degrees, colorValue
 ' Display all 360 hue degrees as individual pixels across the panel.
 '
 
 ' Local	Variables:
-' @local red - red component value
-' @local green - green component value
-' @local blue -	blue component value
 ' @local row - current pixel row
 ' @local col - current pixel column
 ' @local rowCtr	- row counter within each hue
@@ -799,7 +778,6 @@ PRI demoTest256ColorBrightness() | red, green, blue, row, col, rowCtr, colorInde
 
     display.commitScreenToPanelSet()
 
-    ' repeat  ' hold here!
 PRI demoColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex, useRed, useBlue, useGreen
 ' Display continuous brightness	gradients for eight color channels.
 '
@@ -849,8 +827,6 @@ PRI demoColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex, useR
             row++
 
     display.commitScreenToPanelSet()
-
-    ' repeat  ' hold here!
 
 CON
 
@@ -1188,7 +1164,6 @@ PRI demoBmpFileLoad()
 
 DAT
 
-' bmpFile1    FILE    "TstBGCol.bmp"
 bmpFile1    FILE    "TstBG-Up.bmp"
 
 CON ' license

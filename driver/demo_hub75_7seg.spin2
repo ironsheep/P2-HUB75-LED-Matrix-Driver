@@ -30,7 +30,6 @@ VAR
     LONG    chainIndex
     LONG    segmentPeriod
     LONG    digitPeriod
-    LONG    digitVal
     LONG    digitIndex
     LONG    hours
     LONG    minutes
@@ -52,8 +51,6 @@ PUB start() : ok | hours24
 
 ' Local Variables:
 ' @local hours24 - hours value in 24-hour format
-
-' debug("`term temp size 82 50 textsize 10")
 
   hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
   chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
@@ -127,35 +124,6 @@ PUB start() : ok | hours24
 
       wait100thSecs(digitPeriod)
 
-{
-  ' transitional DEMO
-
-    digit[0].placeDigit(chainIndex, 8, 2, 5, color.cOrange)
-    digit[1].placeDigit(chainIndex, 8, 18, 7, color.cOrange)
-    digit[2].placeDigit(chainIndex, 8, 34, 1, color.cOrange)
-    digit[3].placeDigit(chainIndex, 8, 50, 4, color.cOrange)
-
-    display.commitScreenToPanelSet()
-    wait100thSecs(segmentPeriod)
-
-    loopUntilSegmentsFinish()
-
-  ' PAUSE to see digit before next morph
-    wait100thSecs(digitPeriod)
-
-  'repeat ' hold here
-
-    repeat digitVal from 1 to 9
-        repeat digitIndex from 0 to 3
-            digit[digitIndex].incrementValue(digit.WITH_WRAP)
-        display.commitScreenToPanelSet()
-        wait100thSecs(segmentPeriod)
-
-        loopUntilSegmentsFinish()
-
-        wait100thSecs(digitPeriod)
-}
-
   DEBUG("DEMO: done")
   repeat
 
@@ -177,15 +145,12 @@ PUB stop()
 
 CON ' --------------     Private Methods     --------------
 
-PRI showSecondsDots(lightDark) | red, green, blue, targetColor
+PRI showSecondsDots(lightDark) | targetColor
 ' Draw the colon dots between hour and minute digits.
 '
 ' @param lightDark - 0 for dim color, 1 for bright color
 
 ' Local Variables:
-' @local red - red color component
-' @local green - green color component
-' @local blue - blue color component
 ' @local targetColor - computed 24-bit RGB color for dots
 
   if lightDark == 0

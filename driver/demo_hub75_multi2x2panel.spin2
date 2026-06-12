@@ -87,17 +87,19 @@ PUB main() : ok
   stop()
 
 PUB placeClock()
+'' Draw the demo clock by placing its leading digit on a cleared screen and committing it.
 
   display.setTextColor(color.cYellow)
   debug("placeClock()")
   display.clearScreenBuffer()
   placeDigit(OFS_TOP_PIX, 0)
-  'placeDigit(OFS_TOP_PIX, 64)
-  'placeDigit(OFS_TOP_PIX, 132)
-  'placeDigit(OFS_TOP_PIX, 197)
   display.commitScreenToPanelSet()
 
 PUB placeDigit(rowOffset, colOffset) | row, column
+'' Draw a stacked two-box clock digit at the given pixel offset.
+''
+'' @param rowOffset - starting pixel row for the digit
+'' @param colOffset - starting pixel column for the digit
   debug("placeDigit(", udec_(rowOffset), ", ", udec_(colOffset), ")")
   row := rowOffset
   column := colOffset
@@ -243,15 +245,20 @@ PRI stop()
 
 PRI waitSec(countSeconds)
 ' wait for N seconds
+'
+' @param countSeconds - number of seconds to wait
   repeat countSeconds
     waitms(1000)
 
 PRI wait1000thSecs(count)
 ' wait for N 1000ths of a second
+'
+' @param count - number of 1000ths of a second to wait
   repeat count
     waitms(1)  ' 1/100 seconds
 
 PRI demoPanelFillColors()
+' Cycle each panel through solid red, green, blue, and white with no PWM.
   display.clearScreenBuffer()
   repeat 4
     display.fillScreenNoPWM(color.BASE_RED)    ' full single color panel NO pwm
@@ -265,7 +272,11 @@ PRI demoPanelFillColors()
 
 
 PRI demoRandomPanelColors() | panelIndex, panelHue, panelColor
-
+' Fill each panel with a random hue, looping repeatedly.
+'
+' @local panelIndex - index of the panel being filled
+' @local panelHue - randomly selected hue value (1..255)
+' @local panelColor - RGB color derived from the random hue
   display.clearScreenBuffer()
   repeat 20
     repeat hub75Bffrs.maxPanels(chainIndex) with panelIndex
@@ -277,7 +288,8 @@ PRI demoRandomPanelColors() | panelIndex, panelHue, panelColor
     waitSec(2)
 
 PRI demoColorPanels()
-' start with blank screen on which to draw
+' Fill the four 2x2 panels with fixed colors and label each with its position.
+  ' start with blank screen on which to draw
   display.clearScreenBuffer()
 
   ' set our font and color
@@ -304,7 +316,9 @@ PRI demoColorPanels()
   display.commitScreenToPanelSet()
 
 PRI demoTopBottomScroll() | scrollerID
-
+' Fill and label the four panels, then scroll a long line of text across them.
+'
+' @local scrollerID - handle for the configured scrolling-text region
   textSize := display.TEXT_FONT_8x8A
   'textSize := display.TEXT_FONT_8x8B
   display.setTextFont(textSize)    ' font size
@@ -356,7 +370,14 @@ PRI demoTopBottomScroll() | scrollerID
 
 
 PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, boxColor, hueIndex, maxPanels
-
+' Color each panel by an evenly-spaced hue, number it, and draw a contrasting box.
+'
+' @local panelIndex - index of the panel being drawn
+' @local panelHueWidth - hue spacing between panels
+' @local panelColor - RGB fill color for the current panel
+' @local boxColor - RGB color for the box drawn within the panel
+' @local hueIndex - hue multiplier for the current element
+' @local maxPanels - number of panels in the chain
   maxPanels := hub75Bffrs.maxPanels(chainIndex)
   debug("maxPanels: ", udec_(maxPanels))
   panelHueWidth := 256 / maxPanels
@@ -394,6 +415,13 @@ PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, boxColor, hueInde
   display.commitScreenToPanelSet()
 
 PRI showDuration(startTimeValue, pFuncTitle) | duration, converted
+' Report the elapsed time in microseconds since a captured start tick.
+'
+' @param startTimeValue - the getct() value captured at the start of the interval
+' @param pFuncTitle - pointer to a label string for the reported interval
+'
+' @local duration - elapsed tick count
+' @local converted - elapsed time converted to microseconds
   duration := getct() - startTimeValue
   converted := muldiv64(duration, 1_000_000, clkfreq)
   debug("- elapsed ", zstr_(pFuncTitle), ": ", udec_(converted), " uSec")

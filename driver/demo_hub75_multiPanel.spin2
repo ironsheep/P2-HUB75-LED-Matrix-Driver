@@ -28,7 +28,6 @@ VAR
     LONG    cog
     LONG    chainIndex
     LONG    demoPausePeriod
-    LONG    scrollPeriod
     LONG    textSize
 
 OBJ
@@ -67,10 +66,6 @@ PUB main() : ok | demoIndex
 ' Local Variables:
 ' @local demoIndex - index of the current demo being run
 
-' repeat
-
-' debug("`term temp size 82 50 textsize 10")
-
   hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
   chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
@@ -82,23 +77,14 @@ PUB main() : ok | demoIndex
     abort
 
   demoPausePeriod := 3                                  ' seconds
-  scrollPeriod := 1
 
   repeat 20
     repeat demoIndex from 0 TO DEMO_COUNT - 1
-      ' waitSec(1)
       case demoIndex + 1
         1: demoPanelColors()
         2: demoTopBottomScroll()
         3: demoRandomPanelColors()
         4: demoPanelFillColors()
-      '                5: demoColorPalette12Panels()
-      '                6: showFullColorSweep()
-      '                7: demoTest12x9ColorBrightness()
-      '                8: colorBlast()
-      '                9: demoText()
-      '               10: demoScreenBlast()
-      '               11: demoBmpFileLoad()
 
       waitSec(demoPausePeriod)
 
@@ -160,7 +146,6 @@ PRI demoRandomPanelColors() | panelIndex, panelHue, panelColor
       display.fillPanel(panelIndex, panelColor)
     ' update our screen
     display.commitScreenToPanelSet()
-        ' wait1000thSecs(10)
 
 DAT  ' panel messages
 
@@ -218,22 +203,12 @@ PRI demoTopBottomScroll() | scrollerID
   ' update our screen
   display.commitScreenToPanelSet()
 
-  ' delay to first movement
-  'wait1000thSecs(scrollPeriod)
-
   ' loop while scrolling finishes
   repeat while NOT display.isScrollingComplete()
     ' move the text
-    'startTime := getct()
     display.animateScroll()
-    'showDuration(startTime, string("top:ANI"))
     ' commit to screen
-    'startTime := getct()
     display.commitScreenToPanelSet()
-        ' showDuration(startTime, string("top:ANI-wr"))
-
-        ' delay to next movement
-        'wait1000thSecs(scrollPeriod)
 
 PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, boxColor, hueIndex
 ' Color each panel with a unique hue, label it, and draw a colored box inside.
@@ -249,9 +224,7 @@ PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, boxColor, hueInde
   panelHueWidth := 256 / hub75Bffrs.maxPanels(chainIndex)
 
   ' set up text subsystem
-  'textSize := display.TEXT_FONT_5x7
   textSize := display.TEXT_FONT_8x8A
-  ' textSize := display.TEXT_FONT_8x8B
   display.setTextFont(textSize)                         ' font size
   display.setTextColor(color.cBlueViolet)
   display.setCursor(0, 0)                               ' start at top left, with one pixel of spacing

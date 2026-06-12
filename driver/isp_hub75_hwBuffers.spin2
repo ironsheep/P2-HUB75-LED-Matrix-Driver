@@ -89,9 +89,6 @@ PUB chain0Ptrs() : pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2
   pScrnBuffer := @@LONG[@screenTable0][0]
   pPwmFrameSet1 := @@LONG[@screenTable0][1]
   pPwmFrameSet2 := @@LONG[@screenTable0][2]
-  'pScrnBuffer := LONG[@screenTable0][0]
-  'pPwmFrameSet1 := LONG[@screenTable0][1]
-  'pPwmFrameSet2 := LONG[@screenTable0][2]
   DEBUG("hwBffrs: ", uhex_long(pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2))
 
 {   COMMENT-OUT THIS LINE (place tic in front of this line) if you using the 2nd HUB75 adapter board

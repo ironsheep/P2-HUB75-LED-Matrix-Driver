@@ -33,13 +33,11 @@ CON { I/O PINs }
     ' the user-selected location: one of 0, 16, 32, and 48
 
 ' Special unused P2 pins used for send signals to Logic Analyzer
-'{
     MTX_LA_XTRA_PINS_BASE =  8
     MTX_LA_XT_P08 =  MTX_LA_XTRA_PINS_BASE + 0
     MTX_LA_XT_P09 =  MTX_LA_XTRA_PINS_BASE + 1
     MTX_LA_XT_P10 =  MTX_LA_XTRA_PINS_BASE + 2
     MTX_LA_XT_P11 =  MTX_LA_XTRA_PINS_BASE+  3
-'}
 
 CON ' Data
 
@@ -295,29 +293,6 @@ PUB start(nID, nChainIdx) : startedCog | tmpVar, panelCt, tmpConstant, widthInPa
 
   ' New P2 Eval Board HUB75 Adapter:
   ' the user-selected location: one of 0, 16, 32, and 48
-{
-    MTX_LED_BASE_PIN = obj.ADAPTER_BASE_PIN
-
-    MTX_LED_SPARE_2 = MTX_LED_BASE_PIN + 15
-    MTX_LED_SPARE_1 = MTX_LED_BASE_PIN + 14
-
-    MTX_LED_PIN_B2 = MTX_LED_BASE_PIN + 13
-    MTX_LED_PIN_G2 = MTX_LED_BASE_PIN + 12
-    MTX_LED_PIN_R2 = MTX_LED_BASE_PIN + 11
-    MTX_LED_PIN_B1 = MTX_LED_BASE_PIN + 10
-    MTX_LED_PIN_G1 = MTX_LED_BASE_PIN + 9
-    MTX_LED_PIN_R1 = MTX_LED_BASE_PIN + 8
-
-    MTX_LED_PIN_E = MTX_LED_BASE_PIN + 7
-    MTX_LED_PIN_D = MTX_LED_BASE_PIN + 6
-    MTX_LED_PIN_C = MTX_LED_BASE_PIN + 5
-    MTX_LED_PIN_B = MTX_LED_BASE_PIN + 4
-    MTX_LED_PIN_A = MTX_LED_BASE_PIN + 3
-
-    MTX_LED_PIN_LATCH = MTX_LED_BASE_PIN + 2
-    MTX_LED_PIN_OE = MTX_LED_BASE_PIN + 1
-    MTX_LED_PIN_CLK = MTX_LED_BASE_PIN + 0
-  '}
   basePin := hub75Bffrs.pinBase(chainIndex)
   pnlLedPinCLK    := basePin + PIN_OFST_CLK
   pnlLedPinOE     := basePin + PIN_OFST_OE
@@ -367,13 +342,6 @@ PUB start(nID, nChainIdx) : startedCog | tmpVar, panelCt, tmpConstant, widthInPa
     waitCyclesLow := tmpConstant / HALF_DIVISOR ' data setup extension
     waitCyclesHigh := tmpConstant - waitCyclesLow  ' clock high extension
   debug("RG3:  TIMING cycles/bit=", udec_(tmpVar), " waitLo=", udec_(waitCyclesLow), " waitHi=", udec_(waitCyclesHigh))
-
-  ' post time constants to driver
-  'msec_001 := CLKFREQ / 1_000                                   ' ticks in 1ms
-  'usec_001 := CLKFREQ / 1_000_000                               ' ticks in 1us
-  'tm_64usec := usec_001 * 64
-
-  'debug("- times: ", sdec_long(usec_001), sdec_long(tm_64usec))
 
   tmpConstant := hub75Bffrs.colorDepth(chainIndex)
   debug("RG3:  CONFIG ColorDepth = ", udec_long_(tmpConstant))
@@ -536,28 +504,6 @@ PUB start(nID, nChainIdx) : startedCog | tmpVar, panelCt, tmpConstant, widthInPa
   tmpConstant := pwmSubPageCount
   tmpVar := pwmSubPageSizeInLongs
   debug("RG3:  MAX_SUBPAGE_SIZE_IN_LONGS=", udec_(tmpVar), ", MAX_PWM_SUBPAGES=", udec_(tmpConstant))
-
-{
-  ' test mask off rgb1 or rgb2 in ABCDE case (testing matrix)
-    if bSetLowPins
-        if hub75Bffrs.addressLines(chainIndex) == hwEnum.ADDR_ABCDE
-            maskAllPins := %00000000_00000000_00111000_11111111         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
-  'maskAllPins := %00000000_00000000_00000111_11111111         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
-    else
-        if hub75Bffrs.addressLines(chainIndex) == hwEnum.ADDR_ABCDE
-            maskAllPins := %00111000_11111111_00000000_00000000         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
-  'maskAllPins := %00000111_11111111_00000000_00000000         ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
-  '}
-  'debug("- ", ubin_long(maskAddr))
-  'debug("- ", ubin_long(maskRgb12))
-  'debug("- ", ubin_long(maskAllPins))
-  'debug("- ", uhex_long(addrValue1))
-  'debug("- ", uhex_long(addrValueMax))
-
-  'tmpVar := MAX_COG_BUFFER_SIZE_IN_LONGS
-  'debug("- COG Buffer in Longs ", udec_long_(tmpVar))
-  'tmpVar := pwmSubPageCount
-  'debug("- # PWM SubPages ", udec_long_(tmpVar))
 
   ' pass values to our driver
   ptrCommand := @dvrCommand
@@ -1162,11 +1108,6 @@ modeSlowCLK             LONG                    FALSE                           
 ' Clock-frequency-independent timing values (calculated at init)
 waitCyclesLow       long    0       ' extra cycles for CLK low phase (data setup)
 waitCyclesHigh      long    0       ' extra cycles for CLK high phase (clock pulse)
-
-'msec_001            long    0                                   ' ticks in 1ms
-'usec_001            long    0                               ' ticks in 1us
-
-' tm_64usec           long    0
 
 maxCtPerFrame           LONG                    0                                         ' initial count for compiled bit-depth
 

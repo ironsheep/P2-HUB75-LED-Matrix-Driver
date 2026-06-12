@@ -70,8 +70,6 @@ CON
     BYTES_PER_ROW       = 11
     NBR_ROWS_64         = 13
     ROWS_PER_SCREEN_64  = 10
-    ROWS_PER_SCREEN_32  = 5
-    NBR_ROWS_32         = 6
 
 DAT
     ' 10 rows (really 9.6, 10 chars + term. in each row)
@@ -111,8 +109,6 @@ PRI demoFont64x32() | textSize, nRow, nScreenRow
 ' @local nScreenRow - current screen row position for display output
 
   textSize := display.TEXT_FONT_5x7
-  'textSize := display.TEXT_FONT_8x8A
-  'textSize := display.TEXT_FONT_8x8B
 
   display.clearScreen()
   display.setTextFont(textSize)                         ' font size
@@ -163,8 +159,6 @@ PRI demoFont64x64() | textSize, nRow, nRows1stScreen
 ' @local nRows1stScreen - number of rows displayed on the first screen
 
   textSize := display.TEXT_FONT_5x7
-  'textSize := display.TEXT_FONT_8x8A
-  'textSize := display.TEXT_FONT_8x8B
   nRows1stScreen := ROWS_PER_SCREEN_64 / 2
 
   display.clearScreen()

@@ -45,11 +45,6 @@ PUB drawPixelAtRC(nChainIdx, row, column, rgbColor) | xlatedColor
   xlatedColor := rgbColor
   if rgbColor == color.cRainbow
     xlatedColor := colorUtils.rgbColorFromDegrees(DEGREES_PER_COLUMN * (column + 1))             ' replace '360 / 64' with 6 [was resulting in 5 vs. 6]
-  'elseif rgbColor == cRedWhtBlu
-  '   case column // 3
-  '       0: xlatedColor := cRed
-  '       1: xlatedColor := cWhite
-  '       2: xlatedColor := cBlue
 
   drawPixelAtRCwithRGB(nChainIdx, row, column, colorUtils.rgbForCValue(xlatedColor))
 

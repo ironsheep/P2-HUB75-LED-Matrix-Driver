@@ -67,7 +67,7 @@ PUB fillScreenFromBMP(nChainIdx, pBmpFile)
   ' Load a 24-bit .bmp file image into screen buffer (panel sized, only!)
   loadBitmap(pBmpFile)
 
-PRI loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, haveError, bInvalidFileStatus
+PRI loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, bInvalidFileStatus
 ' Load a validated 24-bit .bmp file image into the screen buffer pixel by pixel.
 '
 ' @param pBitmapFile - pointer to the in-memory .bmp file data
@@ -77,13 +77,11 @@ PRI loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, haveError,
 ' @local blue - blue channel value of the current pixel
 ' @local green - green channel value of the current pixel
 ' @local red - red channel value of the current pixel
-' @local haveError - error flag during loading
 ' @local bInvalidFileStatus - FALSE if the .bmp file header is invalid
 
   ' save address of 24bit file image for use by called routines
   pBitmapFileInMemory := pBitmapFile
 
-  ' XYZZYpnl debug("- Study BMP")
   bInvalidFileStatus := validateBmpFile(pBitmapFile)
   if bInvalidFileStatus == FALSE
     ' TODO: how do we warn of this?
@@ -105,7 +103,6 @@ PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader, paletteByteCoun
 ' @local pFileHeader - moving pointer through header fields during parsing
 ' @local paletteByteCount - computed palette byte count
 
-  ' XYZZYpnl debug("- Studying in-memory file")
   bValidStatus := TRUE
   'analyze bitmap image
   pFileHeader := pBmpFileImage
@@ -126,33 +123,20 @@ PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader, paletteByteCoun
   paletteByteCount := bfOffBits - BMP_HEADER_SIZE
   pFileHeader += paletteByteCount
 
-  ' XYZZYpnl debug("BitMap file @0x", uhex_(pBmpFileImage))
-  ' XYZZYpnl debug(" - size=", udec_(bfSize))
-  ' XYZZYpnl debug(" - OffsetBits=", udec_(bfOffBits))
   'debug(" - #planes=", udec_(biPlanes))
-  ' XYZZYpnl debug(" - w,h=", udec_(biWidth), ",", udec_(biHeight))
-  ' XYZZYpnl debug(" - szImage=", udec_(biSizeImage))
   'debug(" - compression=", udec_(biCompression))
-  ' XYZZYpnl debug(" - bitCount=", udec_(biBitCount))
 
   if biWidth <> maxColPixels or biHeight <> maxRowPixels
-    ' XYZZYpnl debug(" !! invalid BMP size! [NOT 64x32]")
     bValidStatus := FALSE
 
   if BYTE[@bfType][0] <> BMP_SIG_B || BYTE[@bfType][1] <> BMP_SIG_M ' B, M
-    ' XYZZYpnl debug(" !! invalid BMP file type! [NOT 'BM']")
     bValidStatus := FALSE
 
   if biCompression <> BMP_COMPRESSION_NONE
-    ' XYZZYpnl debug(" !! invalid BMP compression! [is compressed]")
     bValidStatus := FALSE
 
   'if bValidStatus == FALSE
-      ' XYZZYpnl debug("- ERROR invalid BMP!")
   'else
-      ' XYZZYpnl debug("-good BMP size! [64x32]")
-
-  'hub75Bffrs.dbgMemDump(@fileHeaderMsg, pBmpFileImage, bfOffBits)
 
 PRI get24BitBMPColorForRC(nRow, nColumn) : red, green, blue | pixColorAddr
 ' Return the red, green, and blue channel values for the pixel at the given row and column.

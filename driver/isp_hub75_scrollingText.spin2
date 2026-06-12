@@ -81,13 +81,8 @@ VAR ' globals - instance variables
     LONG    chainIndex
 ' our scrolling support - currently 1 scrolling region
     LONG    scrollChars[MAX_SCROLL_CHAR_LONGS]
-    LONG    leftBitmap[MAX_LONGS_PER_CHAR_BITMAP]
-    LONG    rightBitmap[MAX_LONGS_PER_CHAR_BITMAP]
     LONG    scrollTextColor
-    LONG    scrollCharOffset
     LONG    ctCharsToScroll                                         ' set when scrolling text is specified
-    LONG    remainingColumns                                        ' set when scrolling text is specified
-    LONG    bScrolling                                              ' set when scrolling text is specified
     LONG    topRow                                                  ' set when scrolling text is specified
     LONG    leftColumn                                              ' set when scrolling text is specified
     LONG    windowWidthInPix                                        ' set when scrolling text is specified
@@ -113,7 +108,6 @@ VAR ' globals - instance variables
     LONG    scrollNbrTimes                                          ' configure before use!
     BYTE    eScrollMode                                             ' configure before use!
     BYTE    eScrollDirection                                        ' configure before use!
-    BYTE    isSetup
     BYTE    instanceID
 
 PUB null()
@@ -126,15 +120,12 @@ PUB initialize(nChainIdx)
 '' @param nChainIdx - the panel chain index to use
 
   chainIndex := nChainIdx
-  isSetup := FALSE
-  bScrolling := FALSE
   ctCharsToScroll := 0
   eScrollMode := SCROLL_UNKNOWN
   scrollNbrTimes := 0
   instanceID := ++instanceNumber
   remainingPixToScroll := 0
   maxDisplayColumns := hub75Bffrs.maxDisplayColumns(chainIndex)
-  isSetup := TRUE                                       ' yes, now we are!
 
   'debug("stx:initialize() ", udec(instanceID))
 
@@ -395,9 +386,6 @@ VAR
     BYTE    tailWidthInPix
     BYTE    hzInsetInPix
 
-    ' vert scrolling
-    BYTE    vtInsetInPix
-
 PRI placeColrCharsHzOfstAtRC(row, column, charHzPxOffset, windowWidth, startCharIndex, rgbColor) | actCharIndex, endColumn, pChrBitmap
 ' Write character bitmaps to screen with possible fractional first and last characters for horizontal scrolling.
 '
@@ -647,8 +635,6 @@ PRI placeBitmapBackAtRCWithColor(row, column, bitInset, nbrCharBits, pChrBitmap,
 
     'debug("stx:pBMb() ", udec(instanceID), udec(row), udec(column), udec(bitInset), udec(nbrCharBits), udec(endColumn))
     'showDuration(startTime, string("stx:pbB"))
-'DAT { test debug data }
-'    debugCount  BYTE    42
 
 PRI placeColrBitmapVtOffsetAtRC(row, column, vtPxOffset, pChrBitmap, rgbColor) : endColumn | cBitIdx, rowIdx, cByteIdx, cRowBits, pixColor, pixRow, cBitOffset, colOffset, pixColumn, pixVal, ditheredRGBColor
 ' Draw a character bitmap vertically offset by the given pixel amount, painting black for the extra row.
@@ -684,10 +670,6 @@ PRI placeColrBitmapVtOffsetAtRC(row, column, vtPxOffset, pChrBitmap, rgbColor) :
         cRowBits := 0                                                           ' no 1 bits (all BG color)
       else
         cRowBits := WORD[pChrBitmap][cByteIdx]
-      '        if debugCount > 0 ' and vtPxOffset <> 0
-      '            debugCount--
-      '            if debugCount > 0
-      '                debug("pcbVt: ", udec(vtPxOffset), udec(cByteIdx))
       ' from right edge of char to left
       colOffset := charWidthInPix - 1
       repeat cBitIdx from 0 TO charWidthInPix - 1                               ' 4-0, 4-1, 4-2, 4-3, 4-4
@@ -709,10 +691,6 @@ PRI placeColrBitmapVtOffsetAtRC(row, column, vtPxOffset, pChrBitmap, rgbColor) :
       cRowBits := 0                                                             ' no 1 bits (all BG color)
     else
       cRowBits := BYTE[pChrBitmap][cByteIdx]
-    '        if debugCount > 0 ' and vtPxOffset <> 0
-    '            debugCount--
-    '            if debugCount > 0
-    '                debug("pcbVt: ", udec(vtPxOffset), udec(cByteIdx))
     ' from right edge of char to left
     colOffset := charWidthInPix - 1
     repeat cBitIdx from 0 TO charWidthInPix - 1                                 ' 4-0, 4-1, 4-2, 4-3, 4-4
