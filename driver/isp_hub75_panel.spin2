@@ -90,8 +90,10 @@ VAR ' driver instance variables
     LONG    nPwmFrameSizeInBytes
     LONG    nPwmFrameSizeInLongs
     BYTE    usePwmFrameset1
+#ifdef DBG_PWM
     BYTE    bDumpOnce
     BYTE    nPassCt
+#endif
 
     LONG    pPwmFrame1
     LONG    pPwmFrame2
@@ -137,8 +139,10 @@ PUB start(nID, nChainIdx) : startedCog | panelCt, wireIdx
   DEBUG("- PNL: Grid ", udec_(nPanelsPerRow), "x", udec_(nPanelsPerColumn), " panels, Display ", udec_(nDisplayColumns), "x", udec_(nDisplayRows))
   DEBUG("- PNL: Wire order: W0->D", udec_(wireToDisplayPanel[0]), " W1->D", udec_(wireToDisplayPanel[1]), " W2->D", udec_(wireToDisplayPanel[2]), " W3->D", udec_(wireToDisplayPanel[3]))
 
+#ifdef DBG_PWM
   bDumpOnce := FALSE
   nPassCt := 0
+#endif
 
   nPwmFrameSizeInLongs := hub75Bffrs.pwmFrameSizeInLongs(chainIndex)
   DEBUG("- PNL: PHYScols=", udec_long_(maxChainColumns), " PHYSrows=", udec_long_(maxChainRows))
@@ -246,8 +250,6 @@ PUB convertScreen2PWM_14(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet, pPwmFra
   '    rows 16 - 24: targetRow = ((row - 16) * 2) + 17
   '    rows 24 - 31: targetRow = (row - 24) * 2) + 16
   ' -------------------------------------------------------------------------
-
-  pScreenInMemory := p24bitScreen
 
   markStart()
 
@@ -481,8 +483,6 @@ PUB convertScreen2PWM(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet, lChainCols
 ' NOTE: 16 longs total avail to inline pasm: params + return + local
 '  --> 11/16 used
 
-  ' save address of 24bit screen for use by called routines
-  pScreenInMemory := p24bitScreen
 
   markStart()
 
@@ -681,15 +681,16 @@ done16s
 
   markEnd(string("pasm 16S"))
 
-{   ' Debug code for Frame 0 MSB issue investigation
+#ifdef DBG_PWM
+  ' Debug code for Frame 0 MSB issue investigation (enable with -D DBG_PWM)
   nPassCt++
   if not bDumpOnce && nPassCt == 2
     bDumpOnce := TRUE
     debug("--- DEBUG: Frame 0 vs Frame 1 data ---")
-    dumpBufferHeads(pScreenInMemory, pPwmFrameSet)
+    dumpBufferHeads(p24bitScreen, pPwmFrameSet)
     hub75Bffrs.dbgMemDump(@frame0Msg, pPwmFrameSet, 32)
     hub75Bffrs.dbgMemDump(@frame1Msg, pPwmFrameSet + nPwmFrameSizeInBytes, 32)
-}
+#endif
 
   matrix.cmdWritePwmBuffer(pPwmFrameSet)
 
@@ -697,6 +698,8 @@ done16s
 
 CON ' ------------- PRIVATE (Utility) Methods -------------
 
+#ifdef DBG_PWM
+' --- PWM/frame dump diagnostics toolkit (compiled only with -D DBG_PWM) ---
 PRI dumpBufferHeads(pSCreenBuffer,pPwmBuffer)
 ' Dump the first 48 bytes of the screen and PWM buffers for debug inspection.
 '
@@ -767,6 +770,7 @@ PRI emptyRgb2(pFrameBuffer) : isEmpty | byteIdx
     if BYTE[pFrameBuffer][byteIdx] & MASK_RGB2 > 0
       isEmpty := FALSE
       quit
+#endif
 
 PRI clearPwmFrameBuffer() : pPwmFrameSet
 ' Clear the active PWM frame buffer and toggle to the alternate frame set for double buffering.
@@ -803,7 +807,6 @@ PRI getPwmFrameAddressForBit(nBitNumber) : pFrameBuffer | nFrameOfst, frameIdx
 
 VAR ' buffer addresses
 
-    LONG    pScreenInMemory
     LONG    wireToDisplayPanel[16]      ' Inverse lookup: wire position -> display panel index
 
 PRI markStart()
@@ -832,7 +835,8 @@ PRI markEnd(message) | elapsed
     'elapsed := elapsed +/ (clkfreq/1000) ' convert to useconds
     debug("- runtime ", zstr_(message), ": ", udec_long(elapsed), " uS")
 
-DAT  ' .bmp file work area
+#ifdef DBG_PWM
+DAT  ' PWM/frame dump diagnostic message strings (compiled only with -D DBG_PWM)
 
     msgPwm          BYTE    "Pwm0 ", 0
 
@@ -840,6 +844,7 @@ DAT  ' .bmp file work area
     frameMsg        BYTE    "PWM[0]",0
     frame0Msg       BYTE    "Frame0",0
     frame1Msg       BYTE    "Frame1",0
+#endif
 
 CON ' license
 

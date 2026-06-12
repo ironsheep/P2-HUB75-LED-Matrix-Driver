@@ -922,6 +922,7 @@ PUB getDriverFlags(nChainIdx) : desiredFlags, eChipType
     DEBUG("- have unknown CHIP ", ubin_word(desiredFlags))
     abort
 
+#ifdef DBG_PWM
 PUB dbgMemDump(pMessage, pBytes, lenBytes) | bytBffr, colIdx, rowIdx, maxCol, maxRow, dispLen
 '' Dump bytes in hex format to the debug() terminal.
 ''
@@ -964,6 +965,7 @@ PUB dbgMemDump(pMessage, pBytes, lenBytes) | bytBffr, colIdx, rowIdx, maxCol, ma
     DEBUG("`temp 13")                                   ' newline
     waitus(DUMP_ROW_DELAY_US)                           ' 50 too short, 70 less issue, 75 better,
   waitms(DUMP_END_DELAY_MS)
+#endif
 
 PRI ptrTableEntry(nChainIdx) : pEntry | validScreenIdx
 ' Return the hub address of the chain descriptor table entry for the given index.
