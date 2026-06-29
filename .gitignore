@@ -87,3 +87,4 @@ driver/performance.log
 .devcontainer/*.zip
 .claude/settings.local.json
 DOCs/policy/STYLE-AUDIT-STATUS.md
+/DOCs/REF-NO-COMMIT
