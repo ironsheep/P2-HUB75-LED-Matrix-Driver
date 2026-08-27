@@ -1,6 +1,10 @@
 services:
   dev:
-    image: mcr.microsoft.com/devcontainers/javascript-node:24-bookworm
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # Name the built image so Docker reuses cached layers across rebuilds.
+    image: p2-hub75-led-matrix-driver-dev:local
     volumes:
       - ..:/workspaces/p2-HUB75-LED-Matrix-Driver:cached
       - todo-mcp-data:/home/vscode/.local/share/todo-mcp

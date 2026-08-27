@@ -23,7 +23,7 @@
     }
   },
   "remoteUser": "vscode",
-  "postCreateCommand": "sudo mkdir -p /Users/stephen && sudo ln -sfn /opt/container-tools /Users/stephen/container-tools; sudo chown -R vscode:vscode /home/vscode/.local 2>/dev/null || true; cat /workspaces/p2-HUB75-LED-Matrix-Driver/.bashrc >> ~/.bashrc && cd /tmp && unzip -o /workspaces/p2-HUB75-LED-Matrix-Driver/.devcontainer/pnut-ts-linux-arm64-015500.zip && sudo cp /tmp/pnut-ts-linux-arm64-015500/pnut_ts/pnut-ts /usr/local/bin/pnut-ts && sudo chmod +x /usr/local/bin/pnut-ts && rm -rf /tmp/pnut-ts-linux-arm64-015500 || true; curl -fsSL https://claude.ai/install.sh | bash || true; grep -q '$HOME/.local/bin' ~/.bashrc 2>/dev/null || echo 'export PATH=\"$HOME/.local/bin:$PATH\"' >> ~/.bashrc; export PATH=\"$HOME/.local/bin:$PATH\"; claude --update || true;",
+  "postCreateCommand": "sudo mkdir -p /Users/stephen && sudo ln -sfn /opt/container-tools /Users/stephen/container-tools; sudo chown -R vscode:vscode /home/vscode/.local 2>/dev/null || true; cat /workspaces/p2-HUB75-LED-Matrix-Driver/.bashrc >> ~/.bashrc; curl -fsSL https://claude.ai/install.sh | bash || true; grep -q '$HOME/.local/bin' ~/.bashrc 2>/dev/null || echo 'export PATH=\"$HOME/.local/bin:$PATH\"' >> ~/.bashrc; export PATH=\"$HOME/.local/bin:$PATH\"; claude --update || true;",
   "customizations": {
     "vscode": {
       "extensions": [
