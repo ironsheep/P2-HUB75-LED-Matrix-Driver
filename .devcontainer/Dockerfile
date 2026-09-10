@@ -6,7 +6,7 @@
 # which compiler you got. Baked layers are the only rebuild-persistent path.
 FROM mcr.microsoft.com/devcontainers/javascript-node:24-bookworm
 
-# --- git: trust the workspace bind mount -------------------------------------
+# --- git: workspace trust + baked identity -----------------------------------
 # The workspace arrives over a virtiofs bind mount whose uid attribution is
 # occasionally transient -- the same path can report uid 1000 one moment and a
 # different uid the next with nothing changed on disk. Git's ownership check
@@ -14,15 +14,38 @@ FROM mcr.microsoft.com/devcontainers/javascript-node:24-bookworm
 # fails. Intermittently, which is worse than always: it makes gates that
 # discover their inputs with `git ls-files` report green having read nothing.
 #
-# System scope, because ~/.gitconfig is a READ-ONLY bind mount. Git writes
-# config by rename, so `git config --global` there fails with EBUSY -- the
-# remedy git itself prints cannot be applied in this container. /etc/gitconfig
-# is root-owned, baked, and survives rebuilds. VS Code appends its credential
-# helper to the same file at container start; the two coexist.
-#
 # Scoped to /workspaces/* rather than '*' so the check stays live elsewhere.
 # A trailing /* matches at any depth.
 RUN git config --system --add safe.directory '/workspaces/*'
+
+# Identity is BAKED here rather than bind-mounted from the host's ~/.gitconfig.
+#
+# A single-FILE bind mount pins the source inode. macOS rewrites ~/.gitconfig by
+# rename -- `git config --global` does, and so does every editor's atomic save --
+# which produces a NEW inode, leaving the container's mount pointed at the old
+# unlinked one. The container then reads frozen content until it is recreated.
+# That is the "stale .gitconfig" failure; it stranded the fleet on 2026-08-28 and
+# cleared only on reboot. The other host mounts (.ssh, .claude, container-tools)
+# are DIRECTORIES and are immune, because each lookup inside them resolves fresh.
+# .gitconfig was the fleet's only single-file mount. Retired 2026-09-10.
+#
+# Only the portable subset is baked. The host config's remaining blocks are
+# macOS-only and are inert or harmful under Linux: credential.helper=osxkeychain
+# (no such helper here -- VS Code installs its own, below); filter.lfs and
+# filter.media with required=true (neither binary is installed, which is a hard
+# checkout failure in any repo that tracks LFS paths); the UltraCompare merge and
+# difftool under /Applications; and a safe.directory for a /Users/stephen path
+# that does not exist in a container.
+#
+# System scope, not --global: --global writes ~/.gitconfig, which is
+# container-local and does not survive a rebuild. /etc/gitconfig is root-owned,
+# baked, and does. VS Code appends its credential helper to the same file at
+# container start; the two coexist.
+RUN git config --system user.name 'Stephen M Moraco' \
+    && git config --system user.email 'stephen@ironsheep.biz' \
+    && git config --system push.default simple \
+    && git config --system push.followTags false \
+    && git config --system pull.rebase false
 
 # --- pnut-ts compiler --------------------------------------------------------
 # *** THE VERSION IS DISCOVERED, NOT TYPED. ***

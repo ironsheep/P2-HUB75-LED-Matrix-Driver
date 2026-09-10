@@ -14,7 +14,9 @@ services:
       # - /path/to/your/.claude:/home/vscode/.claude
       # Container tools (MCP servers: todo-mcp, p2kb-mcp, image-tools-mcp)
       # - /path/to/container-tools:/opt/container-tools
-      # Git configuration (user identity, aliases, credential helpers)
-      # - ${HOME}/.gitconfig:/home/vscode/.gitconfig:ro
+      # Git identity is BAKED into /etc/gitconfig by the Dockerfile.
+      # Do NOT bind-mount ~/.gitconfig here: a single-FILE mount pins an inode
+      # and goes stale the moment macOS rewrites the file by rename. Retired
+      # 2026-09-10; see the git block in .devcontainer/Dockerfile.
       # SSH keys for git operations inside the container
       # - ${HOME}/.ssh:/tmp/.ssh:ro
