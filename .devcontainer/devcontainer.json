@@ -5,6 +5,13 @@
   "service": "dev",
   "workspaceFolder": "/workspaces/p2-HUB75-LED-Matrix-Driver",
   "containerEnv": {
+    // Relocates git's GLOBAL config away from ~/.gitconfig, which the Dev Containers
+    // extension copies from the macOS host at EVERY container start and which therefore
+    // outranked (system < global) the identity baked into /etc/gitconfig. The copy also
+    // carries filter.lfs/filter.media at required=true with neither binary installed --
+    // a measured hard checkout failure. Set here, not in .bashrc, so it reaches every
+    // process rather than only login shells. Full reasoning: .devcontainer/Dockerfile.
+    "GIT_CONFIG_GLOBAL": "/home/vscode/.config/git/config",
     "LANG": "en_US.UTF-8",
     "LC_ALL": "en_US.UTF-8",
     "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"

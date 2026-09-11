@@ -47,6 +47,59 @@ RUN git config --system user.name 'Stephen M Moraco' \
     && git config --system push.followTags false \
     && git config --system pull.rebase false
 
+# --- ...AND THE SYSTEM CONFIG MUST BE THE ONE THAT ACTUALLY WINS -------------
+#
+# ⛔ THE BLOCK ABOVE WAS SHADOWED AND INERT FROM THE DAY IT WAS WRITTEN.
+# Retiring the ~/.gitconfig bind mount (Inconsistency W) did NOT stop the host's
+# file from reaching this container: the VS Code Dev Containers extension COPIES
+# the host ~/.gitconfig in at container start. Different mechanism, same result.
+# MEASURED 2026-09-11 in P2-uSD-FAT32-FS -- PID 1 at 20:29:37, /etc/gitconfig
+# rewritten at :38.23 (VS Code adding its credential helper), ~/.gitconfig
+# written at :40.36. Three seconds after boot, every boot.
+#
+# Git precedence is system < global < local, so that copied GLOBAL file
+# outranked everything baked above. The identity was right only by COINCIDENCE
+# -- both files carry the same name and email -- which is exactly why nobody
+# noticed. The comment above described a mechanism that was not in force.
+#
+# AND THE COPY IS NOT MERELY REDUNDANT, IT IS ARMED. It carries filter.lfs and
+# filter.media at required=true with NEITHER BINARY INSTALLED. That is a hard
+# checkout failure the moment any .gitattributes routes a path through them --
+# not hypothetical: MEASURED LIVE 2026-09-11 in the workspace-root container,
+# "git-lfs: not found" / "fatal: the remote end hung up unexpectedly" on a
+# tracked path. It also carries an UltraCompare merge/difftool under
+# /Applications and an alias pointing at ~/bin/, neither of which exists here.
+#
+# THE FIX RELOCATES "GLOBAL"; IT DOES NOT DELETE THE COPY. Deleting the copy in
+# a start hook would RACE the copy, and a fix whose correctness depends on
+# unproven ordering is not a fix. GIT_CONFIG_GLOBAL (git >= 2.32) names the
+# global file outright: git then reads ONLY that path as global and ignores
+# ~/.gitconfig entirely. The copy still lands and is simply never read.
+# Deterministic, no race. The variable is set in devcontainer.json
+# `containerEnv` so it reaches EVERY process -- not just login shells, which is
+# why this is not done in .bashrc.
+#
+# ⭐ NOTHING IS LOST, AND THAT WAS VERIFIED RATHER THAN ASSUMED. Every live
+# setting in the copied file is byte-identical in /etc/gitconfig: user.name,
+# user.email, push.default, push.followTags, pull.rebase -- and VS Code writes
+# its credential helper to BOTH, so HTTPS auth is unaffected. What the
+# relocation drops is precisely the dead and harmful blocks named above.
+#
+# The file is created HERE (not left to git) so it exists, is user-owned and
+# writable: a `git config --global ...` still succeeds and lands somewhere
+# container-local and harmless, instead of silently re-shadowing the bake.
+RUN mkdir -p /home/vscode/.config/git \
+    && printf '%s\n' \
+       '# Container-local GLOBAL git config.' \
+       '#' \
+       '# GIT_CONFIG_GLOBAL points here (devcontainer.json containerEnv) so that' \
+       '# the host ~/.gitconfig, which the VS Code Dev Containers extension copies' \
+       '# into this container at every start, is IGNORED rather than shadowing the' \
+       '# identity baked into /etc/gitconfig. Put container-only overrides here;' \
+       '# keeping it empty is the preference.' \
+       > /home/vscode/.config/git/config \
+    && chown -R vscode:vscode /home/vscode/.config
+
 # --- pnut-ts compiler --------------------------------------------------------
 # *** THE VERSION IS DISCOVERED, NOT TYPED. ***
 # It used to be spelled out in three places -- the COPY, the cp path and the rm --
