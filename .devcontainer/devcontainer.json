@@ -30,7 +30,7 @@
     }
   },
   "remoteUser": "vscode",
-  "postCreateCommand": "sudo mkdir -p /Users/stephen && sudo ln -sfn /opt/container-tools /Users/stephen/container-tools; sudo chown -R vscode:vscode /home/vscode/.local 2>/dev/null || true; cat /workspaces/p2-HUB75-LED-Matrix-Driver/.bashrc >> ~/.bashrc; curl -fsSL https://claude.ai/install.sh | bash || true; grep -q '$HOME/.local/bin' ~/.bashrc 2>/dev/null || echo 'export PATH=\"$HOME/.local/bin:$PATH\"' >> ~/.bashrc; export PATH=\"$HOME/.local/bin:$PATH\"; claude --update || true;",
+  "postCreateCommand": "sudo mkdir -p /Users/stephen && sudo ln -sfn /opt/container-tools /Users/stephen/container-tools; sudo chown -R vscode:vscode /home/vscode/.local 2>/dev/null || true; cat /workspaces/p2-HUB75-LED-Matrix-Driver/.bashrc >> ~/.bashrc; curl -fsSL https://claude.ai/install.sh | bash || true; grep -q '$HOME/.local/bin' ~/.bashrc 2>/dev/null || echo 'export PATH=\"$HOME/.local/bin:$PATH\"' >> ~/.bashrc; mkdir -p ~/.ssh && cp /tmp/.ssh/* ~/.ssh/ 2>/dev/null; chmod 700 ~/.ssh && chmod 600 ~/.ssh/id_* 2>/dev/null; chmod 644 ~/.ssh/*.pub 2>/dev/null; sed -i -e 's#/Users/stephen/\\.ssh/#/home/vscode/.ssh/#g' -e 's|^\\([[:space:]]*\\)UseKeychain|\\1#UseKeychain|' ~/.ssh/config 2>/dev/null || true; export PATH=\"$HOME/.local/bin:$PATH\"; claude --update || true;",
   "customizations": {
     "vscode": {
       "extensions": [
