@@ -11,7 +11,7 @@ services:
   dev:
     volumes:
       # Claude Code configuration (authentication, settings, history)
-      # - /path/to/your/.claude:/home/vscode/.claude
+      # - /path/to/your/.claude:/home/node/.claude
       # Container tools (MCP servers: todo-mcp, p2kb-mcp, image-tools-mcp)
       # - /path/to/container-tools:/opt/container-tools
       # Git identity is BAKED into /etc/gitconfig by the Dockerfile.

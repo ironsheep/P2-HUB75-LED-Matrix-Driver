@@ -3,14 +3,16 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    # Name the built image so Docker reuses cached layers across rebuilds.
+    # Name the built image so Docker reuses the cached layers across rebuilds.
     image: p2-hub75-led-matrix-driver-dev:local
     volumes:
       - ..:/workspaces/p2-HUB75-LED-Matrix-Driver:cached
-      - todo-mcp-data:/home/vscode/.local/share/todo-mcp
+      # Persist todo-mcp task data across container rebuilds.
+      - todo-mcp-data:/home/node/.local/share/todo-mcp
     command: sleep infinity
-    # Note: features, postCreateCommand, extensions, and settings
-    # are handled in devcontainer.json, not here
+    # Note: postCreateCommand, extensions, and settings are handled in
+    # devcontainer.json, not here. Tooling (pnut-ts, Claude CLI) is baked
+    # into the image via Dockerfile.
 
 volumes:
   todo-mcp-data:

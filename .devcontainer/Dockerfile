@@ -1,9 +1,11 @@
 # Derived dev image for p2-HUB75-LED-Matrix-Driver.
 #
-# Bakes the pnut-ts compiler into a cached layer. It used to be unzipped in
-# postCreateCommand, which re-ran on EVERY container create, needed the
-# workspace mount to already exist, and left nothing in the build log saying
-# which compiler you got. Baked layers are the only rebuild-persistent path.
+# Bakes the network-heavy installs that previously ran in postCreateCommand on
+# EVERY container create (pnut-ts compiler + Claude CLI) into cached layers, so
+# rebuilds are cheap and offline.
+#
+# No apt packages are installed: the base image already provides unzip/curl, and
+# image-tools-mcp no longer needs libtesseract5 at runtime (removed 2026-07-04).
 FROM mcr.microsoft.com/devcontainers/javascript-node:24-bookworm
 
 # --- git: workspace trust + baked identity -----------------------------------
@@ -88,7 +90,7 @@ RUN git config --system user.name 'Stephen M Moraco' \
 # The file is created HERE (not left to git) so it exists, is user-owned and
 # writable: a `git config --global ...` still succeeds and lands somewhere
 # container-local and harmless, instead of silently re-shadowing the bake.
-RUN mkdir -p /home/vscode/.config/git \
+RUN mkdir -p /home/node/.config/git \
     && printf '%s\n' \
        '# Container-local GLOBAL git config.' \
        '#' \
@@ -97,8 +99,8 @@ RUN mkdir -p /home/vscode/.config/git \
        '# into this container at every start, is IGNORED rather than shadowing the' \
        '# identity baked into /etc/gitconfig. Put container-only overrides here;' \
        '# keeping it empty is the preference.' \
-       > /home/vscode/.config/git/config \
-    && chown -R vscode:vscode /home/vscode/.config
+       > /home/node/.config/git/config \
+    && chown -R node:node /home/node/.config
 
 # --- pnut-ts compiler --------------------------------------------------------
 # *** THE VERSION IS DISCOVERED, NOT TYPED. ***
@@ -124,3 +126,11 @@ RUN cd /tmp/pnut \
          ! -name 'pnut-ts' ! -name 'pnut_ts' -exec cp {} /opt/pnut-ts-docs/ \; \
     && cd / && rm -rf /tmp/pnut \
     && pnut-ts --version
+
+# --- Claude CLI (was: curl | bash in postCreateCommand) ----------------------
+# Installed as the `node` user so it lands in /home/node/.local/bin.
+USER node
+RUN curl -fsSL https://claude.ai/install.sh | bash \
+    && grep -q '\.local/bin' ~/.bashrc 2>/dev/null \
+       || echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+USER root
