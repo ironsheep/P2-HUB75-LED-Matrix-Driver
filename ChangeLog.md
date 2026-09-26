@@ -6,15 +6,6 @@ Check [Keep a Changelog](http://keepachangelog.com/) for reminders on how to str
 
 ### Pages: [README](README.md) | [Hardware Turn-on](HardwareTurnon.md) | [Driver Details](THEOPS.md) | Change Log
 
-## [Unreleased]
-
-Work to appear in upcoming releases:
-
-- Fix multi-panel support for chips that are not yet working in multi-panel form
-- I've even some fun animated clocks coming (sorry, I'm been doing software clocks of many, many, forms for a long time.)
-- Morphing digits Matrix displays can be found at [P2 LED-Matrix Morphing Digits](https://github.com/ironsheep/P2-LED-Matrix-Morphing-Digits) Repository.
-
-
 ## [3.0.3] 11 Jun 2026
 
 ### Clock-independent timing, 2x2 panel grids, per-panel rotation, color fixes

@@ -110,6 +110,9 @@ Upcoming work on the driver:
 
 - Finishing work on initialization of panel chips that require it (MBI5124GP). It's working for single panels but not multiple panels in the chain. *There's a lot of information that is just not readily found on this panels making continuing this "kind of hit-or-miss".*
 - 2-dimensional panel-set support (N-rows by N-columns of panels, e.g. a 2x2 grid) is now implemented, including per-panel rotation and configurable wire-order; we continue to verify and refine it across the various driver chips on hardware.
+- I've even some fun animated clocks coming (sorry, I'm been doing software clocks of many, many, forms for a long time.)
+
+Morphing digits Matrix displays can be found at [P2 LED-Matrix Morphing Digits](https://github.com/ironsheep/P2-LED-Matrix-Morphing-Digits) Repository.
 
 ## Driver Setup and Configuration
 
