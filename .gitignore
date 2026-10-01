@@ -88,3 +88,4 @@ driver/performance.log
 .claude/
 DOCs/policy/STYLE-AUDIT-STATUS.md
 /DOCs/REF-NO-COMMIT
+__pycache__/
