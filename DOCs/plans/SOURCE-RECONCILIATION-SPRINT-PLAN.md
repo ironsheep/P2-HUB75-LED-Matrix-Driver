@@ -290,8 +290,8 @@ ChangeLog entry is written at `build-wrapup`.
   skill harness + gitignore rules) and `5c26090` (this plan doc). `main`
   is ahead of `origin/main` by 2 (not yet pushed).
 - **Branch note (beyond plan §5):** a **local** `develop` exists, in sync
-  with `origin/develop` — post-merge cleanup must delete both local and
-  remote.
+  with `origin/develop`. **Decision (Stephen, 2026-10-01): `develop` is kept
+  permanently, local and remote. It is never deleted.**
 - **`feature-clock1`:** confirmed vestigial (1 commit editing the deleted
   `isp_hub75_binBit.spin2`, 129 commits behind `main`). §2 is a
   confirm-and-delete, not open research.
@@ -325,4 +325,4 @@ foundational -> dependent by `seq`; declared dependencies are documentary
 | §4b | Re-apply/re-derive restyle, GOLD-verified | «#4» | 4 | 6h | container+macOS |
 | §5a | Reconcile ChangeLog & docs | «#5» | 5 | 2h | container |
 | §5b | Hardware verification | «#6» | 6 | 1h30m | macOS |
-| §5c | Finalize: push main, delete `develop` | «#7» | 7 | 30m | container |
+| §5c | Finalize: push main (done 2026-06-11). Deleting `develop` was dropped 2026-10-01: the branch is kept permanently | «#7» (removed) | 7 | — | — |
