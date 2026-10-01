@@ -19,7 +19,7 @@ All panel configuration is done in `isp_hub75_hwPanelConfig.spin2`. Each HUB75 a
 
 ```spin2
 ' (1) describe the panel connections, addressing and chips
-DISP0_ADAPTER_BASE_PIN = hwEnum.PINS_P16_P31
+DISP0_ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
 DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
 DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 ```
@@ -27,11 +27,9 @@ DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 **Pin Groups:**
 | Constant | Pins |
 |----------|------|
-| `PINS_P0_P15` | P0-P15 |
-| `PINS_P8_P23` | P8-P23 |
-| `PINS_P16_P31` | P16-P31 |
-| `PINS_P32_P47` | P32-P47 |
-| `PINS_P40_P55` | P40-P55 |
+| `PIN_GROUP_P0_P15` | P0-P15 |
+| `PIN_GROUP_P16_P31` | P16-P31 |
+| `PIN_GROUP_P32_P47` | P32-P47 |
 
 **Driver Chips:**
 | Constant | Address Lines |
@@ -356,7 +354,7 @@ CON { User Panel Connection and Configuration }
     ' |  User configure
 
     ' (1) describe the panel connections, addressing and chips
-    DISP0_ADAPTER_BASE_PIN = hwEnum.PINS_P16_P31
+    DISP0_ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
     DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
     DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 

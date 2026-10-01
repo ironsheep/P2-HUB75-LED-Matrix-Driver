@@ -47,7 +47,7 @@ The driver itself is composed of the following files (with a few extras thrown i
 |-----------------|-------------|
 | **- User Configuration -** | |
 | demo\_hub75_hwGeometry.spin2 | USER MODIFIED configuration: compile-time constants used by demos |
-| isp\_hub75_hwPanelsConfig.spin2 | USER MODIFIED configuration: compile-time constants, describe the panels attached to each hub75 adapter |
+| isp\_hub75_hwPanelConfig.spin2 | USER MODIFIED configuration: compile-time constants, describe the panels attached to each hub75 adapter |
 | isp\_hub75_hwBufferAccess.spin2 | USER MODIFIED configuration: compile-time allocation of small tables, allocates small tables for each chain (one enabled by default, remaining two commented out) |
 | isp\_hub75_hwBuffers.spin2 | USER MODIFIED configuration: compile-time allocation of small tables, allocates large buffers for each chain (one enabled by default, remaining two commented out) |
 | **- Core Driver -** | |

@@ -180,7 +180,7 @@ Now let's look at examples as would be specified in the panel configuration file
     ' |  User configure
 
     ' (1) describe the panel connections, addressing and chips
-    DISP0_ADAPTER_BASE_PIN = hwEnum.PINS_P16_P31
+    DISP0_ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
     DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6126A
     DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
 
@@ -215,7 +215,7 @@ Here's an example for **twin 64x32 panels**:
     ' |  User configure
 
     ' (1) describe the panel connections, addressing and chips
-    DISP2_ADAPTER_BASE_PIN = hwEnum.PINS_P16_P31
+    DISP2_ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
     DISP2_PANEL_DRIVER_CHIP = hwEnum.FM6126A
     DISP2_PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
 
@@ -251,7 +251,7 @@ Here's an example for **P2 P2 Cube: 6 - 64x64 panels**:
     ' |  User configure
 
     ' (1) describe the panel connections, addressing and chips
-    DISP0_ADAPTER_BASE_PIN = hwEnum.PINS_P16_P31
+    DISP0_ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
     DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
     DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 

@@ -50,7 +50,7 @@ The file **isp\_hub75_hwPanelConfig.spin2** needs to be adjusted to support each
     ' |  User configure        PROPOSAL!!!
 
     ' (1) describe the panel connections, addressing and chips
-    DISP0_ADAPTER_BASE_PIN = hwEnum.PINS_P16_P31
+    DISP0_ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
     DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6126A
     DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
     
@@ -84,6 +84,8 @@ The file **isp\_hub75_hwPanelConfig.spin2** needs to be adjusted to support each
 
 **NOTE** Notice the use of value names prefixed with `hwEnum.` in this file too.
 
+**NOTE (v3.0.3+)** Pin groups are named `hwEnum.PIN_GROUP_P0_P15`, `hwEnum.PIN_GROUP_P16_P31` and `hwEnum.PIN_GROUP_P32_P47`. Earlier v3.x releases used `hwEnum.PINS_Pxx_Pyy`; those names no longer compile.
+
 ## Example: using one HUB75 adapter<br>(driving a single set of panels)
 
 All of the demo's are examples of this configuration. Please review them and follow their example.
@@ -111,7 +113,7 @@ In **isp\_hub75_hwPanelConfig.spin2**::
     ' |  User configure
 
     ' (1) describe the panel connections, addressing and chips
-    DISP0_ADAPTER_BASE_PIN = hwEnum.PINS_P16_P31
+    DISP0_ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
     DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6126A
     DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
   
@@ -140,7 +142,7 @@ In **isp\_hub75_hwPanelConfig.spin2**::
     ' |  User configure
 
     ' (1) describe the panel connections, addressing and chips
-    DISP1_ADAPTER_BASE_PIN = hwEnum.PINS_P0_P15
+    DISP1_ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P0_P15
     DISP1_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
     DISP1_PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
   

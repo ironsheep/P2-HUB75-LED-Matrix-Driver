@@ -14,6 +14,12 @@ This release unifies the `develop` feature branch into `main`. (Version numberin
 catches up here: the prior heading was `[3.0.1]` while release tags had reached
 `v3.0.2`; this `[3.0.3]` entry both reconciles that gap and records the unified build.)
 
+#### Breaking Changes
+
+- **BREAKING**: pin groups are renamed `PINS_Pxx_Pyy` to `PIN_GROUP_Pxx_Pyy`, and only
+  the three valid 16-pin groups remain (P0-P15, P16-P31, P32-P47). Update
+  `ADAPTER_BASE_PIN` in `isp_hub75_hwPanelConfig.spin2`; an old name will not compile.
+
 #### Added
 
 - **Clock-frequency-independent panel timing** - HUB75 signal timing is now derived

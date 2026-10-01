@@ -42,7 +42,7 @@ This document catalogs all panel configurations the author has tested, as docume
 
 **Configuration:**
 ```spin2
-ADAPTER_BASE_PIN = hwEnum.PINS_P16_P31
+ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
 PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6126A
 PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
 ```
@@ -64,7 +64,7 @@ PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
 
 **Configuration:**
 ```spin2
-ADAPTER_BASE_PIN = hwEnum.PINS_P16_P31
+ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
 PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6124
 PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
 ```
@@ -88,7 +88,7 @@ PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
 
 **Configuration:**
 ```spin2
-ADAPTER_BASE_PIN = hwEnum.PINS_P16_P31
+ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
 PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
 PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 ```
@@ -110,7 +110,7 @@ PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 
 **Configuration:**
 ```spin2
-ADAPTER_BASE_PIN = hwEnum.PINS_P16_P31
+ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
 PANEL_DRIVER_CHIP = hwEnum.CHIP_MBI5124GP
 PANEL_ADDR_LINES = hwEnum.ADDR_ABC
 ```
@@ -127,7 +127,7 @@ Same as Configuration 7 but using alternate pin group.
 
 **Configuration:**
 ```spin2
-ADAPTER_BASE_PIN = hwEnum.PINS_P32_P47
+ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P32_P47
 PANEL_DRIVER_CHIP = hwEnum.CHIP_MBI5124GP
 PANEL_ADDR_LINES = hwEnum.ADDR_ABC
 ```
@@ -150,7 +150,7 @@ PANEL_ADDR_LINES = hwEnum.ADDR_ABC
 
 **Configuration:**
 ```spin2
-ADAPTER_BASE_PIN = hwEnum.PINS_P16_P31
+ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
 PANEL_DRIVER_CHIP = hwEnum.CHIP_GS6238S
 PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
 ```
@@ -184,7 +184,7 @@ PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
 
 **Configuration:**
 ```spin2
-ADAPTER_BASE_PIN = hwEnum.PINS_P16_P31
+ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
 PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
 PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 ```
@@ -229,7 +229,7 @@ PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 
 **Configuration:**
 ```spin2
-ADAPTER_BASE_PIN = hwEnum.PINS_P16_P31
+ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
 PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
 PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 ```
@@ -266,7 +266,7 @@ This creates a 256×128 pixel display (32,768 total pixels).
 
 **Configuration:**
 ```spin2
-ADAPTER_BASE_PIN = hwEnum.PINS_P0_P15
+ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P0_P15
 PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2038S
 PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 ```

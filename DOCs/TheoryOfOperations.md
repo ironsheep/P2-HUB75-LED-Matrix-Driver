@@ -102,7 +102,7 @@ demo_hub75_*.spin2 (top-level)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ APPLICATION: screen.setPixelColor(x, y, r, g, b)                │
+│ APPLICATION: screen.drawPixelAtRC(chain, row, col, rgb)         │
 │              Uses 24-bit color values (0x000000 - 0xFFFFFF)     │
 └──────────────────────────┬──────────────────────────────────────┘
                            │ Apply color correction
@@ -407,12 +407,11 @@ The driver supports up to **3 independent HUB75 adapters** on a single P2:
 
 | Pin Group | Pins | Typical Use |
 |-----------|------|-------------|
-| PINS_P0_P15 | 0-15 | Available on P2 Eval |
-| PINS_P8_P23 | 8-23 | Alternative grouping |
-| PINS_P16_P31 | 16-31 | Primary HUB75 location |
-| PINS_P32_P47 | 32-47 | Secondary HUB75 location |
-| PINS_P40_P55 | 40-55 | Alternative grouping |
-| PINS_P48_P63 | 48-63 | Third HUB75 location |
+| PIN_GROUP_P0_P15 | 0-15 | Available on P2 Eval |
+| PIN_GROUP_P16_P31 | 16-31 | Primary HUB75 location |
+| PIN_GROUP_P32_P47 | 32-47 | Secondary HUB75 location |
+
+There is no group for pins 48-63: they overlap the P2's reserved pins.
 
 ### 6.3 Configuration
 
@@ -420,7 +419,7 @@ Each adapter is configured via `DISPx_` constants in `isp_hub75_hwPanelConfig.sp
 
 ```spin2
 ' Adapter 0 configuration
-DISP0_ADAPTER_BASE_PIN = hwEnum.PINS_P16_P31
+DISP0_ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
 DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
 DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 DISP0_MAX_PANEL_COLUMNS = 128
@@ -431,7 +430,7 @@ DISP0_COLOR_DEPTH = hwEnum.DEPTH_5BIT
 DISP0_ROTATION = hwEnum.ROT_NONE
 
 ' Adapter 1 configuration (if used)
-DISP1_ADAPTER_BASE_PIN = hwEnum.PINS_P32_P47
+DISP1_ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P32_P47
 ...
 ```
 
