@@ -1095,7 +1095,7 @@ PRI drawLineInternal(fmRow, fmColumn, toRow, toColumn, rgbColor, bUseDisplayCoor
                 plotLineHighInternal(fmColumn, fmRow, toColumn, toRow, rgbColor, bUseDisplayCoords)
 
 
-PRI plotLineLowInternal(x0, y0, x1, y1, rgbColor, bUseDisplayCoords) | row, column, dy, dx, D, yi
+PRI plotLineLowInternal(x0, y0, x1, y1, rgbColor, bUseDisplayCoords) | row, column, dy, dx, decisionAccum,yi
 ' Bresenham line algorithm for shallow slopes
 '
 ' @param x0 - starting pixel column
@@ -1110,7 +1110,7 @@ PRI plotLineLowInternal(x0, y0, x1, y1, rgbColor, bUseDisplayCoords) | row, colu
 ' @local column - current pixel column loop index
 ' @local dy - delta in row
 ' @local dx - delta in column
-' @local D - Bresenham decision accumulator
+' @local decisionAccum - Bresenham decision accumulator
 ' @local yi - row step direction
 
   dx := x1 - x0
@@ -1119,18 +1119,18 @@ PRI plotLineLowInternal(x0, y0, x1, y1, rgbColor, bUseDisplayCoords) | row, colu
   if dy < 0
     yi := -1
     dy := -dy
-  D := (BRESENHAM_TWO * dy) - dx
+  decisionAccum := (BRESENHAM_TWO * dy) - dx
   row := y0
 
   repeat column from x0 to x1
     drawPixelInternal(row, column, rgbColor, bUseDisplayCoords)
-    if D > 0
+    if decisionAccum > 0
       row := row + yi
-      D := D + (BRESENHAM_TWO * (dy - dx))
+      decisionAccum := decisionAccum +(BRESENHAM_TWO * (dy - dx))
     else
-      D := D + BRESENHAM_TWO * dy
+      decisionAccum := decisionAccum +BRESENHAM_TWO * dy
 
-PRI plotLineHighInternal(x0, y0, x1, y1, rgbColor, bUseDisplayCoords) | row, column, dy, dx, D, xi
+PRI plotLineHighInternal(x0, y0, x1, y1, rgbColor, bUseDisplayCoords) | row, column, dy, dx, decisionAccum,xi
 ' Bresenham line algorithm for steep slopes
 '
 ' @param x0 - starting pixel column
@@ -1145,7 +1145,7 @@ PRI plotLineHighInternal(x0, y0, x1, y1, rgbColor, bUseDisplayCoords) | row, col
 ' @local column - current pixel column
 ' @local dy - delta in row
 ' @local dx - delta in column
-' @local D - Bresenham decision accumulator
+' @local decisionAccum - Bresenham decision accumulator
 ' @local xi - column step direction
 
   dx := x1 - x0
@@ -1154,16 +1154,16 @@ PRI plotLineHighInternal(x0, y0, x1, y1, rgbColor, bUseDisplayCoords) | row, col
   if dx < 0
     xi := -1
     dx := -dx
-  D := (BRESENHAM_TWO * dx) - dy
+  decisionAccum := (BRESENHAM_TWO * dx) - dy
   column := x0
 
   repeat row from y0 to y1
     drawPixelInternal(row, column, rgbColor, bUseDisplayCoords)
-    if D > 0
+    if decisionAccum > 0
       column := column + xi
-      D := D + (BRESENHAM_TWO * (dx - dy))
+      decisionAccum := decisionAccum +(BRESENHAM_TWO * (dx - dy))
     else
-      D := D + BRESENHAM_TWO*dx
+      decisionAccum := decisionAccum +BRESENHAM_TWO*dx
 
 PRI drawPixelInternal(row, column, rgbColor, bUseDisplayCoords)
 ' Draw a single pixel with coordinate system control
