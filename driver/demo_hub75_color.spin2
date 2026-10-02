@@ -40,7 +40,6 @@ OBJ
     display         : "isp_hub75_display"
     bmpHandler      : "isp_hub75_display_bmp"
     user            : "isp_hub75_hwPanelConfig"                     ' hardware config common to all demos
-    scrnBuffers     : "isp_hub75_hwBuffers"                         ' the large buffers storing pixel data
 
 CON ' DEMO info
 
@@ -55,12 +54,10 @@ PUB main() : ok | demoIndex
 ' Local	Variables:
 ' @local demoIndex - current demo sequence index
 
-    hub75Bffrs.configure(hub75Bffrs.HUB75_ADAPTER_1, user.DISP0_ADAPTER_BASE_PIN, user.DISP0_PANEL_DRIVER_CHIP, user.DISP0_PANEL_ADDR_LINES)
     chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
-    ' startup our backend COG(s)
-    display.setBufferPointers(chainIndex, scrnBuffers.chain0Ptrs())
-    ok := cog := display.start(chainIndex)              ' send buffer to driver
+    ' startup our backend COG(s): one call per adapter
+    ok := cog := display.start(hub75Bffrs.HUB75_ADAPTER_1)
     if ok == -1
         DEBUG("- DEMO: underlying drivers failed!")
         abort

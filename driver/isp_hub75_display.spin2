@@ -146,19 +146,23 @@ PUB null()
 '' This is not a top level object.
 ''
 
-PUB start(nChainIdx) : workerCog
-'' Start the underlying driver(s).
+PUB start(eHub75Adapter) : workerCog
+'' Start one HUB75 adapter's display, in one call. This reads the adapter's settings and
+'' buffers, checks its wiring sentences, and starts the underlying driver(s). Each adapter in
+'' use gets its own display object instance. An adapter whose display has no panels
+'' (every DISPn_C0 .. DISPn_C15 is NO_PANEL) stops startup with a message.
 ''
-'' @param nChainIdx - the index of the desired chain
+'' @param eHub75Adapter - the adapter to start (HUB75_ADAPTER_1, HUB75_ADAPTER_2 or HUB75_ADAPTER_3; adapter k drives display DISPn with n = k-1)
 '' @returns workerCog - cog ID or -1 on failure
 
-  workerCog := startWithId(0, nChainIdx)
+  workerCog := startWithId(0, eHub75Adapter)
 
-PUB startWithId(nId, nChainIdx) : workerCog | scrollerIndex, dvrConfig, eChipType
-'' Start the underlying driver(s) with a debug instance ID for multi-hub75 card configurations.
+PUB startWithId(nId, eHub75Adapter) : workerCog | scrollerIndex, dvrConfig, eChipType
+'' Start one HUB75 adapter's display with a debug instance ID for multi-hub75 card configurations.
+'' Same as start(), plus the debug instance identifier.
 ''
 '' @param nId - debug instance identifier
-'' @param nChainIdx - the index of the desired chain
+'' @param eHub75Adapter - the adapter to start (HUB75_ADAPTER_1, HUB75_ADAPTER_2 or HUB75_ADAPTER_3)
 '' @returns workerCog - cog ID or -1 on failure
 
 ' Local Variables:
@@ -166,7 +170,7 @@ PUB startWithId(nId, nChainIdx) : workerCog | scrollerIndex, dvrConfig, eChipTyp
 ' @local dvrConfig - driver configuration flags
 ' @local eChipType - chip type enumeration value
 
-  chainIndex := nChainIdx
+  chainIndex := hub75Bffrs.configureAdapter(eHub75Adapter)   ' settings, wiring check, buffer pointers
   instanceID := nId
   bytefill(@padBuffer, 0, MAX_PAD_BUFFER_BYTES)
 
@@ -207,16 +211,6 @@ PUB stop()
   if cog
     panelSet.stop()
     cog := 0
-
-PUB setBufferPointers(nChainIdx, pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2)
-'' Forward the buffer pointers to the underlying buffer access routines.
-''
-'' @param nChainIdx - the index of the desired chain
-'' @param pScrnBuffer - address of screen Buffer (2-3 bytes per pixel)
-'' @param pPwmFrameSet1 - address of PWM Frame-Set 1 (4 bits per pixel * color depth)
-'' @param pPwmFrameSet2 - address of PWM Frame-Set 2 (4 bits per pixel * color depth)
-
-  hub75Bffrs.setBufferPointers(nChainIdx, pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2)
 
 PUB clearScreen()
 '' Clear the panel to BLACK.

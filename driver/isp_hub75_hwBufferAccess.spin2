@@ -83,6 +83,7 @@ OBJ
 
     hwEnum      : "isp_hub75_hwEnums"                               ' hub75 attachment, set up constants
     user        : "isp_hub75_hwPanelConfig"                         ' user's panels configuration constants
+    scrnBuffers : "isp_hub75_hwBuffers"                             ' the large buffers storing pixel data
 
 DAT { Buffers and configuration values for each HUB75 adapter/chain of panels }
 
@@ -259,24 +260,46 @@ PUB null()
 '' Placeholder to prevent this object from being used as a top-level file.
 ''
 
-PUB configure(eHub75Chain, ePinBase, eChipType, eAddrLines) | pEntry, nChainIdx, bValidPins
-'' Record the base-pin, chip type, and number of address lines for a HUB75 adapter, then
-'' check this display's wiring sentences (DISPn_C0 .. DISPn_C15) and derive its layout.
+PUB configureAdapter(eHub75Adapter) : nChainIdx | pEntry, ePinBase, eChipType, eAddrLines, bValidPins, pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2, longsInEntry
+'' Set up one HUB75 adapter for the display driver, in one call. Adapter k drives display
+'' DISPn with n = k-1, so this reads that display's base pin, chip type and address lines from
+'' isp_hub75_hwPanelConfig.spin2, checks its wiring sentences (DISPn_C0 .. DISPn_C15) and
+'' derives its layout, then records the adapter's buffer pointers (from isp_hub75_hwBuffers.spin2).
 '' Each wiring mistake prints one debug line naming the setting and the problem; after
-'' the last message, startup stops (the program shuts down).
+'' the last message, startup stops (the program shuts down). An adapter whose DISPn_C0 .. C15
+'' are all NO_PANEL has no panels and cannot be started.
+'' The display object's start call makes this call; programs do not.
 ''
-'' @param eHub75Chain - the HUB75 adapter chain identifier (10, 20, or 30)
-'' @param ePinBase - the base pin group for this adapter
-'' @param eChipType - the LED driver chip type enum value
-'' @param eAddrLines - the number of address lines enum value
+'' @param eHub75Adapter - the HUB75 adapter identifier (HUB75_ADAPTER_1, HUB75_ADAPTER_2 or HUB75_ADAPTER_3)
+'' @returns nChainIdx - the zero-based index of this adapter's descriptor (0, 1, or 2)
 
 ' Local Variables:
 ' @local pEntry - pointer to the chain descriptor table entry
-' @local nChainIdx - zero-based index derived from eHub75Chain
+' @local ePinBase - the base pin group of this adapter's display
+' @local eChipType - the LED driver chip type enum value of this adapter's display
+' @local eAddrLines - the number of address lines enum value of this adapter's display
 ' @local bValidPins - TRUE if the pin group is valid for HUB75
+' @local pScrnBuffer - address of screen Buffer (2-3 bytes per pixel)
+' @local pPwmFrameSet1 - address of PWM Frame-Set 1
+' @local pPwmFrameSet2 - address of PWM Frame-Set 2
+' @local longsInEntry - number of LONGs in the chain descriptor tables
 
-  nChainIdx := indexForHub75ChainId(eHub75Chain)        ' 10, 20, 30
+  nChainIdx := indexForHub75ChainId(eHub75Adapter)      ' 10, 20, 30 -> 0, 1, 2 (aborts on any other value)
   pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
+  ePinBase := eChipType := eAddrLines := 0
+  case eHub75Adapter                                    ' this adapter's display settings
+    HUB75_ADAPTER_1:
+      ePinBase := user.DISP0_ADAPTER_BASE_PIN
+      eChipType := user.DISP0_PANEL_DRIVER_CHIP
+      eAddrLines := user.DISP0_PANEL_ADDR_LINES
+    HUB75_ADAPTER_2:
+      ePinBase := user.DISP1_ADAPTER_BASE_PIN
+      eChipType := user.DISP1_PANEL_DRIVER_CHIP
+      eAddrLines := user.DISP1_PANEL_ADDR_LINES
+    HUB75_ADAPTER_3:
+      ePinBase := user.DISP2_ADAPTER_BASE_PIN
+      eChipType := user.DISP2_PANEL_DRIVER_CHIP
+      eAddrLines := user.DISP2_PANEL_ADDR_LINES
   bValidPins := TRUE
   case ePinBase
     hwEnum.PIN_GROUP_P0_P15:
@@ -286,7 +309,7 @@ PUB configure(eHub75Chain, ePinBase, eChipType, eAddrLines) | pEntry, nChainIdx,
       bValidPins := FALSE                               ' only the 3 valid 16-pin groups; P48_P63 overlaps the P2's reserved pins
 
   if NOT bValidPins
-    DEBUG("HUB75: configure() Invalid PinBase/PinGroup specfied: [isp_hub75_hwBufferAccess.spin2] Aborted!")
+    DEBUG("HUB75: configureAdapter() Invalid PinBase/PinGroup specfied: [isp_hub75_hwBufferAccess.spin2] Aborted!")
     abort                                               ' we can't continue given this error
   else
     LONG[pEntry][ENTR_CHIP_TYPE_OFST] := eChipType
@@ -296,54 +319,18 @@ PUB configure(eHub75Chain, ePinBase, eChipType, eAddrLines) | pEntry, nChainIdx,
       'dbgMemDump(@"PTRs", @screenTable, numberScreens * 4)
       'dbgMemDump(@"Entry 0", @screenTableEnt0, entrySizeInBytes)
       bFirstTime := FALSE
-    DEBUG("HUB75: configure() idx=", udec_(nChainIdx), udec(nChainIdx), udec(ePinBase), udec(eAddrLines))
+    DEBUG("HUB75: configureAdapter() idx=", udec_(nChainIdx), udec(nChainIdx), udec(ePinBase), udec(eAddrLines))
     ' decode and check the wiring sentences, then derive the layout tables (stops on a mistake)
     checkAndDeriveLayout(nChainIdx)
-    ' Note: Wire order table is built by setWireConfig() which must be called after configure()
-
-PUB setWireConfig(eHub75Chain, eWireEntry, eWireTraverse) | pEntry, nChainIdx
-'' Store wire configuration and build wire order table from enums
-'' Must be called after configure() to set up the wire order mapping
-''
-'' @param eHub75Chain - HUB75 chain id (HUB75_ADAPTER_1, HUB75_ADAPTER_2, HUB75_ADAPTER_3)
-'' @param eWireEntry - wire entry corner enum (WIRE_ENTERS_TOP_LEFT, WIRE_ENTERS_BOT_LEFT, etc.)
-'' @param eWireTraverse - wire traversal pattern enum (WIRE_ROWS_FIRST, WIRE_SERPENTINE_ROWS, etc.)
-
-' Local Variables:
-' @local pEntry - pointer to the chain descriptor table entry
-' @local nChainIdx - zero-based index derived from eHub75Chain
-
-    nChainIdx := indexForHub75ChainId(eHub75Chain)
-    pEntry := ptrTableEntry(nChainIdx)
-    ' Store wire config in table entry
-    LONG[pEntry][ENTR_WIRE_START_OFST] := eWireEntry
-    LONG[pEntry][ENTR_WIRE_TRAVERSE_OFST] := eWireTraverse
-    debug("HUB75: setWireConfig() idx=", udec_(nChainIdx), " entry=", uhex_(eWireEntry), " traverse=", uhex_(eWireTraverse))
-    ' Build wire order table from enums
-    buildWireOrderFromEnums(nChainIdx)
-
-
-PUB setBufferPointers(nChainIdx, pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2) | pEntry, longsInEntry
-'' forward the buffer pointers to the underlying buffer access routines
-''
-'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
-'' @param pScrnBuffer - address of screen Buffer (2-3 bytes per pixel)
-'' @param pPwmFrameSet1 - address of PWM Frame-Set 1 (4 bits per pixel * color depth)
-'' @param pPwmFrameSet2 - address of PWM Frame-Set 2 (4 bits per pixel * color depth)
-
-' Local Variables:
-' @local pEntry - pointer to the chain descriptor table entry
-' @local longsInEntry - number of LONGs in a chain descriptor entry
-
-  pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
-  ' and record the absolute-address of the buffers in HUB RAM
-  LONG[pEntry][ENTR_SCRN_BUFFER_ADDR_OFST] := pScrnBuffer
-  LONG[pEntry][ENTR_FRM1_BUFFER_ADDR_OFST] := pPwmFrameSet1
-  LONG[pEntry][ENTR_FRM2_BUFFER_ADDR_OFST] := pPwmFrameSet2
-  DEBUG("HUB75: setBufferPointers() idx[", udec_(nChainIdx), "] ", uhex_long(pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2))
-  longsInEntry := tableSizeInBytes / 4
-  DEBUG("HUB75: chain table size=", udec_(tableSizeInBytes), " entries [0-2]", uhex_long_array(@screenTableEnt0, ENTR_ADDR_LONGS_COUNT))
-  DEBUG("HUB75: chain table values[3-13]: ", udec_long_array(@LONG[@screenTableEnt0][ENTR_ADDR_LONGS_COUNT], longsInEntry - ENTR_ADDR_LONGS_COUNT ))
+    ' the adapter is in use: record the absolute-address of its buffers in HUB RAM
+    pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2 := scrnBuffers.adapterPtrs(eHub75Adapter)
+    LONG[pEntry][ENTR_SCRN_BUFFER_ADDR_OFST] := pScrnBuffer
+    LONG[pEntry][ENTR_FRM1_BUFFER_ADDR_OFST] := pPwmFrameSet1
+    LONG[pEntry][ENTR_FRM2_BUFFER_ADDR_OFST] := pPwmFrameSet2
+    DEBUG("HUB75: buffer pointers idx[", udec_(nChainIdx), "] ", uhex_long(pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2))
+    longsInEntry := tableSizeInBytes / 4
+    DEBUG("HUB75: chain table size=", udec_(tableSizeInBytes), " entries [0-2]", uhex_long_array(@screenTableEnt0, ENTR_ADDR_LONGS_COUNT))
+    DEBUG("HUB75: chain table values[3-13]: ", udec_long_array(@LONG[@screenTableEnt0][ENTR_ADDR_LONGS_COUNT], longsInEntry - ENTR_ADDR_LONGS_COUNT ))
 
 PUB maxDisplayColumns(nChainIdx) : nMaxColumns | pEntry
 '' Return the number of pixels in a horizontal display row for the nChainIdx HUB75 adapter
