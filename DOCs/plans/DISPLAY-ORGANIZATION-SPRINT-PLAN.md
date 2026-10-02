@@ -1086,6 +1086,45 @@ rotated"*. The commit converts in 14,183 µs (17,699 before); the draw takes 192
 - The full-draw timing (§4 cost).
 - Decides: whether the mapping is certified on hardware.
 
+**Visit A record — 2026-10-02 («#78»).** The 2x2 rig of 128x64 ICN2037 panels, at
+HEAD `29aacc3`. Each run was a headless scratch build (the committed config was never
+edited), with the image held for Stephen. Run sheet:
+- **Purpose:** certify the mapping, mounting, the panel frame and content rotation.
+- **Hardware risk:** none.
+- **Observers:** Stephen judged orientation on the panels; the agent read the logs and
+  draw times.
+- **State and length:** no carried state; about 10 s per run; repeatable.
+- **Trimmed for least observation:** buffer contents were already certified by
+  readback probes («#86» at four mountings, «#87» at every content rotation). Stephen
+  checked the buffer-to-panel path once per class.
+- **What he was asked:** observations, not verdicts.
+
+| # | Run | Stephen saw | Matches |
+|---|---|---|---|
+| 1 | identify, committed config | *"all four panels now labelled correctly"* (after the white-text fix `9254a4c`, same code) | yes |
+| 2 | identify, every arrow `ARROW_UP` | *"all text is upside down but C\* and P\* seem to be in correct locations … ^ all point down"* | yes: a wrong arrow word turns a panel's content, never moves it |
+| 3 | identify, C1 described `ABOVE C0` | *"text and arrows right side up. P\* numbers are wrong, C\* numbers correct"* | yes: a wrong direction word misplaces P, C stays physical |
+| 4 | boundary, `ROT_NONE` | certified after «#76»: *"100% correct for non physically rotated"* | yes |
+| 5 | boundary, `ROT_RIGHT_90` | *"all content looks correct for physical panel rotated right 90"*; red line *"on bottom left phys panel drawn from vert mid to vert top of that panel"* (the «#75» bar is gone) | yes |
+| 6 | boundary, `ROT_LEFT_90` | *"good to rot left 90"* | yes |
+| 7 | boundary, `ROT_180` | red line *"bottom right panel draw from horiz center to horiz left edge of phys panel"* | yes |
+| 8 | BMP 256x128, content `ROT_RIGHT_90`, display flat | *"squarish image full height of panel centered left to right … red panel over blue panel split at physical panel height then … vertical green bar to right"* (the parts turned off the display are not painted) | yes |
+| 9 | BMP 256x128, content `ROT_RIGHT_90`, mounted `ROT_RIGHT_90` | *"red bottom left, blue bottom right thin green across top - then white square at top left corner of display overlapping red and green"*: the image upright on the bench, i.e. turned clockwise as hung | yes |
+
+Draw times (`demo_hub75_boundary`, the same headless command as Visit 0):
+- `ROT_NONE`: **191,538 µs** (`headless_261002-144747.log`), against Visit 0's 287,436 µs;
+- `ROT_RIGHT_90`: 188,995 µs;
+- `ROT_LEFT_90`: 189,273 µs;
+- `ROT_180`: 192,917 µs.
+
+Findings: one during the visit's preparation and none on the visit itself. The identify
+labels were drawn black, so they showed as black boxes. Stephen caught it, and it was
+fixed at discovery (`9254a4c`); the verification gap is logged for the retrospective.
+**Verdict: the mapping (§4), display mounting (§5), the panel-centric viewer's frame
+(§5c) and content rotation (§5b) are certified on hardware for this rig.** Still for the
+panel sweep: other panel types, the green quarter-scan panels, two adapters cabled, and
+the cube.
+
 **Visit B — after §5, §7, §9 and §10.**
 - The boundary test at all four rotations.
 - Every converted demo once.
