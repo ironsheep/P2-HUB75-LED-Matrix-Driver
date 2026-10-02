@@ -7,9 +7,10 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Dec 2020
-''   Updated.... 5 Nov 2022
+''   Updated.... 2 Oct 2026
 ''
-''  This object adds .bmp file loading support
+''  This object adds .bmp file loading support: an image of any size is placed on the display,
+''  centred, optionally turned by a content rotation (see placeBMP).
 '' =================================================================================================
 
 CON ' .bmp file-format protocol constants
@@ -39,11 +40,14 @@ CON ' .bmp file-format protocol constants
     BMP_GREEN_OFST          = 1           ' green channel byte offset
     BMP_RED_OFST            = 2           ' red channel byte offset
 
+    ' 24-bit pixel geometry in the file: three bytes per pixel, each row padded to a 4-byte multiple
+    BMP_BYTES_PER_PIXEL     = 3           ' bytes per 24-bit pixel
+    BMP_ROW_ALIGN_BYTES     = 4           ' each pixel row of the file is padded to this multiple
+
 OBJ ' Objects Used by this Object
 
     hub75Bffrs  :   "isp_hub75_hwBufferAccess"
     pixels      :   "isp_hub75_screenUtils"
-    colorUtils  :   "isp_hub75_colorUtils"
 
 VAR ' buffer addresses
 
@@ -56,52 +60,127 @@ PUB null()
 '' This is NOT a top level object.
 ''
 
-PUB fillScreenFromBMP(nChainIdx, pBmpFile)
-'' Load a 24-bit .bmp file image into the screen buffer (panel sized only).
+PUB fillScreenFromBMP(nChainIdx, pBmpFile) : bPlaced
+'' Load a 24-bit .bmp file image onto the display, centred and not turned. This is placeBMP()
+'' at ROT_NONE: a display-sized image lands exactly on the display, any other size is centred.
 ''
 '' @param nChainIdx - the panel chain index to use
 '' @param pBmpFile - pointer to the in-memory .bmp file data
+'' @returns bPlaced - TRUE if the image was placed, FALSE if the file was rejected
+
+  bPlaced := placeBMP(nChainIdx, pBmpFile, hub75Bffrs.ROT_NONE)
+
+PUB placeBMP(nChainIdx, pBmpFile, eContentRotation) : bPlaced
+'' Place a 24-bit uncompressed .bmp image of any size on the display, centred, turned by a content
+'' rotation. The image is turned as it is placed, from the file as it sits in memory; the file
+'' and the screen buffer are never turned in place, so placing again at another rotation starts
+'' from the original. The turn is about the display centre. Every display pixel (as mounted) takes
+'' the image pixel the inverse rotation gives it, when that lies inside the image; a display pixel
+'' the image does not cover is left as it is, and a part of the image that falls off the display
+'' is not painted: nothing is cropped and relocated. Pixels are drawn through
+'' pixels.drawPixelAtRCwithRGB(), so display mounting and the buffer mapping apply. Drawing is
+'' not committed: call commitScreenToPanelSet() afterwards.
+'' An invalid rotation value, or a file that is not an uncompressed 24-bit .bmp, draws nothing,
+'' returns FALSE and reports a debug message (in DEBUG builds).
+''
+'' @param nChainIdx - the panel chain index to use
+'' @param pBmpFile - pointer to the in-memory .bmp file data
+'' @param eContentRotation - how the image is turned: hub75Bffrs.ROT_NONE, ROT_RIGHT_90 (clockwise), ROT_LEFT_90 or ROT_180
+'' @returns bPlaced - TRUE if the image was placed, FALSE if the rotation or the file was rejected
 
   chainIndex := nChainIdx
   maxRowPixels, maxColPixels := hub75Bffrs.displaySizeInPixels(chainIndex)
-  ' Load a 24-bit .bmp file image into screen buffer (panel sized, only!)
-  loadBitmap(pBmpFile)
+  bPlaced := FALSE
+  if isValidContentRotation(eContentRotation)
+    bPlaced := loadBitmap(pBmpFile, eContentRotation)
+  else
+    debug("- ERROR placeBMP() invalid content rotation value [", udec_(eContentRotation), "], nothing drawn")
 
-PRI loadBitmap(pBitmapFile) | nPanelCol, nPanelRow, blue, green, red, bInvalidFileStatus
-' Load a validated 24-bit .bmp file image into the screen buffer pixel by pixel.
+PRI isValidContentRotation(eContentRotation) : bIsValid
+' Return TRUE if eContentRotation is one of the four content rotations.
+'
+' @param eContentRotation - the value to check
+' @returns bIsValid - TRUE if the value is ROT_NONE, ROT_RIGHT_90, ROT_LEFT_90 or ROT_180
+
+  case eContentRotation
+    hub75Bffrs.ROT_NONE, hub75Bffrs.ROT_RIGHT_90, hub75Bffrs.ROT_LEFT_90, hub75Bffrs.ROT_180:
+      bIsValid := TRUE
+    other:
+      bIsValid := FALSE
+
+PRI loadBitmap(pBitmapFile, eContentRotation) : bLoaded | nImageWidth, nImageHeight, bTopDown, nRowStride, nDisplayRow, nDisplayColumn, nRowOffset2, nColumnOffset2, nSourceX2, nSourceY2, nImageColumn, nImageRow, nFileRow, pPixel
+' Place a validated 24-bit .bmp image on the display pixel by pixel, turned by eContentRotation.
+' Positions are held in half-pixel units measured from the display centre (and from the image
+' centre), so the image is centred whatever the parity of its size and the display's.
 '
 ' @param pBitmapFile - pointer to the in-memory .bmp file data
+' @param eContentRotation - a valid content rotation
+' @returns bLoaded - TRUE if the file was valid and the image was placed
 '
-' @local nPanelCol - current panel column being written
-' @local nPanelRow - current panel row being written
-' @local blue - blue channel value of the current pixel
-' @local green - green channel value of the current pixel
-' @local red - red channel value of the current pixel
-' @local bInvalidFileStatus - FALSE if the .bmp file header is invalid
+' @local nImageWidth - image width in pixels, from the file header
+' @local nImageHeight - image height in pixels, from the file header
+' @local bTopDown - TRUE if the file stores its rows top first (negative biHeight)
+' @local nRowStride - bytes from the start of one file row to the next (rows pad to 4 bytes)
+' @local nDisplayRow - display row being painted, as mounted
+' @local nDisplayColumn - display column being painted, as mounted
+' @local nRowOffset2 - twice the row distance of the display pixel from the display centre
+' @local nColumnOffset2 - twice the column distance of the display pixel from the display centre
+' @local nSourceX2 - twice the column distance of the source pixel from the image centre
+' @local nSourceY2 - twice the row distance of the source pixel from the image centre
+' @local nImageColumn - column of the source pixel in the image (0 at its left)
+' @local nImageRow - row of the source pixel in the image (0 at its top)
+' @local nFileRow - row of the source pixel as the file stores it
+' @local pPixel - address of the source pixel's bytes within the file image
 
   ' save address of 24bit file image for use by called routines
   pBitmapFileInMemory := pBitmapFile
 
-  bInvalidFileStatus := validateBmpFile(pBitmapFile)
-  if bInvalidFileStatus == FALSE
-    ' TODO: how do we warn of this?
-    abort
+  bLoaded := validateBmpFile(pBitmapFile)
+  if bLoaded
+    nImageWidth := biWidth
+    nImageHeight := abs(biHeight)
+    bTopDown := (biHeight < 0)
+    nRowStride := (((nImageWidth * BMP_BYTES_PER_PIXEL) + (BMP_ROW_ALIGN_BYTES - 1)) / BMP_ROW_ALIGN_BYTES) * BMP_ROW_ALIGN_BYTES
 
-   ' fill screen buffer
-  repeat maxRowPixels with nPanelRow
-    repeat maxColPixels with nPanelCol
-      'debug("loadBitmap() - RC=(", udec_(nPanelRow), ", ", udec_(nPanelCol), ")")
-      red, green, blue := get24BitBMPColorForRC(nPanelRow, nPanelCol)
-      pixels.drawPixelAtRC(chainIndex, nPanelRow, nPanelCol, colorUtils.cValueForRGB(red, green, blue))
+    repeat maxRowPixels with nDisplayRow
+      nRowOffset2 := (2 * nDisplayRow) - (maxRowPixels - 1)
+      repeat maxColPixels with nDisplayColumn
+        nColumnOffset2 := (2 * nDisplayColumn) - (maxColPixels - 1)
+        ' inverse rotation: where in the image does this display pixel come from?
+        ' (y grows downward; a clockwise turn sends image-top to display-right)
+        case eContentRotation
+          hub75Bffrs.ROT_RIGHT_90:
+            nSourceX2 := nRowOffset2
+            nSourceY2 := -nColumnOffset2
+          hub75Bffrs.ROT_LEFT_90:
+            nSourceX2 := -nRowOffset2
+            nSourceY2 := nColumnOffset2
+          hub75Bffrs.ROT_180:
+            nSourceX2 := -nColumnOffset2
+            nSourceY2 := -nRowOffset2
+          other:
+            nSourceX2 := nColumnOffset2
+            nSourceY2 := nRowOffset2
+        nImageColumn := (nSourceX2 + nImageWidth - 1) sar 1
+        nImageRow := (nSourceY2 + nImageHeight - 1) sar 1
+        ' unsigned compare: a negative index is out of range as well
+        if nImageColumn +< nImageWidth and nImageRow +< nImageHeight
+          if bTopDown
+            nFileRow := nImageRow
+          else
+            nFileRow := (nImageHeight - 1) - nImageRow         ' bottom-up file: first stored row is the image bottom
+          pPixel := @BYTE[pBitmapFileInMemory][bfOffBits] + (nFileRow * nRowStride) + (nImageColumn * BMP_BYTES_PER_PIXEL)
+          ' our internal .bmp file BYTE order is BGR!
+          pixels.drawPixelAtRCwithRGB(chainIndex, nDisplayRow, nDisplayColumn, BYTE[pPixel][BMP_RED_OFST], BYTE[pPixel][BMP_GREEN_OFST], BYTE[pPixel][BMP_BLUE_OFST])
 
-PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader, paletteByteCount
-' Parse and validate the .BMP file header, returning TRUE if the file is a supported format.
+PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader
+' Parse and validate the .BMP file header, returning TRUE if the file is a supported format. The
+' image may be any size; its width and height are left in biWidth and biHeight.
 '
 ' @param pBmpFileImage - pointer to the in-memory .bmp file data
-' @returns bValidStatus - TRUE if the file is a valid uncompressed 24-bit BMP of panel size
+' @returns bValidStatus - TRUE if the file is an uncompressed 24-bit BMP with a non-empty image
 '
 ' @local pFileHeader - moving pointer through header fields during parsing
-' @local paletteByteCount - computed palette byte count
 
   bValidStatus := TRUE
   'analyze bitmap image
@@ -117,16 +196,11 @@ PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader, paletteByteCoun
   bytemove(@biPlanes, pFileHeader, BMP_LONG_FIELD_BYTES)
   pFileHeader += BMP_LONG_FIELD_BYTES
   bytemove(@biCompression, pFileHeader, BMP_DIB_TAIL_BYTES)
-  pFileHeader += BMP_DIB_TAIL_BYTES
 
-  'calculate actual bytes in palette
-  paletteByteCount := bfOffBits - BMP_HEADER_SIZE
-  pFileHeader += paletteByteCount
+  if biWidth < 1 or biHeight == 0
+    bValidStatus := FALSE
 
-  'debug(" - #planes=", udec_(biPlanes))
-  'debug(" - compression=", udec_(biCompression))
-
-  if biWidth <> maxColPixels or biHeight <> maxRowPixels
+  if biBitCount <> BMP_BIT_COUNT_24
     bValidStatus := FALSE
 
   if BYTE[@bfType][0] <> BMP_SIG_B || BYTE[@bfType][1] <> BMP_SIG_M ' B, M
@@ -135,75 +209,8 @@ PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader, paletteByteCoun
   if biCompression <> BMP_COMPRESSION_NONE
     bValidStatus := FALSE
 
-  'if bValidStatus == FALSE
-  'else
-
-PRI get24BitBMPColorForRC(nRow, nColumn) : red, green, blue | pixColorAddr
-' Return the red, green, and blue channel values for the pixel at the given row and column.
-'
-' @param nRow - panel row of the pixel
-' @param nColumn - panel column of the pixel
-' @returns red - red channel value of the pixel
-' @returns green - green channel value of the pixel
-' @returns blue - blue channel value of the pixel
-'
-' @local pixColorAddr - address of the pixel color bytes within the file image
-
-  if(nRow > maxRowPixels - 1)
-    debug("- ERROR bad nRow value [", udec_(nRow), " > ", udec_(maxRowPixels - 1), "]")
-
-  if(nColumn > maxColPixels - 1)
-    debug("- ERROR bad nColumn value [", udec_(nColumn), " > ", udec_(maxColPixels - 1), "]")
-
-  pixColorAddr := getPixelAddressForBMPRowColumn(nRow, nColumn)
-  ' our intername .bmp file BYTE order is BGR!
-  blue := BYTE[pixColorAddr][BMP_BLUE_OFST]
-  green := BYTE[pixColorAddr][BMP_GREEN_OFST]
-  red := BYTE[pixColorAddr][BMP_RED_OFST]
-
-PRI getPixelAddressForBMPRowColumn(nRow, nColumn) : pixColorAddr | rowIndex, columnIndex, nOffset, fileBitsBase, showDebug
-' Compute the in-memory address of the pixel color bytes for the given row and column.
-'
-' @param nRow - panel row of the pixel
-' @param nColumn - panel column of the pixel
-' @returns pixColorAddr - address of the pixel color bytes within the file image
-'
-' @local rowIndex - file row index (inverted from panel row)
-' @local columnIndex - file column index
-' @local nOffset - byte offset of the pixel within the image data
-' @local fileBitsBase - base address of the image data (past the header)
-' @local showDebug - TRUE when debug output is enabled for this location
-
-  ' Row is inverted in .BMP file...
-  rowIndex := (maxRowPixels - 1) - nRow
-
-  ' Column is normal in file...
-  columnIndex := nColumn
-
-  showDebug := FALSE
-  'if (bitIdx == 0 || bitIdx == 31) && nBffrR < 2
-  if isDebugLocn(nRow, nColumn)
-    showDebug := TRUE ' FALSE  ' turn off debug
-
-      ' now offset is simple (just multiply by 3! [bytes of color])
-  nOffset := ((rowIndex * maxColPixels) + columnIndex) * hub75Bffrs.bytesPerColor(chainIndex)
-
-  fileBitsBase := @BYTE[pBitmapFileInMemory][bfOffBits]   ' get base of image in file (skip header)
-  pixColorAddr := @BYTE[fileBitsBase][nOffset]    ' add in offset to 24-bit color
-
-  if showDebug
-    debug("- FileOffset=", udec_(nOffset), ", RC=(", udec_(nRow), ",", udec_(nColumn), ", ofst=", uhex_long_(pixColorAddr), ", base=", uhex_long_(fileBitsBase), ")")
-
-PRI isDebugLocn(nRow, nCol) : status
-' Return TRUE if the given row and column is a location where debug output should be shown.
-'
-' @param nRow - panel row to check
-' @param nCol - panel column to check
-' @returns status - TRUE if this is a debug location
-
-  status := FALSE
-  'if (nRow == 31 && nCol < 4) || (nRow < 2 && nCol < 3) || (nRow == 31 && nCol > 61) || (nRow < 2 && nCol > 61)
-  '    status := TRUE ' FALSE  ' turn off debug
+  if bValidStatus == FALSE
+    debug("- ERROR placeBMP() file is not an uncompressed 24-bit .bmp image, nothing drawn")
 
 DAT ' .bmp file work area
 
