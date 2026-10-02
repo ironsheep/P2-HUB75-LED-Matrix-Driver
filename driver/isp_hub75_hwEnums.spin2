@@ -43,6 +43,9 @@ CON ' Hardware Interface Constants
     ROT_NONE = ROT_0
     ROT_LEFT_90 = ROT_270
     ROT_RIGHT_90 = ROT_90
+'  For DISPn_ROTATION the value is physical, how the whole display is mounted:
+'   ROT_RIGHT_90 = hung turned 90 degrees clockwise, ROT_LEFT_90 = counter-clockwise;
+'   the driver turns the content so it reads upright as mounted.
 
 '  (4) The Driver Chip on your panels
 ' Driver Pre-defined flag combinations (use these unless your hardware is not in this list)

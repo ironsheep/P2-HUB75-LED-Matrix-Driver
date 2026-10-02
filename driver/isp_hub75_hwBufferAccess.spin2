@@ -269,37 +269,65 @@ PUB configureAdapter(eHub75Adapter) : nChainIdx | pEntry, ePinBase, eChipType, e
     DEBUG("HUB75: chain table values[3-13]: ", udec_long_array(@LONG[@screenTableEnt0][ENTR_ADDR_LONGS_COUNT], longsInEntry - ENTR_ADDR_LONGS_COUNT ))
 
 PUB maxDisplayColumns(nChainIdx) : nMaxColumns
-'' Return the number of pixels in a horizontal display row for the nChainIdx HUB75 adapter:
-'' the width of the display's bounding box, derived from the wiring sentences at startup.
+'' Return the number of pixels in a horizontal display row for the nChainIdx HUB75 adapter,
+'' as the display is mounted: the width of displaySizeInPixels().
 ''
 '' @param nChainIdx - the index of the desired chain
-'' @returns nMaxColumns - the number of pixels horizontally in display
+'' @returns nMaxColumns - the number of pixels horizontally in display, as mounted
 
-  nMaxColumns := layoutPixelColumns[validChainIndex(nChainIdx)]
+  _, nMaxColumns := displaySizeInPixels(nChainIdx)
 
 PUB maxDisplayRows(nChainIdx) : nMaxRows
-'' Return the number of pixels in a display column for the specified HUB75 adapter: the
-'' height of the display's bounding box, derived from the wiring sentences at startup.
+'' Return the number of pixels in a display column for the specified HUB75 adapter, as the
+'' display is mounted: the height of displaySizeInPixels().
 ''
 '' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
-'' @returns nMaxRows - total pixel rows across the full display
+'' @returns nMaxRows - total pixel rows across the full display, as mounted
 
-  nMaxRows := layoutPixelRows[validChainIndex(nChainIdx)]
+  nMaxRows, _ := displaySizeInPixels(nChainIdx)
 
-PUB displaySizeInPixels(nChainIdx) : nMaxRows, nMaxColumns | layoutIdx
-'' Return the number of pixels in a display row and column for the nChainIdx HUB75 adapter:
-'' the size of the display's bounding box, derived from the wiring sentences at startup.
+PUB displaySizeInPixels(nChainIdx) : nMaxRows, nMaxColumns | layoutIdx, eRotation
+'' Return the number of pixels in a display row and column for the nChainIdx HUB75 adapter,
+'' as the display is mounted: the size of the display's bounding box, derived from the wiring
+'' sentences at startup. When the display rotation is 90 or 270 degrees, the width and height swap.
+'' Display coordinates run over this size.
 ''
 '' @param nChainIdx - the index of the desired chain
-'' @returns nMaxRows - the number of pixels vertically in display
-'' @returns nMaxColumns - the number of pixels horizontally in display
+'' @returns nMaxRows - the number of pixels vertically in display, as mounted
+'' @returns nMaxColumns - the number of pixels horizontally in display, as mounted
 
 ' Local Variables:
 ' @local layoutIdx - the chain index, checked against the adapters that exist
+' @local eRotation - the display rotation: how the display is mounted
 
   layoutIdx := validChainIndex(nChainIdx)
+  eRotation := displayRotation(layoutIdx)
   nMaxRows := layoutPixelRows[layoutIdx]
   nMaxColumns := layoutPixelColumns[layoutIdx]
+  if (eRotation == ROT_LEFT_90) OR (eRotation == ROT_RIGHT_90)
+    nMaxRows := layoutPixelColumns[layoutIdx]
+    nMaxColumns := layoutPixelRows[layoutIdx]
+
+PUB layoutSizeAndRotation(nChainIdx) : nLayoutRows, nLayoutColumns, eDisplayRotation | layoutIdx, pEntry
+'' Return the size of the display as its panels are laid out (the wiring's bounding box, before
+'' display rotation) and the display rotation, in one call. displayPixelAddress() takes
+'' coordinates over this size. It is the per-pixel read for isp_hub75_screenUtils, which runs it
+'' for every pixel drawn; other drawing code uses displaySizeInPixels() (the size as mounted).
+''
+'' @param nChainIdx - the index of the desired chain
+'' @returns nLayoutRows - the number of pixels vertically in the layout
+'' @returns nLayoutColumns - the number of pixels horizontally in the layout
+'' @returns eDisplayRotation - how the display is mounted (see displayRotation())
+
+' Local Variables:
+' @local layoutIdx - the chain index, checked against the adapters that exist
+' @local pEntry - pointer to the chain descriptor table entry
+
+  layoutIdx := validChainIndex(nChainIdx)
+  nLayoutRows := layoutPixelRows[layoutIdx]
+  nLayoutColumns := layoutPixelColumns[layoutIdx]
+  pEntry := @@LONG[@screenTable][layoutIdx]
+  eDisplayRotation := LONG[pEntry][ENTR_ROTATION_OFST]
 
 PUB displaySizeInPanels(nChainIdx) : nPanelsPerColumn, nPanelsPerRow | layoutIdx
 '' Return the size of the display's grid of cells for the nChainIdx HUB75 adapter, derived
@@ -393,17 +421,21 @@ PUB pwmFrameSizeInLongs(nChainIdx) : nLongs | nBytes
   nBytes := pwmFrameSizeInBytes(nChainIdx)              ' count of bytes
   nLongs := (nBytes + 3) / 4
 
-PUB panelRotation(nChainIdx) : ePanelRotation | pEntry
-'' Return the enum indicating the desired rotation for the specified HUB75 adapter.
+PUB displayRotation(nChainIdx) : eDisplayRotation | pEntry
+'' Return the display rotation of the specified HUB75 adapter: how the whole assembled display
+'' is mounted (DISPn_ROTATION). ROT_RIGHT_90 means the display hangs turned 90 degrees
+'' clockwise, so content is drawn with its top along the layout's left edge and reads upright
+'' once mounted. It is not a panel rotation; each panel's own rotation comes from its wiring
+'' sentence.
 ''
 '' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
-'' @returns ePanelRotation - rotation enum value (ROT_NONE, ROT_LEFT_90, etc.)
+'' @returns eDisplayRotation - rotation enum value (ROT_NONE, ROT_LEFT_90, ROT_RIGHT_90 or ROT_180)
 
 ' Local Variables:
 ' @local pEntry - pointer to the chain descriptor table entry
 
   pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
-  ePanelRotation := LONG[pEntry][ENTR_ROTATION_OFST]
+  eDisplayRotation := LONG[pEntry][ENTR_ROTATION_OFST]
 
 PUB columnsPerPanel(nChainIdx) : nPanelColumns | pEntry
 '' Return the number of pixels in a single panel row for the specified HUB75 adapter.
@@ -591,11 +623,13 @@ PUB displayPixelAddress(nChainIdx, row, column) : pPixel | layoutIdx, panelPosn,
 ''   display coordinates -> cell of the display's grid -> panel position (a cell that holds no
 ''   panel has none) -> panel coordinates -> panel rotation -> native coordinates -> buffer
 ''   slot -> address in the screen buffer.
-'' Display rotation is applied before this call, by isp_hub75_screenUtils.
+'' Display rotation is applied before this call, by isp_hub75_screenUtils: row and column are
+'' display coordinates with the rotation already undone, so they run over the display as its
+'' panels are laid out (the size of the wiring's bounding box), not over the display as mounted.
 ''
 '' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
-'' @param row - pixel row on the display (display coordinates)
-'' @param column - pixel column on the display (display coordinates)
+'' @param row - pixel row on the display as laid out (display rotation already applied)
+'' @param column - pixel column on the display as laid out (display rotation already applied)
 '' @returns pPixel - hub address of the pixel's red byte, or NO_PIXEL when no panel holds (row, column)
 
 ' Local Variables:
@@ -654,7 +688,8 @@ PUB positionAtDisplayPixel(nChainIdx, row, column) : nPanelPosn
 PUB offsetToPanel(nChainIdx, nPanelIndex) : offsetPixelRows, offsetPixelColumns | layoutIdx, nMaxPanels, panelPosn, tableBase
 '' Return the display coordinates of the top-left pixel of the panel at a panel position: the
 '' offset that turns panel coordinates on that panel into display coordinates. It is read from
-'' the display's grid, derived from the wiring sentences at startup.
+'' the display's grid, derived from the wiring sentences at startup. The offset is in layout
+'' coordinates (display rotation not applied); with DISPn_ROTATION = ROT_NONE they are the same.
 ''
 '' @param nChainIdx - the index of the desired chain
 '' @param nPanelIndex - panel position of the panel (P0 is the top-left panel, then reading order)

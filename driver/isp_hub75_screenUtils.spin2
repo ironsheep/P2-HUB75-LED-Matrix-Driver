@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Nov 2020
-''   Updated.... 26 Mar 2024
+''   Updated.... 02 Oct 2026
 ''
 '' =================================================================================================
 
@@ -32,11 +32,12 @@ PUB null()
 ''
 
 PUB drawPixelAtRC(nChainIdx, row, column, rgbColor) | xlatedColor
-'' Place an rgbColor pixel at the specified row and column.
+'' Place an rgbColor pixel at the specified row and column (display coordinates, as the
+'' display is mounted).
 ''
 '' @param nChainIdx - index of the panel chain
-'' @param row - pixel row on the display
-'' @param column - pixel column on the display
+'' @param row - pixel row on the display, as mounted
+'' @param column - pixel column on the display, as mounted
 '' @param rgbColor - combined RGB color value
 
 ' Local Variables:
@@ -48,53 +49,105 @@ PUB drawPixelAtRC(nChainIdx, row, column, rgbColor) | xlatedColor
 
   drawPixelAtRCwithRGB(nChainIdx, row, column, colorUtils.rgbForCValue(xlatedColor))
 
-PUB drawPixelAtRCwithRGB(nChainIdx, row, column, red, green, blue) | maxRows, maxColumns, rowIndex, columnIndex, pColor, tempIdx
-'' Place an r,g,b color pixel at the specified row and column (display coordinates).
-'' Every drawing path reaches the screen buffer here: display rotation is applied, then the
-'' pixel goes through the one mapping, hub75Bffrs.displayPixelAddress(). A pixel in a cell
-'' of the display's grid that holds no panel is not drawn.
+PUB drawPixelAtRCwithRGB(nChainIdx, row, column, red, green, blue) | layoutRows, layoutColumns, eRotation, mountedRows, mountedColumns, mountedRow, mountedColumn, layoutRow, layoutColumn, pColor
+'' Place an r,g,b color pixel at the specified row and column (display coordinates, as the
+'' display is mounted). Every drawing path reaches the screen buffer here: the pixel is held to
+'' the mounted size, display rotation is applied, then the pixel goes through the one mapping,
+'' hub75Bffrs.displayPixelAddress(). A pixel in a cell of the display's grid that holds no
+'' panel is not drawn.
 ''
 '' @param nChainIdx - index of the panel chain
-'' @param row - pixel row on the display
-'' @param column - pixel column on the display
+'' @param row - pixel row on the display, as mounted
+'' @param column - pixel column on the display, as mounted
 '' @param red - red channel value
 '' @param green - green channel value
 '' @param blue - blue channel value
 
 ' Local Variables:
-' @local maxRows - total display rows
-' @local maxColumns - total display columns
-' @local rowIndex - clamped/rotated pixel row
-' @local columnIndex - clamped/rotated pixel column
+' @local layoutRows - total display rows as the panels are laid out (rotation not applied)
+' @local layoutColumns - total display columns as the panels are laid out
+' @local eRotation - the display rotation: how the display is mounted
+' @local mountedRows - total display rows, as mounted (rows and columns swap at 90 and 270 degrees)
+' @local mountedColumns - total display columns, as mounted
+' @local mountedRow - pixel row held to the mounted size
+' @local mountedColumn - pixel column held to the mounted size
+' @local layoutRow - pixel row on the display as its panels are laid out (rotation undone)
+' @local layoutColumn - pixel column on the display as its panels are laid out (rotation undone)
 ' @local pColor - pointer to the pixel within the screen buffer
-' @local tempIdx - scratch value used while swapping coordinates
 
-  maxRows, maxColumns := hub75Bffrs.displaySizeInPixels(nChainIdx)
-  rowIndex := 0 #> row <# maxRows - 1
-  columnIndex :=  0 #> column <# maxColumns - 1
+  ' one call per pixel for the size and rotation: this method runs for every pixel drawn
+  layoutRows, layoutColumns, eRotation := hub75Bffrs.layoutSizeAndRotation(nChainIdx)
+  mountedRows, mountedColumns := layoutRows, layoutColumns
+  if (eRotation == hub75Bffrs.ROT_LEFT_90) OR (eRotation == hub75Bffrs.ROT_RIGHT_90)
+    mountedRows, mountedColumns := layoutColumns, layoutRows
+  mountedRow := 0 #> row <# mountedRows - 1
+  mountedColumn := 0 #> column <# mountedColumns - 1
 
-  ' Apply display-level rotation first (rotates the entire display coordinate system)
-  case hub75Bffrs.panelRotation(nChainIdx)
-    hub75Bffrs.ROT_LEFT_90:
-      tempIdx := rowIndex
-      rowIndex := columnIndex
-      columnIndex := tempIdx
-      rowIndex := (maxColumns - 1) - rowIndex
+  ' Display rotation comes first: mounted coordinates -> layout coordinates (the display as
+  ' its panels are laid out). The rotation is physical: it says how the display hangs.
+  case eRotation
     hub75Bffrs.ROT_RIGHT_90:
-      tempIdx := rowIndex
-      rowIndex := columnIndex
-      columnIndex := tempIdx
-      columnIndex := (maxRows - 1) - columnIndex
+      ' hung turned clockwise: the layout's left edge is the mounted top, its bottom edge the mounted left
+      layoutRow := (layoutRows - 1) - mountedColumn
+      layoutColumn := mountedRow
+    hub75Bffrs.ROT_LEFT_90:
+      ' hung turned counter-clockwise: the layout's right edge is the mounted top, its top edge the mounted left
+      layoutRow := mountedColumn
+      layoutColumn := (layoutColumns - 1) - mountedRow
     hub75Bffrs.ROT_180:
-      columnIndex := (maxColumns - 1) - columnIndex
-      rowIndex := (maxRows - 1) - rowIndex
+      layoutRow := (layoutRows - 1) - mountedRow
+      layoutColumn := (layoutColumns - 1) - mountedColumn
+    other:
+      layoutRow := mountedRow
+      layoutColumn := mountedColumn
 
-  ' display coordinates -> cell -> panel position -> panel rotation -> buffer slot -> address
-  pColor := hub75Bffrs.displayPixelAddress(nChainIdx, rowIndex, columnIndex)
+  ' layout coordinates -> cell -> panel position -> panel rotation -> buffer slot -> address
+  ' (written in line, not through a helper, to keep a method call off every pixel)
+  pColor := hub75Bffrs.displayPixelAddress(nChainIdx, layoutRow, layoutColumn)
   if pColor <> hub75Bffrs.NO_PIXEL
     BYTE[pColor][RED_BYTE_OFST] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_RED, red)
     BYTE[pColor][GREEN_BYTE_OFST] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_GREEN, green)
     BYTE[pColor][BLUE_BYTE_OFST] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_BLUE, blue)
+
+PUB fillLayoutArea(nChainIdx, topRow, leftColumn, nRows, nColumns, rgbColor) | xlatedColor, red, green, blue, row, column, pColor
+'' Fill a rectangle of the display as its panels are laid out with rgbColor, skipping display
+'' rotation. For work that does not depend on how the display is mounted, such as filling a
+'' whole panel: callers locate panels with hub75Bffrs.offsetToPanel(), which gives layout
+'' coordinates. A pixel outside the layout, or in a cell that holds no panel, is not drawn.
+'' The color is translated and corrected once per fill (once per column for cRainbow, whose hue
+'' follows the layout column), not once per pixel; the write matches drawPixelAtRCwithRGB().
+''
+'' @param nChainIdx - index of the panel chain
+'' @param topRow - layout row of the rectangle's top-left pixel (display rotation not applied)
+'' @param leftColumn - layout column of the rectangle's top-left pixel
+'' @param nRows - height of the rectangle in pixels
+'' @param nColumns - width of the rectangle in pixels
+'' @param rgbColor - combined RGB color value
+
+' Local Variables:
+' @local xlatedColor - translated color after special-color handling
+' @local red - corrected red byte for the current column
+' @local green - corrected green byte for the current column
+' @local blue - corrected blue byte for the current column
+' @local row - layout row being filled
+' @local column - layout column being filled
+' @local pColor - pointer to the pixel within the screen buffer
+
+  repeat column from leftColumn to leftColumn + nColumns - 1
+    if column == leftColumn or rgbColor == color.cRainbow
+      xlatedColor := rgbColor
+      if rgbColor == color.cRainbow
+        xlatedColor := colorUtils.rgbColorFromDegrees(DEGREES_PER_COLUMN * (column + 1))
+      red, green, blue := colorUtils.rgbForCValue(xlatedColor)
+      red := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_RED, red)
+      green := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_GREEN, green)
+      blue := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_BLUE, blue)
+    repeat row from topRow to topRow + nRows - 1
+      pColor := hub75Bffrs.displayPixelAddress(nChainIdx, row, column)
+      if pColor <> hub75Bffrs.NO_PIXEL
+        BYTE[pColor][RED_BYTE_OFST] := red
+        BYTE[pColor][GREEN_BYTE_OFST] := green
+        BYTE[pColor][BLUE_BYTE_OFST] := blue
 
 CON ' license
 

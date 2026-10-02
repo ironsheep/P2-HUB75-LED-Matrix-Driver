@@ -51,6 +51,15 @@ the plan cannot settle them.
 - **Q6.** On a rotated display, does a panel-centric call's panel-local "up"
   turn with the display, or stay fixed to the panel? Raised by «#75»;
   answered after Q1-Q5, because content rotation may shape it.
+  *Evidence (2026-10-02, rig, `ROT_RIGHT_90`):* the boundary test's
+  panel-centric line on P0 (row 8, running off P0's right edge at `ROT_NONE`)
+  came out as a full-height bar along the top panel's left edge. Stephen saw
+  it and asked whether it was intended; it is not. `offsetToPanel()` returns
+  layout coordinates, but the line is drawn through the mounted (rotated)
+  path, so today a panel-centric call under 90/270 lands where neither answer
+  to Q6 would put it. Fill is exempt: «#75» gave it a layout-direct path,
+  because a fill looks the same at every rotation. Everything display-centric
+  was correct (circle, crosshair, border, text).
 
 ---
 

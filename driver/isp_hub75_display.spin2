@@ -204,6 +204,7 @@ PUB startWithId(nId, eHub75Adapter) : workerCog | scrollerIndex, dvrConfig, eChi
     scroller[scrollerIndex].initialize(chainIndex)
   ' now set text font - which also tell scrollers!
   setTextFont(TEXT_FONT_DEFAULT)
+  debug("DSP: display as mounted ", udec_(maxDisplayColumns), " x ", udec_(maxDisplayRows), " pixels (columns x rows), text grid ", udec_(maxTextColumns), " columns x ", udec_(maxTextLines), " lines")
 
   homeCursor()
   setTextColor(DEFAULT_TEXT_COLOR)
@@ -1053,23 +1054,18 @@ PRI nextFreeScroller() : scrollerIndexToUse | scrollerIndex
     abort
     ' debug("DSP: nextFreeScroller() ", udec(scrollerIndexToUse))
 
-PRI fillPanelPixels(panelIndex, rgbColor) : offsetPixelRows, offsetPixelColumns | row, column
+PRI fillPanelPixels(panelIndex, rgbColor) : offsetPixelRows, offsetPixelColumns
 ' Fill one panel with a 24-bit color value: every pixel of the panel, offset to the panel's
-' place in the display, goes through the one mapping.
+' place in the display, goes through the one mapping. The panel's offset is in layout
+' coordinates, so the fill skips display rotation; a fill is the same at every rotation.
 '
 ' @param panelIndex - panel position of the target panel (P0 is the top-left panel)
 ' @param rgbColor - 24-bit RGB color value
 ' @returns offsetPixelRows - display row of the panel's top-left pixel
 ' @returns offsetPixelColumns - display column of the panel's top-left pixel
 
-' Local Variables:
-' @local row - panel row loop index
-' @local column - panel column loop index
-
   offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, panelIndex)
-  repeat rowsPerPanel with row
-    repeat columnsPerPanel with column
-      pixels.drawPixelAtRC(chainIndex, row + offsetPixelRows, column + offsetPixelColumns, rgbColor)
+  pixels.fillLayoutArea(chainIndex, offsetPixelRows, offsetPixelColumns, rowsPerPanel, columnsPerPanel, rgbColor)
 
 PRI drawLineInternal(fmRow, fmColumn, toRow, toColumn, rgbColor, clipPanel) | row, column
 ' Internal line drawing, in display coordinates, for display-centric and panel-centric lines

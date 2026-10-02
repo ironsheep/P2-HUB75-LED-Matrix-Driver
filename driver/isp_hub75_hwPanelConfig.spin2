@@ -82,7 +82,9 @@ CON ' ---- User Panel Connection and Configuration ----
     '    NOTE: Screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
     DISP0_COLOR_DEPTH              = hwEnum.DEPTH_5BIT
 
-    ' (4) Apply desired rotation to entire display
+    ' (4) Say how the whole display is mounted (the rotation is physical)
+    '    ROT_RIGHT_90 = hung turned 90 degrees clockwise, ROT_LEFT_90 = counter-clockwise,
+    '    ROT_180 = upside-down. Content then reads upright as mounted.
     ' NOTE: Use ROT_NONE first to verify panel orientation, then adjust if needed
     DISP0_ROTATION                 = hwEnum.ROT_NONE
     'DISP0_ROTATION = hwEnum.ROT_180  ' uncomment if display is upside-down
@@ -167,7 +169,7 @@ CON ' ---- User Panel Connection and Configuration ----
     '    NOTE: Screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
     DISP1_COLOR_DEPTH              = hwEnum.DEPTH_6BIT
 
-    ' (4) Apply desired rotation to entire display
+    ' (4) Say how the whole display is mounted (rules above DISP0)
     DISP1_ROTATION                 = hwEnum.ROT_NONE
 
     ' (5) Describe the wiring: one sentence per cable position (rules above DISP0)
@@ -242,7 +244,7 @@ CON ' ---- User Panel Connection and Configuration ----
     '    NOTE: Screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
     DISP2_COLOR_DEPTH              = hwEnum.DEPTH_4BIT
 
-    ' (4) Apply desired rotation to entire display
+    ' (4) Say how the whole display is mounted (rules above DISP0)
     DISP2_ROTATION                 = hwEnum.ROT_NONE
 
     ' (5) Describe the wiring: one sentence per cable position (rules above DISP0)
