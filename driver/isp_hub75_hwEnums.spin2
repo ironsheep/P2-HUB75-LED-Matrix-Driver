@@ -166,6 +166,81 @@ CON ' Hardware Interface Constants
 '   CUBE_UNWRAP_CUSTOM      - caller-supplied custom face mapping
 #$58, CUBE_UNWRAP_HSTRIP_LFRB, CUBE_UNWRAP_HSTRIP_FRBL, CUBE_UNWRAP_CROSS, CUBE_UNWRAP_CUSTOM
 
+'  (10) Wiring words: the words of the per-panel sentences DISPn_C0 .. DISPn_C15
+'
+'  Each sentence describes the panel at one cable position. Each word is a single
+'  bit, and each kind of word has its own bit range, so a sentence that holds two
+'  words of the same kind can always be detected:
+'   C0 .. C15   - bits 0-15:  neighbour, the cable position of the panel this one sits next to
+'   ABOVE       - bit 16:     direction, this panel sits above its neighbour
+'   BELOW       - bit 17:     direction, this panel sits below its neighbour
+'   LEFT_OF     - bit 18:     direction, this panel sits left of its neighbour
+'   RIGHT_OF    - bit 19:     direction, this panel sits right of its neighbour
+'   ARROW_UP    - bit 20:     arrow, this panel's identify arrow points up
+'   ARROW_DOWN  - bit 21:     arrow, this panel's identify arrow points down (mounted at 180 degrees)
+'   ARROW_LEFT  - bit 22:     arrow, this panel's identify arrow points left
+'   ARROW_RIGHT - bit 23:     arrow, this panel's identify arrow points right
+'   FIRST_PANEL - bit 24:     this is C0, the panel the adapter plugs into
+'   NO_PANEL    - bit 25:     no panel at this cable position
+'
+'  Join the words with | only, never +: C2 + C2 silently becomes C3.
+'  The C0 .. C15 words also name a cable position in DISPn_CUBE_TOP and DISPn_CUBE_FRONT.
+
+    ' lowest bit of each kind of word
+    NEIGHBOR_LSB        = 0                                 ' bit of C0
+    DIRECTION_LSB       = 16                                ' bit of ABOVE
+    ARROW_LSB           = 20                                ' bit of ARROW_UP
+    FIRST_PANEL_LSB     = 24                                ' bit of FIRST_PANEL
+    NO_PANEL_LSB        = 25                                ' bit of NO_PANEL
+
+    ' neighbour words: the neighbour's cable position
+    C0                  = 1 << NEIGHBOR_LSB
+    C1                  = C0 << 1
+    C2                  = C1 << 1
+    C3                  = C2 << 1
+    C4                  = C3 << 1
+    C5                  = C4 << 1
+    C6                  = C5 << 1
+    C7                  = C6 << 1
+    C8                  = C7 << 1
+    C9                  = C8 << 1
+    C10                 = C9 << 1
+    C11                 = C10 << 1
+    C12                 = C11 << 1
+    C13                 = C12 << 1
+    C14                 = C13 << 1
+    C15                 = C14 << 1
+
+    ' direction words: where this panel sits relative to its neighbour
+    ABOVE               = 1 << DIRECTION_LSB
+    BELOW               = ABOVE << 1
+    LEFT_OF             = BELOW << 1
+    RIGHT_OF            = LEFT_OF << 1
+
+    ' arrow words: the panel rotation, as the direction the identify arrow points
+    ARROW_UP            = 1 << ARROW_LSB
+    ARROW_DOWN          = ARROW_UP << 1
+    ARROW_LEFT          = ARROW_DOWN << 1
+    ARROW_RIGHT         = ARROW_LEFT << 1
+
+    ' first-panel word: marks C0, and is used only in DISPn_C0
+    FIRST_PANEL         = 1 << FIRST_PANEL_LSB
+
+    ' no-panel word: this cable position is unused
+    NO_PANEL            = 1 << NO_PANEL_LSB
+
+    ' field masks: all the bits of one kind of word
+    NEIGHBOR_MASK       = C0 | C1 | C2 | C3 | C4 | C5 | C6 | C7 | C8 | C9 | C10 | C11 | C12 | C13 | C14 | C15
+    DIRECTION_MASK      = ABOVE | BELOW | LEFT_OF | RIGHT_OF
+    ARROW_MASK          = ARROW_UP | ARROW_DOWN | ARROW_LEFT | ARROW_RIGHT
+    FIRST_PANEL_MASK    = FIRST_PANEL
+    NO_PANEL_MASK       = NO_PANEL
+
+'  (11) Display shape (DISPn_SHAPE):
+'   SHAPE_FLAT - the panels form one flat display; DISPn_ROTATION applies
+'   SHAPE_CUBE - six square panels form a cube; DISPn_CUBE_TOP and DISPn_CUBE_FRONT apply
+    #$60, SHAPE_FLAT, SHAPE_CUBE
+
 PUB null()
 '' This is not a top level object
 ''

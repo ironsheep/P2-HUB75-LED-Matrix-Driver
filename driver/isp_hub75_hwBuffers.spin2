@@ -14,17 +14,10 @@
 ' -----------------
 ' User Setup Notes:
 ' -----------------
-'   There are two areas in this file that need adjustment to the number of hub75 adapter boards you are using.
+'   Nothing in this file needs editing.  The buffers for all three HUB75 adapter boards are always present,
+'   and each is sized from that adapter's wiring sentences in isp_hub75_hwPanelConfig.spin2.
 '
-'   This file has ONE adapter board enabled by default.  If you are using more than one adapter board, you will
-'   need to uncomment  sections for each additional adapter board you wish to use.
-'
-'   The lines containing the text "2nd HUB75 adapter board" are lines which set up the 2nd adapter board.
-'   The lines containing the text "3rd HUB75 adapter board" are lines which set up the 3rd adapter board.
-'
-'    There are 3 such lines in this file for each of the 2nd and 3rd adapter boards.
-'     1st line activates or comments out the large buffers
-'     2nd line activates or comments out the PUBs which return the pointers to the buffers
+'   An adapter whose DISPn_C0 is NO_PANEL has no panels: its buffers are zero length and cost no memory.
 
 OBJ
 
@@ -51,7 +44,7 @@ DAT  ' Large Buffers for each HUB75 adapter/chain of panels
 screenTable0End
     sigBack1        LONG    $0DF2ADDE
 
-{   COMMENT-OUT THIS LINE (place tic in front of this line) if you using the 2nd HUB75 adapter board
+' 2nd HUB75 adapter board: zero length when DISP1_C0 is NO_PANEL
 hub75Buffer1            LONG    0[user.DISP1_SCRN_SIZE_IN_LONGS] ' fixed at 24bits/pixel for now
 pwmFrames1_1            LONG    0[user.DISP1_FRAMESET_SIZE_IN_LONGS]
 pwmFrames1_2            LONG    0[user.DISP1_FRAMESET_SIZE_IN_LONGS]
@@ -60,9 +53,8 @@ screenTable1            LONG    @hub75Buffer1
                         LONG    @pwmFrames1_1
                         LONG    @pwmFrames1_2
 screenTable1End
-'}
 
-{   COMMENT-OUT THIS LINE (place tic in front of this line) if you using the 3rd HUB75 adapter board
+' 3rd HUB75 adapter board: zero length when DISP2_C0 is NO_PANEL
 hub75Buffer2            LONG    0[user.DISP2_SCRN_SIZE_IN_LONGS] ' fixed at 24bits/pixel for now
 pwmFrames2_1            LONG    0[user.DISP2_FRAMESET_SIZE_IN_LONGS]
 pwmFrames2_2            LONG    0[user.DISP2_FRAMESET_SIZE_IN_LONGS]
@@ -71,7 +63,6 @@ screenTable2            LONG    @hub75Buffer2
                         LONG    @pwmFrames2_1
                         LONG    @pwmFrames2_2
 screenTable2End
-'}
 
 PUB null()
 '' Placeholder to prevent this object from being used as a top-level file.
@@ -91,7 +82,6 @@ PUB chain0Ptrs() : pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2
   pPwmFrameSet2 := @@LONG[@screenTable0][2]
   DEBUG("hwBffrs: ", uhex_long(pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2))
 
-{   COMMENT-OUT THIS LINE (place tic in front of this line) if you using the 2nd HUB75 adapter board
 PUB chain1Ptrs() : pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2
 '' Return the pointers to the buffers for the second HUB75 adapter board.
 ''
@@ -102,9 +92,7 @@ PUB chain1Ptrs() : pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2
     pScrnBuffer := @@LONG[@screenTable1][0]
     pPwmFrameSet1 := @@LONG[@screenTable1][1]
     pPwmFrameSet2 := @@LONG[@screenTable1][2]
-'}
 
-{   COMMENT-OUT THIS LINE (place tic in front of this line) if you are using the 3rd HUB75 adapter board
 PUB chain2Ptrs() : pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2
 '' Return the pointers to the buffers for the third HUB75 adapter board.
 ''
@@ -115,7 +103,6 @@ PUB chain2Ptrs() : pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2
     pScrnBuffer := @@LONG[@screenTable2][0]
     pPwmFrameSet1 := @@LONG[@screenTable2][1]
     pPwmFrameSet2 := @@LONG[@screenTable2][2]
-'}
 
 CON ' license
 

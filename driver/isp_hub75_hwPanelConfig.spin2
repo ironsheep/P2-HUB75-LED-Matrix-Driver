@@ -31,6 +31,38 @@ CON ' ---- User Panel Connection and Configuration ----
 '       ICN2038S                ABCDE
 
 '  User customized section describing the memory allocated to our matrix panel displays
+'
+' Wiring: one sentence per cable position, DISPn_C0 .. DISPn_C15
+'
+'  Cable position C0 is the panel the adapter plugs into, C1 is the next panel
+'  along the ribbon cable, and so on. The sentence DISPn_Ck describes the panel at
+'  cable position k: where it sits next to a panel already described, and the
+'  direction its identify arrow points (its panel rotation).
+'
+'  The words (all from isp_hub75_hwEnums, so each is written hwEnum.WORD):
+'    direction - hwEnum.ABOVE, hwEnum.BELOW, hwEnum.LEFT_OF, hwEnum.RIGHT_OF
+'    neighbour - hwEnum.C0 through hwEnum.C15, the neighbour's cable position
+'    arrow     - hwEnum.ARROW_UP, hwEnum.ARROW_DOWN, hwEnum.ARROW_LEFT, hwEnum.ARROW_RIGHT
+'  Example: hwEnum.RIGHT_OF | hwEnum.C0 | hwEnum.ARROW_DOWN means "this panel sits to
+'  the right of C0, and its arrow points down".
+'
+'  Three forms:
+'    hwEnum.FIRST_PANEL | arrow     - for C0 only
+'    direction | neighbour | arrow  - for every other panel in use
+'    hwEnum.NO_PANEL                - for unused cable positions
+'
+'  Five rules:
+'    1. Join the words with | only, never +, in any order. Each word is a single
+'       bit, so + carries into the next word: C2 + C2 silently becomes C3.
+'    2. The neighbour shares a full edge with this panel. It may come earlier or
+'       later in the cable.
+'    3. Every panel connects back to C0 through its neighbours.
+'    4. No two panels share a cell.
+'    5. Panels in use are numbered C0, C1, C2 and so on with no gaps, and NO_PANEL
+'       comes only after the last one.
+'
+'  An adapter whose DISPn_C0 is hwEnum.NO_PANEL has no panels: its buffers are zero
+'  length and cost no memory.
 
 ' panel set on 1st HUB75 adapter board - DISP0_* constants
 
@@ -46,6 +78,8 @@ CON ' ---- User Panel Connection and Configuration ----
     DISP0_MAX_PANEL_ROWS           = 64
 
     ' the organization of the panels: visual layout
+    '  NOTE: older layout setting, still read by the driver; keep it in step
+    '  with the wiring sentences in (5)
     '   [0][1]      2x2 grid of panels
     '   [2][3]
     '
@@ -62,7 +96,40 @@ CON ' ---- User Panel Connection and Configuration ----
     DISP0_ROTATION                 = hwEnum.ROT_NONE
     'DISP0_ROTATION = hwEnum.ROT_180  ' uncomment if display is upside-down
 
-    ' (5) Describe the wire chain order through your panels
+    ' (5) Describe the wiring: one sentence per cable position (rules above)
+    '
+    '  Looking at the display front, every arrow points down:
+    '     [C2][C3]
+    '     [C0][C1]   the adapter plugs into C0
+    '
+    DISP0_C0                       = hwEnum.FIRST_PANEL | hwEnum.ARROW_DOWN
+    DISP0_C1                       = hwEnum.RIGHT_OF | hwEnum.C0 | hwEnum.ARROW_DOWN
+    DISP0_C2                       = hwEnum.ABOVE | hwEnum.C0 | hwEnum.ARROW_DOWN
+    DISP0_C3                       = hwEnum.RIGHT_OF | hwEnum.C2 | hwEnum.ARROW_DOWN
+    DISP0_C4                       = hwEnum.NO_PANEL
+    DISP0_C5                       = hwEnum.NO_PANEL
+    DISP0_C6                       = hwEnum.NO_PANEL
+    DISP0_C7                       = hwEnum.NO_PANEL
+    DISP0_C8                       = hwEnum.NO_PANEL
+    DISP0_C9                       = hwEnum.NO_PANEL
+    DISP0_C10                      = hwEnum.NO_PANEL
+    DISP0_C11                      = hwEnum.NO_PANEL
+    DISP0_C12                      = hwEnum.NO_PANEL
+    DISP0_C13                      = hwEnum.NO_PANEL
+    DISP0_C14                      = hwEnum.NO_PANEL
+    DISP0_C15                      = hwEnum.NO_PANEL
+
+    ' (6) Describe the display shape: hwEnum.SHAPE_FLAT or hwEnum.SHAPE_CUBE
+    '  For a cube, DISP0_CUBE_TOP and DISP0_CUBE_FRONT are the cable positions
+    '  (hwEnum.C0 through hwEnum.C15) of the top face and the front face.
+    '  They are not used by a flat display.
+    DISP0_SHAPE                    = hwEnum.SHAPE_FLAT
+    DISP0_CUBE_TOP                 = hwEnum.NO_PANEL
+    DISP0_CUBE_FRONT               = hwEnum.NO_PANEL
+
+    ' (7) Describe the wire chain order through your panels
+    '  NOTE: older wiring setting, still read by the driver; keep it in step
+    '  with the wiring sentences in (5)
     '
     '  Cable chain: Adapter -> BL -> BR -> TL -> TR (Z-pattern)
     '     [TL][TR]   Looking at display front
@@ -71,7 +138,9 @@ CON ' ---- User Panel Connection and Configuration ----
     DISP0_WIRE_ENTRY               = hwEnum.WIRE_ENTERS_BOT_LEFT
     DISP0_WIRE_TRAVERSE            = hwEnum.WIRE_ROWS_FIRST
 
-    ' (6) Per-panel physical rotation
+    ' (8) Per-panel physical rotation
+    '  NOTE: older wiring setting, still read by the driver; keep it in step
+    '  with the arrows in the wiring sentences in (5)
     '  Use when individual panels are physically rotated differently
     '  Panel indices: [0=TL][1=TR]
     '                 [2=BL][3=BR]
@@ -91,14 +160,25 @@ CON ' ---- User Panel Connection and Configuration ----
     DISP0_BITS_PER_COLOR           = DISP0_COLOR_DEPTH * 3
     DISP0_BYTES_PER_COLOR          = 3
 
-    DISP0_SCRN_SIZE_IN_BYTES       = (((DISP0_MAX_DISPLAY_COLUMNS * DISP0_MAX_DISPLAY_ROWS * DISP0_BYTES_PER_COLOR) + 3) / 4) * 4
+    ' how many panels are in use: each cable position that is not NO_PANEL
+    DISP0_PANEL_COUNT              = (DISP0_C0 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C1 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP0_C2 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C3 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP0_C4 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C5 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP0_C6 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C7 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP0_C8 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C9 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP0_C10 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C11 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP0_C12 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C13 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP0_C14 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C15 <> hwEnum.NO_PANEL ? 1 : 0)
+
+    ' buffers hold only the panels in use (panel count x panel pixels), not the bounding box
+    DISP0_SCRN_SIZE_IN_BYTES       = (((DISP0_PANEL_COUNT * DISP0_MAX_PANEL_COLUMNS * DISP0_MAX_PANEL_ROWS * DISP0_BYTES_PER_COLOR) + 3) / 4) * 4
     DISP0_SCRN_SIZE_IN_LONGS       = (DISP0_SCRN_SIZE_IN_BYTES / 4)
 
     DISP0_MAX_PANELS               = DISP0_MAX_PANELS_PER_ROW * DISP0_MAX_PANELS_PER_COLUMN
 
     ' what is our PWM frame size
-    ' PWM Frames are 4 bits per pixel full display count of pixels
-    DISP0_PWM_FRAME_SIZE_IN_BYTES  = (DISP0_MAX_DISPLAY_COLUMNS * DISP0_MAX_DISPLAY_ROWS) / 2
+    ' PWM Frames are 4 bits per pixel for every pixel of the panels in use
+    DISP0_PWM_FRAME_SIZE_IN_BYTES  = (DISP0_PANEL_COUNT * DISP0_MAX_PANEL_COLUMNS * DISP0_MAX_PANEL_ROWS) / 2
     DISP0_PWM_FRAME_SIZE_IN_LONGS  = (DISP0_PWM_FRAME_SIZE_IN_BYTES + 3) / 4
 
     DISP0_FRAMESET_SIZE_IN_LONGS   = DISP0_COLOR_DEPTH * DISP0_PWM_FRAME_SIZE_IN_LONGS
@@ -117,6 +197,8 @@ CON ' ---- User Panel Connection and Configuration ----
     DISP1_MAX_PANEL_ROWS           = 64
 
     ' the organization of the panels: visual layout
+    '  NOTE: older layout setting, still read by the driver; keep it in step
+    '  with the wiring sentences in (5)
     '   [1]      1 row of 1 panel
     '
     DISP1_MAX_PANELS_PER_ROW       = 1
@@ -130,7 +212,36 @@ CON ' ---- User Panel Connection and Configuration ----
     ' (4) Apply desired rotation to entire display
     DISP1_ROTATION                 = hwEnum.ROT_NONE
 
-    ' (5) Describe the wire chain order (default: Z-pattern from top-left)
+    ' (5) Describe the wiring: one sentence per cable position (rules above DISP0)
+    '  This adapter has no panels: every cable position is NO_PANEL.
+    DISP1_C0                       = hwEnum.NO_PANEL
+    DISP1_C1                       = hwEnum.NO_PANEL
+    DISP1_C2                       = hwEnum.NO_PANEL
+    DISP1_C3                       = hwEnum.NO_PANEL
+    DISP1_C4                       = hwEnum.NO_PANEL
+    DISP1_C5                       = hwEnum.NO_PANEL
+    DISP1_C6                       = hwEnum.NO_PANEL
+    DISP1_C7                       = hwEnum.NO_PANEL
+    DISP1_C8                       = hwEnum.NO_PANEL
+    DISP1_C9                       = hwEnum.NO_PANEL
+    DISP1_C10                      = hwEnum.NO_PANEL
+    DISP1_C11                      = hwEnum.NO_PANEL
+    DISP1_C12                      = hwEnum.NO_PANEL
+    DISP1_C13                      = hwEnum.NO_PANEL
+    DISP1_C14                      = hwEnum.NO_PANEL
+    DISP1_C15                      = hwEnum.NO_PANEL
+
+    ' (6) Describe the display shape: hwEnum.SHAPE_FLAT or hwEnum.SHAPE_CUBE
+    '  For a cube, DISP1_CUBE_TOP and DISP1_CUBE_FRONT are the cable positions
+    '  (hwEnum.C0 through hwEnum.C15) of the top face and the front face.
+    '  They are not used by a flat display.
+    DISP1_SHAPE                    = hwEnum.SHAPE_FLAT
+    DISP1_CUBE_TOP                 = hwEnum.NO_PANEL
+    DISP1_CUBE_FRONT               = hwEnum.NO_PANEL
+
+    ' (7) Describe the wire chain order (default: Z-pattern from top-left)
+    '  NOTE: older wiring setting, still read by the driver; keep it in step
+    '  with the wiring sentences in (5)
     DISP1_WIRE_ENTRY               = hwEnum.WIRE_ENTERS_TOP_LEFT
     DISP1_WIRE_TRAVERSE            = hwEnum.WIRE_ROWS_FIRST
 
@@ -143,14 +254,25 @@ CON ' ---- User Panel Connection and Configuration ----
     DISP1_BITS_PER_COLOR           = DISP1_COLOR_DEPTH * 3
     DISP1_BYTES_PER_COLOR          = 3
 
-    DISP1_SCRN_SIZE_IN_BYTES       = (((DISP1_MAX_DISPLAY_COLUMNS * DISP1_MAX_DISPLAY_ROWS * DISP1_BYTES_PER_COLOR) + 3) / 4) * 4
+    ' how many panels are in use: each cable position that is not NO_PANEL
+    DISP1_PANEL_COUNT              = (DISP1_C0 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C1 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP1_C2 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C3 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP1_C4 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C5 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP1_C6 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C7 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP1_C8 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C9 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP1_C10 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C11 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP1_C12 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C13 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP1_C14 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C15 <> hwEnum.NO_PANEL ? 1 : 0)
+
+    ' buffers hold only the panels in use (panel count x panel pixels), not the bounding box
+    DISP1_SCRN_SIZE_IN_BYTES       = (((DISP1_PANEL_COUNT * DISP1_MAX_PANEL_COLUMNS * DISP1_MAX_PANEL_ROWS * DISP1_BYTES_PER_COLOR) + 3) / 4) * 4
     DISP1_SCRN_SIZE_IN_LONGS       = (DISP1_SCRN_SIZE_IN_BYTES / 4)
 
     DISP1_MAX_PANELS               = DISP1_MAX_PANELS_PER_ROW * DISP1_MAX_PANELS_PER_COLUMN
 
     ' what is our PWM frame size
-    ' PWM Frames are 4 bits per pixel full display count of pixels
-    DISP1_PWM_FRAME_SIZE_IN_BYTES  = (DISP1_MAX_DISPLAY_COLUMNS * DISP1_MAX_DISPLAY_ROWS) / 2
+    ' PWM Frames are 4 bits per pixel for every pixel of the panels in use
+    DISP1_PWM_FRAME_SIZE_IN_BYTES  = (DISP1_PANEL_COUNT * DISP1_MAX_PANEL_COLUMNS * DISP1_MAX_PANEL_ROWS) / 2
     DISP1_PWM_FRAME_SIZE_IN_LONGS  = (DISP1_PWM_FRAME_SIZE_IN_BYTES + 3) / 4
 
     DISP1_FRAMESET_SIZE_IN_LONGS   = DISP1_COLOR_DEPTH * DISP1_PWM_FRAME_SIZE_IN_LONGS
@@ -169,6 +291,8 @@ CON ' ---- User Panel Connection and Configuration ----
     DISP2_MAX_PANEL_ROWS           = 64
 
     ' the organization of the panels: visual layout
+    '  NOTE: older layout setting, still read by the driver; keep it in step
+    '  with the wiring sentences in (5)
     '   [1]      1 row of 1 panel
     '
     DISP2_MAX_PANELS_PER_ROW       = 6
@@ -182,7 +306,36 @@ CON ' ---- User Panel Connection and Configuration ----
     ' (4) Apply desired rotation to entire display
     DISP2_ROTATION                 = hwEnum.ROT_NONE
 
-    ' (5) Describe the wire chain order (default: Z-pattern from top-left)
+    ' (5) Describe the wiring: one sentence per cable position (rules above DISP0)
+    '  This adapter has no panels: every cable position is NO_PANEL.
+    DISP2_C0                       = hwEnum.NO_PANEL
+    DISP2_C1                       = hwEnum.NO_PANEL
+    DISP2_C2                       = hwEnum.NO_PANEL
+    DISP2_C3                       = hwEnum.NO_PANEL
+    DISP2_C4                       = hwEnum.NO_PANEL
+    DISP2_C5                       = hwEnum.NO_PANEL
+    DISP2_C6                       = hwEnum.NO_PANEL
+    DISP2_C7                       = hwEnum.NO_PANEL
+    DISP2_C8                       = hwEnum.NO_PANEL
+    DISP2_C9                       = hwEnum.NO_PANEL
+    DISP2_C10                      = hwEnum.NO_PANEL
+    DISP2_C11                      = hwEnum.NO_PANEL
+    DISP2_C12                      = hwEnum.NO_PANEL
+    DISP2_C13                      = hwEnum.NO_PANEL
+    DISP2_C14                      = hwEnum.NO_PANEL
+    DISP2_C15                      = hwEnum.NO_PANEL
+
+    ' (6) Describe the display shape: hwEnum.SHAPE_FLAT or hwEnum.SHAPE_CUBE
+    '  For a cube, DISP2_CUBE_TOP and DISP2_CUBE_FRONT are the cable positions
+    '  (hwEnum.C0 through hwEnum.C15) of the top face and the front face.
+    '  They are not used by a flat display.
+    DISP2_SHAPE                    = hwEnum.SHAPE_FLAT
+    DISP2_CUBE_TOP                 = hwEnum.NO_PANEL
+    DISP2_CUBE_FRONT               = hwEnum.NO_PANEL
+
+    ' (7) Describe the wire chain order (default: Z-pattern from top-left)
+    '  NOTE: older wiring setting, still read by the driver; keep it in step
+    '  with the wiring sentences in (5)
     DISP2_WIRE_ENTRY               = hwEnum.WIRE_ENTERS_TOP_LEFT
     DISP2_WIRE_TRAVERSE            = hwEnum.WIRE_ROWS_FIRST
 
@@ -195,14 +348,25 @@ CON ' ---- User Panel Connection and Configuration ----
     DISP2_BITS_PER_COLOR           = DISP2_COLOR_DEPTH * 3
     DISP2_BYTES_PER_COLOR          = 3
 
-    DISP2_SCRN_SIZE_IN_BYTES       = (((DISP2_MAX_DISPLAY_COLUMNS * DISP2_MAX_DISPLAY_ROWS * DISP2_BYTES_PER_COLOR) + 3) / 4) * 4
+    ' how many panels are in use: each cable position that is not NO_PANEL
+    DISP2_PANEL_COUNT              = (DISP2_C0 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP2_C1 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP2_C2 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP2_C3 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP2_C4 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP2_C5 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP2_C6 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP2_C7 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP2_C8 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP2_C9 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP2_C10 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP2_C11 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP2_C12 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP2_C13 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP2_C14 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP2_C15 <> hwEnum.NO_PANEL ? 1 : 0)
+
+    ' buffers hold only the panels in use (panel count x panel pixels), not the bounding box
+    DISP2_SCRN_SIZE_IN_BYTES       = (((DISP2_PANEL_COUNT * DISP2_MAX_PANEL_COLUMNS * DISP2_MAX_PANEL_ROWS * DISP2_BYTES_PER_COLOR) + 3) / 4) * 4
     DISP2_SCRN_SIZE_IN_LONGS       = (DISP2_SCRN_SIZE_IN_BYTES / 4)
 
     DISP2_MAX_PANELS               = DISP2_MAX_PANELS_PER_ROW * DISP2_MAX_PANELS_PER_COLUMN
 
     ' what is our PWM frame size
-    ' PWM Frames are 4 bits per pixel full display count of pixels
-    DISP2_PWM_FRAME_SIZE_IN_BYTES  = (DISP2_MAX_DISPLAY_COLUMNS * DISP2_MAX_DISPLAY_ROWS) / 2
+    ' PWM Frames are 4 bits per pixel for every pixel of the panels in use
+    DISP2_PWM_FRAME_SIZE_IN_BYTES  = (DISP2_PANEL_COUNT * DISP2_MAX_PANEL_COLUMNS * DISP2_MAX_PANEL_ROWS) / 2
     DISP2_PWM_FRAME_SIZE_IN_LONGS  = (DISP2_PWM_FRAME_SIZE_IN_BYTES + 3) / 4
 
     DISP2_FRAMESET_SIZE_IN_LONGS   = DISP2_COLOR_DEPTH * DISP2_PWM_FRAME_SIZE_IN_LONGS

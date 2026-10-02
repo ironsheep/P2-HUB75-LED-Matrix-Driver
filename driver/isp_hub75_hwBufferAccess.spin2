@@ -16,17 +16,9 @@
 ' -----------------
 ' User Setup Notes:
 ' -----------------
-'   There are two areas in this file that need adjustment to the number of hub75 adapter boards you are using.
-'
-'   This file has ONE adapter board enabled by default.  If you are using more than one adapter board, you will
-'   need to uncomment/comment out sections for each additional adapter board you wish to use.
-'
-'   The lines containing the text "2nd HUB75 adapter board" are lines which set up the 2nd adapter board.
-'   The lines containing the text "3rd HUB75 adapter board" are lines which set up the 3rd adapter board.
-'
-'    There are 2 such lines in this file for each of the 2nd and 3rd adapter boards.
-'     1st line activates or comments out small 17-long tables
-'     2st line activates or comments out a single long pointer to the 17-long table
+'   Nothing in this file needs editing to choose how many hub75 adapter boards are in use.  The descriptor
+'   for each of the three adapter boards is always present, and each is filled from that adapter's
+'   DISPn_ settings in isp_hub75_hwPanelConfig.spin2.
 
 CON ' ---- Interface Constant Forwarding ----
     {Spin2_Doc_CON}
@@ -69,37 +61,32 @@ screenTableEnt0         ' The start of the 1st HUB75 chain descriptor table
         LONG    user.DISP0_WIRE_ENTRY, user.DISP0_WIRE_TRAVERSE
 screenTableEnt0End      ' The end of the 1st HUB75 chain descriptor table
 
-{   COMMENT-OUT THIS LINE (place tic in front of this line) if you using the 2nd HUB75 adapter board
-    ' 2nd HUB75 chain
-screenTableEnt1         ' The start of the 2nd HUB75 chain descriptor table
-    ' 2nd HUB75 chain
-        LONG    @hub75Buffer1, @pwmFrames1_1, @pwmFrames1_2
+screenTableEnt1         ' The start of the 2nd HUB75 adapter's descriptor (display DISP1)
+'                    LONG    @hub75Buffer1, @pwmFrames1_1, @pwmFrames1_2
+        LONG    PLACEHOLDER_ADDRESS, PLACEHOLDER_ADDRESS, PLACEHOLDER_ADDRESS
         LONG    user.DISP1_MAX_DISPLAY_COLUMNS, user.DISP1_MAX_DISPLAY_ROWS
         LONG    user.DISP1_COLOR_DEPTH, user.DISP1_BYTES_PER_COLOR
         LONG    user.DISP1_SCRN_SIZE_IN_LONGS, user.DISP1_PWM_FRAME_SIZE_IN_BYTES, user.DISP1_ROTATION
         LONG    user.DISP1_MAX_PANEL_COLUMNS, user.DISP1_MAX_PANEL_ROWS, user.DISP1_MAX_PANELS_PER_COLUMN, user.DISP1_MAX_PANELS_PER_ROW
         LONG    PLACEHOLDER_CHIP_TYPE, PLACEHOLDER_PIN_BASE, PLACEHOLDER_ADDR_LINES
         LONG    user.DISP1_WIRE_ENTRY, user.DISP1_WIRE_TRAVERSE
-'}
 
-{   COMMENT-OUT THIS LINE (place tic in front of this line) if you using the 3rd HUB75 adapter board
-    ' 3rd HUB75 chain
-screenTableEnt2         ' The start of the 3rd HUB75 chain descriptor table
-        LONG    @hub75Buffer2, @pwmFrames2_1, @pwmFrames2_2
+screenTableEnt2         ' The start of the 3rd HUB75 adapter's descriptor (display DISP2)
+'                    LONG    @hub75Buffer2, @pwmFrames2_1, @pwmFrames2_2
+        LONG    PLACEHOLDER_ADDRESS, PLACEHOLDER_ADDRESS, PLACEHOLDER_ADDRESS
         LONG    user.DISP2_MAX_DISPLAY_COLUMNS, user.DISP2_MAX_DISPLAY_ROWS
         LONG    user.DISP2_COLOR_DEPTH, user.DISP2_BYTES_PER_COLOR
         LONG    user.DISP2_SCRN_SIZE_IN_LONGS, user.DISP2_PWM_FRAME_SIZE_IN_BYTES, user.DISP2_ROTATION
         LONG    user.DISP2_MAX_PANEL_COLUMNS, user.DISP2_MAX_PANEL_ROWS, user.DISP2_MAX_PANELS_PER_COLUMN, user.DISP2_MAX_PANELS_PER_ROW
         LONG    PLACEHOLDER_CHIP_TYPE, PLACEHOLDER_PIN_BASE, PLACEHOLDER_ADDR_LINES
         LONG    user.DISP2_WIRE_ENTRY, user.DISP2_WIRE_TRAVERSE
-'}
 
 screenTableEntEnd      ' The end of the all of the chain descriptor tables
 
 screenTable             ' A table of addresses, pointers to each HUB75 chain descriptor table
                         LONG                    @screenTableEnt0
-'                    LONG    @screenTableEnt1           ' UNCOMMENT THIS LINE if you using the 2nd HUB75 adapter board
-'                    LONG    @screenTableEnt2           ' UNCOMMENT THIS LINE if you using the 3rd HUB75 adapter board
+                        LONG                    @screenTableEnt1        ' 2nd HUB75 adapter board
+                        LONG                    @screenTableEnt2        ' 3rd HUB75 adapter board
 screenTableEnd          ' End of the pointers table
 
     entrySizeInBytes    LONG                    (@screenTableEnt0End - @screenTableEnt0)
