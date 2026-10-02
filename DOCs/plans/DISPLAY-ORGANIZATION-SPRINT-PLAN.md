@@ -1,7 +1,8 @@
 # DISPLAY-ORGANIZATION — Sprint Plan
 
 **Status:** Started 2026-10-01. Planning concluded the same day with no open
-questions.
+questions. Re-opened 2026-10-02 for one agreed scope change (SC-1, content
+rotation): §5b is in planning until its open questions are answered.
 
 **Build:** **4.0.0**, agreed with Stephen at sprint start (2026-10-01). He
 chose strict SemVer: the configuration format changes, so every user must
@@ -12,16 +13,16 @@ locally and on `origin`, is `v3.0.2`.
 
 **One-line charter:** Give the driver one honest model of how panels form a
 display — a vocabulary, a wiring configuration written as sentences, one
-mapping that every drawing path goes through, correct whole-display rotation,
-and a cube layer whose drawings cross every edge. Fix the three latent defects
+mapping that every drawing path goes through, correct whole-display mounting
+rotation and a run-time content rotation, and a cube layer whose drawings cross every edge. Fix the three latent defects
 that live on the same buffer path.
 
 **What done means:** on the 2×2 rig of 128×64 panels, the identify routine
 labels every panel with its cable position (`C`) and panel position (`P`), and
 shows `P0..P3` in reading order with every arrow up. The boundary test
 draws cleanly across both panel seams. Every drawing path (display-centric,
-panel-centric, text, scrolling, rotation) lands where the display coordinates
-say. The configuration documents describe exactly what the code does. The
+panel-centric, text, scrolling, mounting rotation, content rotation) lands
+where the display coordinates say. The configuration documents describe exactly what the code does. The
 items that the rig cannot prove are built, checked as far as the rig allows,
 and listed by name for the panel sweep (§13).
 
@@ -29,8 +30,51 @@ and listed by name for the panel sweep (§13).
 
 ## Open Questions
 
-None. The one question raised at plan review was answered 2026-10-01: the
-fold self-test is in (§7, item 7).
+The one question raised at plan review was answered 2026-10-01: the fold
+self-test is in (§7, item 7).
+
+Open since 2026-10-02, from SC-1 (§5b, content rotation). No task is generated
+for §5b until each is answered; each is asked one at a time. Q1 and Q6 are
+Stephen's calls; Q2-Q5 are researched first and asked only if the code and
+the plan cannot settle them.
+- **Q1.** At 90° or 270° on a non-square display, does content rotation change
+  the drawing surface's shape (as mounting does), or turn the content inside
+  the fixed shape and crop what falls outside?
+- **Q2.** How content rotation composes with mounting rotation (mounting
+  first, then content).
+- **Q3.** What a change at run time does to cached sizes (the display's copied
+  rows and columns, the text grid, scroller regions) and to what is already
+  drawn: cleared, kept, or redrawn by the program.
+- **Q4.** Whether it applies to a cube (mounting rotation does not).
+- **Q5.** Its name, signature and value set (for example reusing
+  `hwEnum.ROT_*`).
+- **Q6.** On a rotated display, does a panel-centric call's panel-local "up"
+  turn with the display, or stay fixed to the panel? Raised by «#75»;
+  answered after Q1-Q5, because content rotation may shape it.
+
+---
+
+## Agreed scope changes
+
+Scope changes only by agreement between Stephen and the arbiter, reached in
+conversation and recorded here at the moment it is reached. Each entry says
+what changed, why, which sections and tasks it touches, and what it does
+**not** admit. A change that is not in this log is drift, and is raised, not
+built.
+
+- **SC-1 — 2026-10-02 — two rotations.** *Agreed:* `DISPn_ROTATION` (the one
+  config constant) is **physical**: how the display is mounted. A separate
+  **content rotation** is added to the API, in this sprint. *Why:* at the
+  bench, Stephen and the arbiter found two measures of "rotate right 90": the
+  hardware turned (physical) and the picture turned (image-centric). On a
+  fixed rig they give the same picture under opposite names, and the code
+  used the image-centric name while the glossary used the physical one.
+  Giving each its own home keeps one meaning per setting. *Touches:* §5
+  (meaning and direction, applied in «#75»), new §5b (content rotation; a new
+  task once its open questions are answered), §9 (the run-time-setter
+  sentence), §12 (the guide explains both), Visit A (checks both). *Does not
+  admit:* rotating an already-drawn image as a separate operation,
+  per-panel content rotation, or animation between rotations.
 
 ---
 
@@ -62,6 +106,15 @@ They are quoted or closely paraphrased here.
   projection and image mapping go into a **separate image-mapping sprint**.
 - **Whole-display rotation is in scope.** *"I can rotate it any way I want
   to... everything drawn to the panel is consistent with that new rotation."*
+- **Two rotations, two meanings (2026-10-02).** `DISPn_ROTATION`, the single
+  config constant, is **physical**: how the assembled display is mounted, so
+  `ROT_RIGHT_90` means the display hangs turned 90° clockwise and the driver
+  draws so the content reads upright. **Content rotation** is a separate
+  **API member**: the program turns its content at run time. *"We keep the
+  display rotation as physical, we make sure we have the content rotation as
+  an API member, and both go forward in this sprint... the single config
+  constant is physical display, and the API is content."* Content rotation is
+  planned in its own section; its design questions are settled there.
 - **The three latent defects (§6) are in this sprint.** *"Yes, they have to
   be."* Multiple 1/4-scan panels on one adapter is a **requirement**: *"we
   need to be able to handle multiple 1/4-scan panels."* The guide must
@@ -547,6 +600,13 @@ it still clamps them against the unrotated size
 width and height. On the rig (256×128), a 90° rotation would write past the
 display.
 
+**Meaning (SC-1, 2026-10-02).** `DISPn_ROTATION` is **physical**: how the
+assembled display is mounted. `ROT_RIGHT_90` means the display hangs turned
+90° clockwise, so the driver draws the content's top along the display's
+original left edge, and it reads upright once mounted. On a flat rig at the
+bench, `ROT_RIGHT_90` therefore looks turned to the left. Turning the content
+itself is content rotation (§5b), not this setting.
+
 **Target.**
 - `DISPn_ROTATION` (flat displays only) is applied first in the §4 path.
 - The display-size accessors report the size **as mounted**: width and height
@@ -570,6 +630,35 @@ display.
 - *Edge:* at 90° and 270° the text grid has the swapped number of lines and
   columns. Check it in the debug output.
 - *Error:* none.
+
+## §5b Content rotation (SC-1; in planning)
+
+**Why.** Stephen, 2026-10-02: *"we make sure we have the content rotation as
+an API member, and both go forward in this sprint... the single config
+constant is physical display, and the API is content."* Mounting describes
+the hardware and is set once; content rotation is the program's choice at
+run time, like a phone turning its screen on fixed hardware.
+
+**Target (draft until Open Questions Q1-Q5 are answered).**
+- A display API member sets the content rotation at run time, with the same
+  four values as mounting.
+- Content rotation composes with mounting in the one path of §4: a drawn pixel
+  is turned by the content rotation, then by the mounting rotation, then
+  enters the derived layout.
+- The size accessors and every consumer listed in §5 follow the result,
+  as they follow mounting.
+- Cost: the per-pixel path still only looks things up (D6); whatever the
+  rotation needs is computed when the rotation is set, not per pixel.
+
+**Verify (draft).**
+- *Normal:* the boundary test at each content rotation on the rig, at
+  `ROT_NONE` mounting, then at one 90° mounting combined with a 90° content
+  rotation.
+- *Edge:* setting the rotation at run time after drawing; the text grid and a
+  scroller region before and after.
+- *Error:* an invalid value is rejected with a message.
+
+**Not in scope:** see SC-1, *does not admit*.
 
 ## §6 Buffer and conversion fixes
 
@@ -760,9 +849,10 @@ It also times one full draw and prints the elapsed microseconds with the
 existing `showDuration` pattern. Then it prints `END_SESSION` and holds the
 image.
 
-Display rotation is a compile-time setting (`DISP0_ROTATION`) and no runtime
-setter exists or is added. So the rotation check builds and runs the test
-once at each of the four values.
+Mounting rotation is a compile-time setting (`DISP0_ROTATION`), so the
+mounting check builds and runs the test once at each of the four values.
+Content rotation (§5b, SC-1) is a run-time call; the boundary test exercises
+it once §5b's task lands.
 
 The test is written **once**, after the one-call startup (§3.4) and before
 the mapping change (§4). It uses the final startup call and drawing calls
@@ -1011,6 +1101,7 @@ C1 flicker) is outside this sprint and sits after it, at seq 19.
 | §13 | Bench Visit 0 — before-pictures and draw time | «#70» | 6 |
 | §4 | One mapping; swap and wire tables deleted | «#74» | 7 |
 | §5 | Display rotation reports the mounted size | «#75» | 8 |
+| §5b | Content rotation API (SC-1) | not yet generated: waits for Open Questions Q1-Q5 | after 8, before Visit A |
 | §6 | F1, F2, F3 and chain-length frame sizes | «#76» | 9 |
 | §8 | Identify routine | «#77» | 10 |
 | §13 | Bench Visit A | «#78» | 11 |
@@ -1054,3 +1145,11 @@ Environments:
     self-test, 16 with the dummy flash file.
   - Cause: **(2) research incomplete.** The rework check was not run before
     the order was set.
+- 2026-10-02 — agreed scope change **SC-1** (two rotations), recorded in the
+  new *Agreed scope changes* log. `DISPn_ROTATION` is defined as physical
+  mounting, and content rotation becomes a run-time API member in this
+  sprint (§5b, in planning; Open Questions Q1-Q6). §9's statement that no
+  run-time rotation exists is replaced. The *Agreed scope changes* section
+  and its rule are new: scope changes only by recorded agreement.
+  - Cause: **(2) research incomplete.** Planning took "rotation" as one
+    measure; the bench showed two (the hardware turned, the picture turned).
