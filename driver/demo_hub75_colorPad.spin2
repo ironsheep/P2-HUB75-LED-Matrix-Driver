@@ -154,7 +154,7 @@ PRI waitSec(countSeconds)
 '  Below here, lots of small demo routines
 ' ------------------------------------------------------------------------------
 
-PRI demoParallax() | rtCol, ltCol, topRow, botRow
+PRI demoParallax() | rtCol, ltCol, topRow, botRow, panelRows, panelColumns
 ' Draw the Parallax Propeller2 branded demo screen.
 '
 
@@ -163,16 +163,19 @@ PRI demoParallax() | rtCol, ltCol, topRow, botRow
 ' @local ltCol - leftmost column index
 ' @local topRow - top row index
 ' @local botRow - bottom row index
+' @local panelRows - pixel rows of one panel, as the viewer sees it
+' @local panelColumns - pixel columns of one panel, as the viewer sees it
 
   display.setTextFont(display.TEXT_FONT_5x7)                                    ' font size
   display.setCursor(0, 0)                                                       ' start at top left, with one pixel of spacing
 
+  panelRows, panelColumns := hub75Bffrs.cellSizeInPixels(chainIndex)        ' one panel as the viewer sees it
   ltCol := 0
-  rtCol := hub75Bffrs.columnsPerPanel(chainIndex) - 1
+  rtCol := panelColumns - 1
   topRow := 0
-  botRow :=  hub75Bffrs.rowsPerPanel(chainIndex) > 32 ? 32 - 1 : hub75Bffrs.rowsPerPanel(chainIndex) - 1
-  if hub75Bffrs.rowsPerPanel(chainIndex) < 32
-    botRow :=  hub75Bffrs.rowsPerPanel(chainIndex) - 1
+  botRow :=  panelRows > 32 ? 32 - 1 : panelRows - 1
+  if panelRows < 32
+    botRow :=  panelRows - 1
   display.drawLineOfColor(topRow, ltCol, topRow, rtCol, color.cYellow)          ' top line
   display.drawLineOfColor(topRow, ltCol, botRow, ltCol, color.cRed)             ' left line
   display.drawLineOfColor(topRow, rtCol, botRow, rtCol, color.cMagenta)         ' right line
@@ -340,7 +343,7 @@ PRI show18scanColorCheck5()
 
   display.commitScreenToPanelSet()
 
-PRI numberTheRows() | rowId, idCol, idOnes, idTens, tensColor, onesColor
+PRI numberTheRows() | rowId, idCol, idOnes, idTens, tensColor, onesColor, panelRows
 ' Draw row number indicators using pixel dots for each row.
 '
 
@@ -349,12 +352,14 @@ PRI numberTheRows() | rowId, idCol, idOnes, idTens, tensColor, onesColor
 ' @local idCol - column offset for drawing digit dots
 ' @local idOnes - ones digit of current row number
 ' @local idTens - tens digit of current row number
+' @local panelRows - pixel rows of one panel, as the viewer sees it
 ' @local tensColor - color used for tens digit dots
 ' @local onesColor - color used for ones digit dots
 
   tensColor := color.cCyan
   onesColor := color.cCyan
-  repeat rowId from 1 TO hub75Bffrs.rowsPerPanel(chainIndex)
+  panelRows, _ := hub75Bffrs.cellSizeInPixels(chainIndex)
+  repeat rowId from 1 TO panelRows
     idOnes := rowId // 10
     idTens := rowId / 10
     if idTens > 0
@@ -951,7 +956,7 @@ PRI generateBWPanel(panelNumber) | panelRow, panelCol, row, col, red, green, blu
       col := startCol
             ' debug("bw panelNbr=(", udec_(panelNumber), "),startRC=(", udec_(row), ",", udec_(col), ")")
 
-PRI showFullColorSweep() | row, col, red, green, blue
+PRI showFullColorSweep() | row, col, red, green, blue, panelColumns
 ' Draw full 0-255 brightness sweeps for seven color channels.
 '
 
@@ -961,30 +966,32 @@ PRI showFullColorSweep() | row, col, red, green, blue
 ' @local red - red channel value
 ' @local green - green channel value
 ' @local blue - blue channel value
+' @local panelColumns - pixel columns of one panel, as the viewer sees it
 
 ' basic bands - full color sweep
 
+  _, panelColumns := hub75Bffrs.cellSizeInPixels(chainIndex)    ' one panel as the viewer sees it
   red := green := blue := 0
   row := 2
   col := 0
   repeat red from 0 TO 255                              ' RED
     pixels.drawPixelAtRC(chainIndex, row, col, colorUtils.cValueForRGB(red, green, blue))
     col++
-    if (col > hub75Bffrs.columnsPerPanel(chainIndex) - 1)
+    if (col > panelColumns - 1)
       row++
       col := 0
   red := green := blue := 0
   repeat green from 0 TO 255                            ' GREEN
     pixels.drawPixelAtRC(chainIndex, row, col, colorUtils.cValueForRGB(red, green, blue))
     col++
-    if (col > hub75Bffrs.columnsPerPanel(chainIndex) - 1)
+    if (col > panelColumns - 1)
       row++
       col := 0
   red := green := blue := 0
   repeat blue from 0 TO 255                             ' BLUE
     pixels.drawPixelAtRC(chainIndex, row, col, colorUtils.cValueForRGB(red, green, blue))
     col++
-    if (col > hub75Bffrs.columnsPerPanel(chainIndex) - 1)
+    if (col > panelColumns - 1)
       row++
       col := 0
   red := green := blue := 0
@@ -992,7 +999,7 @@ PRI showFullColorSweep() | row, col, red, green, blue
     green := red
     pixels.drawPixelAtRC(chainIndex, row, col, colorUtils.cValueForRGB(red, green, blue))
     col++
-    if (col > hub75Bffrs.columnsPerPanel(chainIndex) - 1)
+    if (col > panelColumns - 1)
       row++
       col := 0
   red := green := blue := 0
@@ -1000,7 +1007,7 @@ PRI showFullColorSweep() | row, col, red, green, blue
     blue := green
     pixels.drawPixelAtRC(chainIndex, row, col, colorUtils.cValueForRGB(red, green, blue))
     col++
-    if (col > hub75Bffrs.columnsPerPanel(chainIndex) - 1)
+    if (col > panelColumns - 1)
       row++
       col := 0
   red := green := blue := 0
@@ -1008,7 +1015,7 @@ PRI showFullColorSweep() | row, col, red, green, blue
     red := blue
     pixels.drawPixelAtRC(chainIndex, row, col, colorUtils.cValueForRGB(red, green, blue))
     col++
-    if (col > hub75Bffrs.columnsPerPanel(chainIndex) - 1)
+    if (col > panelColumns - 1)
       row++
       col := 0
   red := green := blue := 0
@@ -1016,7 +1023,7 @@ PRI showFullColorSweep() | row, col, red, green, blue
     green := red := blue
     pixels.drawPixelAtRC(chainIndex, row, col, colorUtils.cValueForRGB(red, green, blue))
     col++
-    if (col > hub75Bffrs.columnsPerPanel(chainIndex) - 1)
+    if (col > panelColumns - 1)
       row++
       col := 0
   red := green := blue := 0

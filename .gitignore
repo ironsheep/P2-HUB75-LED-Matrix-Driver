@@ -71,7 +71,6 @@ driver/.vscode/settings.json
 CLAUDE.md
 
 # Reference code / scratch (not part of project)
-driver/isp_dummy_flash.spin2
 REF-23MB/
 /tasks
 /driver/logs

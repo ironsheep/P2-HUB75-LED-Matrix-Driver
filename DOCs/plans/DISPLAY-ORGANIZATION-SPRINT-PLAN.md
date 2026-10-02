@@ -964,6 +964,19 @@ run on the old mapping in Visit 0 (§13).
 - `demo_hub75_hwGeometry.spin2` (comment-only legacy) is either deleted or
   rewritten to the new config. Keep it only if it still teaches something the
   guide doesn't.
+  *Decided in «#81» (2026-10-02): deleted.* It was 314 lines of commented-out
+  configuration in the pre-sentence format (`ADAPTER_BASE_PIN`,
+  `PANEL_DRIVER_CHIP` and the removed per-panel settings), with no code. Every
+  topic it covered (chip, address lines, panel size, wiring) is in
+  `isp_hub75_hwPanelConfig.spin2` and goes into the wiring guide (§12,
+  «#84»), so it teaches nothing the guide won't. Its `THEOPS.md` file-table row
+  is removed with it.
+- *Done in «#81»:* `isp_dummy_flash.spin2` is tracked in git (Stephen,
+  2026-10-02: *"track it in git... and update internal comments. it's not part
+  of this project but is what i load into every p2 edge so i can tell when we
+  crash out of RAM loaded run"*). The sweep is 15 top files: the 11
+  `demo_hub75_*`, `isp_hub75_anlyCheck`, `test_hub75_pin_identify`,
+  `test_hub75_cube_fold` and `isp_dummy_flash`.
 - `isp_hub75_anlyCheck` and `test_hub75_pin_identify` are checked to compile
   unchanged.
 - `isp_dummy_flash.spin2` (the flash image that prints `* Hi! from FLASH *`)
