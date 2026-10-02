@@ -115,7 +115,7 @@ PRI identifyPanels() | panelCount, cablePos, panelPosn, gridRows, gridColumns, c
     display.setTextFont(display.TEXT_FONT_8X8A)
   else
     display.setTextFont(display.TEXT_FONT_5X7)
-  display.setTextColor(color.cBlack)
+  display.setTextColor(color.cWhite)
 
   gridRows, gridColumns := hub75Bffrs.displaySizeInPanels(chainIndex)
   panelTextLines := display.numberTextLines() / gridRows
