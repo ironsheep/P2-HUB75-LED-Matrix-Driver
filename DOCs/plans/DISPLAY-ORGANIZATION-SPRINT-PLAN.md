@@ -689,15 +689,17 @@ Display rotation is a compile-time setting (`DISP0_ROTATION`) and no runtime
 setter exists or is added. So the rotation check builds and runs the test
 once at each of the four values.
 
-The test uses only drawing calls that exist today. It is written **first**,
-so that it can be run on the unchanged driver in Visit 0 (§13).
+The test is written **once**, after the one-call startup (§3.4) and before
+the mapping change (§4). It uses the final startup call and drawing calls
+whose names don't change. §2-§3 don't touch the mapping, so it can still be
+run on the old mapping in Visit 0 (§13).
 
 **Verify.**
 - *Normal:* on the rig every element is continuous across both seams, at each
   of the four rotations.
-- *Negative (Visit 0):* run on the entry-baseline driver, before §2-§4 land,
-  it shows the text halves swapped and the panel-centric line on the wrong
-  panel. That capture, and its full-draw time, are the "before" for §4.
+- *Negative (Visit 0):* run after §3.4 and before §4 lands, it shows the text
+  halves swapped and the panel-centric line on the wrong panel. That capture,
+  and its full-draw time, are the "before" for §4.
 
 ## §10 Demos converted
 
@@ -789,8 +791,8 @@ check (§3) enforces the hard limits: RAM, line buffer and converter.
 
 ## §13 Bench visits, and what the sweep inherits
 
-**Visit 0 — before §2 lands (the "before" pictures).** Run the boundary test
-(§9) on the unchanged driver, at `ROT_NONE`.
+**Visit 0 — before §4 lands (the "before" pictures).** Run the boundary test
+(§9) at `ROT_NONE`, after §2-§3 and before the mapping changes.
 - Stephen describes what each element shows.
 - Record the full-draw time it prints.
 - Decides nothing new. It records the negative case that §4's verification
@@ -891,11 +893,11 @@ C1 flicker) is outside this sprint and sits after it, at seq 19.
 | Plan § | Deliverable | Task | seq |
 |---|---|---|---|
 | §1 | Glossary in THEOPS.md | «#68» | 1 |
-| §9 | Boundary test demo (current API) | «#69» | 2 |
-| §13 | Bench Visit 0 — before-pictures and draw time | «#70» | 3 |
-| §2 | Sentence words and settings, buffers by panel count (two-phase: 1st) | «#71» | 4 |
-| §3.1-3 | Startup decode, checks, derive, picture (two-phase: 2nd) | «#72» | 5 |
-| §3.4 + §10 (startup) | One call per adapter; demo startup converted | «#73» | 6 |
+| §2 | Sentence words and settings, buffers by panel count (two-phase: 1st) | «#71» | 2 |
+| §3.1-3 | Startup decode, checks, derive, picture; driver-limit constants (two-phase: 2nd) | «#72» | 3 |
+| §3.4 + §10 (startup) | One call per adapter; demo startup converted | «#73» | 4 |
+| §9 | Boundary test demo (one-call startup, old mapping) | «#69» | 5 |
+| §13 | Bench Visit 0 — before-pictures and draw time | «#70» | 6 |
 | §4 | One mapping; swap and wire tables deleted | «#74» | 7 |
 | §5 | Display rotation reports the mounted size | «#75» | 8 |
 | §6 | F1, F2, F3 and chain-length frame sizes | «#76» | 9 |
@@ -929,3 +931,15 @@ Environments:
   - Cause: **(2) research incomplete.** The plan assumed a runtime rotation
     setter without checking, and placed the "before" capture without
     scheduling it ahead of §4.
+- 2026-10-01 — re-ordered after generating tasks, at Stephen's prompt to
+  check that no task redoes finished work (`plan-to-tasks` §3a).
+  - The boundary test («#69») and Visit 0 («#70») move after the one-call
+    startup («#73»), so the test is written once against the final startup.
+    It still runs before the mapping change.
+  - The driver-limit constants are defined once in «#72», and the limits
+    table («#82») only reads them. Before, «#82» reopened «#72».
+  - The cube self-test («#79») registers itself in the compile sweep, and the
+    sweep counts were corrected: 13, 14 with the boundary test, 15 with the
+    self-test, 16 with the dummy flash file.
+  - Cause: **(2) research incomplete.** The rework check was not run before
+    the order was set.
