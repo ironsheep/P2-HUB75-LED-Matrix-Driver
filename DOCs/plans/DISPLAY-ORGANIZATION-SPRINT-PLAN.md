@@ -33,33 +33,51 @@ and listed by name for the panel sweep (§13).
 The one question raised at plan review was answered 2026-10-01: the fold
 self-test is in (§7, item 7).
 
-Open since 2026-10-02, from SC-1 (§5b, content rotation). No task is generated
-for §5b until each is answered; each is asked one at a time. Q1 and Q6 are
+Open since 2026-10-02, from SC-1 (§5b, content rotation). Q1-Q5 were answered
+or settled on 2026-10-02 (below); Q6 is open. No task was generated
+for §5b until each was answered; each is asked one at a time. Q1 and Q6 are
 Stephen's calls; Q2-Q5 are researched first and asked only if the code and
 the plan cannot settle them.
-- **Q1.** At 90° or 270° on a non-square display, does content rotation change
-  the drawing surface's shape (as mounting does), or turn the content inside
-  the fixed shape and crop what falls outside?
-- **Q2.** How content rotation composes with mounting rotation (mounting
-  first, then content).
-- **Q3.** What a change at run time does to cached sizes (the display's copied
-  rows and columns, the text grid, scroller regions) and to what is already
-  drawn: cleared, kept, or redrawn by the program.
-- **Q4.** Whether it applies to a cube (mounting rotation does not).
-- **Q5.** Its name, signature and value set (for example reusing
-  `hwEnum.ROT_*`).
-- **Q6.** On a rotated display, does a panel-centric call's panel-local "up"
-  turn with the display, or stay fixed to the panel? Raised by «#75»;
-  answered after Q1-Q5, because content rotation may shape it.
-  *Evidence (2026-10-02, rig, `ROT_RIGHT_90`):* the boundary test's
-  panel-centric line on P0 (row 8, running off P0's right edge at `ROT_NONE`)
-  came out as a full-height bar along the top panel's left edge. Stephen saw
-  it and asked whether it was intended; it is not. `offsetToPanel()` returns
-  layout coordinates, but the line is drawn through the mounted (rotated)
-  path, so today a panel-centric call under 90/270 lands where neither answer
-  to Q6 would put it. Fill is exempt: «#75» gave it a layout-direct path,
-  because a fill looks the same at every rotation. Everything display-centric
-  was correct (circle, crosshair, border, text).
+- **Q1. Answered 2026-10-02 (Stephen): content rotation is a bitmap
+  rotation, not a drawn surface.** *"we have to think about content rotation
+  as a bitmap, not a drawn surface. If it's a bitmap and we rotate it, the
+  regions go off screen as they go off screen. We don't crop and relocate."*
+  A drawn display adapts to the display's geometry (mounting does this). An
+  image keeps its shape: turned 90° about the display centre, the part that
+  falls off the display is simply not shown, and nothing is wrapped or moved.
+  Stephen then chose **option A, turn the image as it is placed, from its
+  source**, over option B, turn the screen buffer in place. A is lossless
+  (the source is still there, so turning again re-places it), costs no hub
+  RAM, and puts no cost on later drawing. B is lossy (90° then back does not
+  restore the picture) and needs a display-sized second buffer.
+- **Q2. Settled by Q1.** Content rotation turns the image into display
+  coordinates as mounted (about the display centre). Those coordinates then
+  take the ordinary path (§5 mounting, then the §4 mapping), so the two
+  compose without further work.
+- **Q3. Settled by Q1.** The drawing surface never changes size, so no cached
+  size, text grid or scroller region changes. What is already drawn is kept.
+  Placing a turned image overwrites only the pixels it covers.
+- **Q4. Settled.** Not on a cube in this sprint: a cube has no single flat
+  surface for an image to cover. Images on cube faces belong to the future
+  image-mapping sprint (§7 records the face up conventions for it).
+- **Q5. Settled by Q1.** It is a parameter on placing an image, not a
+  display-wide setting. The values are `hwEnum.ROT_NONE`, `ROT_RIGHT_90`,
+  `ROT_LEFT_90` and `ROT_180`, with the same meaning as mounting (clockwise
+  is right). The name and signature are fixed in the §5b task.
+- **Q6. Answered 2026-10-02 (Stephen): the viewer's frame.** *"I'm looking at
+  the display, deciding what should be drawn. Up should be the physical up of
+  the display. Left should be the left, and right should be the right. This
+  is post-translation from wire organization to physical display location."*
+  Panel-centric calls use the display **as mounted**:
+  - P0 is the top-left panel as the display hangs;
+  - panel positions run in reading order as mounted;
+  - panel row 0 is that panel's top as the viewer sees it.
+  The wiring sentences (each panel's place and rotation) and
+  `DISPn_ROTATION` (how the assembled display hangs) are configuration,
+  translated away at startup, so program code never sees cables, arrows or
+  the bench orientation. Cable positions C0..Cn remain the permanent name of
+  a piece of hardware. Evidence that raised it: the «#75» red-line
+  observation. The work is §5c.
 
 ---
 
@@ -640,7 +658,7 @@ itself is content rotation (§5b), not this setting.
   columns. Check it in the debug output.
 - *Error:* none.
 
-## §5b Content rotation (SC-1; in planning)
+## §5b Content rotation (SC-1)
 
 **Why.** Stephen, 2026-10-02: *"we make sure we have the content rotation as
 an API member, and both go forward in this sprint... the single config
@@ -648,26 +666,65 @@ constant is physical display, and the API is content."* Mounting describes
 the hardware and is set once; content rotation is the program's choice at
 run time, like a phone turning its screen on fixed hardware.
 
-**Target (draft until Open Questions Q1-Q5 are answered).**
-- A display API member sets the content rotation at run time, with the same
-  four values as mounting.
-- Content rotation composes with mounting in the one path of §4: a drawn pixel
-  is turned by the content rotation, then by the mounting rotation, then
-  enters the derived layout.
-- The size accessors and every consumer listed in §5 follow the result,
-  as they follow mounting.
-- Cost: the per-pixel path still only looks things up (D6); whatever the
-  rotation needs is computed when the rotation is set, not per pixel.
+**Target (Q1-Q5 answered 2026-10-02).**
+- Content rotation turns an **image** as it is placed. It is a parameter on
+  the BMP placement call, not a display-wide mode. Drawn content (text,
+  lines, shapes) is unaffected, because a drawn display already follows the
+  display's geometry.
+- Placement walks the display's pixels (as mounted). For each pixel it
+  computes the source pixel by the inverse rotation about the display
+  centre. A display pixel whose source falls outside the image is left as it
+  is. A source pixel that falls off the display is never placed. Nothing is
+  cropped and relocated.
+- This works for an image of any size, not only a display-sized one. Today
+  `fillScreenFromBMP` assumes a display-sized file
+  (`isp_hub75_display_bmp.spin2:59-96`).
+- The placed pixels take the ordinary path (`drawPixelAtRC`: mounting, then
+  the §4 mapping), so content rotation composes with mounting.
+- Cost: the inverse rotation is a few adds per placed pixel. Nothing is added
+  to the drawing path.
 
-**Verify (draft).**
-- *Normal:* the boundary test at each content rotation on the rig, at
-  `ROT_NONE` mounting, then at one 90° mounting combined with a 90° content
-  rotation.
-- *Edge:* setting the rotation at run time after drawing; the text grid and a
-  scroller region before and after.
-- *Error:* an invalid value is rejected with a message.
+**Verify.**
+- *Normal:* on the rig at `ROT_NONE` mounting, place a test image at each of
+  the four content rotations. Stephen confirms each turn and that the
+  off-display parts are not shown. Then place one at a 90° mounting
+  combined with a 90° content rotation.
+- *Edge:* an image smaller than the display, and one larger, at 90°; text
+  drawn before the placement survives where the image does not cover it.
+- *Error:* an invalid rotation value is rejected with a message.
 
 **Not in scope:** see SC-1, *does not admit*.
+
+## §5c Panel-centric calls in the viewer's frame (Q6)
+
+**Why.** Q6, answered 2026-10-02: panel-centric calls use the display as
+mounted. Today `offsetToPanel()` returns layout coordinates while the line is
+drawn through the mounted path, so at 90° and 270° a panel-centric call lands
+where no rule would put it (the «#75» red bar).
+
+**Target.**
+- Panel positions are numbered in reading order **as mounted**. At
+  `ROT_NONE` this is today's numbering, unchanged.
+- `offsetToPanel()` and `positionAtDisplayPixel()` speak display coordinates
+  as mounted. Panel-centric drawing and its clipping then go through the
+  ordinary mounted path.
+- The layout-direct fill from «#75» (`screenUtils.fillLayoutArea`) maps the
+  mounted panel position to its layout rectangle, so `fillPanel(P)` fills the
+  panel the viewer calls P.
+- Whatever the mounting needs is computed at startup (one table), never per
+  pixel (D6).
+- The identify routine («#77») labels P by this numbering, so the screen and
+  the code agree.
+
+**Verify.**
+- *Normal:* the boundary test at each mounting on the rig. The panel-0 line
+  is on the top-left panel as mounted, runs left to right as the viewer sees
+  it, and stops at that panel's right edge. Stephen confirms at Visit A
+  «#78».
+- *Edge:* `ROT_NONE` is unchanged against the «#75» record (same image, draw
+  time within noise). `fillPanel(0)` at 90° fills the mounted top-left panel.
+- *Negative:* before the change, the 90° build draws the line as the «#75»
+  bar.
 
 ## §6 Buffer and conversion fixes
 
