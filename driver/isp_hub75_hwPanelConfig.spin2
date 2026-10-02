@@ -115,7 +115,7 @@ CON ' ---- User Panel Connection and Configuration ----
     ' (6) Describe the display shape: hwEnum.SHAPE_FLAT or hwEnum.SHAPE_CUBE
     '  For a cube, DISP0_CUBE_TOP and DISP0_CUBE_FRONT are the cable positions
     '  (hwEnum.C0 through hwEnum.C15) of the top face and the front face.
-    '  They are not used by a flat display.
+    '  They are not used by a flat display. DISP0_ROTATION does not apply to a cube.
     DISP0_SHAPE                    = hwEnum.SHAPE_FLAT
     DISP0_CUBE_TOP                 = hwEnum.NO_PANEL
     DISP0_CUBE_FRONT               = hwEnum.NO_PANEL
@@ -194,7 +194,7 @@ CON ' ---- User Panel Connection and Configuration ----
     ' (6) Describe the display shape: hwEnum.SHAPE_FLAT or hwEnum.SHAPE_CUBE
     '  For a cube, DISP1_CUBE_TOP and DISP1_CUBE_FRONT are the cable positions
     '  (hwEnum.C0 through hwEnum.C15) of the top face and the front face.
-    '  They are not used by a flat display.
+    '  They are not used by a flat display. DISP1_ROTATION does not apply to a cube.
     DISP1_SHAPE                    = hwEnum.SHAPE_FLAT
     DISP1_CUBE_TOP                 = hwEnum.NO_PANEL
     DISP1_CUBE_FRONT               = hwEnum.NO_PANEL
@@ -269,7 +269,7 @@ CON ' ---- User Panel Connection and Configuration ----
     ' (6) Describe the display shape: hwEnum.SHAPE_FLAT or hwEnum.SHAPE_CUBE
     '  For a cube, DISP2_CUBE_TOP and DISP2_CUBE_FRONT are the cable positions
     '  (hwEnum.C0 through hwEnum.C15) of the top face and the front face.
-    '  They are not used by a flat display.
+    '  They are not used by a flat display. DISP2_ROTATION does not apply to a cube.
     DISP2_SHAPE                    = hwEnum.SHAPE_FLAT
     DISP2_CUBE_TOP                 = hwEnum.NO_PANEL
     DISP2_CUBE_FRONT               = hwEnum.NO_PANEL

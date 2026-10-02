@@ -1,0 +1,662 @@
+'' =================================================================================================
+''
+''   File....... test_hub75_cube_fold.spin2
+''   Purpose.... Cube fold self-test: pushes fixed face coordinates through the cube fold and checks each against a hand-computed answer
+''   Authors.... Stephen M Moraco
+''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... Oct 2026
+''   Updated.... 02 Oct 2026
+''
+'' =================================================================================================
+
+{ Description:
+
+   Runs on the P2 with no panels attached: it never starts the display, so no cog starts and no
+   pin is driven, and it needs no edit to isp_hub75_hwPanelConfig.spin2. It folds a reference
+   net with isp_hub75_hwBufferAccess.foldNet() into the tables of adapter 1 (chain index 0),
+   then pushes a fixed list of face coordinates through the fold and compares each result with
+   an answer computed by hand and written below. It prints one PASS or FAIL line per case, a
+   total, then END_SESSION.
+
+   The reference cube (face size 8), as the flat picture of its net (P = panel position):
+
+              col 0     col 1     col 2     col 3
+     row 0      --     [C5 P0]      --        --        FRONT  (its up points <)
+     row 1   [C0 P1]   [C1 P2]   [C2 P3]   [C3 P4]      TOP (v)  LEFT (<)  BOTTOM (^)  RIGHT (>)
+     row 2      --        --     [C4 P5]      --        BACK   (v)
+
+   Top is C0 and Front is C5; the four faces' turns in their cells are all different, so every
+   quarter turn from face to panel is exercised.
+
+   Groups (the labels match the case tables of the task #79 design):
+     N, X - net recognition: the 11 cube nets fold (0 problems), four non-nets and a front
+            opposite the top are each rejected (1 problem); the reference net folds last
+     G    - on a face, no fold: face coordinates to panel coordinates on every face
+     E    - all 24 directed edge crossings
+     V    - the five edges the flat picture shows: the last pixel on a face and the first one
+            past its edge are neighbours on the display
+     A-F  - runs over two and three faces, and full rings
+     K    - every corner gap (four per face, so each of the 8 cube corners three times)
+     c, j - a circle of radius 3 centred on the corner pixel FRONT (0,0): three quarter-circles
+            (FRONT, TOP, LEFT), three points in the corner gap, and the joins at all three edges
+     h    - the home of an object: the face that holds its centre, and the transform into it
+     I    - faces that are not cube faces
+}
+
+CON ' timing
+
+    CLK_FREQ = 335_000_000                                        ' system freq as a constant
+    _clkfreq = CLK_FREQ                                           ' set system clock
+
+CON ' DEBUG PINs
+
+    DEBUG_COGS = %11111111
+    DEBUG_BAUD = 2_000_000
+
+CON ' reference cube
+
+    TEST_CHAIN          = 0                                       ' fold into adapter 1's tables; nothing configures them here
+    FACE_SIZE           = 8                                       ' pixel rows (and columns) of one face of the reference cube
+    NET_CELLS           = 6                                       ' cells (and cable positions) in a net
+
+    ' foldNet() results expected by group N
+    NET_FOLDS           = 0                                       ' no problems: the cube's tables are built
+    NET_REJECTED        = 1                                       ' one problem reported
+
+    ' two display pixels are neighbours when |row step| + |column step| is this
+    DISPLAY_NEIGHBOURS  = 1
+
+CON ' case records
+
+    ' a net case (group N):
+    '  NET_LABEL    - label letter
+    '  NET_NUMBER   - label number
+    '  NET_ROWS     - NET_CELLS LONGs: grid row of each cable position's cell
+    '  NET_COLUMNS  - NET_CELLS LONGs: grid column of each cable position's cell
+    '  NET_TOP      - cable position of the top face
+    '  NET_FRONT    - cable position of the front face
+    '  NET_EXPECTED - problems foldNet() should report
+    #0, NET_LABEL, NET_NUMBER, NET_ROWS
+    NET_COLUMNS         = NET_ROWS + NET_CELLS
+    #NET_COLUMNS + NET_CELLS, NET_TOP, NET_FRONT, NET_EXPECTED, NET_CASE_LONGS
+
+    ' a fold case (groups G, E, A-F, K, c, j, I):
+    '  FOLD_LABEL .. FOLD_NUMBER          - label letter and number
+    '  FOLD_FACE, FOLD_ROW, FOLD_COL       - the face coordinates pushed through the fold
+    '  FOLD_EXP_FACE .. FOLD_EXP_COL       - the face and face coordinates they land on
+    '  FOLD_EXP_PANEL .. FOLD_EXP_PANEL_COL - the panel position and panel coordinates they land on
+    #0, FOLD_LABEL, FOLD_NUMBER, FOLD_FACE, FOLD_ROW, FOLD_COL, FOLD_EXP_FACE, FOLD_EXP_ROW, FOLD_EXP_COL, ...
+        FOLD_EXP_PANEL, FOLD_EXP_PANEL_ROW, FOLD_EXP_PANEL_COL, FOLD_CASE_LONGS
+
+    ' a seam pair (group V): the last pixel on a face (A) and the first one past its edge (B)
+    #0, PAIR_LABEL, PAIR_NUMBER, PAIR_FACE_A, PAIR_ROW_A, PAIR_COL_A, PAIR_FACE_B, PAIR_ROW_B, PAIR_COL_B, PAIR_CASE_LONGS
+
+    ' a home case (group h): an object's centre, and its expected home face and transform
+    #0, HOME_LABEL, HOME_NUMBER, HOME_FACE, HOME_ROW, HOME_COL, HOME_EXP_FACE, HOME_EXP_TURN, HOME_EXP_ADD_ROW, HOME_EXP_ADD_COL, HOME_CASE_LONGS
+
+    BYTES_PER_LONG      = 4
+
+CON ' printed lines
+
+    LINE_BYTES          = 160                                     ' the longest line is a fold FAIL line, about 110 characters
+    DECIMAL_BASE        = 10
+    ONES_PLACE          = 1
+
+OBJ
+
+    hub75Bffrs  : "isp_hub75_hwBufferAccess"
+    hwEnum      : "isp_hub75_hwEnums"
+
+DAT ' ---- the reference net and its hand-computed panel origins ----
+
+' panel position of each cable position C0 .. C5 (reading order over the flat picture)
+refCablePositions   BYTE    1, 2, 3, 4, 5, 0
+
+' display coordinates of each panel's top-left pixel, by panel position P0 .. P5 (hand table)
+panelOriginRows     LONG    0, 8, 8, 8, 8, 16
+panelOriginColumns  LONG    8, 0, 8, 16, 24, 16
+
+DAT ' ---- group N: net recognition ----
+
+' label, number, cell rows C0..C5, cell columns C0..C5, top, front, expected problems
+netCases
+    LONG    "N",  1,   1, 1, 1, 1, 0, 2,   0, 1, 2, 3, 0, 0,   0, 1, NET_FOLDS       ' 1-4-1, flaps (0,0) (2,0)
+    LONG    "N",  2,   1, 1, 1, 1, 0, 2,   0, 1, 2, 3, 0, 1,   0, 1, NET_FOLDS       ' 1-4-1, flaps (0,0) (2,1)
+    LONG    "N",  3,   1, 1, 1, 1, 0, 2,   0, 1, 2, 3, 0, 2,   0, 1, NET_FOLDS       ' 1-4-1, flaps (0,0) (2,2)
+    LONG    "N",  4,   1, 1, 1, 1, 0, 2,   0, 1, 2, 3, 0, 3,   0, 1, NET_FOLDS       ' 1-4-1, flaps (0,0) (2,3)
+    LONG    "N",  5,   1, 1, 1, 1, 0, 2,   0, 1, 2, 3, 1, 1,   0, 1, NET_FOLDS       ' 1-4-1, flaps (0,1) (2,1)
+    LONG    "N",  6,   1, 1, 1, 1, 0, 2,   0, 1, 2, 3, 1, 2,   0, 1, NET_FOLDS       ' 1-4-1, flaps (0,1) (2,2)
+    LONG    "N",  7,   1, 1, 1, 0, 0, 2,   1, 2, 3, 1, 0, 1,   0, 1, NET_FOLDS       ' 2-3-1, bottom (2,1)
+    LONG    "N",  8,   1, 1, 1, 0, 0, 2,   1, 2, 3, 1, 0, 2,   0, 1, NET_FOLDS       ' 2-3-1, bottom (2,2)
+    LONG    "N",  9,   1, 1, 1, 0, 0, 2,   1, 2, 3, 1, 0, 3,   0, 1, NET_FOLDS       ' 2-3-1, bottom (2,3)
+    LONG    "N", 10,   0, 0, 1, 1, 2, 2,   0, 1, 1, 2, 2, 3,   0, 1, NET_FOLDS       ' 2-2-2
+    LONG    "N", 11,   0, 0, 0, 1, 1, 1,   0, 1, 2, 2, 3, 4,   0, 1, NET_FOLDS       ' 3-3
+    ' each non-net prints its "do not fold into a cube" message, then reports 1 problem
+    LONG    "X",  1,   1, 1, 1, 1, 0, 0,   0, 1, 2, 3, 2, 0,   0, 1, NET_REJECTED    ' two flaps above: C4 and C5 both fold to +Z
+    LONG    "X",  2,   0, 0, 0, 1, 1, 1,   0, 1, 2, 0, 1, 2,   0, 1, NET_REJECTED    ' 2 x 3: C3 and C4 both fold to -Z
+    LONG    "X",  3,   1, 1, 1, 1, 1, 0,   0, 1, 2, 3, 4, 0,   0, 1, NET_REJECTED    ' a row of 5 and 1: C0 and C4 both face the viewer
+    LONG    "X",  4,   0, 1, 2, 3, 3, 3,   0, 0, 0, 0, 1, 2,   0, 1, NET_REJECTED    ' an L of 4 and 2: C1 and C5 both fold to -Z
+    ' the reference net with the front opposite the top prints its message, then reports 1 problem
+    LONG    "N", 12,   0, 0, 0, 0, 1, -1,  0, 1, 2, 3, 2, 1,   0, 2, NET_REJECTED    ' front C2 is opposite top C0
+    ' the reference net runs last, so the fold cases below read its tables
+    LONG    "N", 13,   0, 0, 0, 0, 1, -1,  0, 1, 2, 3, 2, 1,   0, 5, NET_FOLDS       ' the reference cube: top C0, front C5
+netCasesEnd
+
+DAT ' ---- group G: on a face, no fold ----
+
+' label, number, face, row, column -> face, row, column, panel position, panel row, panel column
+onFaceCases
+    LONG    "G", 1, hwEnum.FACE_TOP,    1, 2,  hwEnum.FACE_TOP,    1, 2,  1, 6, 5
+    LONG    "G", 2, hwEnum.FACE_BOTTOM, 1, 2,  hwEnum.FACE_BOTTOM, 1, 2,  3, 1, 2
+    LONG    "G", 3, hwEnum.FACE_FRONT,  1, 2,  hwEnum.FACE_FRONT,  1, 2,  0, 5, 1
+    LONG    "G", 4, hwEnum.FACE_BACK,   1, 2,  hwEnum.FACE_BACK,   1, 2,  5, 6, 5
+    LONG    "G", 5, hwEnum.FACE_LEFT,   1, 2,  hwEnum.FACE_LEFT,   1, 2,  2, 5, 1
+    LONG    "G", 6, hwEnum.FACE_RIGHT,  1, 2,  hwEnum.FACE_RIGHT,  1, 2,  4, 2, 6
+    LONG    "G", 7, hwEnum.FACE_FRONT,  0, 0,  hwEnum.FACE_FRONT,  0, 0,  0, 7, 0
+    LONG    "G", 8, hwEnum.FACE_FRONT,  7, 7,  hwEnum.FACE_FRONT,  7, 7,  0, 0, 7
+onFaceCasesEnd
+
+DAT ' ---- group E: all 24 directed edge crossings ----
+
+' label, number, face, row, column -> face, row, column, panel position, panel row, panel column
+edgeCases
+    LONG    "E",  1, hwEnum.FACE_FRONT,  -2,  3,  hwEnum.FACE_TOP,    6, 3,  1, 1, 4     ' FRONT.N
+    LONG    "E",  2, hwEnum.FACE_FRONT,   1, 11,  hwEnum.FACE_RIGHT,  1, 3,  4, 3, 6     ' FRONT.E
+    LONG    "E",  3, hwEnum.FACE_FRONT,  11,  2,  hwEnum.FACE_BOTTOM, 3, 2,  3, 3, 2     ' FRONT.S
+    LONG    "E",  4, hwEnum.FACE_FRONT,   4, -2,  hwEnum.FACE_LEFT,   4, 6,  2, 1, 4     ' FRONT.W
+    LONG    "E",  5, hwEnum.FACE_BACK,   -2,  3,  hwEnum.FACE_TOP,    1, 4,  1, 6, 3     ' BACK.N
+    LONG    "E",  6, hwEnum.FACE_BACK,    1, 11,  hwEnum.FACE_LEFT,   1, 3,  2, 4, 1     ' BACK.E
+    LONG    "E",  7, hwEnum.FACE_BACK,   11,  2,  hwEnum.FACE_BOTTOM, 4, 5,  3, 4, 5     ' BACK.S
+    LONG    "E",  8, hwEnum.FACE_BACK,    4, -2,  hwEnum.FACE_RIGHT,  4, 6,  4, 6, 3     ' BACK.W
+    LONG    "E",  9, hwEnum.FACE_LEFT,   -2,  3,  hwEnum.FACE_TOP,    3, 1,  1, 4, 6     ' LEFT.N
+    LONG    "E", 10, hwEnum.FACE_LEFT,    1, 11,  hwEnum.FACE_FRONT,  1, 3,  0, 4, 1     ' LEFT.E
+    LONG    "E", 11, hwEnum.FACE_LEFT,   11,  2,  hwEnum.FACE_BOTTOM, 5, 3,  3, 5, 3     ' LEFT.S
+    LONG    "E", 12, hwEnum.FACE_LEFT,    4, -2,  hwEnum.FACE_BACK,   4, 6,  5, 3, 1     ' LEFT.W
+    LONG    "E", 13, hwEnum.FACE_RIGHT,  -2,  3,  hwEnum.FACE_TOP,    4, 6,  1, 3, 1     ' RIGHT.N
+    LONG    "E", 14, hwEnum.FACE_RIGHT,   1, 11,  hwEnum.FACE_BACK,   1, 3,  5, 6, 4     ' RIGHT.E
+    LONG    "E", 15, hwEnum.FACE_RIGHT,  11,  2,  hwEnum.FACE_BOTTOM, 2, 4,  3, 2, 4     ' RIGHT.S
+    LONG    "E", 16, hwEnum.FACE_RIGHT,   4, -2,  hwEnum.FACE_FRONT,  4, 6,  0, 1, 4     ' RIGHT.W
+    LONG    "E", 17, hwEnum.FACE_TOP,    -2,  3,  hwEnum.FACE_BACK,   1, 4,  5, 6, 3     ' TOP.N
+    LONG    "E", 18, hwEnum.FACE_TOP,     1, 11,  hwEnum.FACE_RIGHT,  3, 6,  4, 6, 4     ' TOP.E
+    LONG    "E", 19, hwEnum.FACE_TOP,    11,  2,  hwEnum.FACE_FRONT,  3, 2,  0, 5, 3     ' TOP.S
+    LONG    "E", 20, hwEnum.FACE_TOP,     4, -2,  hwEnum.FACE_LEFT,   1, 4,  2, 3, 1     ' TOP.W
+    LONG    "E", 21, hwEnum.FACE_BOTTOM, -2,  3,  hwEnum.FACE_FRONT,  6, 3,  0, 4, 6     ' BOTTOM.N
+    LONG    "E", 22, hwEnum.FACE_BOTTOM,  1, 11,  hwEnum.FACE_RIGHT,  4, 1,  4, 1, 3     ' BOTTOM.E
+    LONG    "E", 23, hwEnum.FACE_BOTTOM, 11,  2,  hwEnum.FACE_BACK,   4, 5,  5, 3, 2     ' BOTTOM.S
+    LONG    "E", 24, hwEnum.FACE_BOTTOM,  4, -2,  hwEnum.FACE_LEFT,   6, 3,  2, 4, 6     ' BOTTOM.W
+edgeCasesEnd
+
+DAT ' ---- group V: the five edges the flat picture shows ----
+
+' label, number, last pixel on a face (face, row, column), first pixel past its edge (face, row, column)
+seamPairs
+    LONG    "V", 1, hwEnum.FACE_FRONT,  5, 0,  hwEnum.FACE_FRONT,  5, -1     ' FRONT-LEFT (C5 over C1)
+    LONG    "V", 2, hwEnum.FACE_TOP,    2, 0,  hwEnum.FACE_TOP,    2, -1     ' TOP-LEFT (C0 beside C1)
+    LONG    "V", 3, hwEnum.FACE_LEFT,   7, 1,  hwEnum.FACE_LEFT,   8, 1      ' LEFT-BOTTOM (C1 beside C2)
+    LONG    "V", 4, hwEnum.FACE_BOTTOM, 6, 7,  hwEnum.FACE_BOTTOM, 6, 8      ' BOTTOM-RIGHT (C2 beside C3)
+    LONG    "V", 5, hwEnum.FACE_BOTTOM, 7, 3,  hwEnum.FACE_BOTTOM, 8, 3      ' BOTTOM-BACK (C2 over C4)
+seamPairsEnd
+
+DAT ' ---- groups A-F: runs over two and three faces, and full rings ----
+
+' label, number, face, row, column -> face, row, column, panel position, panel row, panel column
+runCases
+    LONG    "A", 1, hwEnum.FACE_FRONT,    3,  7,  hwEnum.FACE_FRONT,  3, 7,  0, 0, 3     ' none
+    LONG    "A", 2, hwEnum.FACE_FRONT,    3,  8,  hwEnum.FACE_RIGHT,  3, 0,  4, 0, 4     ' FRONT.E
+    LONG    "A", 3, hwEnum.FACE_FRONT,    3, 15,  hwEnum.FACE_RIGHT,  3, 7,  4, 7, 4     ' FRONT.E
+    LONG    "A", 4, hwEnum.FACE_FRONT,    3, 16,  hwEnum.FACE_BACK,   3, 0,  5, 4, 7     ' FRONT.E, RIGHT.E
+    LONG    "A", 5, hwEnum.FACE_FRONT,    3, 20,  hwEnum.FACE_BACK,   3, 4,  5, 4, 3     ' FRONT.E, RIGHT.E
+    LONG    "B", 1, hwEnum.FACE_FRONT,    0,  4,  hwEnum.FACE_FRONT,  0, 4,  0, 3, 0     ' none
+    LONG    "B", 2, hwEnum.FACE_FRONT,   -1,  4,  hwEnum.FACE_TOP,    7, 4,  1, 0, 3     ' FRONT.N
+    LONG    "B", 3, hwEnum.FACE_FRONT,   -8,  4,  hwEnum.FACE_TOP,    0, 4,  1, 7, 3     ' FRONT.N
+    LONG    "B", 4, hwEnum.FACE_FRONT,   -9,  4,  hwEnum.FACE_BACK,   0, 3,  5, 7, 4     ' FRONT.N, TOP.N
+    LONG    "B", 5, hwEnum.FACE_FRONT,  -12,  4,  hwEnum.FACE_BACK,   3, 3,  5, 4, 4     ' FRONT.N, TOP.N
+    LONG    "C", 1, hwEnum.FACE_LEFT,    -1,  3,  hwEnum.FACE_TOP,    3, 0,  1, 4, 7     ' LEFT.N
+    LONG    "C", 2, hwEnum.FACE_LEFT,    -8,  3,  hwEnum.FACE_TOP,    3, 7,  1, 4, 0     ' LEFT.N
+    LONG    "C", 3, hwEnum.FACE_LEFT,    -9,  3,  hwEnum.FACE_RIGHT,  0, 4,  4, 4, 7     ' LEFT.N, TOP.E
+    LONG    "C", 4, hwEnum.FACE_LEFT,   -10,  3,  hwEnum.FACE_RIGHT,  1, 4,  4, 4, 6     ' LEFT.N, TOP.E
+    LONG    "D", 1, hwEnum.FACE_BOTTOM,   3,  7,  hwEnum.FACE_BOTTOM, 3, 7,  3, 3, 7     ' none
+    LONG    "D", 2, hwEnum.FACE_BOTTOM,   3,  8,  hwEnum.FACE_RIGHT,  7, 3,  4, 3, 0     ' BOTTOM.E
+    LONG    "D", 3, hwEnum.FACE_BOTTOM,   3, 15,  hwEnum.FACE_RIGHT,  0, 3,  4, 3, 7     ' BOTTOM.E
+    LONG    "D", 4, hwEnum.FACE_BOTTOM,   3, 16,  hwEnum.FACE_TOP,    4, 7,  1, 3, 0     ' BOTTOM.E, RIGHT.N
+    LONG    "D", 5, hwEnum.FACE_BOTTOM,   3, 17,  hwEnum.FACE_TOP,    4, 6,  1, 3, 1     ' BOTTOM.E, RIGHT.N
+    LONG    "E", 1, hwEnum.FACE_FRONT,    2, 33,  hwEnum.FACE_FRONT,  2, 1,  0, 6, 2     ' four times east: the ring of sides
+    LONG    "E", 2, hwEnum.FACE_FRONT,    2, -31, hwEnum.FACE_FRONT,  2, 1,  0, 6, 2     ' four times west: the ring of sides
+    LONG    "E", 3, hwEnum.FACE_FRONT,  -30,  5,  hwEnum.FACE_FRONT,  2, 5,  0, 2, 2     ' FRONT.N, TOP.N, BACK.S, BOTTOM.N
+    LONG    "F", 1, hwEnum.FACE_TOP,      2, 13,  hwEnum.FACE_RIGHT,  5, 5,  4, 5, 2     ' TOP.E
+runCasesEnd
+
+DAT ' ---- group K: every corner gap ----
+
+' label, number, face, row, column -> no face, no panel (every coordinate 0)
+gapCases
+    LONG    "K",  1, hwEnum.FACE_FRONT,  -1, -1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' FRONT-TOP-LEFT
+    LONG    "K",  2, hwEnum.FACE_FRONT,  -1,  8,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' FRONT-TOP-RIGHT
+    LONG    "K",  3, hwEnum.FACE_FRONT,   8,  8,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' FRONT-BOTTOM-RIGHT
+    LONG    "K",  4, hwEnum.FACE_FRONT,   8, -1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' FRONT-BOTTOM-LEFT
+    LONG    "K",  5, hwEnum.FACE_BACK,   -1, -1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' BACK-TOP-RIGHT
+    LONG    "K",  6, hwEnum.FACE_BACK,   -1,  8,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' BACK-TOP-LEFT
+    LONG    "K",  7, hwEnum.FACE_BACK,    8,  8,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' BACK-BOTTOM-LEFT
+    LONG    "K",  8, hwEnum.FACE_BACK,    8, -1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' BACK-BOTTOM-RIGHT
+    LONG    "K",  9, hwEnum.FACE_LEFT,   -1, -1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' LEFT-TOP-BACK
+    LONG    "K", 10, hwEnum.FACE_LEFT,   -1,  8,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' LEFT-TOP-FRONT
+    LONG    "K", 11, hwEnum.FACE_LEFT,    8,  8,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' LEFT-BOTTOM-FRONT
+    LONG    "K", 12, hwEnum.FACE_LEFT,    8, -1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' LEFT-BOTTOM-BACK
+    LONG    "K", 13, hwEnum.FACE_RIGHT,  -1, -1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' RIGHT-TOP-FRONT
+    LONG    "K", 14, hwEnum.FACE_RIGHT,  -1,  8,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' RIGHT-TOP-BACK
+    LONG    "K", 15, hwEnum.FACE_RIGHT,   8,  8,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' RIGHT-BOTTOM-BACK
+    LONG    "K", 16, hwEnum.FACE_RIGHT,   8, -1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' RIGHT-BOTTOM-FRONT
+    LONG    "K", 17, hwEnum.FACE_TOP,    -1, -1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' TOP-BACK-LEFT
+    LONG    "K", 18, hwEnum.FACE_TOP,    -1,  8,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' TOP-BACK-RIGHT
+    LONG    "K", 19, hwEnum.FACE_TOP,     8,  8,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' TOP-FRONT-RIGHT
+    LONG    "K", 20, hwEnum.FACE_TOP,     8, -1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' TOP-FRONT-LEFT
+    LONG    "K", 21, hwEnum.FACE_BOTTOM, -1, -1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' BOTTOM-FRONT-LEFT
+    LONG    "K", 22, hwEnum.FACE_BOTTOM, -1,  8,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' BOTTOM-FRONT-RIGHT
+    LONG    "K", 23, hwEnum.FACE_BOTTOM,  8,  8,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' BOTTOM-BACK-RIGHT
+    LONG    "K", 24, hwEnum.FACE_BOTTOM,  8, -1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' BOTTOM-BACK-LEFT
+    LONG    "K", 25, hwEnum.FACE_FRONT, -20, -3,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' deep in the FRONT-TOP-LEFT gap
+gapCasesEnd
+
+DAT ' ---- group c, j: a circle of radius 3 centred on the corner pixel FRONT (0,0) ----
+
+' label, number, face, row, column -> face, row, column, panel position, panel row, panel column
+' The 16 points of the existing Bresenham circle (drawCircleOfColor) about FRONT (0,0).
+circleCases
+    LONG    "c",  1, hwEnum.FACE_FRONT,  3,  0,  hwEnum.FACE_FRONT, 3, 0,  0, 7, 3     ' the FRONT arc
+    LONG    "c",  2, hwEnum.FACE_FRONT,  0,  3,  hwEnum.FACE_FRONT, 0, 3,  0, 4, 0
+    LONG    "c",  3, hwEnum.FACE_FRONT,  3,  1,  hwEnum.FACE_FRONT, 3, 1,  0, 6, 3
+    LONG    "c",  4, hwEnum.FACE_FRONT,  1,  3,  hwEnum.FACE_FRONT, 1, 3,  0, 4, 1
+    LONG    "c",  5, hwEnum.FACE_FRONT,  2,  2,  hwEnum.FACE_FRONT, 2, 2,  0, 5, 2
+    LONG    "c",  6, hwEnum.FACE_FRONT, -3,  0,  hwEnum.FACE_TOP,   5, 0,  1, 2, 7     ' the TOP arc
+    LONG    "c",  7, hwEnum.FACE_FRONT, -3,  1,  hwEnum.FACE_TOP,   5, 1,  1, 2, 6
+    LONG    "c",  8, hwEnum.FACE_FRONT, -1,  3,  hwEnum.FACE_TOP,   7, 3,  1, 0, 4
+    LONG    "c",  9, hwEnum.FACE_FRONT, -2,  2,  hwEnum.FACE_TOP,   6, 2,  1, 1, 5
+    LONG    "c", 10, hwEnum.FACE_FRONT,  0, -3,  hwEnum.FACE_LEFT,  0, 5,  2, 2, 0     ' the LEFT arc
+    LONG    "c", 11, hwEnum.FACE_FRONT,  3, -1,  hwEnum.FACE_LEFT,  3, 7,  2, 0, 3
+    LONG    "c", 12, hwEnum.FACE_FRONT,  1, -3,  hwEnum.FACE_LEFT,  1, 5,  2, 2, 1
+    LONG    "c", 13, hwEnum.FACE_FRONT,  2, -2,  hwEnum.FACE_LEFT,  2, 6,  2, 1, 2
+    LONG    "c", 14, hwEnum.FACE_FRONT, -3, -1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' the corner gap
+    LONG    "c", 15, hwEnum.FACE_FRONT, -1, -3,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0
+    LONG    "c", 16, hwEnum.FACE_FRONT, -2, -2,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0
+' The joins: one step past one arc's end lands exactly on the other arc's end, at each edge.
+    LONG    "j",  1, hwEnum.FACE_TOP,    8,  3,  hwEnum.FACE_FRONT, 0, 3,  0, 4, 0     ' FRONT-TOP: lands on c2 (TOP (7,3) is c8)
+    LONG    "j",  2, hwEnum.FACE_LEFT,   3,  8,  hwEnum.FACE_FRONT, 3, 0,  0, 7, 3     ' FRONT-LEFT: lands on c1 (LEFT (3,7) is c11)
+    LONG    "j",  3, hwEnum.FACE_TOP,    5, -1,  hwEnum.FACE_LEFT,  0, 5,  2, 2, 0     ' TOP-LEFT: lands on c10 (TOP (5,0) is c6)
+circleCasesEnd
+
+DAT ' ---- group h: an object's home, which places the seam ----
+
+' label, number, face, centre row, centre column -> home face, turn, add row, add column
+homeCases
+    LONG    "h", 1, hwEnum.FACE_FRONT,   3,  4,  hwEnum.FACE_FRONT, 0,  0,   0     ' on the face
+    LONG    "h", 2, hwEnum.FACE_FRONT,  -2,  3,  hwEnum.FACE_TOP,   0,  8,   0     ' FRONT.N
+    LONG    "h", 3, hwEnum.FACE_TOP,     4, -2,  hwEnum.FACE_LEFT,  3, -1,   0     ' TOP.W
+    LONG    "h", 4, hwEnum.FACE_FRONT,   3, 18,  hwEnum.FACE_BACK,  0,  0, -16     ' FRONT.E, then RIGHT.E
+    LONG    "h", 5, hwEnum.FACE_FRONT,  -3, -1,  hwEnum.FACE_TOP,   0,  8,   0     ' gap: the column overshoots less, so it is held; FRONT.N
+    LONG    "h", 6, hwEnum.FACE_FRONT,  -2, -2,  hwEnum.FACE_TOP,   0,  8,   0     ' gap, a tie: the column is held; FRONT.N
+    LONG    "h", 7, hwEnum.FACE_FRONT,  -1, -3,  hwEnum.FACE_LEFT,  0,  0,   8     ' gap: the row overshoots less, so it is held; FRONT.W
+    LONG    "h", 8, hwEnum.FACE_LEFT,  -10,  3,  hwEnum.FACE_RIGHT, 2, -9,   7     ' LEFT.N, then TOP.E
+    LONG    "h", 9, hwEnum.FACE_FRONT,   0,  0,  hwEnum.FACE_FRONT, 0,  0,   0     ' the corner circle's home
+homeCasesEnd
+
+DAT ' ---- group I: faces that are not cube faces ----
+
+' label, number, face, row, column -> no face, no panel (every coordinate 0)
+invalidFaceCases
+    LONG    "I", 1, hwEnum.FACE_TOP - 1,   1, 1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0
+    LONG    "I", 2, hwEnum.FACE_RIGHT + 1, 1, 1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0
+invalidFaceCasesEnd
+
+VAR
+
+    LONG    caseCount                                             ' cases run so far
+    LONG    passCount                                             ' cases that passed
+    LONG    failCount                                             ' cases that failed
+    LONG    textLen                                               ' characters written to the line so far
+    BYTE    lineText[LINE_BYTES]                                  ' one printed line
+
+PUB main()
+'' Fold the reference net, run every case, print one PASS or FAIL line per case, then the
+'' total and END_SESSION, then hold.
+''
+
+  debug("CUBE FOLD SELF-TEST: reference cube, face size ", udec_(FACE_SIZE), ", folded into chain index ", udec_(TEST_CHAIN))
+  caseCount := passCount := failCount := 0
+
+  runNetCases(@netCases, @netCasesEnd)
+  runFoldCases(@onFaceCases, @onFaceCasesEnd)
+  runFoldCases(@edgeCases, @edgeCasesEnd)
+  runPairCases(@seamPairs, @seamPairsEnd)
+  runFoldCases(@runCases, @runCasesEnd)
+  runFoldCases(@gapCases, @gapCasesEnd)
+  runFoldCases(@circleCases, @circleCasesEnd)
+  runHomeCases(@homeCases, @homeCasesEnd)
+  runFoldCases(@invalidFaceCases, @invalidFaceCasesEnd)
+
+  debug("CUBE FOLD SELF-TEST: ", udec_(caseCount), " cases, ", udec_(passCount), " PASS, ", udec_(failCount), " FAIL")
+  debug("END_SESSION")
+
+  repeat                                                        ' hold
+
+PRI runNetCases(pFirst, pEnd) | pCase, mistakeCount, bPass
+' Fold each net of group N and compare the problems foldNet() reports with the expected count.
+'
+' @param pFirst - address of the first net case
+' @param pEnd - address just past the last net case
+
+' Local Variables:
+' @local pCase - address of the case being run
+' @local mistakeCount - problems foldNet() reported
+' @local bPass - TRUE when the case passed
+
+  pCase := pFirst
+  repeat while pCase < pEnd
+    mistakeCount := hub75Bffrs.foldNet(TEST_CHAIN, @LONG[pCase][NET_ROWS], @LONG[pCase][NET_COLUMNS], @refCablePositions, LONG[pCase][NET_TOP], LONG[pCase][NET_FRONT], FACE_SIZE)
+    bPass := mistakeCount == LONG[pCase][NET_EXPECTED]
+    startLine(bPass, LONG[pCase][NET_LABEL], LONG[pCase][NET_NUMBER])
+    addText(@"top C")
+    addNumber(LONG[pCase][NET_TOP])
+    addText(@", front C")
+    addNumber(LONG[pCase][NET_FRONT])
+    addText(@" -> ")
+    addNumber(mistakeCount)
+    addText(@" problem(s)")
+    if bPass == FALSE
+      addText(@" expected ")
+      addNumber(LONG[pCase][NET_EXPECTED])
+    finishLine(bPass)
+    pCase += NET_CASE_LONGS * BYTES_PER_LONG
+
+PRI runFoldCases(pFirst, pEnd) | pCase, eFace, faceRow, faceColumn, panelPosn, panelRow, panelColumn, displayRow, displayColumn, expDisplayRow, expDisplayColumn, bPass
+' Push each case's face coordinates through the fold and compare where they land (face, face
+' coordinates, panel position, panel coordinates, display coordinates) with the hand answer.
+'
+' @param pFirst - address of the first fold case
+' @param pEnd - address just past the last fold case
+
+' Local Variables:
+' @local pCase - address of the case being run
+' @local eFace - the face the pixel landed on
+' @local faceRow - the pixel's row on that face
+' @local faceColumn - the pixel's column on that face
+' @local panelPosn - the panel position the pixel landed on
+' @local panelRow - the pixel's row on that panel
+' @local panelColumn - the pixel's column on that panel
+' @local displayRow - the pixel's display row
+' @local displayColumn - the pixel's display column
+' @local expDisplayRow - the expected display row (from the hand table of panel origins)
+' @local expDisplayColumn - the expected display column
+' @local bPass - TRUE when the case passed
+
+  pCase := pFirst
+  repeat while pCase < pEnd
+    eFace, faceRow, faceColumn := hub75Bffrs.foldFacePixel(TEST_CHAIN, LONG[pCase][FOLD_FACE], LONG[pCase][FOLD_ROW], LONG[pCase][FOLD_COL])
+    panelPosn, panelRow, panelColumn, displayRow, displayColumn := hub75Bffrs.facePixelToPanel(TEST_CHAIN, LONG[pCase][FOLD_FACE], LONG[pCase][FOLD_ROW], LONG[pCase][FOLD_COL])
+    expDisplayRow, expDisplayColumn := expectedDisplay(LONG[pCase][FOLD_EXP_PANEL], LONG[pCase][FOLD_EXP_PANEL_ROW], LONG[pCase][FOLD_EXP_PANEL_COL])
+    bPass := (eFace == LONG[pCase][FOLD_EXP_FACE]) and (faceRow == LONG[pCase][FOLD_EXP_ROW]) and (faceColumn == LONG[pCase][FOLD_EXP_COL])
+    bPass := bPass and (panelPosn == LONG[pCase][FOLD_EXP_PANEL]) and (panelRow == LONG[pCase][FOLD_EXP_PANEL_ROW]) and (panelColumn == LONG[pCase][FOLD_EXP_PANEL_COL])
+    bPass := bPass and (displayRow == expDisplayRow) and (displayColumn == expDisplayColumn)
+    startLine(bPass, LONG[pCase][FOLD_LABEL], LONG[pCase][FOLD_NUMBER])
+    addFaceAt(LONG[pCase][FOLD_FACE], LONG[pCase][FOLD_ROW], LONG[pCase][FOLD_COL])
+    addText(@" -> ")
+    addLanding(eFace, faceRow, faceColumn, panelPosn, panelRow, panelColumn, displayRow, displayColumn)
+    if bPass == FALSE
+      addText(@" expected ")
+      addLanding(LONG[pCase][FOLD_EXP_FACE], LONG[pCase][FOLD_EXP_ROW], LONG[pCase][FOLD_EXP_COL], LONG[pCase][FOLD_EXP_PANEL], LONG[pCase][FOLD_EXP_PANEL_ROW], LONG[pCase][FOLD_EXP_PANEL_COL], expDisplayRow, expDisplayColumn)
+    finishLine(bPass)
+    pCase += FOLD_CASE_LONGS * BYTES_PER_LONG
+
+PRI runPairCases(pFirst, pEnd) | pCase, panelA, rowA, columnA, panelB, rowB, columnB, bPass
+' For each edge the flat picture shows, check that the last pixel on a face and the first one
+' past its edge are neighbours on the display. This checks the up conventions against the
+' wiring itself, independently of any hand-computed value.
+'
+' @param pFirst - address of the first seam pair
+' @param pEnd - address just past the last seam pair
+
+' Local Variables:
+' @local pCase - address of the case being run
+' @local panelA - panel position the last pixel on the face lands on
+' @local rowA - its display row
+' @local columnA - its display column
+' @local panelB - panel position the first pixel past the edge lands on
+' @local rowB - its display row
+' @local columnB - its display column
+' @local bPass - TRUE when the case passed
+
+  pCase := pFirst
+  repeat while pCase < pEnd
+    panelA, _, _, rowA, columnA := hub75Bffrs.facePixelToPanel(TEST_CHAIN, LONG[pCase][PAIR_FACE_A], LONG[pCase][PAIR_ROW_A], LONG[pCase][PAIR_COL_A])
+    panelB, _, _, rowB, columnB := hub75Bffrs.facePixelToPanel(TEST_CHAIN, LONG[pCase][PAIR_FACE_B], LONG[pCase][PAIR_ROW_B], LONG[pCase][PAIR_COL_B])
+    bPass := (panelA <> hub75Bffrs.NO_PANEL_POSITION) and (panelB <> hub75Bffrs.NO_PANEL_POSITION)
+    bPass := bPass and (abs(rowA - rowB) + abs(columnA - columnB) == DISPLAY_NEIGHBOURS)
+    startLine(bPass, LONG[pCase][PAIR_LABEL], LONG[pCase][PAIR_NUMBER])
+    addFaceAt(LONG[pCase][PAIR_FACE_A], LONG[pCase][PAIR_ROW_A], LONG[pCase][PAIR_COL_A])
+    addText(@" d")
+    addPoint(rowA, columnA)
+    addText(@" | ")
+    addFaceAt(LONG[pCase][PAIR_FACE_B], LONG[pCase][PAIR_ROW_B], LONG[pCase][PAIR_COL_B])
+    addText(@" d")
+    addPoint(rowB, columnB)
+    if bPass == TRUE
+      addText(@": display neighbours")
+    else
+      addText(@": NOT display neighbours")
+    finishLine(bPass)
+    pCase += PAIR_CASE_LONGS * BYTES_PER_LONG
+
+PRI runHomeCases(pFirst, pEnd) | pCase, eHomeFace, homeTurn, homeAddRow, homeAddColumn, bPass
+' Find each object centre's home and compare the home face and transform with the hand answer.
+'
+' @param pFirst - address of the first home case
+' @param pEnd - address just past the last home case
+
+' Local Variables:
+' @local pCase - address of the case being run
+' @local eHomeFace - the face that holds the centre
+' @local homeTurn - quarter turns into the home frame
+' @local homeAddRow - row added after the turn
+' @local homeAddColumn - column added after the turn
+' @local bPass - TRUE when the case passed
+
+  pCase := pFirst
+  repeat while pCase < pEnd
+    eHomeFace, homeTurn, homeAddRow, homeAddColumn := hub75Bffrs.homeOnFace(TEST_CHAIN, LONG[pCase][HOME_FACE], LONG[pCase][HOME_ROW], LONG[pCase][HOME_COL])
+    bPass := (eHomeFace == LONG[pCase][HOME_EXP_FACE]) and (homeTurn == LONG[pCase][HOME_EXP_TURN])
+    bPass := bPass and (homeAddRow == LONG[pCase][HOME_EXP_ADD_ROW]) and (homeAddColumn == LONG[pCase][HOME_EXP_ADD_COL])
+    startLine(bPass, LONG[pCase][HOME_LABEL], LONG[pCase][HOME_NUMBER])
+    addFaceAt(LONG[pCase][HOME_FACE], LONG[pCase][HOME_ROW], LONG[pCase][HOME_COL])
+    addText(@" -> ")
+    addHome(eHomeFace, homeTurn, homeAddRow, homeAddColumn)
+    if bPass == FALSE
+      addText(@" expected ")
+      addHome(LONG[pCase][HOME_EXP_FACE], LONG[pCase][HOME_EXP_TURN], LONG[pCase][HOME_EXP_ADD_ROW], LONG[pCase][HOME_EXP_ADD_COL])
+    finishLine(bPass)
+    pCase += HOME_CASE_LONGS * BYTES_PER_LONG
+
+PRI expectedDisplay(panelPosn, panelRow, panelColumn) : displayRow, displayColumn
+' Return the display coordinates of panel coordinates, from the hand table of panel origins.
+'
+' @param panelPosn - panel position (P0 .. P5), or NO_PANEL_POSITION
+' @param panelRow - row on that panel
+' @param panelColumn - column on that panel
+' @returns displayRow - display row, or 0 when there is no panel
+' @returns displayColumn - display column, or 0 when there is no panel
+
+  displayRow := displayColumn := 0
+  if panelPosn <> hub75Bffrs.NO_PANEL_POSITION
+    displayRow := panelRow + panelOriginRows[panelPosn]
+    displayColumn := panelColumn + panelOriginColumns[panelPosn]
+
+PRI startLine(bPass, labelChar, labelNumber)
+' Start one result line: PASS or FAIL, the case number, and the case's label.
+'
+' @param bPass - TRUE when the case passed
+' @param labelChar - the label's letter
+' @param labelNumber - the label's number
+
+  caseCount++
+  textLen := 0
+  if bPass == TRUE
+    addText(@"PASS ")
+  else
+    addText(@"FAIL ")
+  addNumber(caseCount)
+  addText(@" ")
+  lineText[textLen++] := labelChar
+  addNumber(labelNumber)
+  addText(@": ")
+
+PRI finishLine(bPass)
+' Print the result line and count the case.
+'
+' @param bPass - TRUE when the case passed
+
+  lineText[textLen] := 0
+  debug(zstr_(@lineText))
+  if bPass == TRUE
+    passCount++
+  else
+    failCount++
+
+PRI addLanding(eFace, faceRow, faceColumn, panelPosn, panelRow, panelColumn, displayRow, displayColumn)
+' Append where a pixel landed: "TOP (6,3) P1 (1,4) d(9,4)".
+'
+' @param eFace - the face (hwEnum.FACE_*), or NO_FACE
+' @param faceRow - row on that face
+' @param faceColumn - column on that face
+' @param panelPosn - the panel position, or NO_PANEL_POSITION
+' @param panelRow - row on that panel
+' @param panelColumn - column on that panel
+' @param displayRow - display row
+' @param displayColumn - display column
+
+  addFaceAt(eFace, faceRow, faceColumn)
+  addText(@" P")
+  if panelPosn == hub75Bffrs.NO_PANEL_POSITION
+    addText(@"-")
+  else
+    addNumber(panelPosn)
+  addText(@" ")
+  addPoint(panelRow, panelColumn)
+  addText(@" d")
+  addPoint(displayRow, displayColumn)
+
+PRI addHome(eHomeFace, homeTurn, homeAddRow, homeAddColumn)
+' Append an object's home: "TOP turn 0 add (8,0)".
+'
+' @param eHomeFace - the home face (hwEnum.FACE_*), or NO_FACE
+' @param homeTurn - quarter turns into the home frame
+' @param homeAddRow - row added after the turn
+' @param homeAddColumn - column added after the turn
+
+  addText(faceText(eHomeFace))
+  addText(@" turn ")
+  addNumber(homeTurn)
+  addText(@" add ")
+  addPoint(homeAddRow, homeAddColumn)
+
+PRI addFaceAt(eFace, row, column)
+' Append a face and coordinates on it: "FRONT (-2,3)".
+'
+' @param eFace - the face (hwEnum.FACE_*), or NO_FACE
+' @param row - row on that face
+' @param column - column on that face
+
+  addText(faceText(eFace))
+  addText(@" ")
+  addPoint(row, column)
+
+PRI addPoint(row, column)
+' Append coordinates: "(row,column)".
+'
+' @param row - the row
+' @param column - the column
+
+  addText(@"(")
+  addNumber(row)
+  addText(@",")
+  addNumber(column)
+  addText(@")")
+
+PRI addText(pText)
+' Append a zero-terminated string to the line.
+'
+' @param pText - pointer to the zero-terminated string
+
+  repeat while BYTE[pText] <> 0
+    lineText[textLen++] := BYTE[pText++]
+
+PRI addNumber(value) | divisor
+' Append a signed decimal number to the line.
+'
+' @param value - the number
+
+' Local Variables:
+' @local divisor - the place value of the digit being written
+
+  if value < 0
+    lineText[textLen++] := "-"
+    value := -value
+  divisor := ONES_PLACE
+  repeat while value / divisor >= DECIMAL_BASE
+    divisor *= DECIMAL_BASE
+  repeat while divisor >= ONES_PLACE
+    lineText[textLen++] := "0" + (value / divisor) // DECIMAL_BASE
+    divisor /= DECIMAL_BASE
+
+PRI faceText(eFace) : pName
+' Return the name of a face.
+'
+' @param eFace - the face (hwEnum.FACE_*), NO_FACE, or any other value
+' @returns pName - pointer to the zero-terminated name
+
+  case eFace
+    hwEnum.FACE_TOP:
+      pName := @"TOP"
+    hwEnum.FACE_BOTTOM:
+      pName := @"BOTTOM"
+    hwEnum.FACE_FRONT:
+      pName := @"FRONT"
+    hwEnum.FACE_BACK:
+      pName := @"BACK"
+    hwEnum.FACE_LEFT:
+      pName := @"LEFT"
+    hwEnum.FACE_RIGHT:
+      pName := @"RIGHT"
+    hub75Bffrs.NO_FACE:
+      pName := @"NO_FACE"
+    other:
+      pName := @"NOT_A_FACE"
+
+CON { license }
+
+{{
+
+ -------------------------------------------------------------------------------------------------
+  MIT License
+
+  Copyright (c) 2024 Iron Sheep Productions, LLC
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+ =================================================================================================
+
+}}

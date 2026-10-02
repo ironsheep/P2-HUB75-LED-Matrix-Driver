@@ -124,17 +124,28 @@ CON ' Hardware Interface Constants
     PNL_FIRST = 1       ' First panel in chain (alias for 1, improves readability)
     ' Remaining panels use values 2, 3, 4, ... in chain order
 
-'  (9) Cube face identification (for 6-panel cube configurations):
+'  (9) Cube faces (a display with DISPn_SHAPE = SHAPE_CUBE):
 '
-'  Specify cube orientation with three values: TOP, FRONT, and LEFT wire positions.
-'  The driver derives BOTTOM, BACK, and RIGHT from geometry.
+'  Six square panels, wired as one of the 11 cube nets, form a cube. DISPn_CUBE_TOP
+'  and DISPn_CUBE_FRONT name the cable positions of the top face and the front face;
+'  the front face shares an edge with the top face. At startup the driver folds the
+'  net and derives the other four faces from those two.
 '  Cube face identifiers:
-'   FACE_TOP    - top face of the cube
-'   FACE_BOTTOM - bottom face of the cube
-'   FACE_FRONT  - front face of the cube
-'   FACE_BACK   - back face of the cube
-'   FACE_LEFT   - left face of the cube
-'   FACE_RIGHT  - right face of the cube
+'   FACE_TOP    - the face at DISPn_CUBE_TOP
+'   FACE_BOTTOM - the face opposite the top
+'   FACE_FRONT  - the face at DISPn_CUBE_FRONT
+'   FACE_BACK   - the face opposite the front
+'   FACE_LEFT   - the face on the viewer's left, standing at the front
+'   FACE_RIGHT  - the face on the viewer's right, standing at the front
+'
+'  Face coordinates (face, row, column): every face is seen from outside the cube,
+'  row 0 is the face's up edge and column 0 its left edge.
+'  STABLE -- the image-mapping sprint depends on these up directions:
+'   FRONT, BACK, LEFT, RIGHT - up points toward TOP
+'   TOP                      - up points toward BACK, so that standing at FRONT, text on TOP reads correctly
+'   BOTTOM                   - up points toward FRONT
+'  The 12 edges: FRONT-TOP, FRONT-RIGHT, FRONT-BOTTOM, FRONT-LEFT, BACK-TOP, BACK-LEFT,
+'  BACK-BOTTOM, BACK-RIGHT, LEFT-TOP, LEFT-BOTTOM, RIGHT-TOP and RIGHT-BOTTOM.
 #$50, FACE_TOP, FACE_BOTTOM, FACE_FRONT, FACE_BACK, FACE_LEFT, FACE_RIGHT
 
 ' Cube image unwrap patterns: how 2D images map onto cube faces

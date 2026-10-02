@@ -53,6 +53,21 @@ CON ' Object Interface: PUBLIC ENUMs
     '  ALIGN_LEFT    - align text to the left edge
     #0, ALIGN_UNKNOWN, ALIGN_RIGHT, ALIGN_CENTER, ALIGN_LEFT
 
+    ' cube faces, for face-centric drawing on a display with DISPn_SHAPE = SHAPE_CUBE
+    ' (forwarded from hwEnum; face coordinates and each face's up are described there):
+    '  FACE_TOP    - the face at DISPn_CUBE_TOP
+    '  FACE_BOTTOM - the face opposite the top
+    '  FACE_FRONT  - the face at DISPn_CUBE_FRONT
+    '  FACE_BACK   - the face opposite the front
+    '  FACE_LEFT   - the face on the viewer's left, standing at the front
+    '  FACE_RIGHT  - the face on the viewer's right, standing at the front
+    FACE_TOP                  = hwEnum.FACE_TOP
+    FACE_BOTTOM               = hwEnum.FACE_BOTTOM
+    FACE_FRONT                = hwEnum.FACE_FRONT
+    FACE_BACK                 = hwEnum.FACE_BACK
+    FACE_LEFT                 = hwEnum.FACE_LEFT
+    FACE_RIGHT                = hwEnum.FACE_RIGHT
+
 CON ' Object Interface: PRIVATE ENUMs
 
     NOT_FOUND                 = -1
@@ -125,9 +140,15 @@ CON ' PRIVATE Constants
 
     MIN_PANEL_COUNT       = 1                 ' fewest panels a span may cover
 
-    ' drawing-core clip selector: draw on the whole display (display-centric), rather than
-    ' only on one panel position (panel-centric, clipped); panel positions are 0 or more
-    WHOLE_DISPLAY         = -1
+    ' drawing-core mode: what the coordinates are, and what happens at an edge
+    '  DRAW_WHOLE_DISPLAY - display coordinates (display-centric); end points held to the display
+    '  DRAW_CLIP_TO_PANEL - display coordinates; only the target panel position's pixels are drawn (panel-centric: clip)
+    '  DRAW_FOLD_ON_FACE  - face coordinates on the target face; each pixel folds across the cube's edges (face-centric: fold)
+    #0, DRAW_WHOLE_DISPLAY, DRAW_CLIP_TO_PANEL, DRAW_FOLD_ON_FACE
+    DRAW_NO_TARGET        = 0                 ' the target of DRAW_WHOLE_DISPLAY, which has none
+
+    ' integer midpoint of two coordinates: (a + b) SAR this, which floors
+    MIDPOINT_SHIFT        = 1
 
     ' dithered-font pixel codec (LOCAL to this file; mirrors scrollingText's vocabulary)
     DITH_BITS_PER_PIX     = 2                 ' 2 bits per pixel in dithered font word
@@ -884,12 +905,12 @@ PUB drawPanelBoxOfColor(panelIndex, topRow, leftColumn, width, height, filled, r
   rightColumn += offsetPixelColumns
   if filled == TRUE
     repeat rowIndex from 0 to height - 1
-      drawLineInternal(topRow + rowIndex, leftColumn, topRow + rowIndex, rightColumn, rgbColor, panelPosn)    ' horiz row
+      drawLineInternal(topRow + rowIndex, leftColumn, topRow + rowIndex, rightColumn, rgbColor, DRAW_CLIP_TO_PANEL, panelPosn)    ' horiz row
   else
-    drawLineInternal(topRow, leftColumn, topRow, rightColumn, rgbColor, panelPosn)          ' horiz top
-    drawLineInternal(topRow, rightColumn, bottomRow, rightColumn, rgbColor, panelPosn)      ' vert right
-    drawLineInternal(bottomRow, leftColumn, bottomRow, rightColumn, rgbColor, panelPosn)    ' horiz bottom
-    drawLineInternal(topRow, leftColumn, bottomRow, leftColumn, rgbColor, panelPosn)        ' vert left
+    drawLineInternal(topRow, leftColumn, topRow, rightColumn, rgbColor, DRAW_CLIP_TO_PANEL, panelPosn)          ' horiz top
+    drawLineInternal(topRow, rightColumn, bottomRow, rightColumn, rgbColor, DRAW_CLIP_TO_PANEL, panelPosn)      ' vert right
+    drawLineInternal(bottomRow, leftColumn, bottomRow, rightColumn, rgbColor, DRAW_CLIP_TO_PANEL, panelPosn)    ' horiz bottom
+    drawLineInternal(topRow, leftColumn, bottomRow, leftColumn, rgbColor, DRAW_CLIP_TO_PANEL, panelPosn)        ' vert left
 
 PUB drawLine(fmRow, fmColumn, toRow, toColumn)
 '' Draw a line from one position to another using the current text color.
@@ -911,7 +932,7 @@ PUB drawLineOfColor(fmRow, fmColumn, toRow, toColumn, rgbColor)
 '' @param toColumn - ending pixel column
 '' @param rgbColor - 24-bit RGB color value
 
-  drawLineInternal(fmRow, fmColumn, toRow, toColumn, rgbColor, WHOLE_DISPLAY)
+  drawLineInternal(fmRow, fmColumn, toRow, toColumn, rgbColor, DRAW_WHOLE_DISPLAY, DRAW_NO_TARGET)
 
 PUB drawPanelLine(panelIndex, fmRow, fmColumn, toRow, toColumn)
 '' Draw a line on the specified panel from one position to another using the current text color.
@@ -945,7 +966,50 @@ PUB drawPanelLineOfColor(panelIndex, fmRow, fmColumn, toRow, toColumn, rgbColor)
   desiredPanelIndex :=  0 #> panelIndex <# maxPanels - 1
   offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, desiredPanelIndex)
   ' panel coordinates + the panel's display offset = display coordinates, clipped to the panel
-  drawLineInternal(fmRow + offsetPixelRows, fmColumn + offsetPixelColumns, toRow + offsetPixelRows, toColumn + offsetPixelColumns, rgbColor, desiredPanelIndex)
+  drawLineInternal(fmRow + offsetPixelRows, fmColumn + offsetPixelColumns, toRow + offsetPixelRows, toColumn + offsetPixelColumns, rgbColor, DRAW_CLIP_TO_PANEL, desiredPanelIndex)
+
+PUB drawFaceLine(eFace, fmRow, fmColumn, toRow, toColumn)
+'' Draw a line on a face of the cube from one position to another using the current text color.
+''
+'' @param eFace - the face the coordinates are on (FACE_TOP, FACE_BOTTOM, FACE_FRONT, FACE_BACK, FACE_LEFT or FACE_RIGHT)
+'' @param fmRow - starting pixel row on the face (may run past the face's edges)
+'' @param fmColumn - starting pixel column on the face (may run past the face's edges)
+'' @param toRow - ending pixel row on the face (may run past the face's edges)
+'' @param toColumn - ending pixel column on the face (may run past the face's edges)
+
+  drawFaceLineOfColor(eFace, fmRow, fmColumn, toRow, toColumn, currTextColor)
+
+PUB drawFaceLineOfColor(eFace, fmRow, fmColumn, toRow, toColumn, rgbColor) | eHomeFace, homeTurn, homeAddRow, homeAddColumn
+'' Draw line fromRC -> toRC using rgbColor on a face of the cube (DISPn_SHAPE = SHAPE_CUBE).
+'' Uses face coordinates: every face is seen from outside the cube, row 0 at the face's up edge
+'' and column 0 at its left edge. The part of the line past the face's edges is not clipped: it
+'' folds onto the neighbouring faces, across as many edges as it crosses. The line is drawn in
+'' the frame of the face that holds its midpoint, so the seam at a corner it straddles falls on
+'' that corner's edge farthest from the midpoint; any part in a corner gap (where a cube corner
+'' has no surface) is not drawn. On a display that is not a cube, nothing is drawn.
+''
+'' @param eFace - the face the coordinates are on (FACE_TOP, FACE_BOTTOM, FACE_FRONT, FACE_BACK, FACE_LEFT or FACE_RIGHT)
+'' @param fmRow - starting pixel row on the face
+'' @param fmColumn - starting pixel column on the face
+'' @param toRow - ending pixel row on the face
+'' @param toColumn - ending pixel column on the face
+'' @param rgbColor - 24-bit RGB color value
+
+' Local Variables:
+' @local eHomeFace - the face that holds the line's midpoint
+' @local homeTurn - clockwise quarter turns from eFace's frame to the home face's frame
+' @local homeAddRow - row added after the turn
+' @local homeAddColumn - column added after the turn
+
+  if hub75Bffrs.displayShape(chainIndex) <> hwEnum.SHAPE_CUBE
+    DEBUG("* Warning: face-centric drawing needs DISP", udec_(chainIndex), "_SHAPE = SHAPE_CUBE")
+  else
+    eHomeFace, homeTurn, homeAddRow, homeAddColumn := hub75Bffrs.homeOnFace(chainIndex, eFace, (fmRow + toRow) SAR MIDPOINT_SHIFT, (fmColumn + toColumn) SAR MIDPOINT_SHIFT)
+    if eHomeFace <> hub75Bffrs.NO_FACE
+      ' the line's ends in the home face's frame; each pixel then folds from there
+      fmRow, fmColumn := hub75Bffrs.turnFaceCoords(homeTurn, homeAddRow, homeAddColumn, fmRow, fmColumn)
+      toRow, toColumn := hub75Bffrs.turnFaceCoords(homeTurn, homeAddRow, homeAddColumn, toRow, toColumn)
+      drawLineInternal(fmRow, fmColumn, toRow, toColumn, rgbColor, DRAW_FOLD_ON_FACE, eHomeFace)
 
 PUB drawCircle(row, column, radius)
 '' Draw circle centered at R,C of radius using current text color
@@ -1095,21 +1159,23 @@ PRI fillPanelPixels(panelIndex, rgbColor) : offsetPixelRows, offsetPixelColumns 
   layoutTopRow, layoutLeftColumn, layoutRows, layoutColumns := hub75Bffrs.layoutAreaOfPanel(chainIndex, panelIndex)
   pixels.fillLayoutArea(chainIndex, layoutTopRow, layoutLeftColumn, layoutRows, layoutColumns, rgbColor)
 
-PRI drawLineInternal(fmRow, fmColumn, toRow, toColumn, rgbColor, clipPanel) | row, column
-' Internal line drawing, in display coordinates as mounted, for display-centric and panel-centric lines
+PRI drawLineInternal(fmRow, fmColumn, toRow, toColumn, rgbColor, eDrawMode, drawTarget) | row, column
+' Internal line drawing for display-centric, panel-centric and face-centric lines: the one line
+' primitive, told whether its pixels clip or fold
 '
 ' @param fmRow - starting pixel row
 ' @param fmColumn - starting pixel column
 ' @param toRow - ending pixel row
 ' @param toColumn - ending pixel column
 ' @param rgbColor - 24-bit RGB color value
-' @param clipPanel - WHOLE_DISPLAY for a display-centric line (end points held to the display), or the panel position whose pixels alone are drawn (panel-centric: the rest is clipped)
+' @param eDrawMode - DRAW_WHOLE_DISPLAY (display coordinates, end points held to the display), DRAW_CLIP_TO_PANEL (display coordinates, clipped to one panel) or DRAW_FOLD_ON_FACE (face coordinates, folded across the cube's edges)
+' @param drawTarget - DRAW_NO_TARGET, the panel position whose pixels alone are drawn, or the face (FACE_*) the coordinates are on
 
 ' Local Variables:
 ' @local row - pixel row loop index
 ' @local column - pixel column loop index
 
-    if clipPanel == WHOLE_DISPLAY
+    if eDrawMode == DRAW_WHOLE_DISPLAY
         fmRow :=  0 #> fmRow <# maxDisplayRows - 1
         fmColumn :=  0 #> fmColumn <# maxDisplayColumns - 1
         toRow :=  0 #> toRow <# maxDisplayRows - 1
@@ -1118,25 +1184,25 @@ PRI drawLineInternal(fmRow, fmColumn, toRow, toColumn, rgbColor, clipPanel) | ro
     if fmRow == toRow
         ' draw Horizontal Line
         repeat column from fmColumn to toColumn
-            drawPixelInternal(fmRow, column, rgbColor, clipPanel)
+            drawPixelInternal(fmRow, column, rgbColor, eDrawMode, drawTarget)
     elseif fmColumn == toColumn
         ' draw Vertical Line
         repeat row from fmRow to toRow
-            drawPixelInternal(row, fmColumn, rgbColor, clipPanel)
+            drawPixelInternal(row, fmColumn, rgbColor, eDrawMode, drawTarget)
     else
         if abs(toRow - fmRow) < abs(toColumn - fmColumn)
             if fmColumn > toColumn
-                plotLineLowInternal(toColumn, toRow, fmColumn, fmRow, rgbColor, clipPanel)
+                plotLineLowInternal(toColumn, toRow, fmColumn, fmRow, rgbColor, eDrawMode, drawTarget)
             else
-                plotLineLowInternal(fmColumn, fmRow, toColumn, toRow, rgbColor, clipPanel)
+                plotLineLowInternal(fmColumn, fmRow, toColumn, toRow, rgbColor, eDrawMode, drawTarget)
         else
             if fmRow > toRow
-                plotLineHighInternal(toColumn, toRow, fmColumn, fmRow, rgbColor, clipPanel)
+                plotLineHighInternal(toColumn, toRow, fmColumn, fmRow, rgbColor, eDrawMode, drawTarget)
             else
-                plotLineHighInternal(fmColumn, fmRow, toColumn, toRow, rgbColor, clipPanel)
+                plotLineHighInternal(fmColumn, fmRow, toColumn, toRow, rgbColor, eDrawMode, drawTarget)
 
 
-PRI plotLineLowInternal(x0, y0, x1, y1, rgbColor, clipPanel) | row, column, dy, dx, decisionAccum,yi
+PRI plotLineLowInternal(x0, y0, x1, y1, rgbColor, eDrawMode, drawTarget) | row, column, dy, dx, decisionAccum,yi
 ' Bresenham line algorithm for shallow slopes
 '
 ' @param x0 - starting pixel column
@@ -1144,7 +1210,8 @@ PRI plotLineLowInternal(x0, y0, x1, y1, rgbColor, clipPanel) | row, column, dy, 
 ' @param x1 - ending pixel column
 ' @param y1 - ending pixel row
 ' @param rgbColor - 24-bit RGB color value
-' @param clipPanel - WHOLE_DISPLAY, or the panel position whose pixels alone are drawn
+' @param eDrawMode - DRAW_WHOLE_DISPLAY, DRAW_CLIP_TO_PANEL or DRAW_FOLD_ON_FACE (see drawLineInternal())
+' @param drawTarget - DRAW_NO_TARGET, the panel position, or the face (see drawLineInternal())
 
 ' Local Variables:
 ' @local row - current pixel row
@@ -1164,14 +1231,14 @@ PRI plotLineLowInternal(x0, y0, x1, y1, rgbColor, clipPanel) | row, column, dy, 
   row := y0
 
   repeat column from x0 to x1
-    drawPixelInternal(row, column, rgbColor, clipPanel)
+    drawPixelInternal(row, column, rgbColor, eDrawMode, drawTarget)
     if decisionAccum > 0
       row := row + yi
       decisionAccum := decisionAccum +(BRESENHAM_TWO * (dy - dx))
     else
       decisionAccum := decisionAccum +BRESENHAM_TWO * dy
 
-PRI plotLineHighInternal(x0, y0, x1, y1, rgbColor, clipPanel) | row, column, dy, dx, decisionAccum,xi
+PRI plotLineHighInternal(x0, y0, x1, y1, rgbColor, eDrawMode, drawTarget) | row, column, dy, dx, decisionAccum,xi
 ' Bresenham line algorithm for steep slopes
 '
 ' @param x0 - starting pixel column
@@ -1179,7 +1246,8 @@ PRI plotLineHighInternal(x0, y0, x1, y1, rgbColor, clipPanel) | row, column, dy,
 ' @param x1 - ending pixel column
 ' @param y1 - ending pixel row
 ' @param rgbColor - 24-bit RGB color value
-' @param clipPanel - WHOLE_DISPLAY, or the panel position whose pixels alone are drawn
+' @param eDrawMode - DRAW_WHOLE_DISPLAY, DRAW_CLIP_TO_PANEL or DRAW_FOLD_ON_FACE (see drawLineInternal())
+' @param drawTarget - DRAW_NO_TARGET, the panel position, or the face (see drawLineInternal())
 
 ' Local Variables:
 ' @local row - current pixel row loop index
@@ -1199,26 +1267,56 @@ PRI plotLineHighInternal(x0, y0, x1, y1, rgbColor, clipPanel) | row, column, dy,
   column := x0
 
   repeat row from y0 to y1
-    drawPixelInternal(row, column, rgbColor, clipPanel)
+    drawPixelInternal(row, column, rgbColor, eDrawMode, drawTarget)
     if decisionAccum > 0
       column := column + xi
       decisionAccum := decisionAccum +(BRESENHAM_TWO * (dx - dy))
     else
       decisionAccum := decisionAccum +BRESENHAM_TWO*dx
 
-PRI drawPixelInternal(row, column, rgbColor, clipPanel)
-' Draw a single pixel at display coordinates as mounted. A panel-centric pixel is drawn only
-' when it lies on its own panel (panel positions as mounted); a pixel past that panel's edge is clipped.
+PRI drawPixelInternal(row, column, rgbColor, eDrawMode, drawTarget)
+' Draw a single pixel. A display-centric pixel is at display coordinates as mounted. A
+' panel-centric pixel is drawn only when it lies on its own panel (panel positions as mounted);
+' a pixel past that panel's edge is clipped. A face-centric pixel is at face coordinates: it is
+' folded across the cube's edges onto the face that holds it, never clipped, and a pixel in a
+' corner gap is not drawn. Clip and fold are separate branches. The whole-display test comes
+' first and costs one compare, because it is the common case on every flat display.
 '
-' @param row - pixel row position
-' @param column - pixel column position
+' @param row - pixel row position (display or face coordinates, by eDrawMode)
+' @param column - pixel column position (display or face coordinates, by eDrawMode)
 ' @param rgbColor - 24-bit RGB color value
-' @param clipPanel - WHOLE_DISPLAY, or the panel position whose pixels alone are drawn
+' @param eDrawMode - DRAW_WHOLE_DISPLAY, DRAW_CLIP_TO_PANEL or DRAW_FOLD_ON_FACE (see drawLineInternal())
+' @param drawTarget - DRAW_NO_TARGET, the panel position whose pixels alone are drawn, or the face (FACE_*) the coordinates are on
 
-    if clipPanel == WHOLE_DISPLAY
+    if eDrawMode == DRAW_WHOLE_DISPLAY
         pixels.drawPixelAtRC(chainIndex, row, column, rgbColor)
-    elseif hub75Bffrs.positionAtDisplayPixel(chainIndex, row, column) == clipPanel
-        pixels.drawPixelAtRC(chainIndex, row, column, rgbColor)
+    elseif eDrawMode == DRAW_CLIP_TO_PANEL
+        if hub75Bffrs.positionAtDisplayPixel(chainIndex, row, column) == drawTarget
+            pixels.drawPixelAtRC(chainIndex, row, column, rgbColor)
+    else
+        drawFoldedPixel(row, column, rgbColor, drawTarget)
+
+PRI drawFoldedPixel(faceRow, faceColumn, rgbColor, eFace) | panelPosn, displayRow, displayColumn
+' Draw one face-centric pixel: fold it across the cube's edges onto the face that holds it and
+' draw it there; a pixel in a corner gap is not drawn. Kept apart from drawPixelInternal() so
+' flat pixels do not carry these locals.
+' The display coordinates it draws at are passed straight to drawPixelAtRC(), which applies
+' display rotation; that is correct only because a cube's rotation is forced to ROT_NONE at
+' startup (hub75Bffrs, ignoreCubeRotation). A rotated cube would need the rotation undone here.
+'
+' @param faceRow - pixel row in face coordinates (may run past the face's edges)
+' @param faceColumn - pixel column in face coordinates (may run past the face's edges)
+' @param rgbColor - 24-bit RGB color value
+' @param eFace - the face (FACE_*) the coordinates are on
+
+' Local Variables:
+' @local panelPosn - panel position the pixel lands on, or NO_PANEL_POSITION
+' @local displayRow - display row the pixel lands on
+' @local displayColumn - display column the pixel lands on
+
+    panelPosn, _, _, displayRow, displayColumn := hub75Bffrs.facePixelToPanel(chainIndex, eFace, faceRow, faceColumn)
+    if panelPosn <> hub75Bffrs.NO_PANEL_POSITION
+        pixels.drawPixelAtRC(chainIndex, displayRow, displayColumn, rgbColor)
 
 PRI drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor)
 ' Draw the eight symmetric points of a circle for the given octant offsets.

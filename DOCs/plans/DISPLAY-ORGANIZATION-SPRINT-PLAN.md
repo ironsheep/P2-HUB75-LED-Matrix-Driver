@@ -530,6 +530,14 @@ a chain of others:
 | 13 | a word the form does not allow (added in «#72») | `HUB75: DISPn_C0: takes only FIRST_PANEL and an arrow; remove its direction and neighbour words` |
 | | | `HUB75: DISPn_Ck: joins NO_PANEL with other words; NO_PANEL stands alone` |
 | 14 | on panels that are not square, arrows that mix sideways with upright (added at the «#72» review) | `HUB75: DISPn_Ck: has its arrow at right angles to C0's arrow; on panels that are not square, every arrow is ARROW_UP or ARROW_DOWN, or every arrow is ARROW_LEFT or ARROW_RIGHT` |
+| 15 | a cube without exactly six panels (added in «#79») | `HUB75: DISPn: a cube needs exactly 6 panels, but N are in use` |
+| 16 | a cube of panels that are not square | `HUB75: DISPn: a cube needs square panels, but each panel is W columns x R rows (DISPn_MAX_PANEL_COLUMNS, DISPn_MAX_PANEL_ROWS)` |
+| 17 | `DISPn_CUBE_TOP` / `DISPn_CUBE_FRONT` not one cable position in use | `HUB75: DISPn_CUBE_TOP: must be exactly one of C0 .. C5, the cable position of the top face` (and the same for `DISPn_CUBE_FRONT`, the front face); `HUB75: DISPn_CUBE_TOP: names Cj, but that cable position is NO_PANEL` (and for `DISPn_CUBE_FRONT`) |
+| 18 | Front is the same panel as Top | `HUB75: DISPn_CUBE_FRONT: names the same panel as DISPn_CUBE_TOP; the front face is a different panel that shares an edge with the top face` |
+| 19 | the panels are not one of the 11 cube nets | `HUB75: DISPn: the panels do not fold into a cube (Cj and Ck fold onto the same face); arrange the six panels as one of the 11 cube nets` (when a panel shares no edge, reachable only through the self-test's direct call: `... (Ck shares no edge with the other panels); ...`) |
+| 20 | Front opposite Top once folded | `HUB75: DISPn_CUBE_FRONT: Cj is opposite the top face (Ck) when the panels are folded; the front face must share an edge with the top face` |
+| 21 | a shape value other than flat or cube | `HUB75: DISPn: DISPn_SHAPE must be SHAPE_FLAT or SHAPE_CUBE` |
+| notice | a mounting rotation on a cube (not a mistake; startup continues) | `HUB75: DISPn: DISPn_ROTATION does not apply to a cube and is ignored` |
 | — | summary, after any of the above | `HUB75: DISPn: K wiring problem(s) above; startup stopped` |
 
 Notes on the table:
