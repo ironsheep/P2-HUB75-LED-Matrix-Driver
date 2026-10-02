@@ -1,13 +1,30 @@
 '' =================================================================================================
 ''
 ''   File....... demo_hub75_numberPanels.spin2
-''   Purpose.... Top-level Demonstration - numbering our individual panels on chain
+''   Purpose.... Top-level Demonstration - the identify routine: labels every panel with its
+''               cable position (Ck), its panel position (Pp) and the way its arrow points
 ''   Authors.... Stephen M Moraco
 ''               -- Copyright (c) 2021 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Apr 2021
-''   Updated.... 10 Nov 2022
+''   Updated.... 2 Oct 2026
+''
+''   How to read the image (the wiring sentences are DISPn_C0 .. DISPn_C15 in isp_hub75_hwPanelConfig):
+''     - Each panel gets its own background colour, so panels are easy to tell apart.
+''     - Each panel shows an arrow (^), its cable position Ck and its panel position Pp.
+''       Large panels show the three on separate lines, centred. Small panels (32x16 with the
+''       5x7 font, for example) show the compact form: the arrow and "C2P1" on one line.
+''     - P labels in reading order and every arrow up: the wiring sentences are right.
+''     - P labels out of order: the sentences place panels wrongly. Read the C labels to fix them.
+''     - An arrow pointing another way: that panel's arrow word is wrong, and the arrow shows
+''       which way the panel's own top points as mounted.
+''     - The C labels are physically correct even when the config is wrong. The routine draws Ck
+''       on the screen position the config gives that cable position, and the panel at that
+''       position is the one the ribbon cable feeds as Ck, so Ck lands on the real panel at
+''       cable position k (C0 is the panel the adapter plugs into). Only the P labels and the
+''       arrows depend on the sentences being right. The background colour follows the cable
+''       position too, so a panel keeps its colour from one config to the next.
 ''
 '' =================================================================================================
 
@@ -15,38 +32,57 @@
 CON { timing }
 
     CLK_FREQ = 335_000_000                                        ' system freq as a constant 2.985 nSec
-    'CLK_FREQ = 250_000_000                                        ' system freq as a constant 2.985 nSec
     _clkfreq = CLK_FREQ                                           ' set system clock
 
 CON { DEBUG PINs }
 
-'DEBUG_PIN = 0
-DEBUG_COGS = %11111111
-DEBUG_BAUD = 2_000_000
+    DEBUG_COGS = %11111111
+    DEBUG_BAUD = 2_000_000
 
-VAR
+CON { identify layout }
 
-    LONG    cog
-    LONG    chainIndex
-    LONG    demoPausePeriod
-    LONG    scrollPeriod
-    LONG    textSize
+    LARGE_PANEL_ROWS = 64                                         ' panels this tall (or taller) use the 8x8 font, smaller ones the 5x7 font
+    MIN_SEPARATE_LINES = 5                                        ' text lines a panel needs to show the arrow, Ck and Pp on separate lines
+    ARROW_LINE = 0                                                ' text line of the arrow, in both layouts (the top of the panel)
+    CENTER_DIVISOR = 2                                            ' half of a span
+    CABLE_LINE_BACK = 1                                           ' the Ck line is this many lines above the middle of the panel
+    POSITION_LINE_FORWARD = 1                                     ' the Pp line is this many lines below the middle of the panel
+    COMPACT_ARROW_LEN = 1                                         ' the arrow is one character at the start of the compact line
+    DEGREES_PER_CIRCLE = 360                                      ' the hue wheel the panel colours are spread around
+    DECIMAL_BASE = 10                                             ' digits in a number label
+    DIGIT_ZERO = "0"                                              ' the character of the digit 0
+    ARROW_CHAR = "^"                                              ' the identify arrow: it points up as the panel's own top points
+    CABLE_LETTER = "C"                                            ' label letter for a cable position
+    POSITION_LETTER = "P"                                         ' label letter for a panel position
+    LABEL_BYTES = 8                                               ' longest label: the compact line "^C15P15" and its terminator
+
+DAT { identify labels }
+
+    lblArrow        BYTE    ARROW_CHAR, 0                         ' the arrow on its own line
+    lblText         BYTE    0[LABEL_BYTES]                        ' the label being built: "C2", "P1" or "^C2P1"
 
 OBJ
 
     color       : "isp_hub75_color"
     colorUtils  : "isp_hub75_colorUtils"
-    pixels      : "isp_hub75_screenUtils"
     hub75Bffrs  : "isp_hub75_hwBufferAccess"
     display     : "isp_hub75_display"
     user        : "isp_hub75_hwPanelConfig"                       ' hardware config common to all demos
 
+VAR
+
+    LONG    cog
+    LONG    chainIndex
+    LONG    panelTextLines                                        ' text lines on one panel, for the chosen font
+    LONG    panelTextColumns                                      ' text columns on one panel, for the chosen font
 
 PUB main() : ok
-'' start underlying drivers and run demo
+'' start the display driver, draw the identify image once, report the end of the session,
+'' then hold the image on the panels
 ''
+'' @returns ok - cog ID of display driver or -1 on failure
 
-  demoPausePeriod := 20   ' seconds
+  debug("Demo: HUB75 identify panels")
 
   chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
@@ -56,60 +92,85 @@ PUB main() : ok
     debug("- DEMO: underlying driver failed!")
     abort
 
+  identifyPanels()
+  debug("END_SESSION")
 
-  idPanelsInChain()
+  repeat                                                        ' hold the image
 
-  waitSec(demoPausePeriod)
-
-  stop()
-
-PRI stop()
-' Stop the driver
-
-  if cog
-    display.stop()
-    cog := 0
-
-PRI waitSec(countSeconds)
-' Wait for the specified number of seconds.
+PRI identifyPanels() | panelCount, cablePos, panelPosn, gridRows, gridColumns, cellRows, cellColumns, bCompact
+' Label every panel: for each cable position, look up the panel position where that panel
+' sits and draw on that panel an arrow, Ck and Pp, over a background colour of its own.
 '
-' @param countSeconds - number of seconds to wait
+' @local panelCount - number of panels in use
+' @local cablePos - cable position being labelled
+' @local panelPosn - panel position of the panel at that cable position
+' @local gridRows - cells vertically in the display's grid
+' @local gridColumns - cells horizontally in the display's grid
+' @local cellRows - pixel rows of one panel
+' @local cellColumns - pixel columns of one panel
+' @local bCompact - TRUE when the panel is too small for three lines
 
-  repeat countSeconds
-    waitms(1000)
+  cellRows, cellColumns := hub75Bffrs.cellSizeInPixels(chainIndex)
+  if cellRows >= LARGE_PANEL_ROWS
+    display.setTextFont(display.TEXT_FONT_8X8A)
+  else
+    display.setTextFont(display.TEXT_FONT_5X7)
+  display.setTextColor(color.cBlack)
 
-DAT { panel messages }
-
-    lblPnl      BYTE    "Wx", 0
-
-    colorTable  LONG    color.cGreen, color.cRed, color.cYellow, color.cCyan, color.cOrange, color.cLime
-
-PRI idPanelsInChain() | maxPanels, panelIndex
-' Identify and label each panel in the chain with its index number.
-'
-' @local maxPanels - number of panels in chain (capped at 6)
-' @local panelIndex - current panel being labeled
-
-  textSize := display.TEXT_FONT_8x8A
-  display.setTextFont(textSize)    ' font size
-  display.setTextColor(color.cBlueViolet)
+  gridRows, gridColumns := hub75Bffrs.displaySizeInPanels(chainIndex)
+  panelTextLines := display.numberTextLines() / gridRows
+  panelTextColumns := display.numberTextColumns() / gridColumns
+  bCompact := panelTextLines < MIN_SEPARATE_LINES
 
   ' start with blank screen on which to draw
   display.clearScreenBuffer()
-  maxPanels := hub75Bffrs.maxPanels(chainIndex) <# 6 ' limit to first six if more than that
-  debug("id: maxPanels=", udec_(maxPanels))
+  panelCount := hub75Bffrs.maxPanels(chainIndex)
+  debug("id: panelCount=", udec_(panelCount), ", panel text ", udec_(panelTextColumns), " columns x ", udec_(panelTextLines), " lines, compact=", sdec_(bCompact))
 
-  repeat maxPanels with panelIndex     ' repeat panelIndex from 0 to maxPanels - 1
-    display.fillPanel(panelIndex, LONG[@colorTable][panelIndex])
-    display.setCursorOnPanel(4, 3, panelIndex)
-    lblPnl[1] := $30 + panelIndex
-    display.setTextAtCursor(@lblPnl)
-    debug("  -- panelIndex=", udec_(panelIndex), ", color=", uhex_long_(LONG[@colorTable][panelIndex]), ", lblPnl=[", zstr_(@lblPnl), "]")
-
+  repeat cablePos from 0 to panelCount - 1
+    panelPosn := hub75Bffrs.positionForCable(chainIndex, cablePos)
+    display.fillPanel(panelPosn, colorUtils.rgbColorFromDegrees((cablePos * DEGREES_PER_CIRCLE) / panelCount))
+    if bCompact
+      lblText[0] := ARROW_CHAR
+      appendNumber(appendNumber(COMPACT_ARROW_LEN, CABLE_LETTER, cablePos), POSITION_LETTER, panelPosn)
+      drawCentered(panelPosn, ARROW_LINE, @lblText)
+    else
+      drawCentered(panelPosn, ARROW_LINE, @lblArrow)
+      appendNumber(0, CABLE_LETTER, cablePos)
+      drawCentered(panelPosn, (panelTextLines / CENTER_DIVISOR) - CABLE_LINE_BACK, @lblText)
+      appendNumber(0, POSITION_LETTER, panelPosn)
+      drawCentered(panelPosn, (panelTextLines / CENTER_DIVISOR) + POSITION_LINE_FORWARD, @lblText)
+    debug("  -- C", udec_(cablePos), " is at P", udec_(panelPosn))
 
   ' update our screen
   display.commitScreenToPanelSet()
 
+PRI appendNumber(startLen, cLetter, nValue) : newLen
+' Append a letter and a one- or two-digit number to the label text, then end it with a zero.
+'
+' @param startLen - characters already in the label text
+' @param cLetter - the letter to append (CABLE_LETTER or POSITION_LETTER)
+' @param nValue - the number to append (0 to 99)
+' @returns newLen - characters in the label text after the append
+
+  newLen := startLen
+  lblText[newLen++] := cLetter
+  if nValue >= DECIMAL_BASE
+    lblText[newLen++] := DIGIT_ZERO + (nValue / DECIMAL_BASE)
+  lblText[newLen++] := DIGIT_ZERO + (nValue // DECIMAL_BASE)
+  lblText[newLen] := 0
+
+PRI drawCentered(panelPosn, line, pText) | column
+' Draw text on one text line of a panel, centred across the panel.
+'
+' @param panelPosn - panel position of the panel to draw on
+' @param line - zero-based text line within the panel
+' @param pText - pointer to the zero-terminated text
+' @local column - text column within the panel where the text starts
+
+  column := 0 #> ((panelTextColumns - strsize(pText)) / CENTER_DIVISOR)
+  display.setCursorOnPanel(line, column, panelPosn)
+  display.setTextAtCursor(pText)
 
 
 CON { license }

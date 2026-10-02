@@ -685,6 +685,23 @@ PUB positionAtDisplayPixel(nChainIdx, row, column) : nPanelPosn
 
   nPanelPosn, _, _ := panelCoordsAt(validChainIndex(nChainIdx), row, column)   ' the panel coordinates are not needed here
 
+PUB positionForCable(nChainIdx, nCablePos) : nPanelPosn | layoutIdx
+'' Return the panel position (P) where the panel at cable position nCablePos sits: the inverse
+'' of the panel-position to cable-position table, built from the wiring sentences at startup.
+'' The identify routine reads it to say which cable position (C) each panel position (P) is.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @param nCablePos - cable position of the panel (C0 is the panel the adapter plugs into)
+'' @returns nPanelPosn - panel position (reading order from the top-left panel), or NO_PANEL_POSITION when no panel is at that cable position
+
+' Local Variables:
+' @local layoutIdx - the chain index, checked against the adapters that exist
+
+  layoutIdx := validChainIndex(nChainIdx)
+  nPanelPosn := NO_PANEL_POSITION
+  if nCablePos >= 0 and nCablePos < layoutPanelCount[layoutIdx]
+    nPanelPosn := cableToPosition[(layoutIdx * MAX_CABLE_POSITIONS) + nCablePos]
+
 PUB offsetToPanel(nChainIdx, nPanelIndex) : offsetPixelRows, offsetPixelColumns | layoutIdx, nMaxPanels, panelPosn, tableBase
 '' Return the display coordinates of the top-left pixel of the panel at a panel position: the
 '' offset that turns panel coordinates on that panel into display coordinates. It is read from
