@@ -995,9 +995,11 @@ the final source also printed 197,508 µs.
 change: *"green is now centered text, red line is now top left panel (right edge) rest
 is correct"*. Against Visit 0: the seam text is whole across the vertical seam, the
 panel-0 line moved from the top-right panel to the top-left one and stops at its right
-edge, and the crosshair, box and circle are unchanged. `demo_hub75_quadPanel`'s labels
-were not looked at in this session; its log places `fillPanel(0..3)` at (0,0), (0,128),
-(64,0), (64,128), and Visit A checks panel order on the panels through identify.
+edge, and the crosshair, box and circle are unchanged. Stephen then added: *"quad
+panel all marks were correct"* (`demo_hub75_quadPanel`, whose log places
+`fillPanel(0..3)` at (0,0), (0,128), (64,0), (64,128)), and *"red line stops at the
+right edge of the top left panel"*. Panel order on the panels is therefore confirmed in
+reading order after «#74»; Visit A re-checks it through identify.
 
 **Visit A — after §1-§6 and §8.**
 - Identify on the rig: the §8 normal, edge and negative cases.
