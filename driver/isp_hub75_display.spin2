@@ -286,15 +286,16 @@ PUB fillScreenNoPWM(threeBitColor)
   panelSet.fillScreenNoPWM(threeBitColor)
 
 PUB commitScreenToPanelSet()
-'' Write screen buffer to panel driver PWM frames while alternating PWM frame sets.
+'' Write this display's screen buffer (its own adapter's buffer) to its panel driver PWM frames
+'' while alternating PWM frame sets.
 ''
 
 ' debug("DSP: commit!")
 
   if bScan_1_4
-    panelSet.convertScreen2PWM_14(hub75Bffrs.displayBufferAddress(0), bSwapRB, bSwapGB)
+    panelSet.convertScreen2PWM_14(hub75Bffrs.displayBufferAddress(chainIndex), bSwapRB, bSwapGB)
   else
-    panelSet.convertScreen2PWM(hub75Bffrs.displayBufferAddress(0), bSwapRB, bSwapGB)
+    panelSet.convertScreen2PWM(hub75Bffrs.displayBufferAddress(chainIndex), bSwapRB, bSwapGB)
 
 CON ' --------------     Text Handling     --------------
 

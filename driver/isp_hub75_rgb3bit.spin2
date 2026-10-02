@@ -48,6 +48,8 @@ CON ' Data
     ' driver COG internal buffer size: the line buffer, whose size is the driver limit
     ' hub75Bffrs.LINE_BUFFER_BYTES (the startup panel-limit check reads the same value)
     MAX_COG_BUFFER_SIZE_IN_LONGS  = (hub75Bffrs.LINE_BUFFER_BYTES + 3) / 4
+    ' fewest PWM rows a sub-page may hold when searching for a size that tiles the frame
+    MIN_PWM_ROWS_PER_SUBPAGE      = 1
 
 ' offsets in longs
     RED_OFFSET                    = 0
@@ -94,7 +96,6 @@ CON { HUB75 pin layout offsets (relative to adapter base pin) }
 
 CON { scan-geometry / buffer packing }
 
-    PIXELS_PER_BYTE               = 2           ' 2 pixels packed per byte
     BYTES_PER_LONG                = 4           ' 4 bytes per long
     BITS_PER_BYTE                 = 8           ' bits in a byte
     HALF_DIVISOR                  = 2           ' split-in-half divisor
@@ -257,7 +258,7 @@ PUB null()
 '' This is not a top level object.
 ''
 
-PUB start(nID, nChainIdx) : startedCog | tmpVar, panelCt, tmpConstant, widthInPanels, heightInPanels, pwmRowSizeInLongs, pwmRowsInCogBuffer
+PUB start(nID, nChainIdx) : startedCog | tmpVar, panelCt, tmpConstant, widthInPanels, heightInPanels, pwmRowSizeInLongs, pwmRowsInCogBuffer, pwmRowsInFrame
 '' Set up PASM2 driver variables and start a new cog running the matrix driver.
 ''
 '' @param nID - debug instance id
@@ -270,8 +271,9 @@ PUB start(nID, nChainIdx) : startedCog | tmpVar, panelCt, tmpConstant, widthInPa
 ' @local tmpConstant - temporary constant for debug output
 ' @local widthInPanels - number of panels across the display width
 ' @local heightInPanels - number of panels across the display height
-' @local pwmRowSizeInLongs - size of one PWM row in longs
-' @local pwmRowsInCogBuffer - number of PWM rows that fit in the cog buffer
+' @local pwmRowSizeInLongs - size of one PWM row (one row address along the whole chain) in longs
+' @local pwmRowsInCogBuffer - number of whole PWM rows in one sub-page of the cog buffer
+' @local pwmRowsInFrame - number of PWM rows (row addresses) in one PWM frame
 
   chainIndex := nChainIdx
   instanceID := nID
@@ -281,12 +283,7 @@ PUB start(nID, nChainIdx) : startedCog | tmpVar, panelCt, tmpConstant, widthInPa
   maxDisplayRows, maxDisplayColumns := hub75Bffrs.displaySizeInPixels(chainIndex)
   maxPanelRows, maxPanelColumns := hub75Bffrs.panelSizeInPixels(chainIndex)
   panelCt := hub75Bffrs.maxPanels(chainIndex)
-  maxChainColumns := maxPanelColumns * panelCt
-  ' 2 pixels per byte, 4 bytes per long
-  pwmRowSizeInLongs := ((maxChainColumns / PIXELS_PER_BYTE) + 3) / 4
-  pwmRowsInCogBuffer := MAX_COG_BUFFER_SIZE_IN_LONGS / pwmRowSizeInLongs
-  pwmSubPageSizeInLongs := pwmRowsInCogBuffer * pwmRowSizeInLongs
-  pwmSubPageCount := hub75Bffrs.pwmFrameSizeInLongs(chainIndex) / pwmSubPageSizeInLongs
+  maxChainColumns := maxPanelColumns * panelCt          ' the chain length: panel count x panel columns
   debug("RG3: #", udec_(instanceID), " -START- ", udec(maxChainColumns))
 
   ' New P2 Eval Board HUB75 Adapter:
@@ -321,10 +318,6 @@ PUB start(nID, nChainIdx) : startedCog | tmpVar, panelCt, tmpConstant, widthInPa
   pinLedLATCH     := pnlLedPinLATCH
 
   maxPwmBuffers       := pwmBufferCount
-  maxPwmSubPages      := pwmSubPageCount
-  maxPwmSubPgSzLongs  := pwmSubPageSizeInLongs
-  maxPwmSubPgSzLngsM1 := pwmSubPageSizeInLongs - 1
-  maxPwmSubPgSzBytes  := pwmSubPageSizeInLongs * BYTES_PER_LONG
 
   ' Calculate clock-frequency-independent timing
   ' This ensures panel receives consistent ~20 MHz clock regardless of sysclk
@@ -494,6 +487,19 @@ PUB start(nID, nChainIdx) : startedCog | tmpVar, panelCt, tmpConstant, widthInPa
   if bScan_1_4
     colCtrMax := maxChainColumns * hub75Bffrs.SCAN_4_COLUMN_FACTOR    ' a SCAN_4 panel shifts twice its width per row address
   colCtrMaxLngs := colCtrMax / BYTES_PER_LONG
+  ' PWM sub-pages, sized from the chain length: one PWM row is what one row address shifts
+  '  (colCtrMax column clocks); a sub-page holds whole rows only, and the sub-pages tile the frame
+  pwmRowSizeInLongs := ((colCtrMax * hub75Bffrs.BYTES_PER_COLUMN_CLOCK) + BYTES_PER_LONG - 1) / BYTES_PER_LONG
+  pwmRowsInFrame := hub75Bffrs.pwmFrameSizeInLongs(chainIndex) / pwmRowSizeInLongs
+  pwmRowsInCogBuffer := MAX_COG_BUFFER_SIZE_IN_LONGS / pwmRowSizeInLongs
+  repeat while pwmRowsInCogBuffer > MIN_PWM_ROWS_PER_SUBPAGE and (pwmRowsInFrame // pwmRowsInCogBuffer) <> 0
+    pwmRowsInCogBuffer--
+  pwmSubPageSizeInLongs := pwmRowsInCogBuffer * pwmRowSizeInLongs
+  pwmSubPageCount := pwmRowsInFrame / pwmRowsInCogBuffer
+  maxPwmSubPages      := pwmSubPageCount
+  maxPwmSubPgSzLongs  := pwmSubPageSizeInLongs
+  maxPwmSubPgSzLngsM1 := pwmSubPageSizeInLongs - 1
+  maxPwmSubPgSzBytes  := pwmSubPageSizeInLongs * BYTES_PER_LONG
   ' set following in case we are driving an FM6126A panel
   colCtrLatchCt := (modeOverlapDAT) ? colCtrMax - LATCH_OVERLAP_COLS : colCtrMax ' for the setup form of the driver we latch during last three columns
   debug("RG3:  ", udec(rowCtrMax, colCtrMax, colCtrMaxLngs))
