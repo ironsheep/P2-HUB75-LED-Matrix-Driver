@@ -39,3 +39,16 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 - **Not known:** the saving; panel-centric drawing is a small part of the boundary test's 191,538 µs.
 - **Bears on:** nothing in this sprint; a candidate for a performance pass.
 
+### Panel clock runs above the ICN2037's 20 MHz rating (finding, calculated from code)
+
+- **Found:** 2026-10-02, by the colour-pipeline survey for Stephen's image brief.
+- **What:** the refresh core sets clock cycles per column bit as `clkfreq / 20_000_000` with integer division (`driver/isp_hub75_rgb3bit.spin2`, about :324). At the demos' 335 MHz that is 16 cycles, so the panel clock is 335 / 16 = **20.94 MHz**, about 4.7% above the ICN2037's 20 MHz maximum (`DOCs/ChipCharacteristicsMatrix.md`, ICN2037 section). The comment near :1038 says "20 MHz". The rig works at this rate.
+- **Not known:** whether any panel misbehaves at 20.94 MHz; whether the intent was "at most 20 MHz" (round the divisor up) or "about 20 MHz".
+- **Bears on:** the limits table (§11, «#82») and refresh measurements at Visit B «#83». Rounding up (17 cycles, 19.7 MHz) would cost about 6% of refresh.
+
+### Refresh-rate figures in the docs contradict the code (doc drift)
+
+- **Found:** 2026-10-02, same survey.
+- **What:** the refresh core shows bit-plane k of an N-bit frame set 2^(N-1-k) times, 2^N - 1 scans per colour cycle (`driver/isp_hub75_rgb3bit.spin2`, about :841-866). `THEOPS.md` (about :188) says "16 sub-frames ... roughly 60 fps", and `DOCs/FutureDirections-ImageAndColor.md` (about :132-169) gives 153-407 Hz, computed as N frames shown once. Calculated from the code for the rig (clock time only): 4-bit about 85 Hz, 5-bit about 41 Hz, 6-bit 20, 7-bit 10, 8-bit 5.
+- **Bears on:** «#85» (bring docs up to 4.0.0) should correct both, and use Visit B's «#83» measured numbers where they exist.
+

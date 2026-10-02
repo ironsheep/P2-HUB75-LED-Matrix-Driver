@@ -816,7 +816,18 @@ rotation is.
    - **Seam placement:** an object that straddles a corner off-centre has one
      unavoidable seam. The driver puts it on the edge farthest from the
      object's centre.
-   - A shape centred on a face, an edge or a corner is seamless.
+   - A shape centred on a face, an edge or a corner is seamless while it
+     stays within that face, that edge's span or the corner's three faces.
+     A shape centred on an edge but large enough to reach the corners at the
+     edge's ends meets those corners' gaps. (Corrected 2026-10-02 in the
+     «#79» design review; the earlier text said "seamless" without the
+     limit.)
+   - *Design ruled in «#79» review (2026-10-02):* "exactly on a corner" is
+     the corner pixel, for example FRONT (0, 0), since pixel coordinates are
+     integers. An object whose centre falls in a corner gap is first moved to
+     the nearest surface point: snap the axis with the smaller overshoot, and
+     on a tie snap the column. A `DISPn_SHAPE` value other than `SHAPE_FLAT`
+     or `SHAPE_CUBE` is a startup mistake with its own catalogue row.
 6. **Drawing on faces.** The cube gets face-centric calls (a face plus face
    coordinates) for every primitive: pixel, line, box, circle, text, and
    scrolling.
