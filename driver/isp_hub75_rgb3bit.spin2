@@ -45,10 +45,9 @@ CON ' Data
     PIN_GROUP_P16_P31           = hwEnum.PIN_GROUP_P16_P31
     PIN_GROUP_P32_P47           = hwEnum.PIN_GROUP_P32_P47
 
-    ' driver COG internal buffer size
-    'MAX_COG_BUFFER_SIZE_IN_BYTES = 1024
-    MAX_COG_BUFFER_SIZE_IN_BYTES  = 512
-    MAX_COG_BUFFER_SIZE_IN_LONGS  = (MAX_COG_BUFFER_SIZE_IN_BYTES + 3) / 4
+    ' driver COG internal buffer size: the line buffer, whose size is the driver limit
+    ' hub75Bffrs.LINE_BUFFER_BYTES (the startup panel-limit check reads the same value)
+    MAX_COG_BUFFER_SIZE_IN_LONGS  = (hub75Bffrs.LINE_BUFFER_BYTES + 3) / 4
 
 ' offsets in longs
     RED_OFFSET                    = 0
@@ -99,7 +98,6 @@ CON { scan-geometry / buffer packing }
     BYTES_PER_LONG                = 4           ' 4 bytes per long
     BITS_PER_BYTE                 = 8           ' bits in a byte
     HALF_DIVISOR                  = 2           ' split-in-half divisor
-    SCAN_4_COL_MULT               = 2           ' 1/4-scan doubles physical row width
     LATCH_OVERLAP_COLS            = 3           ' latch overlaps last 3 columns
     HZ_PER_MHZ                    = 1_000_000   ' Hz in one MHz
 
@@ -373,7 +371,8 @@ PUB start(nID, nChainIdx) : startedCog | tmpVar, panelCt, tmpConstant, widthInPa
   debug("  -- ", udec_(panelCt), " panel(s), wh=(", udec_(widthInPanels), "x", udec_(heightInPanels), "), pixels wh=(", udec_(maxDisplayColumns), "x", udec_(maxDisplayRows), ")")
   debug("  -- chain in panels (", udec_(panelCt), "), cols/pnl=(", udec_(maxPanelColumns), "), cols/chain (", udec_(maxChainColumns), ")")
 
-  debug("RG3:  BFFR CogBuffer[256]=0x", uhex_long_(@@CogBuffer))
+  tmpConstant := MAX_COG_BUFFER_SIZE_IN_LONGS
+  debug("RG3:  BFFR CogBuffer[", udec_(tmpConstant), " longs]=0x", uhex_long_(@@CogBuffer))
 
   driverFlags := dvrConfig & DRIVER_FLAGS_MASK
   ' if following flags are set...
@@ -493,7 +492,7 @@ PUB start(nID, nChainIdx) : startedCog | tmpVar, panelCt, tmpConstant, widthInPa
   ' set width of one row (this is the entire chain, not the display width)
   colCtrMax := maxChainColumns
   if bScan_1_4
-    colCtrMax := maxChainColumns * SCAN_4_COL_MULT
+    colCtrMax := maxChainColumns * hub75Bffrs.SCAN_4_COLUMN_FACTOR    ' a SCAN_4 panel shifts twice its width per row address
   colCtrMaxLngs := colCtrMax / BYTES_PER_LONG
   ' set following in case we are driving an FM6126A panel
   colCtrLatchCt := (modeOverlapDAT) ? colCtrMax - LATCH_OVERLAP_COLS : colCtrMax ' for the setup form of the driver we latch during last three columns
@@ -951,7 +950,7 @@ wrCogBuffer
                 ' -----------------------------------------------
                 ' repeat the following to end of COG buffer
                 MOV                             row_ctr, rowCtrMax                        ' 32|16|8 -> 0 so we can use djnz
-                XOR                             reg_offset, reg_offset                    ' start of [0-1023] buffer
+                XOR                             reg_offset, reg_offset                    ' start of the line buffer (cogBuffer)
                 DRVL                            pinLedOE                                  ' enable output
 
 ' following instru is modified by startup to #wrLatchAtEnd or #wrLineLatchOvlp
@@ -1150,11 +1149,11 @@ maxPwmSubPgSzLngsM1     LONG                    0                               
 maxPwmSubPgSzBytes      LONG                    0                                         ' pwmSubPageSizeInLongs * 4
 
 ' --------------------------------------------------------------------------------------------------
-'screen buffer 1024B of %00bgrbgr where byte is 00{rgb2}{rgb1}
+'line buffer of hub75Bffrs.LINE_BUFFER_BYTES bytes, each %00bgrbgr where byte is 00{rgb2}{rgb1}
 ALIGNL
 cogBuffer
                         ' COG buffer for shipping subPages of PWM buffer out to panelSet
-                        LONG                    0[MAX_COG_BUFFER_SIZE_IN_LONGS]           ' 256 longs
+                        LONG                    0[MAX_COG_BUFFER_SIZE_IN_LONGS]           ' sized from hub75Bffrs.LINE_BUFFER_BYTES
 endCogBuffer
 
                 ' UNINITIALIZED data

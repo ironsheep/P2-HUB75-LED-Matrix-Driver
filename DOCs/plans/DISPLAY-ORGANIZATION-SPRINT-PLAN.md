@@ -116,9 +116,7 @@ They are quoted or closely paraphrased here.
 
 - **Build number:** 4.0.0 (see Status).
 - **Working tree:** clean, except this plan file, which is new and not yet
-  committed. When it is committed, add it under the tracked path `DOCs/plans/`.
-  macOS shows the folder as `Docs/`, and `core.ignorecase=true` hides the
-  difference; confirm with `git ls-files`.
+  committed. It is committed under `DOCs/plans/`.
 - **Tracking readiness (entry):**
   - **Ready.**
   - One pending task, «#67» (C1 flicker), stays outside this sprint as
@@ -407,6 +405,83 @@ arbiter reviews them before the rest is built.
   Each one prints its message and halts, and that message and no other is
   the one the guide quotes. These broken configs exist only in this
   verification. They are not committed as demos.
+
+### Startup message catalogue
+
+Written in «#72»; the wiring guide (§12) quotes these lines exactly. The
+code is `checkAndDeriveLayout` and the methods below it in
+`isp_hub75_hwBufferAccess.spin2`, called from `configure()`.
+
+**How to read it.**
+- Every line starts `HUB75: `.
+- A message about one sentence names the setting as `DISPn_Ck`. A message
+  about the whole display names it as `DISPn`.
+- In the text below, `n`, `k`, `j`, `N`, `L`, `W` and `R` stand for numbers
+  the driver prints.
+- After the last message the driver prints the summary line, then
+  `END_SESSION`, and stops every cog.
+
+**Order.** The checks run in two passes, so that one mistake does not set off
+a chain of others:
+1. Every sentence on its own (rows 1-7, 11, 13 and 14), then the whole
+   display (rows 10 and 12). All of these are reported in one run.
+2. The walk out from C0 (rows 8 and 9). It runs only when pass 1 found
+   nothing, because it needs well-formed sentences.
+
+| # | Check | Exact message |
+|---|---|---|
+| 1 | more than one word of a kind | `HUB75: DISPn_Ck: has more than one direction word; use exactly one of ABOVE, BELOW, LEFT_OF, RIGHT_OF` |
+| | | `HUB75: DISPn_Ck: has more than one neighbour word; use exactly one of C0 .. C15` |
+| | | `HUB75: DISPn_Ck: has more than one arrow word; use exactly one of ARROW_UP, ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT` |
+| 2 | a required word missing | `HUB75: DISPn_Ck: has no direction word; add one of ABOVE, BELOW, LEFT_OF, RIGHT_OF` |
+| | | `HUB75: DISPn_Ck: has no neighbour word; add the cable position (C0 .. C15) of the panel it sits next to` |
+| | | `HUB75: DISPn_Ck: has no arrow word; add one of ARROW_UP, ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT` (C0 too) |
+| 3 | `FIRST_PANEL` on anything but C0 | `HUB75: DISPn_Ck: uses FIRST_PANEL, which belongs only to C0; write direction \| neighbour \| arrow` |
+| 4 | C0 not `FIRST_PANEL` while panels are in use | `HUB75: DISPn_C0: must be FIRST_PANEL \| arrow, because panels are in use` |
+| 5 | a panel as its own neighbour | `HUB75: DISPn_Ck: names itself as its neighbour; name the panel it sits next to` |
+| 6 | the neighbour is a `NO_PANEL` | `HUB75: DISPn_Ck: names Cj as its neighbour, but that cable position is NO_PANEL` |
+| 7 | a gap in the numbering | `HUB75: DISPn_Ck: is in use, but Cj before it is NO_PANEL; number the panels in use C0, C1, C2 ... with no gaps` |
+| 8 | two panels in one cell | `HUB75: DISPn_Ck: sits in the same cell as Cj` |
+| 9 | a panel that doesn't connect back to C0 | `HUB75: DISPn_Ck: does not connect back to C0 through its neighbours` |
+| 10 | more panels than the driver limit (§11) | `HUB75: DISPn: N panels exceed the driver limit of L for panels W columns wide; one row along the cable would be R columns, and the refresh line buffer holds 512` |
+| 11 | `+` where `\|` was meant, where detectable | `HUB75: DISPn_Ck: looks like + joined a word to itself and carried into the next kind of word; join the words with \| only, never +` |
+| | | `HUB75: DISPn_Ck: has bits that no wiring word uses; join the words with \| only, never +` |
+| 12 | starting an adapter with no panels | `HUB75: DISPn: has no panels (every DISPn_C0 .. DISPn_C15 is NO_PANEL), so its adapter cannot be started` |
+| 13 | a word the form does not allow (added in «#72») | `HUB75: DISPn_C0: takes only FIRST_PANEL and an arrow; remove its direction and neighbour words` |
+| | | `HUB75: DISPn_Ck: joins NO_PANEL with other words; NO_PANEL stands alone` |
+| 14 | on panels that are not square, arrows that mix sideways with upright (added at the «#72» review) | `HUB75: DISPn_Ck: has its arrow at right angles to C0's arrow; on panels that are not square, every arrow is ARROW_UP or ARROW_DOWN, or every arrow is ARROW_LEFT or ARROW_RIGHT` |
+| — | summary, after any of the above | `HUB75: DISPn: K wiring problem(s) above; startup stopped` |
+
+Notes on the table:
+- **Row 10** fires on the line-buffer limit. The converter limit
+  (`CONVERTER_MAX_PANELS`, 16) cannot fire today, because the wiring names
+  at most 16 cable positions.
+- **Row 11 fires only where the carry is visible.** Joining *different*
+  words with `+` gives the same value as `|` and is harmless. Repeating a
+  word inside its own kind (`C2 + C2` = `C3`) cannot be told apart from the
+  word it carries into; rows 1-9 catch what that does to the layout.
+- **Row 14** exists because a panel turned sideways fills a cell of a
+  different shape, so mixed arrows cannot form a grid. Square panels are
+  exempt, and `ARROW_LEFT` with `ARROW_RIGHT` (or `ARROW_UP` with
+  `ARROW_DOWN`) is allowed. The cell size follows C0's arrow.
+- The cube checks (§7) join this table in «#79».
+
+**A config with no mistakes** prints its picture and tables instead. For the
+rig:
+
+```
+HUB75: DISP0 wiring: 4 panels in a grid of 2 rows x 2 columns, 256 x 128 pixels (columns x rows)
+HUB75: DISP0   [C2 v][C3 v]
+HUB75: DISP0   [C0 v][C1 v]
+HUB75: DISP0 P0 = C2, buffer slot 1, cell row 0 column 0, rotation 180
+HUB75: DISP0 P1 = C3, buffer slot 0, cell row 0 column 1, rotation 180
+HUB75: DISP0 P2 = C0, buffer slot 3, cell row 1 column 0, rotation 180
+HUB75: DISP0 P3 = C1, buffer slot 2, cell row 1 column 1, rotation 180
+HUB75: DISP0 cable -> panel position: C0->P2 C1->P3 C2->P0 C3->P1
+```
+
+A cell that holds no panel prints as `  --  `. When the display has more than
+ten panels, single-digit cells are padded (`[C2  v]`) so the columns line up.
 
 ## §4 One mapping for every drawing path
 
@@ -746,7 +821,7 @@ chip). Its columns:
 
 This sprint fills:
 - every calculated column for every panel type in
-  `Docs/AuthorTestConfigurations.md`;
+  `DOCs/AuthorTestConfigurations.md`;
 - the measured columns for the rig's panel type. Measure the refresh rate
   at each colour depth, and the point at which flicker becomes visible,
   agreed with Stephen at the bench.
@@ -758,7 +833,7 @@ check (§3) enforces the hard limits: RAM, line buffer and converter.
 
 **Deliverables.**
 1. **A new wiring guide.** It replaces the wiring sections of
-   `Docs/MultiPanelConfiguration.md`, and the parts of that file that remain
+   `DOCs/MultiPanelConfiguration.md`, and the parts of that file that remain
    point to it.
    - **Content:**
      - the grammar (§2), stated prescriptively;
@@ -848,13 +923,13 @@ by reading the source.
 | `THEOPS.md` | 51-52 | the file table: `hwBufferAccess` / `hwBuffers` are no longer edited by users |
 | `THEOPS.md` | 77, 94-104 | the configuration rows: wire and per-panel rotation rows replaced; glossary added (§1) |
 | `THEOPS.md` | 168-172 | size limits: by panel count, pointing to the limits table |
-| `Docs/MultiPanelConfiguration.md` | 18-445 (almost all) | replaced by the new guide (§12). Its per-panel rotation value table (295-316) contradicts the code (`$20..` versus `0..3`) and goes |
-| `Docs/TheoryOfOperations.md` | 105, 152-157 | the pixel pipeline rewritten to the §4 path; it already describes a raster that the code no longer uses |
-| `Docs/TheoryOfOperations.md` | 291-334 | memory examples by panel count; the descriptor table layout |
-| `Docs/TheoryOfOperations.md` | 422-443 | config example converted |
-| `Docs/TECHNICAL_DEBT.md` | 7-41 | TD-001 (wire-order table optimisation) retired: the table is gone |
-| `Docs/AuthorTestConfigurations.md` | 241-244 and the per-config blocks | configs converted; the multi-panel status column cross-references the limits table; the scan term per the glossary |
-| `Docs/ChipCharacteristicsMatrix.md` | the scan column, 14 and 244+ | scan term per the glossary |
+| `DOCs/MultiPanelConfiguration.md` | 18-445 (almost all) | replaced by the new guide (§12). Its per-panel rotation value table (295-316) contradicts the code (`$20..` versus `0..3`) and goes |
+| `DOCs/TheoryOfOperations.md` | 105, 152-157 | the pixel pipeline rewritten to the §4 path; it already describes a raster that the code no longer uses |
+| `DOCs/TheoryOfOperations.md` | 291-334 | memory examples by panel count; the descriptor table layout |
+| `DOCs/TheoryOfOperations.md` | 422-443 | config example converted |
+| `DOCs/TECHNICAL_DEBT.md` | 7-41 | TD-001 (wire-order table optimisation) retired: the table is gone |
+| `DOCs/AuthorTestConfigurations.md` | 241-244 and the per-config blocks | configs converted; the multi-panel status column cross-references the limits table; the scan term per the glossary |
+| `DOCs/ChipCharacteristicsMatrix.md` | the scan column, 14 and 244+ | scan term per the glossary |
 | `Checklist-v2-v3.md` / a new upgrade checklist | — | the config conversion (§12.3) |
 | `ChangeLog.md` | new entry | §12.4 |
 | `CLAUDE.md` (project) | the *User Configuration Files* section | `hwBufferAccess` / `hwBuffers` are no longer per-setup edits |

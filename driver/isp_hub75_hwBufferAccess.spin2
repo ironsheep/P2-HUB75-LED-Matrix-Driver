@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Nov 2022
-''   Updated.... 26 Mar 2024
+''   Updated.... 01 Oct 2026
 ''
 '' =================================================================================================
 '
@@ -40,6 +40,44 @@ CON ' ---- Interface Constant Forwarding ----
     ROT_RIGHT_90     = hwEnum.ROT_RIGHT_90
     ROT_180          = hwEnum.ROT_180
     ROT_270          = hwEnum.ROT_270
+
+CON ' ---- Driver Limits ----
+    {Spin2_Doc_CON}
+
+    ' The hard limits on how many panels one adapter can drive. The startup check in
+    ' configure() enforces them; the limits table in the wiring guide is computed
+    ' from them.
+    '
+    ' The panel limit for a display is the smaller of:
+    '   LINE_BUFFER_MAX_COLUMNS / (panel columns x column factor), where the column
+    '     factor is SCAN_4_COLUMN_FACTOR for a panel whose chip flags include SCAN_4,
+    '     and SINGLE_COLUMN_FACTOR otherwise; and
+    '   CONVERTER_MAX_PANELS.
+    ' Hub RAM is the third limit. The compiler enforces it: the buffers are DAT
+    ' arrays sized from DISPn_PANEL_COUNT, so a display too large for hub RAM does
+    ' not compile.
+
+    ' cable positions a display can name: the wiring words C0 .. C15
+    MAX_CABLE_POSITIONS     = 16
+
+    ' panels the screen-to-PWM converter is built to handle on one adapter
+    CONVERTER_MAX_PANELS    = 16
+
+    ' the refresh core's line buffer (cogBuffer in isp_hub75_rgb3bit.spin2), in bytes.
+    ' The refresh core sizes its buffer from this value. It shifts one byte per
+    ' column clock, so one row along the cable must fit in this buffer.
+    LINE_BUFFER_BYTES       = 512
+
+    ' bytes the refresh core shifts per column clock (one byte carries RGB1 and RGB2)
+    BYTES_PER_COLUMN_CLOCK  = 1
+
+    ' the longest row along the cable that the line buffer holds, in columns
+    LINE_BUFFER_MAX_COLUMNS = LINE_BUFFER_BYTES / BYTES_PER_COLUMN_CLOCK
+
+    ' a panel that lights four rows at once (chip flags include SCAN_4) shifts twice
+    ' its width for each row address; every other panel shifts its width once
+    SCAN_4_COLUMN_FACTOR    = 2
+    SINGLE_COLUMN_FACTOR    = 1
 
 OBJ
 
@@ -222,7 +260,10 @@ PUB null()
 ''
 
 PUB configure(eHub75Chain, ePinBase, eChipType, eAddrLines) | pEntry, nChainIdx, bValidPins
-'' Record the base-pin, chip type, and number of address lines for a HUB75 adapter.
+'' Record the base-pin, chip type, and number of address lines for a HUB75 adapter, then
+'' check this display's wiring sentences (DISPn_C0 .. DISPn_C15) and derive its layout.
+'' Each wiring mistake prints one debug line naming the setting and the problem; after
+'' the last message, startup stops (the program shuts down).
 ''
 '' @param eHub75Chain - the HUB75 adapter chain identifier (10, 20, or 30)
 '' @param ePinBase - the base pin group for this adapter
@@ -256,6 +297,8 @@ PUB configure(eHub75Chain, ePinBase, eChipType, eAddrLines) | pEntry, nChainIdx,
       'dbgMemDump(@"Entry 0", @screenTableEnt0, entrySizeInBytes)
       bFirstTime := FALSE
     DEBUG("HUB75: configure() idx=", udec_(nChainIdx), udec(nChainIdx), udec(ePinBase), udec(eAddrLines))
+    ' decode and check the wiring sentences, then derive the layout tables (stops on a mistake)
+    checkAndDeriveLayout(nChainIdx)
     ' Note: Wire order table is built by setWireConfig() which must be called after configure()
 
 PUB setWireConfig(eHub75Chain, eWireEntry, eWireTraverse) | pEntry, nChainIdx
@@ -969,6 +1012,622 @@ PRI ptrTableEntry(nChainIdx) : pEntry | validScreenIdx
     abort
 
   pEntry := @@LONG[@screenTable][validScreenIdx]        ' get ptr to table entry
+
+CON { PRIVATE wiring check and layout constants }
+
+    ' number of HUB75 adapters, and so of displays (DISP0 .. DISP2)
+    ADAPTER_COUNT           = (hwEnum.HUB75_ADAPTER_3 - hwEnum.HUB75_ADAPTER_1) / hwEnum.HUB75_ADAPTER_STEP + 1
+
+    ' every bit that some wiring word uses; any other bit set means words were joined with +
+    WIRING_WORD_BITS        = hwEnum.NEIGHBOR_MASK | hwEnum.DIRECTION_MASK | hwEnum.ARROW_MASK | hwEnum.FIRST_PANEL_MASK | hwEnum.NO_PANEL_MASK
+
+    ' a well-formed sentence holds exactly this many words of each kind it needs
+    ONE_WORD                = 1
+
+    ' the arrows of a panel turned sideways (its columns run up and down the display)
+    SIDEWAYS_ARROWS         = hwEnum.ARROW_LEFT | hwEnum.ARROW_RIGHT
+
+    ' cable position of the panel the adapter plugs into
+    FIRST_CABLE_POSITION    = 0
+
+    ' grid steps from a panel's neighbour to the panel (rows grow downward, columns rightward)
+    STEP_BACK               = -1
+    STEP_NONE               = 0
+    STEP_FORWARD            = 1
+
+    ' The cells of a connected display of N panels fit a grid whose rows plus columns
+    ' is at most N + 1, so 16 panels need at most 8 x 9 = 72 cells.
+    MAX_GRID_CELLS          = ((MAX_CABLE_POSITIONS + 1) / 2) * ((MAX_CABLE_POSITIONS + 2) / 2)
+
+    ' table entry for a cell that holds no panel, or for a position no panel takes
+    NO_POSITION             = $FF
+
+    ' the picture printed at startup: one cell reads "[C2 v]", padded to "[C2  v]" when
+    ' the display has more than ten panels; the longest line is the inverse-table line,
+    ' MAX_CABLE_POSITIONS entries of " C15->P15"
+    DECIMAL_BASE            = 10
+    LONGEST_ENTRY_CHARS     = 9
+    PICTURE_LINE_BYTES      = MAX_CABLE_POSITIONS * LONGEST_ENTRY_CHARS + 1
+    DEGREES_PER_QUARTER     = 90
+
+    ' stopping after wiring mistakes
+    HALT_DRAIN_MS           = 200                               ' let the last message leave the serial port
+    LAST_COG_ID             = 7
+
+DAT { Wiring sentences, and the layout derived from them at startup }
+
+' The wiring sentences of every display: DISPn_C0 .. DISPn_C15, MAX_CABLE_POSITIONS per adapter.
+wiringSentences     LONG    user.DISP0_C0, user.DISP0_C1, user.DISP0_C2, user.DISP0_C3
+                    LONG    user.DISP0_C4, user.DISP0_C5, user.DISP0_C6, user.DISP0_C7
+                    LONG    user.DISP0_C8, user.DISP0_C9, user.DISP0_C10, user.DISP0_C11
+                    LONG    user.DISP0_C12, user.DISP0_C13, user.DISP0_C14, user.DISP0_C15
+                    LONG    user.DISP1_C0, user.DISP1_C1, user.DISP1_C2, user.DISP1_C3
+                    LONG    user.DISP1_C4, user.DISP1_C5, user.DISP1_C6, user.DISP1_C7
+                    LONG    user.DISP1_C8, user.DISP1_C9, user.DISP1_C10, user.DISP1_C11
+                    LONG    user.DISP1_C12, user.DISP1_C13, user.DISP1_C14, user.DISP1_C15
+                    LONG    user.DISP2_C0, user.DISP2_C1, user.DISP2_C2, user.DISP2_C3
+                    LONG    user.DISP2_C4, user.DISP2_C5, user.DISP2_C6, user.DISP2_C7
+                    LONG    user.DISP2_C8, user.DISP2_C9, user.DISP2_C10, user.DISP2_C11
+                    LONG    user.DISP2_C12, user.DISP2_C13, user.DISP2_C14, user.DISP2_C15
+
+' The layout of each display, derived once by configure(); one entry per adapter.
+layoutPanelCount    LONG    0[ADAPTER_COUNT]                    ' N, the panels in use
+layoutGridRows      LONG    0[ADAPTER_COUNT]                    ' bounding box height, in panels
+layoutGridColumns   LONG    0[ADAPTER_COUNT]                    ' bounding box width, in panels
+layoutPixelRows     LONG    0[ADAPTER_COUNT]                    ' bounding box height, in pixels
+layoutPixelColumns  LONG    0[ADAPTER_COUNT]                    ' bounding box width, in pixels
+
+' Lookup tables for the drawing path, MAX_CABLE_POSITIONS entries per adapter; an entry
+' past the last panel holds NO_POSITION. P is the panel position (reading order).
+positionToSlot      BYTE    NO_POSITION[ADAPTER_COUNT * MAX_CABLE_POSITIONS]  ' P -> buffer slot (N-1-C)
+positionToRotation  BYTE    NO_POSITION[ADAPTER_COUNT * MAX_CABLE_POSITIONS]  ' P -> panel rotation (hwEnum.ROT_*)
+positionToCellRow   BYTE    NO_POSITION[ADAPTER_COUNT * MAX_CABLE_POSITIONS]  ' P -> grid row of its cell
+positionToCellCol   BYTE    NO_POSITION[ADAPTER_COUNT * MAX_CABLE_POSITIONS]  ' P -> grid column of its cell
+cableToPosition     BYTE    NO_POSITION[ADAPTER_COUNT * MAX_CABLE_POSITIONS]  ' cable position C -> P (inverse, for identify)
+
+' The derived grid, MAX_GRID_CELLS entries per adapter: cell (row x grid columns + column) -> P,
+' or NO_POSITION for a cell that holds no panel.
+cellToPosition      BYTE    NO_POSITION[ADAPTER_COUNT * MAX_GRID_CELLS]
+
+' Work area for one configure() call; startup configures one adapter at a time.
+cableCellRow        LONG    0[MAX_CABLE_POSITIONS]              ' cable position -> grid row, relative to C0
+cableCellColumn     LONG    0[MAX_CABLE_POSITIONS]              ' cable position -> grid column, relative to C0
+cablePlaced         LONG    0[MAX_CABLE_POSITIONS]              ' cable position -> TRUE once its cell is known
+pictureLine         BYTE    0[PICTURE_LINE_BYTES]               ' one line of the printed picture
+emptyCellText       BYTE    "  --  ", 0                         ' a cell that holds no panel
+emptyText           BYTE    0                                   ' nothing follows the cable number
+
+' Wiring messages printed from more than one check (the catalogue in the sprint plan quotes them)
+msgPlusCarry        BYTE    "looks like + joined a word to itself and carried into the next kind of word; join the words with | only, never +", 0
+msgC0NotFirst       BYTE    "must be FIRST_PANEL | arrow, because panels are in use", 0
+msgNoArrow          BYTE    "has no arrow word; add one of ARROW_UP, ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT", 0
+msgManyArrows       BYTE    "has more than one arrow word; use exactly one of ARROW_UP, ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT", 0
+
+PRI checkAndDeriveLayout(nChainIdx) | mistakeCount, panelCount
+' Decode and check one display's wiring sentences, then derive its layout tables and
+' print its picture. If any check fails, stop the program after all the messages.
+'
+' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+
+' Local Variables:
+' @local mistakeCount - number of wiring problems reported
+' @local panelCount - number of cable positions in use (not NO_PANEL)
+
+    ' checks on each sentence alone, and on the numbering
+    mistakeCount, panelCount := checkSentences(nChainIdx)
+    if panelCount == 0
+        debug("HUB75: DISP", udec_(nChainIdx), ": has no panels (every DISP", udec_(nChainIdx), "_C0 .. DISP", udec_(nChainIdx), "_C15 is NO_PANEL), so its adapter cannot be started")
+        mistakeCount++
+    else
+        mistakeCount += checkPanelLimit(nChainIdx, panelCount)
+        ' the walk needs well-formed sentences; it runs only when the checks above pass
+        if mistakeCount == 0
+            mistakeCount := placePanels(nChainIdx, panelCount)
+            if mistakeCount == 0
+                buildLayoutTables(nChainIdx, panelCount)
+                printLayout(nChainIdx)
+    if mistakeCount > 0
+        haltAfterMistakes(nChainIdx, mistakeCount)
+
+PRI checkSentences(nChainIdx) : mistakeCount, panelCount | cablePos, sentence
+' Check each wiring sentence of one display on its own, then check the numbering and
+' that the arrows agree on one axis.
+'
+' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+' @returns mistakeCount - number of wiring problems reported
+' @returns panelCount - number of cable positions in use (not NO_PANEL)
+
+' Local Variables:
+' @local cablePos - cable position being checked
+' @local sentence - the wiring sentence at that cable position
+
+    mistakeCount := 0
+    panelCount := 0
+    repeat cablePos from 0 to MAX_CABLE_POSITIONS - 1
+        sentence := wiringSentence(nChainIdx, cablePos)
+        if sentence <> hwEnum.NO_PANEL
+            panelCount++
+            mistakeCount += checkOneSentence(nChainIdx, cablePos, sentence)
+            ' a gap in the numbering; C1 after an unused C0 is reported by the C0 check below
+            if cablePos > FIRST_CABLE_POSITION + 1 and wiringSentence(nChainIdx, cablePos - 1) == hwEnum.NO_PANEL
+                reportSentenceRef(nChainIdx, cablePos, @"is in use, but C", cablePos - 1, @" before it is NO_PANEL; number the panels in use C0, C1, C2 ... with no gaps")
+                mistakeCount++
+    if panelCount > 0 and wiringSentence(nChainIdx, FIRST_CABLE_POSITION) == hwEnum.NO_PANEL
+        reportSentence(nChainIdx, FIRST_CABLE_POSITION, @msgC0NotFirst)
+        mistakeCount++
+    mistakeCount += checkArrowAxes(nChainIdx)
+
+PRI checkArrowAxes(nChainIdx) : mistakeCount | panelRows, panelCols, firstArrow, cablePos, sentence, arrowBits
+' Report a panel whose arrow is at right angles to C0's arrow, on panels that are not
+' square: a panel turned sideways fills a cell of a different shape, so mixed arrows
+' cannot form a grid. Square panels may point any way.
+'
+' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+' @returns mistakeCount - number of wiring problems reported
+
+' Local Variables:
+' @local panelRows - pixel rows per individual panel
+' @local panelCols - pixel columns per individual panel
+' @local firstArrow - the arrow word of C0
+' @local cablePos - cable position being checked
+' @local sentence - the wiring sentence at that cable position
+' @local arrowBits - the arrow word of that sentence
+
+    mistakeCount := 0
+    panelRows, panelCols := panelSizeInPixels(nChainIdx)
+    firstArrow := wiringSentence(nChainIdx, FIRST_CABLE_POSITION) & hwEnum.ARROW_MASK
+    ' compare only arrows that are well formed; the sentence checks report the rest
+    if panelRows <> panelCols and (ONES firstArrow) == ONE_WORD
+        repeat cablePos from FIRST_CABLE_POSITION + 1 to MAX_CABLE_POSITIONS - 1
+            sentence := wiringSentence(nChainIdx, cablePos)
+            arrowBits := sentence & hwEnum.ARROW_MASK
+            if (sentence & (hwEnum.NO_PANEL | !WIRING_WORD_BITS)) == 0 and (ONES arrowBits) == ONE_WORD
+                if ((arrowBits & SIDEWAYS_ARROWS) <> 0) <> ((firstArrow & SIDEWAYS_ARROWS) <> 0)
+                    reportSentence(nChainIdx, cablePos, @"has its arrow at right angles to C0's arrow; on panels that are not square, every arrow is ARROW_UP or ARROW_DOWN, or every arrow is ARROW_LEFT or ARROW_RIGHT")
+                    mistakeCount++
+
+PRI checkOneSentence(nChainIdx, cablePos, sentence) : mistakeCount | nbrBits, dirBits, arrowBits, bNbrDone, bDirDone, bArrowDone, nbrPos
+' Check one wiring sentence that is in use (not NO_PANEL) against the three forms.
+'
+' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+' @param cablePos - cable position of the sentence
+' @param sentence - the wiring sentence at that cable position
+' @returns mistakeCount - number of wiring problems reported
+
+' Local Variables:
+' @local nbrBits - the neighbour words of the sentence
+' @local dirBits - the direction words of the sentence
+' @local arrowBits - the arrow words of the sentence
+' @local bNbrDone - TRUE once the neighbour field has been reported on
+' @local bDirDone - TRUE once the direction field has been reported on
+' @local bArrowDone - TRUE once the arrow field has been reported on
+' @local nbrPos - cable position named as the neighbour
+
+    mistakeCount := 0
+    nbrBits := sentence & hwEnum.NEIGHBOR_MASK
+    dirBits := sentence & hwEnum.DIRECTION_MASK
+    arrowBits := sentence & hwEnum.ARROW_MASK
+    if (sentence & !WIRING_WORD_BITS) <> 0
+        ' a carry out of the top word (NO_PANEL + NO_PANEL), or a value that is no sentence
+        reportSentence(nChainIdx, cablePos, @"has bits that no wiring word uses; join the words with | only, never +")
+        mistakeCount++
+    elseif (sentence & hwEnum.NO_PANEL) <> 0
+        reportSentence(nChainIdx, cablePos, @"joins NO_PANEL with other words; NO_PANEL stands alone")
+        mistakeCount++
+    elseif cablePos == FIRST_CABLE_POSITION
+        if (sentence & hwEnum.FIRST_PANEL) == 0
+            reportSentence(nChainIdx, cablePos, @msgC0NotFirst)
+            mistakeCount++
+        else
+            if (dirBits | nbrBits) <> 0
+                reportSentence(nChainIdx, cablePos, @"takes only FIRST_PANEL and an arrow; remove its direction and neighbour words")
+                mistakeCount++
+            mistakeCount += checkWordCount(nChainIdx, cablePos, arrowBits, @msgNoArrow, @msgManyArrows)
+    elseif (sentence & hwEnum.FIRST_PANEL) <> 0
+        if arrowBits == 0 and dirBits <> 0 and nbrBits <> 0
+            ' ARROW_RIGHT + ARROW_RIGHT carries into FIRST_PANEL
+            reportSentence(nChainIdx, cablePos, @msgPlusCarry)
+        else
+            reportSentence(nChainIdx, cablePos, @"uses FIRST_PANEL, which belongs only to C0; write direction | neighbour | arrow")
+        mistakeCount++
+    else
+        bNbrDone := bDirDone := bArrowDone := FALSE
+        ' a word joined to itself with + carries into the lowest word of the next kind:
+        ' C15 + C15 becomes ABOVE, RIGHT_OF + RIGHT_OF becomes ARROW_UP
+        if nbrBits == 0 and (dirBits & hwEnum.ABOVE) <> 0 and (ONES dirBits) > ONE_WORD
+            reportSentence(nChainIdx, cablePos, @msgPlusCarry)
+            mistakeCount++
+            bNbrDone := bDirDone := TRUE
+        elseif dirBits == 0 and (arrowBits & hwEnum.ARROW_UP) <> 0 and (ONES arrowBits) > ONE_WORD
+            reportSentence(nChainIdx, cablePos, @msgPlusCarry)
+            mistakeCount++
+            bDirDone := bArrowDone := TRUE
+        if bDirDone == FALSE
+            mistakeCount += checkWordCount(nChainIdx, cablePos, dirBits, @"has no direction word; add one of ABOVE, BELOW, LEFT_OF, RIGHT_OF", @"has more than one direction word; use exactly one of ABOVE, BELOW, LEFT_OF, RIGHT_OF")
+        if bNbrDone == FALSE
+            mistakeCount += checkWordCount(nChainIdx, cablePos, nbrBits, @"has no neighbour word; add the cable position (C0 .. C15) of the panel it sits next to", @"has more than one neighbour word; use exactly one of C0 .. C15")
+        if bArrowDone == FALSE
+            mistakeCount += checkWordCount(nChainIdx, cablePos, arrowBits, @msgNoArrow, @msgManyArrows)
+        ' count the neighbour bits before converting them: ENCOD of an empty field is C0
+        if (ONES nbrBits) == ONE_WORD
+            nbrPos := ENCOD nbrBits
+            if nbrPos == cablePos
+                reportSentence(nChainIdx, cablePos, @"names itself as its neighbour; name the panel it sits next to")
+                mistakeCount++
+            elseif wiringSentence(nChainIdx, nbrPos) == hwEnum.NO_PANEL
+                reportSentenceRef(nChainIdx, cablePos, @"names C", nbrPos, @" as its neighbour, but that cable position is NO_PANEL")
+                mistakeCount++
+
+PRI checkWordCount(nChainIdx, cablePos, fieldBits, pNoneText, pManyText) : mistakeCount
+' Report a field of a sentence that holds no word, or more than one word.
+'
+' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+' @param cablePos - cable position of the sentence
+' @param fieldBits - the bits of one kind of word, taken from the sentence
+' @param pNoneText - message for a field that holds no word
+' @param pManyText - message for a field that holds more than one word
+' @returns mistakeCount - number of wiring problems reported (0 or 1)
+
+    mistakeCount := 0
+    if fieldBits == 0
+        reportSentence(nChainIdx, cablePos, pNoneText)
+        mistakeCount++
+    elseif (ONES fieldBits) > ONE_WORD
+        reportSentence(nChainIdx, cablePos, pManyText)
+        mistakeCount++
+
+PRI checkPanelLimit(nChainIdx, panelCount) : mistakeCount | panelCols, columnFactor, panelLimit, driverFlags
+' Report a display with more panels than the driver limit for its panel type.
+'
+' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+' @param panelCount - number of cable positions in use (not NO_PANEL)
+' @returns mistakeCount - number of wiring problems reported (0 or 1)
+
+' Local Variables:
+' @local panelCols - pixel columns per individual panel
+' @local columnFactor - columns the refresh core shifts per panel column
+' @local panelLimit - the most panels of this type one adapter can drive
+' @local driverFlags - combined driver capability flags for the chip type
+
+    mistakeCount := 0
+    panelCols := columnsPerPanel(nChainIdx)
+    driverFlags, _ := getDriverFlags(nChainIdx)                ' the chip type is not needed here
+    columnFactor := SINGLE_COLUMN_FACTOR
+    if (driverFlags & hwEnum.SCAN_4) <> 0
+        columnFactor := SCAN_4_COLUMN_FACTOR
+    panelLimit := (LINE_BUFFER_MAX_COLUMNS / (panelCols * columnFactor)) <# CONVERTER_MAX_PANELS
+    if panelCount > panelLimit
+        debug("HUB75: DISP", udec_(nChainIdx), ": ", udec_(panelCount), " panels exceed the driver limit of ", udec_(panelLimit), " for panels ", udec_(panelCols), " columns wide; one row along the cable would be ", udec_(panelCount * panelCols * columnFactor), " columns, and the refresh line buffer holds ", udec_(LINE_BUFFER_MAX_COLUMNS))
+        mistakeCount++
+
+PRI placePanels(nChainIdx, panelCount) : mistakeCount | cablePos, nbrPos, otherPos, sentence, rowStep, colStep, bPlacedOne
+' Find each panel's grid cell by walking the neighbour links out from C0, and report
+' two panels in one cell and panels that do not connect back to C0.
+'
+' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+' @param panelCount - number of cable positions in use (C0 .. C(N-1), no gaps)
+' @returns mistakeCount - number of wiring problems reported
+
+' Local Variables:
+' @local cablePos - cable position being placed
+' @local nbrPos - cable position of its neighbour
+' @local otherPos - cable position of a panel already in the same cell
+' @local sentence - the wiring sentence at that cable position
+' @local rowStep - grid row step from the neighbour to this panel
+' @local colStep - grid column step from the neighbour to this panel
+' @local bPlacedOne - TRUE when a pass placed at least one panel
+
+    mistakeCount := 0
+    longfill(@cablePlaced, FALSE, MAX_CABLE_POSITIONS)
+    cableCellRow[FIRST_CABLE_POSITION] := 0
+    cableCellColumn[FIRST_CABLE_POSITION] := 0
+    cablePlaced[FIRST_CABLE_POSITION] := TRUE
+    ' a neighbour may come later in the cable, so repeat until a pass places nothing
+    repeat
+        bPlacedOne := FALSE
+        repeat cablePos from 0 to panelCount - 1
+            if cablePlaced[cablePos] == FALSE
+                sentence := wiringSentence(nChainIdx, cablePos)
+                nbrPos := ENCOD (sentence & hwEnum.NEIGHBOR_MASK)
+                if cablePlaced[nbrPos] == TRUE
+                    rowStep, colStep := cellStepForDirection(sentence & hwEnum.DIRECTION_MASK)
+                    cableCellRow[cablePos] := cableCellRow[nbrPos] + rowStep
+                    cableCellColumn[cablePos] := cableCellColumn[nbrPos] + colStep
+                    otherPos := cableInCell(panelCount, cableCellRow[cablePos], cableCellColumn[cablePos])
+                    if otherPos <> NO_POSITION
+                        reportSentenceRef(nChainIdx, cablePos, @"sits in the same cell as C", otherPos, @emptyText)
+                        mistakeCount++
+                    cablePlaced[cablePos] := TRUE
+                    bPlacedOne := TRUE
+    while bPlacedOne == TRUE
+    repeat cablePos from 0 to panelCount - 1
+        if cablePlaced[cablePos] == FALSE
+            reportSentence(nChainIdx, cablePos, @"does not connect back to C0 through its neighbours")
+            mistakeCount++
+
+PRI cableInCell(panelCount, cellRow, cellColumn) : otherPos | cablePos
+' Return the cable position of a placed panel in the given cell, or NO_POSITION.
+'
+' @param panelCount - number of cable positions in use
+' @param cellRow - grid row, relative to C0
+' @param cellColumn - grid column, relative to C0
+' @returns otherPos - cable position of the panel in that cell, or NO_POSITION
+
+' Local Variables:
+' @local cablePos - cable position being compared
+
+    otherPos := NO_POSITION
+    repeat cablePos from 0 to panelCount - 1
+        if cablePlaced[cablePos] == TRUE and cableCellRow[cablePos] == cellRow and cableCellColumn[cablePos] == cellColumn
+            otherPos := cablePos
+            quit
+
+PRI buildLayoutTables(nChainIdx, panelCount) | cablePos, minRow, maxRow, minCol, maxCol, gridRows, gridCols, cellIdx, posn, tableBase, cellBase, panelRows, panelCols
+' Derive the bounding box, number the panels in reading order, and build the lookup
+' tables the drawing path uses. Runs once, at startup.
+'
+' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+' @param panelCount - number of cable positions in use (C0 .. C(N-1), all placed)
+
+' Local Variables:
+' @local cablePos - cable position of a panel
+' @local minRow - top grid row, relative to C0
+' @local maxRow - bottom grid row, relative to C0
+' @local minCol - left grid column, relative to C0
+' @local maxCol - right grid column, relative to C0
+' @local gridRows - bounding box height, in panels
+' @local gridCols - bounding box width, in panels
+' @local cellIdx - cell index (row x grid columns + column)
+' @local posn - panel position being numbered
+' @local tableBase - first entry of this adapter in the per-position tables
+' @local cellBase - first entry of this adapter in the grid table
+' @local panelRows - pixel rows of one cell
+' @local panelCols - pixel columns of one cell
+
+    minRow := maxRow := cableCellRow[FIRST_CABLE_POSITION]
+    minCol := maxCol := cableCellColumn[FIRST_CABLE_POSITION]
+    repeat cablePos from 0 to panelCount - 1
+        minRow <#= cableCellRow[cablePos]
+        maxRow #>= cableCellRow[cablePos]
+        minCol <#= cableCellColumn[cablePos]
+        maxCol #>= cableCellColumn[cablePos]
+    gridRows := maxRow - minRow + 1
+    gridCols := maxCol - minCol + 1
+
+    tableBase := nChainIdx * MAX_CABLE_POSITIONS
+    cellBase := nChainIdx * MAX_GRID_CELLS
+    bytefill(@positionToSlot[tableBase], NO_POSITION, MAX_CABLE_POSITIONS)
+    bytefill(@positionToRotation[tableBase], NO_POSITION, MAX_CABLE_POSITIONS)
+    bytefill(@positionToCellRow[tableBase], NO_POSITION, MAX_CABLE_POSITIONS)
+    bytefill(@positionToCellCol[tableBase], NO_POSITION, MAX_CABLE_POSITIONS)
+    bytefill(@cableToPosition[tableBase], NO_POSITION, MAX_CABLE_POSITIONS)
+    bytefill(@cellToPosition[cellBase], NO_POSITION, MAX_GRID_CELLS)
+
+    ' first mark each occupied cell with the cable position of its panel
+    repeat cablePos from 0 to panelCount - 1
+        cellIdx := (cableCellRow[cablePos] - minRow) * gridCols + (cableCellColumn[cablePos] - minCol)
+        cellToPosition[cellBase + cellIdx] := cablePos
+
+    ' then number the panels in reading order, replacing each cable position with its panel position
+    posn := 0
+    repeat cellIdx from 0 to (gridRows * gridCols) - 1
+        cablePos := cellToPosition[cellBase + cellIdx]
+        if cablePos <> NO_POSITION
+            positionToSlot[tableBase + posn] := panelCount - 1 - cablePos
+            positionToRotation[tableBase + posn] := rotationForArrow(wiringSentence(nChainIdx, cablePos) & hwEnum.ARROW_MASK)
+            positionToCellRow[tableBase + posn] := cellIdx / gridCols
+            positionToCellCol[tableBase + posn] := cellIdx // gridCols
+            cableToPosition[tableBase + cablePos] := posn
+            cellToPosition[cellBase + cellIdx] := posn
+            posn++
+
+    ' the cell size follows C0's arrow: a panel turned sideways shows its columns as rows
+    ' (checkArrowAxes makes every arrow agree with C0's unless the panels are square)
+    panelRows, panelCols := panelSizeInPixels(nChainIdx)
+    if (wiringSentence(nChainIdx, FIRST_CABLE_POSITION) & SIDEWAYS_ARROWS) <> 0
+        panelRows, panelCols := panelCols, panelRows
+    layoutPanelCount[nChainIdx] := panelCount
+    layoutGridRows[nChainIdx] := gridRows
+    layoutGridColumns[nChainIdx] := gridCols
+    layoutPixelRows[nChainIdx] := gridRows * panelRows
+    layoutPixelColumns[nChainIdx] := gridCols * panelCols
+
+PRI printLayout(nChainIdx) | panelCount, gridRows, gridCols, rowIdx, colIdx, posn, cablePos, lineLen, tableBase, cellBase, bWide
+' Print the derived picture, one line per grid row, then the lookup tables.
+'
+' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+
+' Local Variables:
+' @local panelCount - number of panels in use
+' @local gridRows - bounding box height, in panels
+' @local gridCols - bounding box width, in panels
+' @local rowIdx - grid row being printed
+' @local colIdx - grid column being printed
+' @local posn - panel position of a cell
+' @local cablePos - cable position of a panel
+' @local lineLen - characters written to the picture line so far
+' @local tableBase - first entry of this adapter in the per-position tables
+' @local cellBase - first entry of this adapter in the grid table
+' @local bWide - TRUE when cable numbers can have two digits
+
+    panelCount := layoutPanelCount[nChainIdx]
+    gridRows := layoutGridRows[nChainIdx]
+    gridCols := layoutGridColumns[nChainIdx]
+    tableBase := nChainIdx * MAX_CABLE_POSITIONS
+    cellBase := nChainIdx * MAX_GRID_CELLS
+    bWide := panelCount > DECIMAL_BASE
+    debug("HUB75: DISP", udec_(nChainIdx), " wiring: ", udec_(panelCount), " panels in a grid of ", udec_(gridRows), " rows x ", udec_(gridCols), " columns, ", udec_(layoutPixelColumns[nChainIdx]), " x ", udec_(layoutPixelRows[nChainIdx]), " pixels (columns x rows)")
+    repeat rowIdx from 0 to gridRows - 1
+        lineLen := 0
+        repeat colIdx from 0 to gridCols - 1
+            posn := cellToPosition[cellBase + (rowIdx * gridCols) + colIdx]
+            if posn == NO_POSITION
+                lineLen := appendText(lineLen, @emptyCellText)
+                if bWide == TRUE
+                    pictureLine[lineLen++] := " "
+            else
+                cablePos := panelCount - 1 - positionToSlot[tableBase + posn]
+                lineLen := appendPanelCell(lineLen, cablePos, positionToRotation[tableBase + posn], bWide)
+        pictureLine[lineLen] := 0
+        debug("HUB75: DISP", udec_(nChainIdx), "   ", zstr_(@pictureLine))
+    repeat posn from 0 to panelCount - 1
+        cablePos := panelCount - 1 - positionToSlot[tableBase + posn]
+        debug("HUB75: DISP", udec_(nChainIdx), " P", udec_(posn), " = C", udec_(cablePos), ", buffer slot ", udec_(positionToSlot[tableBase + posn]), ", cell row ", udec_(positionToCellRow[tableBase + posn]), " column ", udec_(positionToCellCol[tableBase + posn]), ", rotation ", udec_((positionToRotation[tableBase + posn] - hwEnum.ROT_0) * DEGREES_PER_QUARTER))
+    ' the inverse table, as identify will read it
+    lineLen := 0
+    repeat cablePos from 0 to panelCount - 1
+        lineLen := appendText(lineLen, @" C")
+        lineLen := appendNumber(lineLen, cablePos)
+        lineLen := appendText(lineLen, @"->P")
+        lineLen := appendNumber(lineLen, cableToPosition[tableBase + cablePos])
+    pictureLine[lineLen] := 0
+    debug("HUB75: DISP", udec_(nChainIdx), " cable -> panel position:", zstr_(@pictureLine))
+
+PRI appendPanelCell(lineLen, cablePos, ePanelRotation, bWide) : newLen
+' Append one panel's cell, such as "[C2 v]", to the picture line.
+'
+' @param lineLen - characters written to the picture line so far
+' @param cablePos - cable position of the panel
+' @param ePanelRotation - panel rotation enum (hwEnum.ROT_*)
+' @param bWide - TRUE when cable numbers can have two digits
+' @returns newLen - characters written to the picture line after this cell
+
+    newLen := lineLen
+    pictureLine[newLen++] := "["
+    pictureLine[newLen++] := "C"
+    newLen := appendNumber(newLen, cablePos)
+    if bWide == TRUE and cablePos < DECIMAL_BASE
+        pictureLine[newLen++] := " "
+    pictureLine[newLen++] := " "
+    pictureLine[newLen++] := arrowCharForRotation(ePanelRotation)
+    pictureLine[newLen++] := "]"
+
+PRI appendNumber(lineLen, number) : newLen
+' Append a number from 0 to 99 to the picture line.
+'
+' @param lineLen - characters written to the picture line so far
+' @param number - the number to append
+' @returns newLen - characters written to the picture line after the number
+
+    newLen := lineLen
+    if number >= DECIMAL_BASE
+        pictureLine[newLen++] := "0" + number / DECIMAL_BASE
+    pictureLine[newLen++] := "0" + number // DECIMAL_BASE
+
+PRI appendText(lineLen, pText) : newLen
+' Append a zero-terminated string to the picture line.
+'
+' @param lineLen - characters written to the picture line so far
+' @param pText - pointer to the zero-terminated string
+' @returns newLen - characters written to the picture line after the string
+
+    newLen := lineLen
+    repeat while BYTE[pText] <> 0
+        pictureLine[newLen++] := BYTE[pText++]
+
+PRI haltAfterMistakes(nChainIdx, mistakeCount) | cogIdx
+' Stop the program after the wiring messages: print the count and the end-of-session
+' marker, stop every other cog, then stop this one.
+'
+' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+' @param mistakeCount - number of wiring problems reported
+
+' Local Variables:
+' @local cogIdx - cog being stopped
+
+    debug("HUB75: DISP", udec_(nChainIdx), ": ", udec_(mistakeCount), " wiring problem(s) above; startup stopped")
+    waitms(HALT_DRAIN_MS)
+    debug("END_SESSION")
+    repeat cogIdx from 0 to LAST_COG_ID
+        if cogIdx <> cogid()
+            cogstop(cogIdx)
+    cogstop(cogid())
+
+PRI reportSentence(nChainIdx, cablePos, pMessage)
+' Print one wiring problem for the sentence at one cable position.
+'
+' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+' @param cablePos - cable position of the sentence
+' @param pMessage - pointer to the zero-terminated message
+
+    debug("HUB75: DISP", udec_(nChainIdx), "_C", udec_(cablePos), ": ", zstr_(pMessage))
+
+PRI reportSentenceRef(nChainIdx, cablePos, pBefore, otherCablePos, pAfter) | lineLen
+' Print one wiring problem that names a second cable position. The message is built in
+' the picture line first, because DEBUG separates consecutive values with commas.
+'
+' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+' @param cablePos - cable position of the sentence
+' @param pBefore - pointer to the message text before the second cable number
+' @param otherCablePos - the second cable position
+' @param pAfter - pointer to the message text after the second cable number
+
+' Local Variables:
+' @local lineLen - characters written to the picture line so far
+
+    lineLen := appendText(0, pBefore)
+    lineLen := appendNumber(lineLen, otherCablePos)
+    lineLen := appendText(lineLen, pAfter)
+    pictureLine[lineLen] := 0
+    reportSentence(nChainIdx, cablePos, @pictureLine)
+
+PRI wiringSentence(nChainIdx, cablePos) : sentence
+' Return the wiring sentence DISPn_Ck of one display.
+'
+' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+' @param cablePos - cable position (0 .. MAX_CABLE_POSITIONS - 1)
+' @returns sentence - the wiring sentence at that cable position
+
+    sentence := wiringSentences[(nChainIdx * MAX_CABLE_POSITIONS) + cablePos]
+
+PRI cellStepForDirection(dirBits) : rowStep, colStep
+' Return the grid step from a panel's neighbour to the panel, for one direction word.
+'
+' @param dirBits - the direction word of the sentence
+' @returns rowStep - grid row step (rows grow downward)
+' @returns colStep - grid column step (columns grow rightward)
+
+    rowStep := colStep := STEP_NONE
+    case dirBits
+        hwEnum.ABOVE:
+            rowStep := STEP_BACK
+        hwEnum.BELOW:
+            rowStep := STEP_FORWARD
+        hwEnum.LEFT_OF:
+            colStep := STEP_BACK
+        hwEnum.RIGHT_OF:
+            colStep := STEP_FORWARD
+
+PRI rotationForArrow(arrowBits) : ePanelRotation
+' Return the panel rotation for one arrow word: the arrow is the direction the panel's
+' own "up" points, as the viewer sees it.
+'
+' @param arrowBits - the arrow word of the sentence
+' @returns ePanelRotation - panel rotation enum (hwEnum.ROT_*)
+
+    ePanelRotation := hwEnum.ROT_0
+    case arrowBits
+        hwEnum.ARROW_DOWN:
+            ePanelRotation := hwEnum.ROT_180
+        hwEnum.ARROW_LEFT:
+            ePanelRotation := hwEnum.ROT_LEFT_90                ' up turned to the left: 90 degrees counter-clockwise
+        hwEnum.ARROW_RIGHT:
+            ePanelRotation := hwEnum.ROT_RIGHT_90               ' up turned to the right: 90 degrees clockwise
+
+PRI arrowCharForRotation(ePanelRotation) : arrowChar
+' Return the character that draws a panel's arrow in the printed picture.
+'
+' @param ePanelRotation - panel rotation enum (hwEnum.ROT_*)
+' @returns arrowChar - "^", "v", "<" or ">"
+
+    arrowChar := "^"
+    case ePanelRotation
+        hwEnum.ROT_180:
+            arrowChar := "v"
+        hwEnum.ROT_LEFT_90:
+            arrowChar := "<"
+        hwEnum.ROT_RIGHT_90:
+            arrowChar := ">"
 
 PRI buildWireOrderFromEnums(nChainIdx) | eStart, eTraverse, gridRows, gridCols, nPanels, wirePos, row, col, displayIdx, pWireTable
 ' Build wire order table from configuration enums
