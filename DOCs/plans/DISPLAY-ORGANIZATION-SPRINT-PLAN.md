@@ -873,6 +873,27 @@ check (§3) enforces the hard limits: RAM, line buffer and converter.
 - Decides nothing new. It records the negative case that §4's verification
   compares against, from real hardware rather than from prediction.
 
+**Visit 0 record — 2026-10-02 («#70»).**
+- *Run:* `demo_hub75_boundary` at commit 6c0dc6a, `DISP0_ROTATION = ROT_NONE`, the
+  rig config (all four arrows `ARROW_DOWN`). Headless:
+  `pnut-term-ts --headless -r demo_hub75_boundary.bin --end-marker --timeout 30`,
+  exit 0 on `END_SESSION`.
+- *Full-draw time:* **287,436 µs** (log line `- elapsed boundary draw: 287_436 uSec`;
+  one run).
+- *What Stephen saw* (his words):
+  - text: *"green text flowing off right edge then back on to left edge (wraps) - not
+    crossing center seam"*;
+  - red panel-0 line: *"red line top right panel"*;
+  - box, circle, crosshair: *"yellow box, cyan circle, white lines correct"*.
+- *Reading* (the arbiter's interpretation, not Stephen's words): the text halves are
+  swapped across the vertical seam, which shows on the panels as text running off the
+  right edge and resuming at the left; the panel-centric call lands on the top-right
+  panel because its panel index is the buffer slot. Both match the §4 prediction, and
+  the lines, box and circle land correctly through `drawDisplayPixel`'s column swap.
+- *Earlier observation on the same mapping* (Stephen, 2026-10-01, `demo_hub75_quadPanel`
+  after «#73»): top-right shows P0, top-left P1, bottom-right P2, bottom-left P3, all
+  arrows up.
+
 **Visit A — after §1-§6 and §8.**
 - Identify on the rig: the §8 normal, edge and negative cases.
 - Display-centric versus panel-centric, before and after (§4).
