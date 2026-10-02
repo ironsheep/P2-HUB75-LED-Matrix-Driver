@@ -13,6 +13,7 @@ On this page you'll learn what files make up the driver (and/or come with it) an
 Within this page:
 
 - [Driver Files](#driver-file-organization) - the purpose of each file found in the driver
+- [Glossary](#glossary) - the terms every driver document uses, each defined once
 - [Configuring the Driver](#configuring-the-driver) - how to describe your panels to the driver
 - [Notes on Internals](#notes-on-driver-internals) - more in the internal data flow within the driver
 - [Max Panels Supported](#driver-max-panels-supported) - I'm planning on buying panels. How many panels does this driver support?
@@ -68,6 +69,79 @@ The driver itself is composed of the following files (with a few extras thrown i
 The structure of these files was chosen in order to (1) make it easier and less memory usage for part of the driver to access other parts and (2) make it easier for you to chose to compile the **optional** parts or not. 
 
 Now let's see how to configure the driver.
+
+
+## Glossary
+
+Every driver document uses these terms, with exactly these meanings. Each term is defined here, and only here; other documents link to this section.
+
+### adapter
+
+The HUB75 adapter card. Adapter IDs are `HUB75_ADAPTER_1` through `HUB75_ADAPTER_3`, counting from 1. **Adapter *k* drives display *k*-1**: `HUB75_ADAPTER_1` drives the display configured by the `DISP0_` settings, `HUB75_ADAPTER_2` drives `DISP1_`, and `HUB75_ADAPTER_3` drives `DISP2_`.
+
+### display
+
+All the panels on one adapter, drawn on as one surface. Each display is configured by its own group of settings, `DISPn_`, counting from 0 (`DISP0_`, `DISP1_`, `DISP2_`).
+
+### display coordinates
+
+A (row, column) position on the display, with the origin (0, 0) at the top-left. For a rotated display, the origin is the top-left of the display **as mounted**: the corner the viewer sees as top-left.
+
+### panel position
+
+A panel's place in the display, numbered `P0`, `P1`, ... in reading order: left to right along the top row of panels, then each row below in turn, counting only the cells that hold a panel. `P0` is the top-left panel.
+
+### panel coordinates
+
+A (row, column) position within one panel, as the viewer sees it, with the origin (0, 0) at the panel's top-left.
+
+### cable position
+
+A panel's place along the ribbon cable, counted from the adapter: `C0` is the panel the adapter plugs into, `C1` is the next panel along the cable, and so on.
+
+### buffer slot
+
+The driver's internal order of panels within its buffers. Slot 0 is the panel at the far end of the cable, so for a display of N panels, a panel at cable position C occupies slot N-1-C. Buffer slots are used only inside the driver's mapping layer and its comments; configuration and drawing never use them.
+
+### native coordinates
+
+A pixel's (row, column) as the panel's own driver chips address it, before panel rotation is applied.
+
+### panel rotation
+
+How one panel is mounted within the display, written as the direction the panel's identify arrow points: `ARROW_UP`, `ARROW_DOWN`, `ARROW_LEFT` or `ARROW_RIGHT`. A panel whose arrow points down is mounted at 180°.
+
+### display rotation
+
+How the whole assembled display is mounted, set by `DISPn_ROTATION`. Display rotation applies to flat displays only; it does not apply to a cube.
+
+### wiring
+
+The per-panel sentences `DISPn_C0` through `DISPn_C15`, one for each cable position. Each sentence describes the panel at that cable position: where it sits relative to a panel already placed, and its panel rotation. The full grammar is in the wiring guide.
+
+### face
+
+One panel of a cube display, named `TOP`, `BOTTOM`, `FRONT`, `BACK`, `LEFT` or `RIGHT`. The face names are derived from the two cube orientation settings. The cube section of the wiring guide covers faces, folding and corners in full.
+
+### cube orientation
+
+How a cube display is mounted, set by `DISPn_CUBE_TOP` and `DISPn_CUBE_FRONT`: the cable positions of the panels that form the top face and the front face. The front face must share an edge with the top face. Cube orientation takes the place of display rotation for a cube.
+
+### face coordinates
+
+A (face, row, column) position on a cube display. Row and column may run past the edge of the face; a pixel that does is carried across the edge onto the neighbouring face. Each face's up direction is fixed: the four side faces' up points toward `TOP`, the top face's up points toward `BACK` (so text on the top face reads correctly when viewed from the front), and the bottom face's up points toward `FRONT`.
+
+### scan
+
+A panel's scan is written **1/S scan**, where S is the number of row addresses its address lines select. Each address lights several rows at once: **panel rows ÷ S**. For example:
+
+| Panel | Address lines | Scan | Rows lit at once |
+|---|---|---|---|
+| 64×32 | `ADDR_ABCD` (16 addresses) | 1/16 scan | 2 |
+| 64×64 | `ADDR_ABCDE` (32 addresses) | 1/32 scan | 2 |
+| 64×32 | `ADDR_ABC` (8 addresses) | 1/8 scan | 4 |
+
+Most panels light two rows at once, one fed by each set of color pins. A panel that lights **four** rows at once, such as a 64×32 1/8-scan panel, needs a different conversion from screen to panel; the driver selects that conversion when the panel's chip flags include `SCAN_4`.
 
 
 ## Configuring the driver
