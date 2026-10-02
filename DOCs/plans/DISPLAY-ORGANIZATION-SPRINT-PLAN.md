@@ -1067,6 +1067,19 @@ panel all marks were correct"* (`demo_hub75_quadPanel`, whose log places
 right edge of the top left panel"*. Panel order on the panels is therefore confirmed in
 reading order after «#74»; Visit A re-checks it through identify.
 
+**«#75» on the rig — 2026-10-02.** `demo_hub75_boundary` built at
+`DISP0_ROTATION = ROT_RIGHT_90` (scratch config). Stephen saw the circle, crosshair and
+border drawn correctly, and the green text near the left end of the bench rig. He
+confirmed the direction is physical: *"where the text is would be the end of the panel
+that would be up top if we rotated the entire physical panel right by 90°"*. The
+panel-0 red line came out as a bar on the top panel's left edge; that is the Q6 case
+(§5c, «#86»). Mounted sizes and draw times at all four rotations are in the «#75»
+commit (`409acb7`).
+
+**«#76» on the rig — 2026-10-02.** `demo_hub75_boundary` at `ROT_NONE` after the
+converter rewrite (F1/F2/F3). Stephen: *"it is 100% correct for non physically
+rotated"*. The commit converts in 14,183 µs (17,699 before); the draw takes 192,119 µs.
+
 **Visit A — after §1-§6 and §8.**
 - Identify on the rig: the §8 normal, edge and negative cases.
 - Display-centric versus panel-centric, before and after (§4).
