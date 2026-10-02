@@ -894,6 +894,21 @@ check (§3) enforces the hard limits: RAM, line buffer and converter.
   after «#73»): top-right shows P0, top-left P1, bottom-right P2, bottom-left P3, all
   arrows up.
 
+**«#74» draw time — 2026-10-02.** `demo_hub75_boundary` on the one mapping, same rig
+config and `ROT_NONE`, same headless command: **197,508 µs** (log
+`headless_261002-002622.log`, line 75, `- elapsed boundary draw: 197_508 uSec`; one run),
+against Visit 0's 287,436 µs. A re-run of HEAD 02f96e0 in the same session printed
+287,436 µs again (`headless_261002-002505.log`, line 76). The arbiter's own re-run on
+the final source also printed 197,508 µs.
+
+**«#74» on the rig — 2026-10-02.** Stephen, looking at the boundary test after the
+change: *"green is now centered text, red line is now top left panel (right edge) rest
+is correct"*. Against Visit 0: the seam text is whole across the vertical seam, the
+panel-0 line moved from the top-right panel to the top-left one and stops at its right
+edge, and the crosshair, box and circle are unchanged. `demo_hub75_quadPanel`'s labels
+were not looked at in this session; its log places `fillPanel(0..3)` at (0,0), (0,128),
+(64,0), (64,128), and Visit A checks panel order on the panels through identify.
+
 **Visit A — after §1-§6 and §8.**
 - Identify on the rig: the §8 normal, edge and negative cases.
 - Display-centric versus panel-centric, before and after (§4).

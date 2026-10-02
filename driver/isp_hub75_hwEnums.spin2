@@ -107,31 +107,6 @@ CON ' Hardware Interface Constants
 '   DEPTH_8BIT - 8 bits per color channel
     #3, DEPTH_3BIT, DEPTH_4BIT, DEPTH_5BIT, DEPTH_6BIT, DEPTH_7BIT, DEPTH_8BIT
 
-'  (7) Wire ordering for fully populated rectangular grids:
-'
-'  Use these enums when all grid positions have panels (no gaps).
-'  The driver computes the wire order table from these two settings.
-'
-'  Display panel numbering (row-major from top-left):
-'     2x2:     3x3:         1x4:
-'    [0][1]   [0][1][2]    [0][1][2][3]
-'    [2][3]   [3][4][5]
-'             [6][7][8]
-
-' Wire entry position: which display grid corner the adapter cable connects to
-'   WIRE_ENTERS_TOP_LEFT  - cable enters at top-left corner
-'   WIRE_ENTERS_TOP_RIGHT - cable enters at top-right corner
-'   WIRE_ENTERS_BOT_LEFT  - cable enters at bottom-left corner
-'   WIRE_ENTERS_BOT_RIGHT - cable enters at bottom-right corner
-#$40, WIRE_ENTERS_TOP_LEFT, WIRE_ENTERS_TOP_RIGHT, WIRE_ENTERS_BOT_LEFT, WIRE_ENTERS_BOT_RIGHT
-
-' Wire traversal pattern: how the chain progresses through the grid
-'   WIRE_ROWS_FIRST       - traverse one full row, then next row (same direction)
-'   WIRE_COLS_FIRST       - traverse one full column, then next column (same direction)
-'   WIRE_SERPENTINE_ROWS  - traverse rows, alternating direction each row
-'   WIRE_SERPENTINE_COLS  - traverse columns, alternating direction each column
-#$48, WIRE_ROWS_FIRST, WIRE_COLS_FIRST, WIRE_SERPENTINE_ROWS, WIRE_SERPENTINE_COLS
-
 '  (8) Explicit grid layout for non-rectangular shapes (+ shape, L shape, etc.):
 '
 '  Use these values when grid has gaps (some positions have no panel).

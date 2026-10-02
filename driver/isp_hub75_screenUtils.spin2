@@ -48,9 +48,11 @@ PUB drawPixelAtRC(nChainIdx, row, column, rgbColor) | xlatedColor
 
   drawPixelAtRCwithRGB(nChainIdx, row, column, colorUtils.rgbForCValue(xlatedColor))
 
-PUB drawPixelAtRCwithRGB(nChainIdx, row, column, red, green, blue) | maxRows, maxColumns, rowIndex, columnIndex, colorOffset, pColor, pScreen, nPanelIndex, localRow, localCol, tempIdx
-'' Place an r,g,b color pixel at the specified row and column.
-'' Supports single panels, horizontal chains, vertical stacks, and 2D panel grids.
+PUB drawPixelAtRCwithRGB(nChainIdx, row, column, red, green, blue) | maxRows, maxColumns, rowIndex, columnIndex, pColor, tempIdx
+'' Place an r,g,b color pixel at the specified row and column (display coordinates).
+'' Every drawing path reaches the screen buffer here: display rotation is applied, then the
+'' pixel goes through the one mapping, hub75Bffrs.displayPixelAddress(). A pixel in a cell
+'' of the display's grid that holds no panel is not drawn.
 ''
 '' @param nChainIdx - index of the panel chain
 '' @param row - pixel row on the display
@@ -64,12 +66,7 @@ PUB drawPixelAtRCwithRGB(nChainIdx, row, column, red, green, blue) | maxRows, ma
 ' @local maxColumns - total display columns
 ' @local rowIndex - clamped/rotated pixel row
 ' @local columnIndex - clamped/rotated pixel column
-' @local colorOffset - byte offset into the screen buffer
 ' @local pColor - pointer to the pixel within the screen buffer
-' @local pScreen - pointer to the display screen buffer
-' @local nPanelIndex - target panel index for the pixel
-' @local localRow - row within the target panel
-' @local localCol - column within the target panel
 ' @local tempIdx - scratch value used while swapping coordinates
 
   maxRows, maxColumns := hub75Bffrs.displaySizeInPixels(nChainIdx)
@@ -92,18 +89,12 @@ PUB drawPixelAtRCwithRGB(nChainIdx, row, column, red, green, blue) | maxRows, ma
       columnIndex := (maxColumns - 1) - columnIndex
       rowIndex := (maxRows - 1) - rowIndex
 
-  ' Convert display coordinates to panel index and local coordinates
-  ' This handles single panels, horizontal chains, vertical stacks, and 2D grids (Z-pattern)
-  nPanelIndex, localRow, localCol := hub75Bffrs.displayToPanelCoords(nChainIdx, rowIndex, columnIndex)
-
-  ' Calculate byte offset into screen buffer using panel-aware calculation
-  colorOffset := hub75Bffrs.panelPixelOffset(nChainIdx, nPanelIndex, localRow, localCol)
-
-  pScreen := hub75Bffrs.displayBufferAddress(nChainIdx)
-  pColor := @BYTE[pScreen][colorOffset]
-  BYTE[pColor][RED_BYTE_OFST] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_RED, red)
-  BYTE[pColor][GREEN_BYTE_OFST] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_GREEN, green)
-  BYTE[pColor][BLUE_BYTE_OFST] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_BLUE, blue)
+  ' display coordinates -> cell -> panel position -> panel rotation -> buffer slot -> address
+  pColor := hub75Bffrs.displayPixelAddress(nChainIdx, rowIndex, columnIndex)
+  if pColor <> hub75Bffrs.NO_PIXEL
+    BYTE[pColor][RED_BYTE_OFST] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_RED, red)
+    BYTE[pColor][GREEN_BYTE_OFST] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_GREEN, green)
+    BYTE[pColor][BLUE_BYTE_OFST] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_BLUE, blue)
 
 CON ' license
 

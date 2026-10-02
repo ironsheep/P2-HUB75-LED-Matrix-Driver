@@ -107,7 +107,7 @@ PUB null()
 '' Placeholder to prevent this object from being used as a top-level file.
 ''
 
-PUB start(nID, nChainIdx) : startedCog | panelCt, wireIdx
+PUB start(nID, nChainIdx) : startedCog | panelCt
 '' Start the backend PASM2 driver for the matrix.
 ''
 '' @param nID - panel instance identifier
@@ -116,7 +116,6 @@ PUB start(nID, nChainIdx) : startedCog | panelCt, wireIdx
 
 ' Local Variables:
 ' @local panelCt - number of panels in this chain
-' @local wireIdx - loop index over wire positions
 
   chainIndex := nChainIdx
   instanceID := nID
@@ -132,12 +131,8 @@ PUB start(nID, nChainIdx) : startedCog | panelCt, wireIdx
   maxChainRows := nPanelRows
   maxChainColumns := panelCt * nPanelColumns
 
-  ' Build inverse wire order lookup table (wire position -> display panel index)
-  repeat wireIdx from 0 to panelCt - 1
-    wireToDisplayPanel[wireIdx] := hub75Bffrs.displayPanelForWire(chainIndex, wireIdx)
   DEBUG("- PNL: #", udec_(instanceID), " Start clk=", udec_long(clkfreq))
-  DEBUG("- PNL: Grid ", udec_(nPanelsPerRow), "x", udec_(nPanelsPerColumn), " panels, Display ", udec_(nDisplayColumns), "x", udec_(nDisplayRows))
-  DEBUG("- PNL: Wire order: W0->D", udec_(wireToDisplayPanel[0]), " W1->D", udec_(wireToDisplayPanel[1]), " W2->D", udec_(wireToDisplayPanel[2]), " W3->D", udec_(wireToDisplayPanel[3]))
+  DEBUG("- PNL: Grid ", udec_(nPanelsPerRow), "x", udec_(nPanelsPerColumn), " cells, ", udec_(panelCt), " panels, Display ", udec_(nDisplayColumns), "x", udec_(nDisplayRows))
 
 #ifdef DBG_PWM
   bDumpOnce := FALSE
@@ -804,10 +799,6 @@ PRI getPwmFrameAddressForBit(nBitNumber) : pFrameBuffer | nFrameOfst, frameIdx
   nFrameOfst := frameIdx * nPwmFrameSizeInLongs ' N longs in each PWM frame
   pFrameBuffer := @LONG[getActivePwmBuffer()][nFrameOfst]
   'debug("- PWM frame(", udec_(frameIdx), "), ", uhex_long(pFrameBuffer))
-
-VAR ' buffer addresses
-
-    LONG    wireToDisplayPanel[16]      ' Inverse lookup: wire position -> display panel index
 
 PRI markStart()
 ' Record the starting timestamp for an interval measurement.

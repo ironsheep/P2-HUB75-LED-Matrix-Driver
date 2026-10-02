@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Nov 2022
-''   Updated.... 01 Oct 2026
+''   Updated.... 02 Oct 2026
 ''
 '' =================================================================================================
 '
@@ -79,6 +79,16 @@ CON ' ---- Driver Limits ----
     SCAN_4_COLUMN_FACTOR    = 2
     SINGLE_COLUMN_FACTOR    = 1
 
+CON ' ---- Drawing Path Results ----
+    {Spin2_Doc_CON}
+
+    ' displayPixelAddress() result for a pixel that no panel holds (outside the display, or
+    ' in a cell of the grid that holds no panel); no buffer is at hub address 0
+    NO_PIXEL                = 0
+
+    ' positionAtDisplayPixel() result for a pixel that no panel holds
+    NO_PANEL_POSITION       = $FF
+
 OBJ
 
     hwEnum      : "isp_hub75_hwEnums"                               ' hub75 attachment, set up constants
@@ -92,33 +102,27 @@ screenTableEnt0         ' The start of the 1st HUB75 chain descriptor table
 '                    LONG    @hub75Buffer0, @pwmFrames0_1, @pwmFrames0_2
 '-------+-----+---------+-------+---------------+-------+-----------------------+
         LONG    PLACEHOLDER_ADDRESS, PLACEHOLDER_ADDRESS, PLACEHOLDER_ADDRESS
-        LONG    user.DISP0_MAX_DISPLAY_COLUMNS, user.DISP0_MAX_DISPLAY_ROWS
         LONG    user.DISP0_COLOR_DEPTH, user.DISP0_BYTES_PER_COLOR
         LONG    user.DISP0_SCRN_SIZE_IN_LONGS, user.DISP0_PWM_FRAME_SIZE_IN_BYTES, user.DISP0_ROTATION
-        LONG    user.DISP0_MAX_PANEL_COLUMNS, user.DISP0_MAX_PANEL_ROWS, user.DISP0_MAX_PANELS_PER_COLUMN, user.DISP0_MAX_PANELS_PER_ROW
+        LONG    user.DISP0_MAX_PANEL_COLUMNS, user.DISP0_MAX_PANEL_ROWS
         LONG    PLACEHOLDER_CHIP_TYPE, PLACEHOLDER_PIN_BASE, PLACEHOLDER_ADDR_LINES
-        LONG    user.DISP0_WIRE_ENTRY, user.DISP0_WIRE_TRAVERSE
 screenTableEnt0End      ' The end of the 1st HUB75 chain descriptor table
 
 screenTableEnt1         ' The start of the 2nd HUB75 adapter's descriptor (display DISP1)
 '                    LONG    @hub75Buffer1, @pwmFrames1_1, @pwmFrames1_2
         LONG    PLACEHOLDER_ADDRESS, PLACEHOLDER_ADDRESS, PLACEHOLDER_ADDRESS
-        LONG    user.DISP1_MAX_DISPLAY_COLUMNS, user.DISP1_MAX_DISPLAY_ROWS
         LONG    user.DISP1_COLOR_DEPTH, user.DISP1_BYTES_PER_COLOR
         LONG    user.DISP1_SCRN_SIZE_IN_LONGS, user.DISP1_PWM_FRAME_SIZE_IN_BYTES, user.DISP1_ROTATION
-        LONG    user.DISP1_MAX_PANEL_COLUMNS, user.DISP1_MAX_PANEL_ROWS, user.DISP1_MAX_PANELS_PER_COLUMN, user.DISP1_MAX_PANELS_PER_ROW
+        LONG    user.DISP1_MAX_PANEL_COLUMNS, user.DISP1_MAX_PANEL_ROWS
         LONG    PLACEHOLDER_CHIP_TYPE, PLACEHOLDER_PIN_BASE, PLACEHOLDER_ADDR_LINES
-        LONG    user.DISP1_WIRE_ENTRY, user.DISP1_WIRE_TRAVERSE
 
 screenTableEnt2         ' The start of the 3rd HUB75 adapter's descriptor (display DISP2)
 '                    LONG    @hub75Buffer2, @pwmFrames2_1, @pwmFrames2_2
         LONG    PLACEHOLDER_ADDRESS, PLACEHOLDER_ADDRESS, PLACEHOLDER_ADDRESS
-        LONG    user.DISP2_MAX_DISPLAY_COLUMNS, user.DISP2_MAX_DISPLAY_ROWS
         LONG    user.DISP2_COLOR_DEPTH, user.DISP2_BYTES_PER_COLOR
         LONG    user.DISP2_SCRN_SIZE_IN_LONGS, user.DISP2_PWM_FRAME_SIZE_IN_BYTES, user.DISP2_ROTATION
-        LONG    user.DISP2_MAX_PANEL_COLUMNS, user.DISP2_MAX_PANEL_ROWS, user.DISP2_MAX_PANELS_PER_COLUMN, user.DISP2_MAX_PANELS_PER_ROW
+        LONG    user.DISP2_MAX_PANEL_COLUMNS, user.DISP2_MAX_PANEL_ROWS
         LONG    PLACEHOLDER_CHIP_TYPE, PLACEHOLDER_PIN_BASE, PLACEHOLDER_ADDR_LINES
-        LONG    user.DISP2_WIRE_ENTRY, user.DISP2_WIRE_TRAVERSE
 
 screenTableEntEnd      ' The end of the all of the chain descriptor tables
 
@@ -133,69 +137,6 @@ screenTableEnd          ' End of the pointers table
     numberScreens       LONG                    (@screenTableEnd - @screenTable) >> 2  ' this can't be compile-time initialized
 
     bFirstTime          LONG                    TRUE                                   ' for debug/testing use
-
-DAT { Panel Wire Order Mapping - Display panel index -> wire order index }
-' -------------------------------------------------------------------------------------------------
-' Wire order mapping: Converts display panel index to physical wire order
-'
-' Z-pattern (default):    0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15  (display = wire)
-' Serpentine 2x2:         0,1,3,2                                (bottom row reversed)
-' Serpentine 4x2:         0,1,2,3,7,6,5,4                        (alternating row direction)
-' Serpentine 4x4:         0,1,2,3,7,6,5,4,8,9,10,11,15,14,13,12  (alternating row direction)
-'
-' Edit these values to match your physical wiring. Entry N is the wire position for display panel N.
-' -------------------------------------------------------------------------------------------------
-
-                    ' 1st HUB75 chain wire order (up to 16 panels)
-                    ' Physical cable: Adapter->BL->BR->TL->TR (Z-pattern)
-                    ' Wire 3 = BL (nearest adapter), Wire 0 = TR (far end)
-                    ' Table maps: displayPanelIndex -> wireBufferIndex
-disp0WireOrder      BYTE    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-
-{   COMMENT-OUT THIS LINE if you using the 2nd HUB75 adapter board
-                    ' 2nd HUB75 chain wire order
-disp1WireOrder      BYTE    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-'}
-
-{   COMMENT-OUT THIS LINE if you using the 3rd HUB75 adapter board
-                    ' 3rd HUB75 chain wire order
-disp2WireOrder      BYTE    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-'}
-
-wireOrderTable      ' pointers to wire order tables
-                    LONG    @disp0WireOrder
-'                    LONG    @disp1WireOrder    ' UNCOMMENT if using 2nd HUB75 adapter board
-'                    LONG    @disp2WireOrder    ' UNCOMMENT if using 3rd HUB75 adapter board
-
-
-DAT { Per-Panel Rotation - Individual rotation for each panel }
-' -------------------------------------------------------------------------------------------------
-' Per-panel rotation: Applies rotation to individual panels in the grid
-'
-' Configure per-panel rotation in isp_hub75_hwPanelConfig.spin2 using:
-'   DISP0_PANEL0_ROT, DISP0_PANEL1_ROT, etc. with hwEnum.ROT_NONE, ROT_180, etc.
-'
-' For serpentine wiring where cables fold back, alternating rows often need ROT_180.
-' -------------------------------------------------------------------------------------------------
-
-                    ' 1st HUB75 chain panel rotations (up to 16 panels)
-                    ' Values from user config: hwEnum.ROT_NONE ($20), ROT_180 ($23), etc.
-disp0PanelRots      BYTE    user.DISP0_PANEL0_ROT, user.DISP0_PANEL1_ROT, user.DISP0_PANEL2_ROT, user.DISP0_PANEL3_ROT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-
-{   COMMENT-OUT THIS LINE if you using the 2nd HUB75 adapter board
-                    ' 2nd HUB75 chain panel rotations
-disp1PanelRots      BYTE    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-'}
-
-{   COMMENT-OUT THIS LINE if you using the 3rd HUB75 adapter board
-                    ' 3rd HUB75 chain panel rotations
-disp2PanelRots      BYTE    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-'}
-
-panelRotTable       ' pointers to panel rotation tables
-                    LONG    @disp0PanelRots
-'                    LONG    @disp1PanelRots    ' UNCOMMENT if using 2nd HUB75 adapter board
-'                    LONG    @disp2PanelRots    ' UNCOMMENT if using 3rd HUB75 adapter board
 
 CON { PRIVATE internal constants }
 
@@ -233,28 +174,23 @@ CON { PRIVATE internal constants }
     '  ENTR_SCRN_BUFFER_ADDR_OFST   - screen buffer address
     '  ENTR_FRM1_BUFFER_ADDR_OFST   - PWM frame-set 1 buffer address
     '  ENTR_FRM2_BUFFER_ADDR_OFST   - PWM frame-set 2 buffer address
-    '  ENTR_MAX_DISP_COLUMNS_OFST   - display width in pixels
-    '  ENTR_MAX_DISP_ROWS_OFST      - display height in pixels
     '  ENTR_COLOR_DEPTH             - color depth in bits per channel
     '  ENTR_BYTES_PER_COLOR_OFST    - bytes per pixel color
     '  ENTR_SCRN_SIZE_IN_LONGS_OFST - screen buffer size in LONGs
     '  ENTR_FRM_SIZE_IN_BYTES_OFST  - PWM frame size in bytes
     '  ENTR_ROTATION_OFST           - display rotation enum
-    '  ENTR_PANEL_COLUMNS_OFST      - pixel columns per panel
-    '  ENTR_PANEL_ROWS_OFST         - pixel rows per panel
-    '  ENTR_PANELS_PER_COLUMN_OFST  - panels stacked vertically
-    '  ENTR_PANELS_PER_ROW_OFST     - panels chained horizontally
+    '  ENTR_PANEL_COLUMNS_OFST      - pixel columns per panel (native)
+    '  ENTR_PANEL_ROWS_OFST         - pixel rows per panel (native)
     '  ENTR_CHIP_TYPE_OFST          - LED driver chip type enum
     '  ENTR_HUB75_PIN_BASE_OFST     - base pin group enum
     '  ENTR_HPANEL_ADDR_LINES_OFST  - address line count enum
-    '  ENTR_WIRE_START_OFST         - wire entry corner enum
-    '  ENTR_WIRE_TRAVERSE_OFST      - wire traversal pattern enum
+    ' The display's size and its grid of panels are not in the descriptor: they are
+    ' derived from the wiring sentences at startup (layoutPixelRows and the tables below them).
     #0, ENTR_SCRN_BUFFER_ADDR_OFST, ENTR_FRM1_BUFFER_ADDR_OFST, ENTR_FRM2_BUFFER_ADDR_OFST, ...
-    ENTR_MAX_DISP_COLUMNS_OFST, ENTR_MAX_DISP_ROWS_OFST, ENTR_COLOR_DEPTH, ENTR_BYTES_PER_COLOR_OFST, ...
+    ENTR_COLOR_DEPTH, ENTR_BYTES_PER_COLOR_OFST, ...
     ENTR_SCRN_SIZE_IN_LONGS_OFST, ENTR_FRM_SIZE_IN_BYTES_OFST, ENTR_ROTATION_OFST, ...
-    ENTR_PANEL_COLUMNS_OFST, ENTR_PANEL_ROWS_OFST, ENTR_PANELS_PER_COLUMN_OFST, ENTR_PANELS_PER_ROW_OFST, ...
-    ENTR_CHIP_TYPE_OFST, ENTR_HUB75_PIN_BASE_OFST, ENTR_HPANEL_ADDR_LINES_OFST, ...
-    ENTR_WIRE_START_OFST, ENTR_WIRE_TRAVERSE_OFST
+    ENTR_PANEL_COLUMNS_OFST, ENTR_PANEL_ROWS_OFST, ...
+    ENTR_CHIP_TYPE_OFST, ENTR_HUB75_PIN_BASE_OFST, ENTR_HPANEL_ADDR_LINES_OFST
 
 PUB null()
 '' Placeholder to prevent this object from being used as a top-level file.
@@ -332,57 +268,70 @@ PUB configureAdapter(eHub75Adapter) : nChainIdx | pEntry, ePinBase, eChipType, e
     DEBUG("HUB75: chain table size=", udec_(tableSizeInBytes), " entries [0-2]", uhex_long_array(@screenTableEnt0, ENTR_ADDR_LONGS_COUNT))
     DEBUG("HUB75: chain table values[3-13]: ", udec_long_array(@LONG[@screenTableEnt0][ENTR_ADDR_LONGS_COUNT], longsInEntry - ENTR_ADDR_LONGS_COUNT ))
 
-PUB maxDisplayColumns(nChainIdx) : nMaxColumns | pEntry
-'' Return the number of pixels in a horizontal display row for the nChainIdx HUB75 adapter
+PUB maxDisplayColumns(nChainIdx) : nMaxColumns
+'' Return the number of pixels in a horizontal display row for the nChainIdx HUB75 adapter:
+'' the width of the display's bounding box, derived from the wiring sentences at startup.
 ''
 '' @param nChainIdx - the index of the desired chain
 '' @returns nMaxColumns - the number of pixels horizontally in display
 
-' Local Variables:
-' @local pEntry - temp var pointing to table entry for chain
+  nMaxColumns := layoutPixelColumns[validChainIndex(nChainIdx)]
 
-  pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
-  nMaxColumns := LONG[pEntry][ENTR_MAX_DISP_COLUMNS_OFST]
-
-PUB maxDisplayRows(nChainIdx) : nMaxRows | pEntry
-'' Return the number of pixels in a display column for the specified HUB75 adapter.
+PUB maxDisplayRows(nChainIdx) : nMaxRows
+'' Return the number of pixels in a display column for the specified HUB75 adapter: the
+'' height of the display's bounding box, derived from the wiring sentences at startup.
 ''
 '' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @returns nMaxRows - total pixel rows across the full display
 
-' Local Variables:
-' @local pEntry - pointer to the chain descriptor table entry
+  nMaxRows := layoutPixelRows[validChainIndex(nChainIdx)]
 
-  pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
-  nMaxRows := LONG[pEntry][ENTR_MAX_DISP_ROWS_OFST]
-
-PUB displaySizeInPixels(nChainIdx) : nMaxRows, nMaxColumns | pEntry
-'' Return the number of pixels in a display row and column for the nChainIdx HUB75 adapter
+PUB displaySizeInPixels(nChainIdx) : nMaxRows, nMaxColumns | layoutIdx
+'' Return the number of pixels in a display row and column for the nChainIdx HUB75 adapter:
+'' the size of the display's bounding box, derived from the wiring sentences at startup.
 ''
 '' @param nChainIdx - the index of the desired chain
 '' @returns nMaxRows - the number of pixels vertically in display
 '' @returns nMaxColumns - the number of pixels horizontally in display
 
 ' Local Variables:
-' @local pEntry - temp var pointing to table entry for chain
+' @local layoutIdx - the chain index, checked against the adapters that exist
 
-  pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
-  nMaxRows := LONG[pEntry][ENTR_MAX_DISP_ROWS_OFST]
-  nMaxColumns := LONG[pEntry][ENTR_MAX_DISP_COLUMNS_OFST]
+  layoutIdx := validChainIndex(nChainIdx)
+  nMaxRows := layoutPixelRows[layoutIdx]
+  nMaxColumns := layoutPixelColumns[layoutIdx]
 
-PUB displaySizeInPanels(nChainIdx) : nPanelsPerColumn, nPanelsPerRow  | pEntry
-'' Return the number of panels in each row and column for the nChainIdx HUB75 adapter
+PUB displaySizeInPanels(nChainIdx) : nPanelsPerColumn, nPanelsPerRow | layoutIdx
+'' Return the size of the display's grid of cells for the nChainIdx HUB75 adapter, derived
+'' from the wiring sentences at startup. A cell may hold no panel (an L shape, for example),
+'' so the grid can have more cells than the display has panels; maxPanels() is the panel count.
 ''
 '' @param nChainIdx - the index of the desired chain
-'' @returns nPanelsPerColumn - the number of panels vertically in display
-'' @returns nPanelsPerRow - the number of panels horizontally in display
+'' @returns nPanelsPerColumn - the number of cells vertically in the display's grid
+'' @returns nPanelsPerRow - the number of cells horizontally in the display's grid
 
 ' Local Variables:
-' @local pEntry - temp var pointing to table entry for chain
+' @local layoutIdx - the chain index, checked against the adapters that exist
 
-  pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
-  nPanelsPerColumn := LONG[pEntry][ENTR_PANELS_PER_COLUMN_OFST]
-  nPanelsPerRow := LONG[pEntry][ENTR_PANELS_PER_ROW_OFST]
+  layoutIdx := validChainIndex(nChainIdx)
+  nPanelsPerColumn := layoutGridRows[layoutIdx]
+  nPanelsPerRow := layoutGridColumns[layoutIdx]
+
+PUB cellSizeInPixels(nChainIdx) : nCellRows, nCellColumns | layoutIdx
+'' Return the size of one panel as the viewer sees it, in pixels: the size of one cell of the
+'' display's grid. Panel coordinates run over this size. It is the panel's own size, with rows
+'' and columns exchanged when the panels are turned sideways (C0's arrow is ARROW_LEFT or ARROW_RIGHT).
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @returns nCellRows - pixel rows of one panel, as the viewer sees it
+'' @returns nCellColumns - pixel columns of one panel, as the viewer sees it
+
+' Local Variables:
+' @local layoutIdx - the chain index, checked against the adapters that exist
+
+  layoutIdx := validChainIndex(nChainIdx)
+  nCellRows := layoutCellRows[layoutIdx]
+  nCellColumns := layoutCellColumns[layoutIdx]
 
 PUB colorDepth(nChainIdx) : nDepthInBits | pEntry
 '' Return the number of bits for a color (red, green, or blue) [3-8 bits] for the specified HUB75 adapter.
@@ -566,19 +515,14 @@ PUB addressLines(nChainIdx) : nAddrLines | pEntry
   pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
   nAddrLines := LONG[pEntry][ENTR_HPANEL_ADDR_LINES_OFST]
 
-PUB maxPanels(nChainIdx) : nMaxPanels | pEntry, panelsInRow, panelsInColumn
-'' Return the total number of panels connected to the nChainIdx HUB75 adapter
+PUB maxPanels(nChainIdx) : nMaxPanels
+'' Return the total number of panels connected to the nChainIdx HUB75 adapter: the cable
+'' positions in use in its wiring sentences. Panel positions run from 0 to this count - 1.
 ''
 '' @param nChainIdx - the index of the desired chain
 '' @returns nMaxPanels - total number of panels connected to the nChainIdx HUB75 adapter
 
-' Local Variables:
-' @local pEntry - temp var pointing to table entry for chain
-' @local panelsInRow - temp var for number of panels in a row
-' @local panelsInColumn - temp var for number of panels in a column
-
-  panelsInColumn, panelsInRow := displaySizeInPanels(nChainIdx)
-  nMaxPanels := panelsInRow * panelsInColumn
+  nMaxPanels := layoutPanelCount[validChainIndex(nChainIdx)]
 
 PUB zeroFillBuffer(nChainIdx) | pBffr, nBffrLen
 '' Zero fill the display buffer associated with the specified HUB75 adapter.
@@ -641,274 +585,98 @@ PUB pwmFrameCount(nChainIdx) : nbrPwmFrames | nColorDepth
     other:
       nbrPwmFrames := PWM_FRAMES_4BIT                  ' default to DEPTH_4BIT if set badly
 
-PUB wireStart(nChainIdx) : eWireStart | pEntry
-'' Return the wire start position enum for the nChainIdx HUB75 adapter
+PUB displayPixelAddress(nChainIdx, row, column) : pPixel | layoutIdx, panelPosn, panelRow, panelCol, tableBase, pEntry, nativeRows, nativeCols, nativeRow, nativeCol
+'' Return the hub address of the pixel at display coordinates (row, column). This is the one
+'' mapping every drawing path goes through; each step is a table lookup, built at startup:
+''   display coordinates -> cell of the display's grid -> panel position (a cell that holds no
+''   panel has none) -> panel coordinates -> panel rotation -> native coordinates -> buffer
+''   slot -> address in the screen buffer.
+'' Display rotation is applied before this call, by isp_hub75_screenUtils.
 ''
-'' @param nChainIdx - the index of the desired chain
-'' @returns eWireStart - wire entry corner enum value
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @param row - pixel row on the display (display coordinates)
+'' @param column - pixel column on the display (display coordinates)
+'' @returns pPixel - hub address of the pixel's red byte, or NO_PIXEL when no panel holds (row, column)
 
 ' Local Variables:
+' @local layoutIdx - the chain index, checked against the adapters that exist
+' @local panelPosn - panel position (P) of the panel that holds the pixel
+' @local panelRow - row within that panel, as the viewer sees it
+' @local panelCol - column within that panel, as the viewer sees it
+' @local tableBase - first entry of this adapter in the per-position tables
 ' @local pEntry - pointer to the chain descriptor table entry
+' @local nativeRows - pixel rows of the panel, as its own chips address them
+' @local nativeCols - pixel columns of the panel, as its own chips address them
+' @local nativeRow - the pixel's row in native coordinates
+' @local nativeCol - the pixel's column in native coordinates
 
-    pEntry := ptrTableEntry(nChainIdx)
-    eWireStart := LONG[pEntry][ENTR_WIRE_START_OFST]
+  pPixel := NO_PIXEL
+  layoutIdx := validChainIndex(nChainIdx)
+  panelPosn, panelRow, panelCol := panelCoordsAt(layoutIdx, row, column)
+  if panelPosn <> NO_POSITION
+    tableBase := layoutIdx * MAX_CABLE_POSITIONS
+    pEntry := @@LONG[@screenTable][layoutIdx]
+    nativeRows := LONG[pEntry][ENTR_PANEL_ROWS_OFST]
+    nativeCols := LONG[pEntry][ENTR_PANEL_COLUMNS_OFST]
+    ' panel rotation: panel coordinates (as the viewer sees them) -> native coordinates
+    case positionToRotation[tableBase + panelPosn]
+      hwEnum.ROT_180:
+        ' ARROW_DOWN: the panel's own top is at the viewer's bottom
+        nativeRow := (nativeRows - 1) - panelRow
+        nativeCol := (nativeCols - 1) - panelCol
+      hwEnum.ROT_LEFT_90:
+        ' ARROW_LEFT: the panel's own top is at the viewer's left, its own left at the viewer's bottom
+        nativeRow := panelCol
+        nativeCol := (nativeCols - 1) - panelRow
+      hwEnum.ROT_RIGHT_90:
+        ' ARROW_RIGHT: the panel's own top is at the viewer's right, its own left at the viewer's top
+        nativeRow := (nativeRows - 1) - panelCol
+        nativeCol := panelRow
+      other:
+        ' ARROW_UP: native coordinates are the panel coordinates
+        nativeRow := panelRow
+        nativeCol := panelCol
+    ' buffer slot: the screen buffer holds the panels one after another, in buffer-slot order
+    pPixel := LONG[pEntry][ENTR_SCRN_BUFFER_ADDR_OFST] + ((((positionToSlot[tableBase + panelPosn] * nativeRows) + nativeRow) * nativeCols) + nativeCol) * LONG[pEntry][ENTR_BYTES_PER_COLOR_OFST]
 
-PUB needsPanelColumnSwap(nChainIdx) : bNeedsSwap | eEntry, eTraverse
-'' Determine if display coordinates need horizontal panel column swap
-'' This compensates for physical wire routing that swaps left/right panel columns
+PUB positionAtDisplayPixel(nChainIdx, row, column) : nPanelPosn
+'' Return the panel position (P) of the panel that holds display coordinates (row, column).
+'' Panel-centric drawing uses it to clip: a pixel whose panel position is not the panel being
+'' drawn on lies outside that panel.
 ''
-'' For WIRE_ROWS_FIRST (Z-pattern), columns are swapped when wire enters from:
-''   - WIRE_ENTERS_BOT_LEFT: chain goes BL->BR->TL->TR, so top panels are wire 1=TL, 0=TR (swapped)
-''   - WIRE_ENTERS_BOT_RIGHT: chain goes BR->BL->TR->TL, so top panels are wire 1=TR, 0=TL (swapped)
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @param row - pixel row on the display (display coordinates)
+'' @param column - pixel column on the display (display coordinates)
+'' @returns nPanelPosn - panel position (P0 is the top-left panel), or NO_PANEL_POSITION when the pixel is outside the display or in a cell that holds no panel
+
+  nPanelPosn, _, _ := panelCoordsAt(validChainIndex(nChainIdx), row, column)   ' the panel coordinates are not needed here
+
+PUB offsetToPanel(nChainIdx, nPanelIndex) : offsetPixelRows, offsetPixelColumns | layoutIdx, nMaxPanels, panelPosn, tableBase
+'' Return the display coordinates of the top-left pixel of the panel at a panel position: the
+'' offset that turns panel coordinates on that panel into display coordinates. It is read from
+'' the display's grid, derived from the wiring sentences at startup.
 ''
 '' @param nChainIdx - the index of the desired chain
-'' @returns bNeedsSwap - TRUE if panel columns need to be swapped
+'' @param nPanelIndex - panel position of the panel (P0 is the top-left panel, then reading order)
+'' @returns offsetPixelRows - display row of the panel's top-left pixel
+'' @returns offsetPixelColumns - display column of the panel's top-left pixel
 
 ' Local Variables:
-' @local eEntry - wire entry corner enum for the chain
-' @local eTraverse - wire traversal pattern enum for the chain
-
-    bNeedsSwap := FALSE
-    eEntry := wireStart(nChainIdx)
-    eTraverse := wireTraverse(nChainIdx)
-
-    ' Only apply to Z-pattern (rows first) traversal
-    if eTraverse == hwEnum.WIRE_ROWS_FIRST
-        ' When wire enters from bottom, the Z-pattern returns across the top,
-        ' causing the wire order to be opposite from display panel order
-        if eEntry == hwEnum.WIRE_ENTERS_BOT_LEFT or eEntry == hwEnum.WIRE_ENTERS_BOT_RIGHT
-            bNeedsSwap := TRUE
-
-PUB wireTraverse(nChainIdx) : eWireTraverse | pEntry
-'' Return the wire traversal pattern enum for the nChainIdx HUB75 adapter
-''
-'' @param nChainIdx - the index of the desired chain
-'' @returns eWireTraverse - wire traversal pattern enum value
-
-' Local Variables:
-' @local pEntry - pointer to the chain descriptor table entry
-
-    pEntry := ptrTableEntry(nChainIdx)
-    eWireTraverse := LONG[pEntry][ENTR_WIRE_TRAVERSE_OFST]
-
-PUB wireOrderForPanel(nChainIdx, displayPanelIndex) : wireIndex | pWireTable, nMaxPanels
-'' Return the wire order index for a given display panel index
-''
-'' @param nChainIdx - the index of the desired chain
-'' @param displayPanelIndex - panel index in display order (0..n-1)
-'' @returns wireIndex - panel index in physical wire order
-
-' Local Variables:
-' @local pWireTable - pointer to the wire order table for the chain
+' @local layoutIdx - the chain index, checked against the adapters that exist
 ' @local nMaxPanels - total number of panels in the chain
-
-    nMaxPanels := maxPanels(nChainIdx)
-    if displayPanelIndex < 0 or displayPanelIndex >= nMaxPanels
-        wireIndex := 0 #> displayPanelIndex <# nMaxPanels - 1
-    else
-        pWireTable := @@LONG[@wireOrderTable][nChainIdx]
-        wireIndex := BYTE[pWireTable][displayPanelIndex]
-
-PUB displayPanelForWire(nChainIdx, wireIndex) : displayPanelIndex | pWireTable, nMaxPanels, idx
-'' Return the display panel index for a given wire position (inverse of wireOrderForPanel)
-''
-'' @param nChainIdx - the index of the desired chain
-'' @param wireIndex - panel index in physical wire order (0..n-1)
-'' @returns displayPanelIndex - panel index in display order
-
-' Local Variables:
-' @local pWireTable - pointer to the wire order table for the chain
-' @local nMaxPanels - total number of panels in the chain
-' @local idx - loop index over panels while searching for the wire index
-
-    nMaxPanels := maxPanels(nChainIdx)
-    displayPanelIndex := 0
-    if wireIndex >= 0 and wireIndex < nMaxPanels
-        pWireTable := @@LONG[@wireOrderTable][nChainIdx]
-        ' Search for which display panel has this wire index
-        repeat idx from 0 to nMaxPanels - 1
-            if BYTE[pWireTable][idx] == wireIndex
-                displayPanelIndex := idx
-                quit
-
-PUB panelRotationAt(nChainIdx, panelIndex) : eRotation | pRotTable, nMaxPanels
-'' Return the rotation for a specific panel
-''
-'' @param nChainIdx - the index of the desired chain
-'' @param panelIndex - panel index (0..n-1)
-'' @returns eRotation - rotation enum (ROT_NONE, ROT_LEFT_90, ROT_RIGHT_90, ROT_180)
-
-' Local Variables:
-' @local pRotTable - pointer to the panel rotation table for the chain
-' @local nMaxPanels - total number of panels in the chain
-
-    nMaxPanels := maxPanels(nChainIdx)
-    if panelIndex < 0 or panelIndex >= nMaxPanels
-        eRotation := ROT_NONE
-    else
-        pRotTable := @@LONG[@panelRotTable][nChainIdx]
-        ' Table now stores enum values directly (ROT_NONE=$20, ROT_180=$23, etc.)
-        eRotation := BYTE[pRotTable][panelIndex]
-        ' Validate - default to ROT_NONE if invalid
-        if eRotation < ROT_NONE or eRotation > ROT_270
-            eRotation := ROT_NONE
-
-PUB displayToPanelCoords(nChainIdx, displayRow, displayCol) : nPanelIndex, localRow, localCol | rowsPerPnl, colsPerPnl, pnlsPerRow, pnlsPerCol
-'' Convert display coordinates to panel index and local coordinates within that panel
-''
-'' @param nChainIdx - the index of the desired chain
-'' @param displayRow - row coordinate in the full display
-'' @param displayCol - column coordinate in the full display
-'' @returns nPanelIndex - index of the panel this pixel belongs to (0..n-1)
-'' @returns localRow - row coordinate within the panel (0..panelRows-1)
-'' @returns localCol - column coordinate within the panel (0..panelCols-1)
-
-' Local Variables:
-' @local rowsPerPnl - pixel rows per individual panel
-' @local colsPerPnl - pixel columns per individual panel
-' @local pnlsPerRow - panels chained horizontally
-' @local pnlsPerCol - panels stacked vertically
-
-    rowsPerPnl, colsPerPnl := panelSizeInPixels(nChainIdx)
-    pnlsPerCol, pnlsPerRow := displaySizeInPanels(nChainIdx)
-
-    ' Determine which panel in the grid
-    if pnlsPerRow == 1 and pnlsPerCol == 1
-        ' Single panel - no translation needed
-        nPanelIndex := 0
-        localRow := displayRow
-        localCol := displayCol
-    elseif pnlsPerRow == 1
-        ' Column of panels (stacked vertically)
-        nPanelIndex := displayRow / rowsPerPnl
-        localRow := displayRow // rowsPerPnl
-        localCol := displayCol
-    elseif pnlsPerCol == 1
-        ' Row of panels (chained horizontally)
-        nPanelIndex := displayCol / colsPerPnl
-        localRow := displayRow
-        localCol := displayCol // colsPerPnl
-    else
-        ' 2D grid of panels (Z-pattern: row-major order)
-        ' Panel grid position
-        nPanelIndex := (displayRow / rowsPerPnl) * pnlsPerRow + (displayCol / colsPerPnl)
-        localRow := displayRow // rowsPerPnl
-        localCol := displayCol // colsPerPnl
-
-PUB panelPixelOffset(nChainIdx, nDisplayPanelIndex, localRow, localCol) : byteOffset | rowsPerPnl, colsPerPnl, bytesPerClr, panelPixels, panelBytes, nWirePanelIndex, eRotation, rotatedRow, rotatedCol, tempIdx
-'' Calculate the byte offset into the screen buffer for a pixel at local coordinates within a panel
-'' Applies wire order remapping and per-panel rotation
-''
-'' @param nChainIdx - the index of the desired chain
-'' @param nDisplayPanelIndex - index of the panel in display order (0..n-1)
-'' @param localRow - row coordinate within the panel (before per-panel rotation)
-'' @param localCol - column coordinate within the panel (before per-panel rotation)
-'' @returns byteOffset - byte offset into the screen buffer
-
-' Local Variables:
-' @local rowsPerPnl - pixel rows per individual panel
-' @local colsPerPnl - pixel columns per individual panel
-' @local bytesPerClr - bytes per pixel color
-' @local panelPixels - total pixels in one panel
-' @local panelBytes - total bytes in one panel
-' @local nWirePanelIndex - panel index in physical wire order
-' @local eRotation - per-panel rotation enum
-' @local rotatedRow - row coordinate after per-panel rotation
-' @local rotatedCol - column coordinate after per-panel rotation
-' @local tempIdx - scratch value used while rotating coordinates
-
-    rowsPerPnl, colsPerPnl := panelSizeInPixels(nChainIdx)
-    bytesPerClr := bytesPerColor(nChainIdx)
-    panelPixels := rowsPerPnl * colsPerPnl
-    panelBytes := panelPixels * bytesPerClr
-
-    ' Convert display panel index to wire panel index
-    nWirePanelIndex := wireOrderForPanel(nChainIdx, nDisplayPanelIndex)
-
-    ' Apply per-panel rotation to local coordinates
-    eRotation := panelRotationAt(nChainIdx, nDisplayPanelIndex)
-    rotatedRow := localRow
-    rotatedCol := localCol
-
-    case eRotation
-        ROT_LEFT_90:
-            ' 90 deg counter-clockwise: (r,c) -> (c, rows-1-r)
-            tempIdx := rotatedRow
-            rotatedRow := rotatedCol
-            rotatedCol := (rowsPerPnl - 1) - tempIdx
-        ROT_RIGHT_90:
-            ' 90 deg clockwise: (r,c) -> (cols-1-c, r)
-            tempIdx := rotatedRow
-            rotatedRow := (colsPerPnl - 1) - rotatedCol
-            rotatedCol := tempIdx
-        ROT_180:
-            ' 180 deg: (r,c) -> (rows-1-r, cols-1-c)
-            rotatedRow := (rowsPerPnl - 1) - rotatedRow
-            rotatedCol := (colsPerPnl - 1) - rotatedCol
-
-    ' Offset to start of wire panel + offset within panel using rotated coordinates
-    byteOffset := (nWirePanelIndex * panelBytes) + ((rotatedRow * colsPerPnl) + rotatedCol) * bytesPerClr
-
-PUB indexToPanel(nChainIdx, nPanelRow, nPanelCol) : nPanelIndex | nBffrR, nBffrC, panelsPerColumn, panelsPerRow
-'' Return the index of the panel within entire display at the specified panel-row and panel-column
-''
-'' @param nChainIdx - the index of the desired chain
-'' @param nPanelRow - index of specified panel in row
-'' @param nPanelCol - index of specified panel in column
-'' @returns nPanelIndex - index of panel within entire display
-
-' Local Variables:
-' @local nBffrR - panel-row index clamped to the panel grid
-' @local nBffrC - panel-column index clamped to the panel grid
-' @local panelsPerColumn - number of panels vertically in the display
-' @local panelsPerRow - number of panels horizontally in the display
-
-    panelsPerColumn, panelsPerRow := displaySizeInPanels(nChainIdx)
-    nBffrR := 0 #> nPanelRow <# panelsPerColumn - 1
-    nBffrC := 0 #> nPanelCol <# panelsPerRow - 1
-    nPanelIndex := (nBffrR * panelsPerRow) + nBffrC
-
-PUB offsetToPanel(nChainIdx, nPanelIndex) : offsetPixelRows, offsetPixelColumns | gridRow, gridColumn, nMaxPanels, panelIndex, rowsPerPnl, colsPerPnl, pnlsPerRow, pnlsPerCol
-'' Return x,y offset to specified panel from top-left corner of display
-''
-'' @param nChainIdx - the index of the desired chain
-'' @param nPanelIndex - index of panel within entire display
-'' @returns offsetPixelRows - vertical offset to top-left pixel of specified panel from top-left corner of display
-'' @returns offsetPixelColumns - horizontal offset to top-left pixel of specified panel from top-left corner of display
-
-' Local Variables:
-' @local gridRow - panel grid row of the specified panel
-' @local gridColumn - panel grid column of the specified panel
-' @local nMaxPanels - total number of panels in the chain
-' @local panelIndex - clamped panel index within valid range
-' @local rowsPerPnl - pixel rows per individual panel
-' @local colsPerPnl - pixel columns per individual panel
-' @local pnlsPerRow - panels chained horizontally
-' @local pnlsPerCol - panels stacked vertically
+' @local panelPosn - panel position clamped to the panels in use
+' @local tableBase - first entry of this adapter in the per-position tables
 
   offsetPixelRows := offsetPixelColumns := 0
-  nMaxPanels := maxPanels(nChainIdx)
-  rowsPerPnl, colsPerPnl := panelSizeInPixels(nChainIdx)
-  pnlsPerCol, pnlsPerRow := displaySizeInPanels(nChainIdx)
+  layoutIdx := validChainIndex(nChainIdx)
+  nMaxPanels := layoutPanelCount[layoutIdx]
   if nMaxPanels > 0
-    panelIndex :=  0 #> nPanelIndex <# nMaxPanels - 1
-    if nPanelIndex <> panelIndex
+    panelPosn := 0 #> nPanelIndex <# nMaxPanels - 1
+    if nPanelIndex <> panelPosn
       DEBUG("* Warning invalid nPanelIndex (", udec_(nPanelIndex), ") for display! of ", udec_(nMaxPanels), " panels")
-
-    if pnlsPerRow == 1 and pnlsPerCol == 1
-      ' we have a one panel, no offset
-    elseif pnlsPerRow == 1
-      ' we have a column of panels
-      offsetPixelRows := panelIndex * rowsPerPnl
-    elseif pnlsPerCol == 1
-      ' we have a row of panels
-      offsetPixelColumns := panelIndex * colsPerPnl
-    else
-      ' we have a grid of panels: MAX_PANELS_PER_ROW x MAX_PANELS_PER_COLUMN
-      gridRow := panelIndex / pnlsPerRow
-      gridColumn := panelIndex // pnlsPerRow
-      offsetPixelRows := gridRow * rowsPerPnl
-      offsetPixelColumns := gridColumn * colsPerPnl
+    tableBase := layoutIdx * MAX_CABLE_POSITIONS
+    offsetPixelRows := positionToCellRow[tableBase + panelPosn] * layoutCellRows[layoutIdx]
+    offsetPixelColumns := positionToCellCol[tableBase + panelPosn] * layoutCellColumns[layoutIdx]
 
 PUB getDriverFlags(nChainIdx) : desiredFlags, eChipType
 '' Return flags describing the compiled driver configuration for the specified adapter.
@@ -984,21 +752,26 @@ PUB dbgMemDump(pMessage, pBytes, lenBytes) | bytBffr, colIdx, rowIdx, maxCol, ma
   waitms(DUMP_END_DELAY_MS)
 #endif
 
-PRI ptrTableEntry(nChainIdx) : pEntry | validScreenIdx
+PRI ptrTableEntry(nChainIdx) : pEntry
 ' Return the hub address of the chain descriptor table entry for the given index.
 '
 ' @param nChainIdx - zero-based chain index
 ' @returns pEntry - pointer to the chain descriptor table entry
-' @local validScreenIdx - clamped index within valid range
 
 ' debug("HUB75dbg: ", udec(nChainIdx), udec(numberScreens), udec(tableSizeInBytes), udec(entrySizeInBytes))
+
+  pEntry := @@LONG[@screenTable][validChainIndex(nChainIdx)]   ' get ptr to table entry
+
+PRI validChainIndex(nChainIdx) : validScreenIdx
+' Return the chain index after checking it names an adapter that exists; stop on any other.
+'
+' @param nChainIdx - zero-based chain index
+' @returns validScreenIdx - the same index, within the valid range
 
   validScreenIdx := 0 #> nChainIdx <# numberScreens - 1
   if nChainIdx <> validScreenIdx
     DEBUG("HUB75: not enough HUB75 buffers allocated: [isp_hub75_hwBufferAccess.spin2]")
     abort
-
-  pEntry := @@LONG[@screenTable][validScreenIdx]        ' get ptr to table entry
 
 CON { PRIVATE wiring check and layout constants }
 
@@ -1027,7 +800,7 @@ CON { PRIVATE wiring check and layout constants }
     MAX_GRID_CELLS          = ((MAX_CABLE_POSITIONS + 1) / 2) * ((MAX_CABLE_POSITIONS + 2) / 2)
 
     ' table entry for a cell that holds no panel, or for a position no panel takes
-    NO_POSITION             = $FF
+    NO_POSITION             = NO_PANEL_POSITION
 
     ' the picture printed at startup: one cell reads "[C2 v]", padded to "[C2  v]" when
     ' the display has more than ten panels; the longest line is the inverse-table line,
@@ -1063,6 +836,8 @@ layoutGridRows      LONG    0[ADAPTER_COUNT]                    ' bounding box h
 layoutGridColumns   LONG    0[ADAPTER_COUNT]                    ' bounding box width, in panels
 layoutPixelRows     LONG    0[ADAPTER_COUNT]                    ' bounding box height, in pixels
 layoutPixelColumns  LONG    0[ADAPTER_COUNT]                    ' bounding box width, in pixels
+layoutCellRows      LONG    0[ADAPTER_COUNT]                    ' one cell's height, in pixels (a panel as the viewer sees it)
+layoutCellColumns   LONG    0[ADAPTER_COUNT]                    ' one cell's width, in pixels
 
 ' Lookup tables for the drawing path, MAX_CABLE_POSITIONS entries per adapter; an entry
 ' past the last panel holds NO_POSITION. P is the panel position (reading order).
@@ -1418,6 +1193,8 @@ PRI buildLayoutTables(nChainIdx, panelCount) | cablePos, minRow, maxRow, minCol,
     layoutGridColumns[nChainIdx] := gridCols
     layoutPixelRows[nChainIdx] := gridRows * panelRows
     layoutPixelColumns[nChainIdx] := gridCols * panelCols
+    layoutCellRows[nChainIdx] := panelRows
+    layoutCellColumns[nChainIdx] := panelCols
 
 PRI printLayout(nChainIdx) | panelCount, gridRows, gridCols, rowIdx, colIdx, posn, cablePos, lineLen, tableBase, cellBase, bWide
 ' Print the derived picture, one line per grid row, then the lookup tables.
@@ -1616,53 +1393,30 @@ PRI arrowCharForRotation(ePanelRotation) : arrowChar
         hwEnum.ROT_RIGHT_90:
             arrowChar := ">"
 
-PRI buildWireOrderFromEnums(nChainIdx) | eStart, eTraverse, gridRows, gridCols, nPanels, wirePos, row, col, displayIdx, pWireTable
-' Build wire order table from configuration enums
-' Called during configure() to compute wire order from WIRE_START and WIRE_TRAVERSE settings
+PRI panelCoordsAt(layoutIdx, row, column) : panelPosn, panelRow, panelCol | cellRows, cellCols
+' Find the panel that holds display coordinates (row, column), and the pixel's panel
+' coordinates within it, by table lookup in the display's grid. A pixel outside the
+' display's bounding box, or in a cell that holds no panel, has no panel.
 '
-' @param nChainIdx - the index of the desired chain
+' @param layoutIdx - the chain index, already checked against the adapters that exist
+' @param row - pixel row on the display (display coordinates)
+' @param column - pixel column on the display (display coordinates)
+' @returns panelPosn - panel position (P) of the panel that holds the pixel, or NO_POSITION
+' @returns panelRow - row within that panel, as the viewer sees it
+' @returns panelCol - column within that panel, as the viewer sees it
 
-    eStart := wireStart(nChainIdx)
-    eTraverse := wireTraverse(nChainIdx)
+' Local Variables:
+' @local cellRows - pixel rows of one cell of the grid
+' @local cellCols - pixel columns of one cell of the grid
 
-    ' Check if using enum-based configuration (values >= $40)
-    ' If using explicit grid mode (values 0-16), the user has already set disp#WireOrder directly
-    if eStart < hwEnum.WIRE_ENTERS_TOP_LEFT or eTraverse < hwEnum.WIRE_ROWS_FIRST
-        debug("HUB75: Using explicit wire order table (not enum-based)")
-    else
-        gridRows, gridCols := displaySizeInPanels(nChainIdx)  ' gridRows=panelsPerColumn, gridCols=panelsPerRow
-        nPanels := gridRows * gridCols
-
-        pWireTable := @@LONG[@wireOrderTable][nChainIdx]
-
-        ' For each wire position, compute which display panel it corresponds to
-        ' Then store: wireOrderTable[displayPanelIndex] = wirePosition
-        repeat wirePos from 0 to nPanels - 1
-            row, col := wirePositionToGridCoords(wirePos, gridRows, gridCols)
-            displayIdx := row * gridCols + col
-            BYTE[pWireTable][displayIdx] := wirePos
-
-        debug("HUB75: Built wire order table for ", udec_(nPanels), " panels, start=", uhex_(eStart), " traverse=", uhex_(eTraverse))
-        debug("HUB75: Wire order [disp0..3]->wire: ", udec_(BYTE[pWireTable][0]), udec_(BYTE[pWireTable][1]), udec_(BYTE[pWireTable][2]), udec_(BYTE[pWireTable][3]))
-
-PRI wirePositionToGridCoords(wirePos, gridRows, gridCols) : row, col
-' Convert wire position to display grid coordinates
-'
-' This produces an IDENTITY mapping: wirePos N -> displayIdx N
-' The result is that display panel N content goes to wire buffer N.
-'
-' Wire buffer N ends up at a physical position determined by the hardware wiring.
-' For verification, this means each physical position shows its wire number.
-'
-' @param wirePos - wire position (0..N-1)
-' @param gridRows - number of panel rows (panels per column)
-' @param gridCols - number of panel columns (panels per row)
-' @returns row, col - grid coordinates such that displayIdx = wirePos
-
-    ' Identity mapping: wirePos N maps to displayIdx N (row-major from TL)
-    ' This ensures display panel N -> wire buffer N
-    row := wirePos / gridCols
-    col := wirePos // gridCols
+    panelPosn := NO_POSITION
+    panelRow := panelCol := 0
+    if row >= 0 and column >= 0 and row < layoutPixelRows[layoutIdx] and column < layoutPixelColumns[layoutIdx]
+        cellRows := layoutCellRows[layoutIdx]
+        cellCols := layoutCellColumns[layoutIdx]
+        panelPosn := cellToPosition[(layoutIdx * MAX_GRID_CELLS) + ((row / cellRows) * layoutGridColumns[layoutIdx]) + (column / cellCols)]
+        panelRow := row // cellRows
+        panelCol := column // cellCols
 
 CON { license }
 
