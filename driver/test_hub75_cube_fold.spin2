@@ -14,11 +14,11 @@
 { Description:
 
    Runs on the P2 with no panels attached: it never starts the display, so no cog starts and no
-   pin is driven, and it needs no edit to isp_hub75_hwPanelConfig.spin2. It folds a reference
-   net with isp_hub75_hwBufferAccess.foldNet() into the tables of adapter 1 (chain index 0),
-   then pushes a fixed list of face coordinates through the fold and compares each result with
-   an answer computed by hand and written below. It prints one PASS or FAIL line per case, a
-   total, then END_SESSION.
+   pin is driven, and it needs no edit to isp_hub75_hwPanelConfig.spin2 (it does not even use
+   it). It folds a reference net with isp_hub75_cube.foldNet() into the tables of adapter 1
+   (chain index 0), then pushes a fixed list of face coordinates through the fold and compares
+   each result with an answer computed by hand and written below. It prints one PASS or FAIL
+   line per case, a total, then END_SESSION.
 
    The reference cube (face size 8), as the flat picture of its net (P = panel position):
 
@@ -43,6 +43,16 @@
             (FRONT, TOP, LEFT), three points in the corner gap, and the joins at all three edges
      h    - the home of an object: the face that holds its centre, and the transform into it
      I    - faces that are not cube faces
+     b, o, s, q, t - the face-centric drawing entries of task #80: a box crossing an edge (b), a
+            circle crossing an edge (o), a circle straddling a corner off-centre (s), a circle
+            straddling a corner on the face that holds its centre (q), and text crossing an
+            edge (t). Each case is one pixel that the primitive draws (a probe) and the display
+            pixel it must land on. The case runs the two cube calls the display uses to draw
+            every face primitive: homeOnFaceOfExtent() on the rectangle the object spans, then
+            homeFoldToDisplay() on the probe. The display code that chooses the rectangle (a
+            line's ends, a box's corners, a text run, a circle's centre) and enumerates the
+            pixels (Bresenham, the glyph bitmap) is not in this test: the probes are pixels
+            those enumerations produce, picked by hand, and the rig confirms the rest.
 }
 
 CON ' timing
@@ -96,6 +106,17 @@ CON ' case records
     ' a home case (group h): an object's centre, and its expected home face and transform
     #0, HOME_LABEL, HOME_NUMBER, HOME_FACE, HOME_ROW, HOME_COL, HOME_EXP_FACE, HOME_EXP_TURN, HOME_EXP_ADD_ROW, HOME_EXP_ADD_COL, HOME_CASE_LONGS
 
+    ' an extent case (groups b, o, s, q, t): an object that spans a rectangle of pixels on a face,
+    ' one probe pixel of it, and where the probe must land:
+    '  EXT_LABEL .. EXT_NUMBER             - label letter and number
+    '  EXT_FACE                            - the face the object's coordinates are on
+    '  EXT_FIRST_ROW .. EXT_LAST_COL       - the rectangle the object spans (first and last row and column)
+    '  EXT_PROBE_ROW, EXT_PROBE_COL        - one pixel of the object, in the same coordinates
+    '  EXT_EXP_HOME                        - the face that must hold the rectangle's midpoint
+    '  EXT_EXP_ROW, EXT_EXP_COL            - the display row and column the probe must land on, or NO_DISPLAY_PIXEL
+    #0, EXT_LABEL, EXT_NUMBER, EXT_FACE, EXT_FIRST_ROW, EXT_FIRST_COL, EXT_LAST_ROW, EXT_LAST_COL, ...
+        EXT_PROBE_ROW, EXT_PROBE_COL, EXT_EXP_HOME, EXT_EXP_ROW, EXT_EXP_COL, EXT_CASE_LONGS
+
     BYTES_PER_LONG      = 4
 
 CON ' printed lines
@@ -106,7 +127,7 @@ CON ' printed lines
 
 OBJ
 
-    hub75Bffrs  : "isp_hub75_hwBufferAccess"
+    cube        : "isp_hub75_cube"
     hwEnum      : "isp_hub75_hwEnums"
 
 DAT ' ---- the reference net and its hand-computed panel origins ----
@@ -232,31 +253,31 @@ DAT ' ---- group K: every corner gap ----
 
 ' label, number, face, row, column -> no face, no panel (every coordinate 0)
 gapCases
-    LONG    "K",  1, hwEnum.FACE_FRONT,  -1, -1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' FRONT-TOP-LEFT
-    LONG    "K",  2, hwEnum.FACE_FRONT,  -1,  8,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' FRONT-TOP-RIGHT
-    LONG    "K",  3, hwEnum.FACE_FRONT,   8,  8,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' FRONT-BOTTOM-RIGHT
-    LONG    "K",  4, hwEnum.FACE_FRONT,   8, -1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' FRONT-BOTTOM-LEFT
-    LONG    "K",  5, hwEnum.FACE_BACK,   -1, -1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' BACK-TOP-RIGHT
-    LONG    "K",  6, hwEnum.FACE_BACK,   -1,  8,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' BACK-TOP-LEFT
-    LONG    "K",  7, hwEnum.FACE_BACK,    8,  8,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' BACK-BOTTOM-LEFT
-    LONG    "K",  8, hwEnum.FACE_BACK,    8, -1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' BACK-BOTTOM-RIGHT
-    LONG    "K",  9, hwEnum.FACE_LEFT,   -1, -1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' LEFT-TOP-BACK
-    LONG    "K", 10, hwEnum.FACE_LEFT,   -1,  8,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' LEFT-TOP-FRONT
-    LONG    "K", 11, hwEnum.FACE_LEFT,    8,  8,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' LEFT-BOTTOM-FRONT
-    LONG    "K", 12, hwEnum.FACE_LEFT,    8, -1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' LEFT-BOTTOM-BACK
-    LONG    "K", 13, hwEnum.FACE_RIGHT,  -1, -1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' RIGHT-TOP-FRONT
-    LONG    "K", 14, hwEnum.FACE_RIGHT,  -1,  8,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' RIGHT-TOP-BACK
-    LONG    "K", 15, hwEnum.FACE_RIGHT,   8,  8,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' RIGHT-BOTTOM-BACK
-    LONG    "K", 16, hwEnum.FACE_RIGHT,   8, -1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' RIGHT-BOTTOM-FRONT
-    LONG    "K", 17, hwEnum.FACE_TOP,    -1, -1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' TOP-BACK-LEFT
-    LONG    "K", 18, hwEnum.FACE_TOP,    -1,  8,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' TOP-BACK-RIGHT
-    LONG    "K", 19, hwEnum.FACE_TOP,     8,  8,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' TOP-FRONT-RIGHT
-    LONG    "K", 20, hwEnum.FACE_TOP,     8, -1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' TOP-FRONT-LEFT
-    LONG    "K", 21, hwEnum.FACE_BOTTOM, -1, -1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' BOTTOM-FRONT-LEFT
-    LONG    "K", 22, hwEnum.FACE_BOTTOM, -1,  8,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' BOTTOM-FRONT-RIGHT
-    LONG    "K", 23, hwEnum.FACE_BOTTOM,  8,  8,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' BOTTOM-BACK-RIGHT
-    LONG    "K", 24, hwEnum.FACE_BOTTOM,  8, -1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' BOTTOM-BACK-LEFT
-    LONG    "K", 25, hwEnum.FACE_FRONT, -20, -3,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' deep in the FRONT-TOP-LEFT gap
+    LONG    "K",  1, hwEnum.FACE_FRONT,  -1, -1,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0     ' FRONT-TOP-LEFT
+    LONG    "K",  2, hwEnum.FACE_FRONT,  -1,  8,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0     ' FRONT-TOP-RIGHT
+    LONG    "K",  3, hwEnum.FACE_FRONT,   8,  8,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0     ' FRONT-BOTTOM-RIGHT
+    LONG    "K",  4, hwEnum.FACE_FRONT,   8, -1,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0     ' FRONT-BOTTOM-LEFT
+    LONG    "K",  5, hwEnum.FACE_BACK,   -1, -1,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0     ' BACK-TOP-RIGHT
+    LONG    "K",  6, hwEnum.FACE_BACK,   -1,  8,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0     ' BACK-TOP-LEFT
+    LONG    "K",  7, hwEnum.FACE_BACK,    8,  8,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0     ' BACK-BOTTOM-LEFT
+    LONG    "K",  8, hwEnum.FACE_BACK,    8, -1,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0     ' BACK-BOTTOM-RIGHT
+    LONG    "K",  9, hwEnum.FACE_LEFT,   -1, -1,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0     ' LEFT-TOP-BACK
+    LONG    "K", 10, hwEnum.FACE_LEFT,   -1,  8,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0     ' LEFT-TOP-FRONT
+    LONG    "K", 11, hwEnum.FACE_LEFT,    8,  8,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0     ' LEFT-BOTTOM-FRONT
+    LONG    "K", 12, hwEnum.FACE_LEFT,    8, -1,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0     ' LEFT-BOTTOM-BACK
+    LONG    "K", 13, hwEnum.FACE_RIGHT,  -1, -1,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0     ' RIGHT-TOP-FRONT
+    LONG    "K", 14, hwEnum.FACE_RIGHT,  -1,  8,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0     ' RIGHT-TOP-BACK
+    LONG    "K", 15, hwEnum.FACE_RIGHT,   8,  8,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0     ' RIGHT-BOTTOM-BACK
+    LONG    "K", 16, hwEnum.FACE_RIGHT,   8, -1,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0     ' RIGHT-BOTTOM-FRONT
+    LONG    "K", 17, hwEnum.FACE_TOP,    -1, -1,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0     ' TOP-BACK-LEFT
+    LONG    "K", 18, hwEnum.FACE_TOP,    -1,  8,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0     ' TOP-BACK-RIGHT
+    LONG    "K", 19, hwEnum.FACE_TOP,     8,  8,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0     ' TOP-FRONT-RIGHT
+    LONG    "K", 20, hwEnum.FACE_TOP,     8, -1,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0     ' TOP-FRONT-LEFT
+    LONG    "K", 21, hwEnum.FACE_BOTTOM, -1, -1,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0     ' BOTTOM-FRONT-LEFT
+    LONG    "K", 22, hwEnum.FACE_BOTTOM, -1,  8,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0     ' BOTTOM-FRONT-RIGHT
+    LONG    "K", 23, hwEnum.FACE_BOTTOM,  8,  8,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0     ' BOTTOM-BACK-RIGHT
+    LONG    "K", 24, hwEnum.FACE_BOTTOM,  8, -1,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0     ' BOTTOM-BACK-LEFT
+    LONG    "K", 25, hwEnum.FACE_FRONT, -20, -3,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0     ' deep in the FRONT-TOP-LEFT gap
 gapCasesEnd
 
 DAT ' ---- group c, j: a circle of radius 3 centred on the corner pixel FRONT (0,0) ----
@@ -277,9 +298,9 @@ circleCases
     LONG    "c", 11, hwEnum.FACE_FRONT,  3, -1,  hwEnum.FACE_LEFT,  3, 7,  2, 0, 3
     LONG    "c", 12, hwEnum.FACE_FRONT,  1, -3,  hwEnum.FACE_LEFT,  1, 5,  2, 2, 1
     LONG    "c", 13, hwEnum.FACE_FRONT,  2, -2,  hwEnum.FACE_LEFT,  2, 6,  2, 1, 2
-    LONG    "c", 14, hwEnum.FACE_FRONT, -3, -1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0     ' the corner gap
-    LONG    "c", 15, hwEnum.FACE_FRONT, -1, -3,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0
-    LONG    "c", 16, hwEnum.FACE_FRONT, -2, -2,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0
+    LONG    "c", 14, hwEnum.FACE_FRONT, -3, -1,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0     ' the corner gap
+    LONG    "c", 15, hwEnum.FACE_FRONT, -1, -3,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0
+    LONG    "c", 16, hwEnum.FACE_FRONT, -2, -2,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0
 ' The joins: one step past one arc's end lands exactly on the other arc's end, at each edge.
     LONG    "j",  1, hwEnum.FACE_TOP,    8,  3,  hwEnum.FACE_FRONT, 0, 3,  0, 4, 0     ' FRONT-TOP: lands on c2 (TOP (7,3) is c8)
     LONG    "j",  2, hwEnum.FACE_LEFT,   3,  8,  hwEnum.FACE_FRONT, 3, 0,  0, 7, 3     ' FRONT-LEFT: lands on c1 (LEFT (3,7) is c11)
@@ -301,12 +322,74 @@ homeCases
     LONG    "h", 9, hwEnum.FACE_FRONT,   0,  0,  hwEnum.FACE_FRONT, 0,  0,   0     ' the corner circle's home
 homeCasesEnd
 
+DAT ' ---- groups b, o, s, q, t: face-centric boxes, circles and text ----
+
+' label, number, face, first row, first column, last row, last column, probe row, probe column
+'   -> the face that holds the midpoint of the rectangle, and the probe's display row and column
+' The midpoint is (first + last) SAR 1; the home transform carries the probe into that face's
+' frame, where it folds onto the face that holds it. Panel mapping used below (N = 8, from the
+' reference cube): FRONT P0 (7-c, r) +(0,8); TOP P1 (7-r, 7-c) +(8,0); LEFT P2 (7-c, r) +(8,8);
+' RIGHT P4 (c, 7-r) +(8,24). Edges used: FRONT.N (r+8, c)  FRONT.E (r, c-8)  FRONT.W (r, c+8)
+' LEFT.N (c, -1-r)  LEFT.E (r, c-8)  RIGHT.W (r, c+8)  TOP.S (r-8, c).
+extentCases
+    ' b1-b4: a box at FRONT (2,5), 6 wide and 4 high, crossing FRONT.E; rows 2..5, columns 5..10,
+    '   midpoint (3,7): on FRONT, so home FRONT
+    LONG    "b", 1, hwEnum.FACE_FRONT,   2,  5,  5, 10,   2,  5,  hwEnum.FACE_FRONT,  2, 10     ' FRONT (2,5) -> P0 (2,2)
+    LONG    "b", 2, hwEnum.FACE_FRONT,   2,  5,  5, 10,   2, 10,  hwEnum.FACE_FRONT, 10, 29     ' FRONT.E -> RIGHT (2,2) -> P4 (2,5)
+    LONG    "b", 3, hwEnum.FACE_FRONT,   2,  5,  5, 10,   5, 10,  hwEnum.FACE_FRONT, 10, 26     ' FRONT.E -> RIGHT (5,2) -> P4 (2,2)
+    LONG    "b", 4, hwEnum.FACE_FRONT,   2,  5,  5, 10,   5,  8,  hwEnum.FACE_FRONT,  8, 26     ' FRONT.E -> RIGHT (5,0) -> P4 (0,2)
+    ' b5-b7: a box at FRONT (-3,2), 5 wide and 5 high, crossing FRONT.N; rows -3..1, columns 2..6,
+    '   midpoint (-1,4): past FRONT.N, so home TOP with the transform (r+8, c)
+    LONG    "b", 5, hwEnum.FACE_FRONT,  -3,  2,  1,  6,  -3,  2,  hwEnum.FACE_TOP,   10,  5     ' home (5,2) on TOP -> P1 (2,5)
+    LONG    "b", 6, hwEnum.FACE_FRONT,  -3,  2,  1,  6,   1,  6,  hwEnum.FACE_TOP,    1,  9     ' home (9,6) -> TOP.S -> FRONT (1,6) -> P0 (1,1)
+    LONG    "b", 7, hwEnum.FACE_FRONT,  -3,  2,  1,  6,  -1,  4,  hwEnum.FACE_TOP,    8,  3     ' home (7,4) on TOP -> P1 (0,3)
+    ' b8: a box at FRONT (-1,3), 3 wide and 2 high; rows -1..0: the midpoint row is (-1+0) SAR 1 = -1,
+    '   which floors (truncating toward zero would give 0, on FRONT): home TOP
+    LONG    "b", 8, hwEnum.FACE_FRONT,  -1,  3,  0,  5,   0,  4,  hwEnum.FACE_TOP,    3,  8     ' home (8,4) -> TOP.S -> FRONT (0,4) -> P0 (3,0)
+    ' o1-o5: a circle of radius 4 centred at FRONT (3,6), crossing FRONT.E; the point offsets of
+    '   the Bresenham circle are (+-4,0) (0,+-4) (+-4,+-1) (+-1,+-4) (+-3,+-2) (+-2,+-3); home FRONT
+    LONG    "o", 1, hwEnum.FACE_FRONT,   3,  6,  3,  6,   3, 10,  hwEnum.FACE_FRONT, 10, 28     ' offset (0,+4): RIGHT (3,2) -> P4 (2,4)
+    LONG    "o", 2, hwEnum.FACE_FRONT,   3,  6,  3,  6,   1,  9,  hwEnum.FACE_FRONT,  9, 30     ' offset (-2,+3): RIGHT (1,1) -> P4 (1,6)
+    LONG    "o", 3, hwEnum.FACE_FRONT,   3,  6,  3,  6,   3,  2,  hwEnum.FACE_FRONT,  5, 11     ' offset (0,-4): FRONT (3,2) -> P0 (5,3)
+    LONG    "o", 4, hwEnum.FACE_FRONT,   3,  6,  3,  6,   7,  6,  hwEnum.FACE_FRONT,  1, 15     ' offset (+4,0): FRONT (7,6) -> P0 (1,7)
+    LONG    "o", 5, hwEnum.FACE_FRONT,   3,  6,  3,  6,   5,  9,  hwEnum.FACE_FRONT,  9, 26     ' offset (+2,+3): RIGHT (5,1) -> P4 (1,2)
+    ' s1-s5: a circle of radius 4 centred at FRONT (3,-2), straddling the FRONT-TOP-LEFT corner off
+    '   centre: the centre is past FRONT.W, so home LEFT with the transform (r, c+8), centre LEFT (3,6).
+    '   In FRONT's own frame the three points past both edges (-1,-1) (-1,-2) (-1,-3) would be in the
+    '   corner gap and lost; homed on LEFT they are on TOP (the seam is on the TOP-FRONT edge, far from the centre)
+    LONG    "s", 1, hwEnum.FACE_FRONT,   3, -2,  3, -2,  -1, -1,  hwEnum.FACE_LEFT,   8,  7     ' offset (-4,+1): home (-1,7) -> LEFT.N -> TOP (7,0) -> P1 (0,7)
+    LONG    "s", 2, hwEnum.FACE_FRONT,   3, -2,  3, -2,  -1, -2,  hwEnum.FACE_LEFT,   9,  7     ' offset (-4,0): home (-1,6) -> TOP (6,0) -> P1 (1,7)
+    LONG    "s", 3, hwEnum.FACE_FRONT,   3, -2,  3, -2,  -1, -3,  hwEnum.FACE_LEFT,  10,  7     ' offset (-4,-1): home (-1,5) -> TOP (5,0) -> P1 (2,7)
+    LONG    "s", 4, hwEnum.FACE_FRONT,   3, -2,  3, -2,   0,  0,  hwEnum.FACE_LEFT,   7,  8     ' offset (-3,+2): home (0,8) -> LEFT.E -> FRONT (0,0) -> P0 (7,0)
+    LONG    "s", 5, hwEnum.FACE_FRONT,   3, -2,  3, -2,   3, -6,  hwEnum.FACE_LEFT,  13, 11     ' offset (0,-4): home (3,2) on LEFT -> P2 (5,3)
+    LONG    "s", 6, hwEnum.FACE_FRONT,   3,  1,  3,  1,  -1, -1,  hwEnum.FACE_FRONT, cube.NO_DISPLAY_PIXEL, cube.NO_DISPLAY_PIXEL     ' the same pixel with a centre on FRONT: home FRONT, in the corner gap
+    ' q1-q6: a circle of radius 4 centred at FRONT (1,1), straddling the corner with its centre on
+    '   FRONT: home FRONT, so the seam is on the TOP-LEFT edge, the edge farthest from the centre;
+    '   the points past both edges of FRONT (-2,-1) and (-1,-2) are in the gap and not drawn
+    LONG    "q", 1, hwEnum.FACE_FRONT,   1,  1,  1,  1,  -3,  1,  hwEnum.FACE_FRONT, 10,  6     ' offset (-4,0): FRONT.N -> TOP (5,1) -> P1 (2,6)
+    LONG    "q", 2, hwEnum.FACE_FRONT,   1,  1,  1,  1,   1, -3,  hwEnum.FACE_FRONT, 10,  9     ' offset (0,-4): FRONT.W -> LEFT (1,5) -> P2 (2,1)
+    LONG    "q", 3, hwEnum.FACE_FRONT,   1,  1,  1,  1,  -2, -1,  hwEnum.FACE_FRONT, cube.NO_DISPLAY_PIXEL, cube.NO_DISPLAY_PIXEL     ' offset (-3,-2): the corner gap
+    LONG    "q", 4, hwEnum.FACE_FRONT,   1,  1,  1,  1,  -1, -2,  hwEnum.FACE_FRONT, cube.NO_DISPLAY_PIXEL, cube.NO_DISPLAY_PIXEL     ' offset (-2,-3): the corner gap
+    LONG    "q", 5, hwEnum.FACE_FRONT,   1,  1,  1,  1,  -3,  0,  hwEnum.FACE_FRONT, 10,  7     ' offset (-4,-1): FRONT.N -> TOP (5,0) -> P1 (2,7)
+    LONG    "q", 6, hwEnum.FACE_FRONT,   1,  1,  1,  1,   0, -3,  hwEnum.FACE_FRONT, 10,  8     ' offset (-1,-4): FRONT.W -> LEFT (0,5) -> P2 (2,0)
+    ' t1-t6: the text "LL" at FRONT (1,5): two 5 x 7 characters one pitch of 6 apart, so rows 1..7 and
+    '   columns 5..15 (character 0 at columns 5..9, character 1 at 11..15), crossing FRONT.E;
+    '   midpoint (4,10) is past FRONT.E, so home RIGHT with the transform (r, c-8). Each probe is a
+    '   lit pixel of an 'L' (its left column, or its bottom row)
+    LONG    "t", 1, hwEnum.FACE_FRONT,   1,  5,  7, 15,   1,  5,  hwEnum.FACE_RIGHT,  2,  9     ' character 0, glyph (0,0): home (1,-3) -> RIGHT.W -> FRONT (1,5) -> P0 (2,1)
+    LONG    "t", 2, hwEnum.FACE_FRONT,   1,  5,  7, 15,   4,  5,  hwEnum.FACE_RIGHT,  2, 12     ' character 0, glyph (3,0): home (4,-3) -> FRONT (4,5) -> P0 (2,4)
+    LONG    "t", 3, hwEnum.FACE_FRONT,   1,  5,  7, 15,   7,  9,  hwEnum.FACE_RIGHT,  9, 24     ' character 0, glyph (6,4): home (7,1) on RIGHT -> P4 (1,0)
+    LONG    "t", 4, hwEnum.FACE_FRONT,   1,  5,  7, 15,   1, 11,  hwEnum.FACE_RIGHT, 11, 30     ' character 1, glyph (0,0): home (1,3) on RIGHT -> P4 (3,6)
+    LONG    "t", 5, hwEnum.FACE_FRONT,   1,  5,  7, 15,   7, 15,  hwEnum.FACE_RIGHT, 15, 24     ' character 1, glyph (6,4): home (7,7) on RIGHT -> P4 (7,0)
+    LONG    "t", 6, hwEnum.FACE_FRONT,   1,  5,  7, 15,   7,  5,  hwEnum.FACE_RIGHT,  2, 15     ' character 0, glyph (6,0): home (7,-3) -> FRONT (7,5) -> P0 (2,7)
+extentCasesEnd
+
 DAT ' ---- group I: faces that are not cube faces ----
 
 ' label, number, face, row, column -> no face, no panel (every coordinate 0)
 invalidFaceCases
-    LONG    "I", 1, hwEnum.FACE_TOP - 1,   1, 1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0
-    LONG    "I", 2, hwEnum.FACE_RIGHT + 1, 1, 1,  hub75Bffrs.NO_FACE, 0, 0,  hub75Bffrs.NO_PANEL_POSITION, 0, 0
+    LONG    "I", 1, hwEnum.FACE_TOP - 1,   1, 1,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0
+    LONG    "I", 2, hwEnum.FACE_RIGHT + 1, 1, 1,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0
 invalidFaceCasesEnd
 
 VAR
@@ -333,6 +416,7 @@ PUB main()
   runFoldCases(@gapCases, @gapCasesEnd)
   runFoldCases(@circleCases, @circleCasesEnd)
   runHomeCases(@homeCases, @homeCasesEnd)
+  runExtentCases(@extentCases, @extentCasesEnd)
   runFoldCases(@invalidFaceCases, @invalidFaceCasesEnd)
 
   debug("CUBE FOLD SELF-TEST: ", udec_(caseCount), " cases, ", udec_(passCount), " PASS, ", udec_(failCount), " FAIL")
@@ -353,7 +437,7 @@ PRI runNetCases(pFirst, pEnd) | pCase, mistakeCount, bPass
 
   pCase := pFirst
   repeat while pCase < pEnd
-    mistakeCount := hub75Bffrs.foldNet(TEST_CHAIN, @LONG[pCase][NET_ROWS], @LONG[pCase][NET_COLUMNS], @refCablePositions, LONG[pCase][NET_TOP], LONG[pCase][NET_FRONT], FACE_SIZE)
+    mistakeCount := cube.foldNet(TEST_CHAIN, @LONG[pCase][NET_ROWS], @LONG[pCase][NET_COLUMNS], @refCablePositions, LONG[pCase][NET_TOP], LONG[pCase][NET_FRONT], FACE_SIZE)
     bPass := mistakeCount == LONG[pCase][NET_EXPECTED]
     startLine(bPass, LONG[pCase][NET_LABEL], LONG[pCase][NET_NUMBER])
     addText(@"top C")
@@ -392,8 +476,8 @@ PRI runFoldCases(pFirst, pEnd) | pCase, eFace, faceRow, faceColumn, panelPosn, p
 
   pCase := pFirst
   repeat while pCase < pEnd
-    eFace, faceRow, faceColumn := hub75Bffrs.foldFacePixel(TEST_CHAIN, LONG[pCase][FOLD_FACE], LONG[pCase][FOLD_ROW], LONG[pCase][FOLD_COL])
-    panelPosn, panelRow, panelColumn, displayRow, displayColumn := hub75Bffrs.facePixelToPanel(TEST_CHAIN, LONG[pCase][FOLD_FACE], LONG[pCase][FOLD_ROW], LONG[pCase][FOLD_COL])
+    eFace, faceRow, faceColumn := cube.foldFacePixel(TEST_CHAIN, LONG[pCase][FOLD_FACE], LONG[pCase][FOLD_ROW], LONG[pCase][FOLD_COL])
+    panelPosn, panelRow, panelColumn, displayRow, displayColumn := cube.facePixelToPanel(TEST_CHAIN, LONG[pCase][FOLD_FACE], LONG[pCase][FOLD_ROW], LONG[pCase][FOLD_COL])
     expDisplayRow, expDisplayColumn := expectedDisplay(LONG[pCase][FOLD_EXP_PANEL], LONG[pCase][FOLD_EXP_PANEL_ROW], LONG[pCase][FOLD_EXP_PANEL_COL])
     bPass := (eFace == LONG[pCase][FOLD_EXP_FACE]) and (faceRow == LONG[pCase][FOLD_EXP_ROW]) and (faceColumn == LONG[pCase][FOLD_EXP_COL])
     bPass := bPass and (panelPosn == LONG[pCase][FOLD_EXP_PANEL]) and (panelRow == LONG[pCase][FOLD_EXP_PANEL_ROW]) and (panelColumn == LONG[pCase][FOLD_EXP_PANEL_COL])
@@ -428,9 +512,9 @@ PRI runPairCases(pFirst, pEnd) | pCase, panelA, rowA, columnA, panelB, rowB, col
 
   pCase := pFirst
   repeat while pCase < pEnd
-    panelA, _, _, rowA, columnA := hub75Bffrs.facePixelToPanel(TEST_CHAIN, LONG[pCase][PAIR_FACE_A], LONG[pCase][PAIR_ROW_A], LONG[pCase][PAIR_COL_A])
-    panelB, _, _, rowB, columnB := hub75Bffrs.facePixelToPanel(TEST_CHAIN, LONG[pCase][PAIR_FACE_B], LONG[pCase][PAIR_ROW_B], LONG[pCase][PAIR_COL_B])
-    bPass := (panelA <> hub75Bffrs.NO_PANEL_POSITION) and (panelB <> hub75Bffrs.NO_PANEL_POSITION)
+    panelA, _, _, rowA, columnA := cube.facePixelToPanel(TEST_CHAIN, LONG[pCase][PAIR_FACE_A], LONG[pCase][PAIR_ROW_A], LONG[pCase][PAIR_COL_A])
+    panelB, _, _, rowB, columnB := cube.facePixelToPanel(TEST_CHAIN, LONG[pCase][PAIR_FACE_B], LONG[pCase][PAIR_ROW_B], LONG[pCase][PAIR_COL_B])
+    bPass := (panelA <> cube.NO_PANEL_POSITION) and (panelB <> cube.NO_PANEL_POSITION)
     bPass := bPass and (abs(rowA - rowB) + abs(columnA - columnB) == DISPLAY_NEIGHBOURS)
     startLine(bPass, LONG[pCase][PAIR_LABEL], LONG[pCase][PAIR_NUMBER])
     addFaceAt(LONG[pCase][PAIR_FACE_A], LONG[pCase][PAIR_ROW_A], LONG[pCase][PAIR_COL_A])
@@ -463,7 +547,7 @@ PRI runHomeCases(pFirst, pEnd) | pCase, eHomeFace, homeTurn, homeAddRow, homeAdd
 
   pCase := pFirst
   repeat while pCase < pEnd
-    eHomeFace, homeTurn, homeAddRow, homeAddColumn := hub75Bffrs.homeOnFace(TEST_CHAIN, LONG[pCase][HOME_FACE], LONG[pCase][HOME_ROW], LONG[pCase][HOME_COL])
+    eHomeFace, homeTurn, homeAddRow, homeAddColumn := cube.homeOnFace(TEST_CHAIN, LONG[pCase][HOME_FACE], LONG[pCase][HOME_ROW], LONG[pCase][HOME_COL])
     bPass := (eHomeFace == LONG[pCase][HOME_EXP_FACE]) and (homeTurn == LONG[pCase][HOME_EXP_TURN])
     bPass := bPass and (homeAddRow == LONG[pCase][HOME_EXP_ADD_ROW]) and (homeAddColumn == LONG[pCase][HOME_EXP_ADD_COL])
     startLine(bPass, LONG[pCase][HOME_LABEL], LONG[pCase][HOME_NUMBER])
@@ -476,6 +560,45 @@ PRI runHomeCases(pFirst, pEnd) | pCase, eHomeFace, homeTurn, homeAddRow, homeAdd
     finishLine(bPass)
     pCase += HOME_CASE_LONGS * BYTES_PER_LONG
 
+PRI runExtentCases(pFirst, pEnd) | pCase, eHomeFace, homeTurn, homeAddRow, homeAddColumn, displayRow, displayColumn, bPass
+' For each probe pixel of a face-centric object, do what the display does to draw it: home the
+' object on the face that holds the midpoint of the rectangle it spans, then carry the probe into
+' that frame and fold it onto the face that holds it, and compare the home face and the display
+' pixel with the hand answer. A wrong midpoint (truncating instead of flooring), a wrong home
+' transform, a seam on the wrong edge or a wrong fold changes the home face or the pixel.
+'
+' @param pFirst - address of the first extent case
+' @param pEnd - address just past the last extent case
+
+' Local Variables:
+' @local pCase - address of the case being run
+' @local eHomeFace - the face the object is homed on
+' @local homeTurn - quarter turns into the home frame
+' @local homeAddRow - row added after the turn
+' @local homeAddColumn - column added after the turn
+' @local displayRow - the display row the probe landed on
+' @local displayColumn - the display column the probe landed on
+' @local bPass - TRUE when the case passed
+
+  pCase := pFirst
+  repeat while pCase < pEnd
+    eHomeFace, homeTurn, homeAddRow, homeAddColumn := cube.homeOnFaceOfExtent(TEST_CHAIN, LONG[pCase][EXT_FACE], LONG[pCase][EXT_FIRST_ROW], LONG[pCase][EXT_FIRST_COL], LONG[pCase][EXT_LAST_ROW], LONG[pCase][EXT_LAST_COL])
+    displayRow, displayColumn := cube.homeFoldToDisplay(TEST_CHAIN, eHomeFace, homeTurn, homeAddRow, homeAddColumn, LONG[pCase][EXT_PROBE_ROW], LONG[pCase][EXT_PROBE_COL])
+    bPass := (eHomeFace == LONG[pCase][EXT_EXP_HOME]) and (displayRow == LONG[pCase][EXT_EXP_ROW]) and (displayColumn == LONG[pCase][EXT_EXP_COL])
+    startLine(bPass, LONG[pCase][EXT_LABEL], LONG[pCase][EXT_NUMBER])
+    addFaceAt(LONG[pCase][EXT_FACE], LONG[pCase][EXT_PROBE_ROW], LONG[pCase][EXT_PROBE_COL])
+    addText(@" of ")
+    addPoint(LONG[pCase][EXT_FIRST_ROW], LONG[pCase][EXT_FIRST_COL])
+    addText(@"-")
+    addPoint(LONG[pCase][EXT_LAST_ROW], LONG[pCase][EXT_LAST_COL])
+    addText(@" -> ")
+    addExtentLanding(eHomeFace, displayRow, displayColumn)
+    if bPass == FALSE
+      addText(@" expected ")
+      addExtentLanding(LONG[pCase][EXT_EXP_HOME], LONG[pCase][EXT_EXP_ROW], LONG[pCase][EXT_EXP_COL])
+    finishLine(bPass)
+    pCase += EXT_CASE_LONGS * BYTES_PER_LONG
+
 PRI expectedDisplay(panelPosn, panelRow, panelColumn) : displayRow, displayColumn
 ' Return the display coordinates of panel coordinates, from the hand table of panel origins.
 '
@@ -486,7 +609,7 @@ PRI expectedDisplay(panelPosn, panelRow, panelColumn) : displayRow, displayColum
 ' @returns displayColumn - display column, or 0 when there is no panel
 
   displayRow := displayColumn := 0
-  if panelPosn <> hub75Bffrs.NO_PANEL_POSITION
+  if panelPosn <> cube.NO_PANEL_POSITION
     displayRow := panelRow + panelOriginRows[panelPosn]
     displayColumn := panelColumn + panelOriginColumns[panelPosn]
 
@@ -535,12 +658,23 @@ PRI addLanding(eFace, faceRow, faceColumn, panelPosn, panelRow, panelColumn, dis
 
   addFaceAt(eFace, faceRow, faceColumn)
   addText(@" P")
-  if panelPosn == hub75Bffrs.NO_PANEL_POSITION
+  if panelPosn == cube.NO_PANEL_POSITION
     addText(@"-")
   else
     addNumber(panelPosn)
   addText(@" ")
   addPoint(panelRow, panelColumn)
+  addText(@" d")
+  addPoint(displayRow, displayColumn)
+
+PRI addExtentLanding(eHomeFace, displayRow, displayColumn)
+' Append where an object's probe landed: "TOP d(10,5)".
+'
+' @param eHomeFace - the face the object is homed on (hwEnum.FACE_*), or NO_FACE
+' @param displayRow - display row, or NO_DISPLAY_PIXEL
+' @param displayColumn - display column, or NO_DISPLAY_PIXEL
+
+  addText(faceText(eHomeFace))
   addText(@" d")
   addPoint(displayRow, displayColumn)
 
@@ -626,7 +760,7 @@ PRI faceText(eFace) : pName
       pName := @"LEFT"
     hwEnum.FACE_RIGHT:
       pName := @"RIGHT"
-    hub75Bffrs.NO_FACE:
+    cube.NO_FACE:
       pName := @"NO_FACE"
     other:
       pName := @"NOT_A_FACE"

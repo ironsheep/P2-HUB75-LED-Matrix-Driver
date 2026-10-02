@@ -78,6 +78,7 @@ CON ' Object Interface: PRIVATE ENUMs
 OBJ ' Objects Used by this Object
 
     hub75Bffrs                              : "isp_hub75_hwBufferAccess"
+    cube                                    : "isp_hub75_cube"      ' the cube's faces, for face-centric drawing
     pixels                                  : "isp_hub75_screenUtils"
     panelSet                                : "isp_hub75_panel"
     fonts                                   : "isp_hub75_fonts"
@@ -98,6 +99,11 @@ VAR ' Object Instance Variables
     LONG    maxDisplayColumns
     LONG    maxPanels
     LONG    cog
+
+    ' the home transform of the face-centric object being drawn (see faceHomeOf())
+    LONG    faceHomeTurn
+    LONG    faceHomeAddRow
+    LONG    faceHomeAddColumn
 
     WORD columnsPerPanel
     WORD rowsPerPanel
@@ -143,12 +149,11 @@ CON ' PRIVATE Constants
     ' drawing-core mode: what the coordinates are, and what happens at an edge
     '  DRAW_WHOLE_DISPLAY - display coordinates (display-centric); end points held to the display
     '  DRAW_CLIP_TO_PANEL - display coordinates; only the target panel position's pixels are drawn (panel-centric: clip)
-    '  DRAW_FOLD_ON_FACE  - face coordinates on the target face; each pixel folds across the cube's edges (face-centric: fold)
+    '  DRAW_FOLD_ON_FACE  - face coordinates; the target is the object's home face (faceHomeOf()), and each pixel is carried into the home frame, then folds across the cube's edges (face-centric: fold)
     #0, DRAW_WHOLE_DISPLAY, DRAW_CLIP_TO_PANEL, DRAW_FOLD_ON_FACE
     DRAW_NO_TARGET        = 0                 ' the target of DRAW_WHOLE_DISPLAY, which has none
 
-    ' integer midpoint of two coordinates: (a + b) SAR this, which floors
-    MIDPOINT_SHIFT        = 1
+    FACE_TEXT_GAP_PIX     = 1                 ' blank pixels between characters of face-centric text
 
     ' dithered-font pixel codec (LOCAL to this file; mirrors scrollingText's vocabulary)
     DITH_BITS_PER_PIX     = 2                 ' 2 bits per pixel in dithered font word
@@ -601,7 +606,7 @@ PUB setCharAtLnCol(line, column, cChar)
 
   setColoredCharAtLnCol(line, column, cChar, currTextColor)
 
-PUB setColoredCharAtLnCol(line, column, cChar, rgbColor) | pCharBitMap, cLineIdx, cColumnIdx, sRowPixIdx, sColumnPixIdx
+PUB setColoredCharAtLnCol(line, column, cChar, rgbColor) | cLineIdx, cColumnIdx, sRowPixIdx, sColumnPixIdx
 '' Write a character to the display at the specified line and column using the given color.
 ''
 '' @param line - zero-based text line number
@@ -610,7 +615,6 @@ PUB setColoredCharAtLnCol(line, column, cChar, rgbColor) | pCharBitMap, cLineIdx
 '' @param rgbColor - 24-bit RGB color value
 
 ' Local Variables:
-' @local pCharBitMap - pointer to the character bitmap data
 ' @local cLineIdx - bounded line index
 ' @local cColumnIdx - bounded column index
 ' @local sRowPixIdx - screen row in pixels
@@ -620,18 +624,55 @@ PUB setColoredCharAtLnCol(line, column, cChar, rgbColor) | pCharBitMap, cLineIdx
 
   cLineIdx := 0 #> line <# maxTextLines - 1
   cColumnIdx :=  0 #> column <# maxTextColumns - 1
-  ' get pointer to character bitmap
-  pCharBitMap := fonts.getCharAddrForFont(selectedTextFont, cChar)
-  'debug("- pChar=", uhex_long(pCharBitMap))
   ' NOTE: cursor is 0-relative so add in our top/left offset to get row/col and mult by char size in pix
   sRowPixIdx := topOffsetInPix + (cLineIdx * (charHeightInPix + verticalGapInPix))
   ' NOTE: panelFixupOffetInPix is only non-zero when we are placing text on specific panel!
   sColumnPixIdx := leftOffsetInPix + panelFixupOffetInPix + (cColumnIdx * (charWidthInPix + horizontalGapInPix))
 
-  if bFontIsDithered
-    placeDitheredCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor)
-  else
-    placeCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor)
+  placeCharAtRC(cChar, sRowPixIdx, sColumnPixIdx, rgbColor, DRAW_WHOLE_DISPLAY, DRAW_NO_TARGET)
+
+PUB drawFaceTextAtRC(eFace, row, column, pZString)
+'' Draw text on a face of the cube using the current text color and font.
+''
+'' @param eFace - the face the coordinates are on (FACE_TOP, FACE_BOTTOM, FACE_FRONT, FACE_BACK, FACE_LEFT or FACE_RIGHT)
+'' @param row - pixel row of the top of the text on the face (may run past the face's edges)
+'' @param column - pixel column of the left of the text on the face (may run past the face's edges)
+'' @param pZString - pointer to zero-terminated string
+
+  drawFaceTextAtRCOfColor(eFace, row, column, pZString, currTextColor)
+
+PUB drawFaceTextAtRCOfColor(eFace, row, column, pZString, rgbColor) | textLen, charPitch, textWidth, eHomeFace, charIndex
+'' Draw text on a face of the cube using rgbColor and the current font.
+'' Uses face coordinates: every face is seen from outside the cube, row 0 at the face's up edge
+'' and column 0 at its left edge, and the text reads left to right along the face's columns.
+'' Characters are placed one character width plus FACE_TEXT_GAP_PIX apart. Each pixel of each
+'' character is folded across the cube's edges like any face-centric pixel, so text that runs
+'' past a face's edge continues on the neighbouring face. The text is drawn in the frame of the
+'' face that holds its centre, so the seam at a corner it straddles falls on that corner's edge
+'' farthest from the centre; any part in a corner gap is not drawn. On a display that is not a
+'' cube, nothing is drawn.
+''
+'' @param eFace - the face the coordinates are on (FACE_TOP, FACE_BOTTOM, FACE_FRONT, FACE_BACK, FACE_LEFT or FACE_RIGHT)
+'' @param row - pixel row of the top of the text on the face
+'' @param column - pixel column of the left of the text on the face
+'' @param pZString - pointer to zero-terminated string
+'' @param rgbColor - 24-bit RGB color value
+
+' Local Variables:
+' @local textLen - number of characters in the string
+' @local charPitch - pixel columns from one character to the next
+' @local textWidth - pixel columns the text spans
+' @local eHomeFace - the face that holds the text's centre
+' @local charIndex - index of the character being drawn
+
+  textLen := strsize(pZString)
+  if textLen > 0
+    charPitch := charWidthInPix + FACE_TEXT_GAP_PIX
+    textWidth := (textLen * charPitch) - FACE_TEXT_GAP_PIX
+    eHomeFace := faceHomeOf(eFace, row, column, row + charHeightInPix - 1, column + textWidth - 1)
+    if eHomeFace <> cube.NO_FACE
+      repeat charIndex from 0 to textLen - 1
+        placeCharAtRC(BYTE[pZString][charIndex], row, column + (charIndex * charPitch), rgbColor, DRAW_FOLD_ON_FACE, eHomeFace)
 
 CON ' --------------     Scrolling Text     --------------
 ' EXAMPLES
@@ -779,6 +820,50 @@ PUB scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbCol
   ' debug("DSP: scrollTextAtRCOfColor() ", udec(indexAllocated))
   scroller[indexAllocated].scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbColor)
 
+PUB scrollFaceTextAtRC(eFace, row, column, widthInChars, pZString, direction) : indexAllocated
+'' Place scrolling text on a face of the cube at the specified pixel row and column using the current text color.
+''
+'' @param eFace - the face the coordinates are on (FACE_TOP, FACE_BOTTOM, FACE_FRONT, FACE_BACK, FACE_LEFT or FACE_RIGHT)
+'' @param row - pixel row of the top of the scrolling region on the face
+'' @param column - pixel column of the left of the scrolling region on the face
+'' @param widthInChars - width of scrolling region in characters
+'' @param pZString - pointer to zero-terminated string
+'' @param direction - scroll direction (DIR_TO_LEFT, DIR_TO_RIGHT, etc.)
+'' @returns indexAllocated - scroller region index or NOT_FOUND when the display is not a cube
+
+  indexAllocated := scrollFaceTextAtRCOfColor(eFace, row, column, widthInChars, pZString, direction, currTextColor)
+
+PUB scrollFaceTextAtRCOfColor(eFace, row, column, widthInChars, pZString, direction, rgbColor) : indexAllocated | visibleChars, windowWidth, eHomeFace
+'' Place scrolling text on a face of the cube at the specified pixel row and column using the given color.
+'' Uses face coordinates, as drawFaceTextAtRCOfColor() does. The region stays where it is placed
+'' on the face; each pixel of the scrolling text is folded across the cube's edges, so a region
+'' that runs past a face's edge continues on the neighbouring face. The region is drawn in the
+'' frame of the face that holds its centre, so the seam at a corner it straddles falls on that
+'' corner's edge farthest from the centre. Animate it with animateScroll() like any scroller.
+'' On a display that is not a cube, nothing is placed.
+''
+'' @param eFace - the face the coordinates are on (FACE_TOP, FACE_BOTTOM, FACE_FRONT, FACE_BACK, FACE_LEFT or FACE_RIGHT)
+'' @param row - pixel row of the top of the scrolling region on the face
+'' @param column - pixel column of the left of the scrolling region on the face
+'' @param widthInChars - width of scrolling region in characters
+'' @param pZString - pointer to zero-terminated string
+'' @param direction - scroll direction (DIR_TO_LEFT, DIR_TO_RIGHT, etc.)
+'' @param rgbColor - 24-bit RGB color value
+'' @returns indexAllocated - scroller region index or NOT_FOUND when the display is not a cube
+
+' Local Variables:
+' @local visibleChars - characters the region shows at once, as the scroller limits them
+' @local windowWidth - pixel columns the region spans
+' @local eHomeFace - the face that holds the region's centre
+
+  indexAllocated := NOT_FOUND
+  visibleChars := 1 #> widthInChars <# maxTextColumns
+  windowWidth := (visibleChars * (charWidthInPix + horizontalGapInPix)) - horizontalGapInPix
+  eHomeFace := faceHomeOf(eFace, row, column, row + charHeightInPix - 1, column + windowWidth - 1)
+  if eHomeFace <> cube.NO_FACE
+    indexAllocated := nextFreeScroller()
+    scroller[indexAllocated].scrollFaceTextAtRCOfColor(eHomeFace, faceHomeTurn, faceHomeAddRow, faceHomeAddColumn, row, column, widthInChars, pZString, direction, rgbColor)
+
 PUB isScrollingComplete() : bComplete | scrollerIndex
 '' Return TRUE if all scrolling text region movements are complete.
 ''
@@ -834,7 +919,7 @@ PUB drawBox(topRow, leftColumn, width, height, filled)
 
   drawBoxOfColor(topRow, leftColumn, width, height, filled, currTextColor)
 
-PUB drawBoxOfColor(topRow, leftColumn, width, height, filled, rgbColor) | rightColumn, bottomRow, rowIndex
+PUB drawBoxOfColor(topRow, leftColumn, width, height, filled, rgbColor)
 '' Draw box within the display outline/filled of width x height at R,C using rgbColor)
 ''
 '' @param topRow - row number of top left corner
@@ -844,21 +929,7 @@ PUB drawBoxOfColor(topRow, leftColumn, width, height, filled, rgbColor) | rightC
 '' @param filled - T/F where T = filled with current text color
 '' @param rgbColor - the 24-bit color value to use for the box & fill
 
-' Local Variables:
-' @local rightColumn - column number of the right edge
-' @local bottomRow - row number of the bottom edge
-' @local rowIndex - row loop index when filling
-
-  rightColumn := leftColumn + width - 1
-  bottomRow := topRow + height - 1
-  if filled == TRUE
-    repeat rowIndex from 0 TO height - 1
-      drawLineOfColor(topRow + rowIndex, leftColumn, topRow + rowIndex, rightColumn, rgbColor)  ' horiz row
-  else
-    drawLineOfColor(topRow, leftColumn, topRow, rightColumn, rgbColor)                          ' horiz top
-    drawLineOfColor(topRow, rightColumn, bottomRow, rightColumn, rgbColor)                      ' vert right
-    drawLineOfColor(bottomRow, leftColumn, bottomRow, rightColumn, rgbColor)                    ' horiz bottom
-    drawLineOfColor(topRow, leftColumn, bottomRow, leftColumn, rgbColor)                        ' vert left
+  drawBoxInternal(topRow, leftColumn, width, height, filled, rgbColor, DRAW_WHOLE_DISPLAY, DRAW_NO_TARGET)
 
 PUB drawPanelBox(panelIndex, topRow, leftColumn, width, height, filled)
 '' Draw a box in desired panel outline/filled of width x height at R,C (using current text color)
@@ -873,7 +944,7 @@ PUB drawPanelBox(panelIndex, topRow, leftColumn, width, height, filled)
 
   drawPanelBoxOfColor(panelIndex, topRow, leftColumn, width, height, filled, currTextColor)
 
-PUB drawPanelBoxOfColor(panelIndex, topRow, leftColumn, width, height, filled, rgbColor) | rightColumn, bottomRow, rowIndex, offsetPixelRows, offsetPixelColumns, panelPosn
+PUB drawPanelBoxOfColor(panelIndex, topRow, leftColumn, width, height, filled, rgbColor) | offsetPixelRows, offsetPixelColumns, panelPosn
 '' Draw a box in desired panel a box outline/filled of width x height at R,C using rgbColor.
 '' R,C are panel coordinates as the viewer sees the panel with the display mounted; the parts of the box that fall outside the panel are clipped,
 '' never drawn on a neighbouring panel.
@@ -887,30 +958,51 @@ PUB drawPanelBoxOfColor(panelIndex, topRow, leftColumn, width, height, filled, r
 '' @param rgbColor - the 24-bit color value to use for the box & fill
 
 ' Local Variables:
-' @local rightColumn - column number of the right edge
-' @local bottomRow - row number of the bottom edge
-' @local rowIndex - row loop index when filling
 ' @local offsetPixelRows - pixel row offset to the target panel
 ' @local offsetPixelColumns - pixel column offset to the target panel
 ' @local panelPosn - panel position clamped to the panels in use
 
   panelPosn := 0 #> panelIndex <# maxPanels - 1
   offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, panelPosn)
-  rightColumn := leftColumn + width - 1
-  bottomRow := topRow + height - 1
-  ' panel coordinates + the panel's display offset = display coordinates
-  topRow += offsetPixelRows
-  bottomRow += offsetPixelRows
-  leftColumn += offsetPixelColumns
-  rightColumn += offsetPixelColumns
-  if filled == TRUE
-    repeat rowIndex from 0 to height - 1
-      drawLineInternal(topRow + rowIndex, leftColumn, topRow + rowIndex, rightColumn, rgbColor, DRAW_CLIP_TO_PANEL, panelPosn)    ' horiz row
-  else
-    drawLineInternal(topRow, leftColumn, topRow, rightColumn, rgbColor, DRAW_CLIP_TO_PANEL, panelPosn)          ' horiz top
-    drawLineInternal(topRow, rightColumn, bottomRow, rightColumn, rgbColor, DRAW_CLIP_TO_PANEL, panelPosn)      ' vert right
-    drawLineInternal(bottomRow, leftColumn, bottomRow, rightColumn, rgbColor, DRAW_CLIP_TO_PANEL, panelPosn)    ' horiz bottom
-    drawLineInternal(topRow, leftColumn, bottomRow, leftColumn, rgbColor, DRAW_CLIP_TO_PANEL, panelPosn)        ' vert left
+  ' panel coordinates + the panel's display offset = display coordinates, clipped to the panel
+  drawBoxInternal(topRow + offsetPixelRows, leftColumn + offsetPixelColumns, width, height, filled, rgbColor, DRAW_CLIP_TO_PANEL, panelPosn)
+
+PUB drawFaceBox(eFace, topRow, leftColumn, width, height, filled)
+'' Draw a box on a face of the cube outline/filled of width x height at R,C (using current text color)
+''   - use preceeding setTextColor() to set the outline color
+''
+'' @param eFace - the face the coordinates are on (FACE_TOP, FACE_BOTTOM, FACE_FRONT, FACE_BACK, FACE_LEFT or FACE_RIGHT)
+'' @param topRow - row number of top left corner on the face (may run past the face's edges)
+'' @param leftColumn - column number of top left corner on the face (may run past the face's edges)
+'' @param width - width of box in pixels (including outline)
+'' @param height - height of box in pixels
+'' @param filled - T/F where T = filled with current text color
+
+  drawFaceBoxOfColor(eFace, topRow, leftColumn, width, height, filled, currTextColor)
+
+PUB drawFaceBoxOfColor(eFace, topRow, leftColumn, width, height, filled, rgbColor) | eHomeFace
+'' Draw a box on a face of the cube outline/filled of width x height at R,C using rgbColor.
+'' Uses face coordinates: every face is seen from outside the cube, row 0 at the face's up edge
+'' and column 0 at its left edge. The part of the box past the face's edges is not clipped: it
+'' folds onto the neighbouring faces, across as many edges as it crosses. The box is drawn in the
+'' frame of the face that holds its centre, so the seam at a corner it straddles falls on that
+'' corner's edge farthest from the centre; any part in a corner gap (where a cube corner has no
+'' surface) is not drawn. On a display that is not a cube, nothing is drawn.
+''
+'' @param eFace - the face the coordinates are on (FACE_TOP, FACE_BOTTOM, FACE_FRONT, FACE_BACK, FACE_LEFT or FACE_RIGHT)
+'' @param topRow - row number of top left corner on the face
+'' @param leftColumn - column number of top left corner on the face
+'' @param width - width of box in pixels (including outline)
+'' @param height - height of box in pixels
+'' @param filled - T/F where T = filled with rgbColor
+'' @param rgbColor - the 24-bit color value to use for the box & fill
+
+' Local Variables:
+' @local eHomeFace - the face that holds the box's centre
+
+  eHomeFace := faceHomeOf(eFace, topRow, leftColumn, topRow + height - 1, leftColumn + width - 1)
+  if eHomeFace <> cube.NO_FACE
+    drawBoxInternal(topRow, leftColumn, width, height, filled, rgbColor, DRAW_FOLD_ON_FACE, eHomeFace)
 
 PUB drawLine(fmRow, fmColumn, toRow, toColumn)
 '' Draw a line from one position to another using the current text color.
@@ -979,7 +1071,7 @@ PUB drawFaceLine(eFace, fmRow, fmColumn, toRow, toColumn)
 
   drawFaceLineOfColor(eFace, fmRow, fmColumn, toRow, toColumn, currTextColor)
 
-PUB drawFaceLineOfColor(eFace, fmRow, fmColumn, toRow, toColumn, rgbColor) | eHomeFace, homeTurn, homeAddRow, homeAddColumn
+PUB drawFaceLineOfColor(eFace, fmRow, fmColumn, toRow, toColumn, rgbColor) | eHomeFace
 '' Draw line fromRC -> toRC using rgbColor on a face of the cube (DISPn_SHAPE = SHAPE_CUBE).
 '' Uses face coordinates: every face is seen from outside the cube, row 0 at the face's up edge
 '' and column 0 at its left edge. The part of the line past the face's edges is not clipped: it
@@ -997,19 +1089,38 @@ PUB drawFaceLineOfColor(eFace, fmRow, fmColumn, toRow, toColumn, rgbColor) | eHo
 
 ' Local Variables:
 ' @local eHomeFace - the face that holds the line's midpoint
-' @local homeTurn - clockwise quarter turns from eFace's frame to the home face's frame
-' @local homeAddRow - row added after the turn
-' @local homeAddColumn - column added after the turn
 
-  if hub75Bffrs.displayShape(chainIndex) <> hwEnum.SHAPE_CUBE
-    DEBUG("* Warning: face-centric drawing needs DISP", udec_(chainIndex), "_SHAPE = SHAPE_CUBE")
-  else
-    eHomeFace, homeTurn, homeAddRow, homeAddColumn := hub75Bffrs.homeOnFace(chainIndex, eFace, (fmRow + toRow) SAR MIDPOINT_SHIFT, (fmColumn + toColumn) SAR MIDPOINT_SHIFT)
-    if eHomeFace <> hub75Bffrs.NO_FACE
-      ' the line's ends in the home face's frame; each pixel then folds from there
-      fmRow, fmColumn := hub75Bffrs.turnFaceCoords(homeTurn, homeAddRow, homeAddColumn, fmRow, fmColumn)
-      toRow, toColumn := hub75Bffrs.turnFaceCoords(homeTurn, homeAddRow, homeAddColumn, toRow, toColumn)
-      drawLineInternal(fmRow, fmColumn, toRow, toColumn, rgbColor, DRAW_FOLD_ON_FACE, eHomeFace)
+  eHomeFace := faceHomeOf(eFace, fmRow, fmColumn, toRow, toColumn)
+  if eHomeFace <> cube.NO_FACE
+    drawLineInternal(fmRow, fmColumn, toRow, toColumn, rgbColor, DRAW_FOLD_ON_FACE, eHomeFace)
+
+PUB drawFacePixel(eFace, row, column)
+'' Draw one pixel on a face of the cube using the current text color.
+''
+'' @param eFace - the face the coordinates are on (FACE_TOP, FACE_BOTTOM, FACE_FRONT, FACE_BACK, FACE_LEFT or FACE_RIGHT)
+'' @param row - pixel row on the face (may run past the face's edges)
+'' @param column - pixel column on the face (may run past the face's edges)
+
+  drawFacePixelOfColor(eFace, row, column, currTextColor)
+
+PUB drawFacePixelOfColor(eFace, row, column, rgbColor) | eHomeFace
+'' Draw one pixel on a face of the cube using rgbColor.
+'' Uses face coordinates: every face is seen from outside the cube, row 0 at the face's up edge
+'' and column 0 at its left edge. A pixel past the face's edges is not clipped: it folds onto the
+'' neighbouring face, across as many edges as it crosses; a pixel in a corner gap (where a cube
+'' corner has no surface) is not drawn. On a display that is not a cube, nothing is drawn.
+''
+'' @param eFace - the face the coordinates are on (FACE_TOP, FACE_BOTTOM, FACE_FRONT, FACE_BACK, FACE_LEFT or FACE_RIGHT)
+'' @param row - pixel row on the face
+'' @param column - pixel column on the face
+'' @param rgbColor - 24-bit RGB color value
+
+' Local Variables:
+' @local eHomeFace - the face the pixel is drawn from (the given face: one pixel has no seam to place)
+
+  eHomeFace := faceFrameOf(eFace)
+  if eHomeFace <> cube.NO_FACE
+    drawPixelInternal(row, column, rgbColor, DRAW_FOLD_ON_FACE, eHomeFace)
 
 PUB drawCircle(row, column, radius)
 '' Draw circle centered at R,C of radius using current text color
@@ -1022,7 +1133,7 @@ PUB drawCircle(row, column, radius)
     drawCircleOfColor(row, column, radius, currTextColor)
 
 
-PUB drawCircleOfColor(ctrRow, ctrColumn, radius, rgbColor) | column, row, decision
+PUB drawCircleOfColor(ctrRow, ctrColumn, radius, rgbColor)
 '' Draw circle centered at R,C of radius using rgbColor
 ''
 '' @param ctrRow - row number of center-point
@@ -1030,39 +1141,74 @@ PUB drawCircleOfColor(ctrRow, ctrColumn, radius, rgbColor) | column, row, decisi
 '' @param radius - radius of circle
 '' @param rgbColor - draw outline using this 24-bit color value
 
-' Local Variables:
-' @local column - current column offset from center
-' @local row - current row offset from center
-' @local decision - Bresenham circle decision accumulator
+    drawCircleInternal(ctrRow, ctrColumn, radius, rgbColor, DRAW_WHOLE_DISPLAY, DRAW_NO_TARGET)
 
-    ' Function for circle-generation
-    ' using Bresenham's algorithm
-    column := 0
-    row := radius
-    decision := CIRCLE_DECISION_INIT - CIRCLE_DECISION_RADIUS_MUL * radius
-    drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor)
-    repeat while (row >= column)
-        column++
-        ' check for decision parameter
-        ' and correspondingly
-        ' update decision, column, row
-        if (decision > 0)
-            row--
-            decision := decision + CIRCLE_DELTA_MUL * (column - row) + CIRCLE_DELTA_DIAG_ADD
-        else
-            decision := decision + CIRCLE_DELTA_MUL * column + CIRCLE_DELTA_AXIS_ADD
-        drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor)
+PUB drawFaceCircle(eFace, row, column, radius)
+'' Draw circle on a face of the cube centered at R,C of radius using current text color
+''   - use preceeding setTextColor() to set the outline color
+''
+'' @param eFace - the face the coordinates are on (FACE_TOP, FACE_BOTTOM, FACE_FRONT, FACE_BACK, FACE_LEFT or FACE_RIGHT)
+'' @param row - row number of center-point on the face (may run past the face's edges)
+'' @param column - column number of center-point on the face (may run past the face's edges)
+'' @param radius - radius of circle
+
+  drawFaceCircleOfColor(eFace, row, column, radius, currTextColor)
+
+PUB drawFaceCircleOfColor(eFace, ctrRow, ctrColumn, radius, rgbColor) | eHomeFace
+'' Draw circle on a face of the cube centered at R,C of radius using rgbColor.
+'' Uses face coordinates: every face is seen from outside the cube, row 0 at the face's up edge
+'' and column 0 at its left edge. The part of the circle past the face's edges is not clipped: it
+'' folds onto the neighbouring faces, across as many edges as it crosses. The circle is drawn in
+'' the frame of the face that holds its centre, so the seam at a corner it straddles falls on
+'' that corner's edge farthest from the centre; any part in a corner gap (where a cube corner has
+'' no surface) is not drawn. On a display that is not a cube, nothing is drawn.
+''
+'' @param eFace - the face the coordinates are on (FACE_TOP, FACE_BOTTOM, FACE_FRONT, FACE_BACK, FACE_LEFT or FACE_RIGHT)
+'' @param ctrRow - row number of center-point on the face
+'' @param ctrColumn - column number of center-point on the face
+'' @param radius - radius of circle
+'' @param rgbColor - draw outline using this 24-bit color value
+
+' Local Variables:
+' @local eHomeFace - the face that holds the circle's centre
+
+  eHomeFace := faceHomeOf(eFace, ctrRow, ctrColumn, ctrRow, ctrColumn)
+  if eHomeFace <> cube.NO_FACE
+    drawCircleInternal(ctrRow, ctrColumn, radius, rgbColor, DRAW_FOLD_ON_FACE, eHomeFace)
 
 
 CON ' --------------     Private Methods     --------------
 
-PRI placeCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor) | cRowOffset, cRowBits, cColOffset, pixColor, cBitOffset
-' Render a non-dithered character bitmap to the screen buffer.
+PRI placeCharAtRC(cChar, sRowPixIdx, sColumnPixIdx, rgbColor, eDrawMode, drawTarget) | pCharBitMap
+' Render one character of the selected font to the screen buffer: display-centric text and
+' face-centric text place their characters here, told whether the pixels clip or fold.
+'
+' @param cChar - character to display
+' @param sRowPixIdx - row in pixels for top of character
+' @param sColumnPixIdx - column in pixels for left of character
+' @param rgbColor - 24-bit RGB color value
+' @param eDrawMode - DRAW_WHOLE_DISPLAY or DRAW_FOLD_ON_FACE (see drawLineInternal())
+' @param drawTarget - DRAW_NO_TARGET, or the face (FACE_*) the coordinates are on
+
+' Local Variables:
+' @local pCharBitMap - pointer to the character bitmap data
+
+  pCharBitMap := fonts.getCharAddrForFont(selectedTextFont, cChar)
+  if bFontIsDithered
+    placeDitheredCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor, eDrawMode, drawTarget)
+  else
+    placeCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor, eDrawMode, drawTarget)
+
+PRI placeCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor, eDrawMode, drawTarget) | cRowOffset, cRowBits, cColOffset, pixColor, cBitOffset
+' Render a non-dithered character bitmap to the screen buffer. A display-centric pixel goes
+' straight to the screen buffer; any other goes through the one drawing core, drawPixelInternal().
 '
 ' @param pCharBitMap - pointer to the character bitmap data
 ' @param sRowPixIdx - screen row in pixels for top of character
 ' @param sColumnPixIdx - screen column in pixels for left of character
 ' @param rgbColor - 24-bit RGB color value
+' @param eDrawMode - DRAW_WHOLE_DISPLAY or DRAW_FOLD_ON_FACE (see drawLineInternal())
+' @param drawTarget - DRAW_NO_TARGET, or the face (FACE_*) the coordinates are on
 
 ' Local Variables:
 ' @local cRowOffset - row offset within character bitmap
@@ -1073,18 +1219,30 @@ PRI placeCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor) | cRowOffs
 
   repeat cRowOffset from 0 TO charHeightInPix - 1
     cRowBits := BYTE[pCharBitMap][cRowOffset]
-    repeat cColOffset from 0 TO charWidthInPix - 1
-      cBitOffset := (charWidthInPix - 1) - cColOffset
-      pixColor := ((cRowBits & (1 << cBitOffset)) > 0) ? rgbColor : color.CBLACK
-      pixels.drawPixelAtRC(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor)
+    ' the mode is tested once per row, not per pixel: each variant's column loop holds only
+    ' the one-line bit-to-color step and its own draw call
+    if eDrawMode == DRAW_WHOLE_DISPLAY
+      repeat cColOffset from 0 TO charWidthInPix - 1
+        cBitOffset := (charWidthInPix - 1) - cColOffset
+        pixColor := ((cRowBits & (1 << cBitOffset)) > 0) ? rgbColor : color.CBLACK
+        pixels.drawPixelAtRC(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor)
+    else
+      repeat cColOffset from 0 TO charWidthInPix - 1
+        cBitOffset := (charWidthInPix - 1) - cColOffset
+        pixColor := ((cRowBits & (1 << cBitOffset)) > 0) ? rgbColor : color.CBLACK
+        drawPixelInternal(sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor, eDrawMode, drawTarget)
 
-PRI placeDitheredCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor) | cRowOffset, cRowBits, cColOffset, ditheredRGBColor, cBitOffset, pixVal, pixColor
-' Render a dithered character bitmap to the screen buffer using two brightness levels.
+PRI placeDitheredCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor, eDrawMode, drawTarget) | cRowOffset, cRowBits, cColOffset, ditheredRGBColor, cBitOffset, pixVal, pixColor
+' Render a dithered character bitmap to the screen buffer using two brightness levels. A
+' display-centric pixel goes straight to the screen buffer; any other goes through the one
+' drawing core, drawPixelInternal().
 '
 ' @param pCharBitMap - pointer to the character bitmap data
 ' @param sRowPixIdx - screen row in pixels for top of character
 ' @param sColumnPixIdx - screen column in pixels for left of character
 ' @param rgbColor - 24-bit RGB color value
+' @param eDrawMode - DRAW_WHOLE_DISPLAY or DRAW_FOLD_ON_FACE (see drawLineInternal())
+' @param drawTarget - DRAW_NO_TARGET, or the face (FACE_*) the coordinates are on
 
 ' Local Variables:
 ' @local cRowOffset - row offset within character bitmap
@@ -1100,14 +1258,24 @@ PRI placeDitheredCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor) | 
   repeat cRowOffset from 0 TO charHeightInPix - 1
     cRowBits := WORD[pCharBitMap][cRowOffset]                                   ' ms 12 bits are char def'n (of the 16bits)
     ' debug(" FONT row ", ubin_word_(cRowBits))
-    repeat cColOffset from 0 TO charWidthInPix - 1
-      cBitOffset := cColOffset * DITH_BITS_PER_PIX
-      pixVal := ((cRowBits << cBitOffset) & DITH_PIX_MASK) >> DITH_PIX_TOP_SHIFT
-      ' debug("   PIX ", ubin_(pixVal))
-      pixColor := rgbColor
-      if pixVal <> DITH_PIX_FULL
-        pixColor := (pixVal == DITH_PIX_HALF) ? ditheredRGBColor : color.CBLACK  ' val == [2,0] = black
-      pixels.drawPixelAtRC(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor)
+    ' the mode is tested once per row, not per pixel; the bit-to-color step is the same in both
+    ' column loops (see placeCharBitmap())
+    if eDrawMode == DRAW_WHOLE_DISPLAY
+      repeat cColOffset from 0 TO charWidthInPix - 1
+        cBitOffset := cColOffset * DITH_BITS_PER_PIX
+        pixVal := ((cRowBits << cBitOffset) & DITH_PIX_MASK) >> DITH_PIX_TOP_SHIFT
+        pixColor := rgbColor
+        if pixVal <> DITH_PIX_FULL
+          pixColor := (pixVal == DITH_PIX_HALF) ? ditheredRGBColor : color.CBLACK  ' val == [2,0] = black
+        pixels.drawPixelAtRC(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor)
+    else
+      repeat cColOffset from 0 TO charWidthInPix - 1
+        cBitOffset := cColOffset * DITH_BITS_PER_PIX
+        pixVal := ((cRowBits << cBitOffset) & DITH_PIX_MASK) >> DITH_PIX_TOP_SHIFT
+        pixColor := rgbColor
+        if pixVal <> DITH_PIX_FULL
+          pixColor := (pixVal == DITH_PIX_HALF) ? ditheredRGBColor : color.CBLACK  ' val == [2,0] = black
+        drawPixelInternal(sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor, eDrawMode, drawTarget)
 
 PRI incrCursorWithWrap()
 ' Increment the cursor position, wrapping at end of line and end of screen.
@@ -1296,10 +1464,11 @@ PRI drawPixelInternal(row, column, rgbColor, eDrawMode, drawTarget)
     else
         drawFoldedPixel(row, column, rgbColor, drawTarget)
 
-PRI drawFoldedPixel(faceRow, faceColumn, rgbColor, eFace) | panelPosn, displayRow, displayColumn
-' Draw one face-centric pixel: fold it across the cube's edges onto the face that holds it and
-' draw it there; a pixel in a corner gap is not drawn. Kept apart from drawPixelInternal() so
-' flat pixels do not carry these locals.
+PRI drawFoldedPixel(faceRow, faceColumn, rgbColor, eHomeFace) | displayRow, displayColumn
+' Draw one face-centric pixel: carry it into its object's home frame (the home transform that
+' faceHomeOf() left), fold it across the cube's edges onto the face that holds it and draw it
+' there; a pixel in a corner gap is not drawn. Kept apart from drawPixelInternal() so flat
+' pixels do not carry these locals. The cube answers with display coordinates only, no panel.
 ' The display coordinates it draws at are passed straight to drawPixelAtRC(), which applies
 ' display rotation; that is correct only because a cube's rotation is forced to ROT_NONE at
 ' startup (hub75Bffrs, ignoreCubeRotation). A rotated cube would need the rotation undone here.
@@ -1307,38 +1476,147 @@ PRI drawFoldedPixel(faceRow, faceColumn, rgbColor, eFace) | panelPosn, displayRo
 ' @param faceRow - pixel row in face coordinates (may run past the face's edges)
 ' @param faceColumn - pixel column in face coordinates (may run past the face's edges)
 ' @param rgbColor - 24-bit RGB color value
-' @param eFace - the face (FACE_*) the coordinates are on
+' @param eHomeFace - the face (FACE_*) the object is homed on
 
 ' Local Variables:
-' @local panelPosn - panel position the pixel lands on, or NO_PANEL_POSITION
-' @local displayRow - display row the pixel lands on
+' @local displayRow - display row the pixel lands on, or NO_DISPLAY_PIXEL
 ' @local displayColumn - display column the pixel lands on
 
-    panelPosn, _, _, displayRow, displayColumn := hub75Bffrs.facePixelToPanel(chainIndex, eFace, faceRow, faceColumn)
-    if panelPosn <> hub75Bffrs.NO_PANEL_POSITION
+    displayRow, displayColumn := cube.homeFoldToDisplay(chainIndex, eHomeFace, faceHomeTurn, faceHomeAddRow, faceHomeAddColumn, faceRow, faceColumn)
+    if displayRow <> cube.NO_DISPLAY_PIXEL
         pixels.drawPixelAtRC(chainIndex, displayRow, displayColumn, rgbColor)
 
-PRI drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor)
-' Draw the eight symmetric points of a circle for the given octant offsets.
+PRI faceFrameOf(eFace) : eHomeFace
+' Begin a face-centric object drawn in the frame of the face it is given: the home transform is
+' the identity. A display that is not a cube has no faces: say so, and return NO_FACE.
+'
+' @param eFace - the face the object's coordinates are on (FACE_*)
+' @returns eHomeFace - the face to draw from (eFace), or NO_FACE when the display is not a cube
+
+    eHomeFace := eFace
+    faceHomeTurn := cube.QTURN_NONE
+    faceHomeAddRow := faceHomeAddColumn := 0
+    if hub75Bffrs.displayShape(chainIndex) <> hwEnum.SHAPE_CUBE
+        DEBUG("* Warning: face-centric drawing needs DISP", udec_(chainIndex), "_SHAPE = SHAPE_CUBE")
+        eHomeFace := cube.NO_FACE
+
+PRI faceHomeOf(eFace, firstRow, firstColumn, lastRow, lastColumn) : eHomeFace
+' Home a face-centric object: the one place every face primitive finds where to draw. The home
+' face is the face that holds the centre of the rectangle of pixels the object spans (a line's
+' end points, a box's corners, a run of text, a circle's centre); the home transform from the
+' given face's frame into the home frame is left in faceHomeTurn, faceHomeAddRow and
+' faceHomeAddColumn, and drawFoldedPixel() applies it to every pixel of the object. Drawing in
+' the home frame puts the one unavoidable seam of every corner the object straddles on that
+' corner's edge farthest from the centre. A display that is not a cube has no faces: say so, and
+' return NO_FACE.
+'
+' @param eFace - the face the object's coordinates are on (FACE_*)
+' @param firstRow - first row of the object on that face (any value)
+' @param firstColumn - first column of the object on that face (any value)
+' @param lastRow - last row of the object on that face (any value)
+' @param lastColumn - last column of the object on that face (any value)
+' @returns eHomeFace - the face that holds the object's centre, or NO_FACE for an invalid face or a display that is not a cube
+
+    eHomeFace := faceFrameOf(eFace)
+    if eHomeFace <> cube.NO_FACE
+        eHomeFace, faceHomeTurn, faceHomeAddRow, faceHomeAddColumn := cube.homeOnFaceOfExtent(chainIndex, eFace, firstRow, firstColumn, lastRow, lastColumn)
+
+PRI drawBoxInternal(topRow, leftColumn, width, height, filled, rgbColor, eDrawMode, drawTarget) | rightColumn, bottomRow, rowIndex
+' Internal box drawing for display-centric, panel-centric and face-centric boxes: the one box
+' primitive, built from the one line primitive and told whether its pixels clip or fold.
+'
+' @param topRow - row number of top left corner
+' @param leftColumn - column number of top left corner
+' @param width - width of box in pixels (including outline)
+' @param height - height of box in pixels
+' @param filled - T/F where T = filled
+' @param rgbColor - the 24-bit color value to use for the box & fill
+' @param eDrawMode - DRAW_WHOLE_DISPLAY, DRAW_CLIP_TO_PANEL or DRAW_FOLD_ON_FACE (see drawLineInternal())
+' @param drawTarget - DRAW_NO_TARGET, the panel position, or the face (see drawLineInternal())
+
+' Local Variables:
+' @local rightColumn - column number of the right edge
+' @local bottomRow - row number of the bottom edge
+' @local rowIndex - row loop index when filling
+
+    rightColumn := leftColumn + width - 1
+    bottomRow := topRow + height - 1
+    if filled == TRUE
+        repeat rowIndex from 0 to height - 1
+            drawLineInternal(topRow + rowIndex, leftColumn, topRow + rowIndex, rightColumn, rgbColor, eDrawMode, drawTarget)    ' horiz row
+    else
+        drawLineInternal(topRow, leftColumn, topRow, rightColumn, rgbColor, eDrawMode, drawTarget)          ' horiz top
+        drawLineInternal(topRow, rightColumn, bottomRow, rightColumn, rgbColor, eDrawMode, drawTarget)      ' vert right
+        drawLineInternal(bottomRow, leftColumn, bottomRow, rightColumn, rgbColor, eDrawMode, drawTarget)    ' horiz bottom
+        drawLineInternal(topRow, leftColumn, bottomRow, leftColumn, rgbColor, eDrawMode, drawTarget)        ' vert left
+
+PRI drawCircleInternal(ctrRow, ctrColumn, radius, rgbColor, eDrawMode, drawTarget) | column, row, decision
+' Internal circle drawing for display-centric and face-centric circles: the one circle primitive
+' (Bresenham's algorithm), told whether its pixels go straight to the display or fold.
+'
+' @param ctrRow - row number of center-point
+' @param ctrColumn - column number of center-point
+' @param radius - radius of circle
+' @param rgbColor - draw outline using this 24-bit color value
+' @param eDrawMode - DRAW_WHOLE_DISPLAY or DRAW_FOLD_ON_FACE (see drawLineInternal())
+' @param drawTarget - DRAW_NO_TARGET, or the face (FACE_*) the coordinates are on
+
+' Local Variables:
+' @local column - current column offset from center
+' @local row - current row offset from center
+' @local decision - Bresenham circle decision accumulator
+
+    column := 0
+    row := radius
+    decision := CIRCLE_DECISION_INIT - CIRCLE_DECISION_RADIUS_MUL * radius
+    drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor, eDrawMode, drawTarget)
+    repeat while (row >= column)
+        column++
+        ' check for decision parameter
+        ' and correspondingly
+        ' update decision, column, row
+        if (decision > 0)
+            row--
+            decision := decision + CIRCLE_DELTA_MUL * (column - row) + CIRCLE_DELTA_DIAG_ADD
+        else
+            decision := decision + CIRCLE_DELTA_MUL * column + CIRCLE_DELTA_AXIS_ADD
+        drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor, eDrawMode, drawTarget)
+
+PRI drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor, eDrawMode, drawTarget)
+' Draw the eight symmetric points of a circle for the given octant offsets. A display-centric
+' pixel goes straight to the screen buffer; any other goes through the one drawing core,
+' drawPixelInternal(). The mode is tested once per eight pixels.
 '
 ' @param ctrRow - row number of center-point
 ' @param ctrColumn - column number of center-point
 ' @param row - row offset from center
 ' @param column - column offset from center
 ' @param rgbColor - 24-bit RGB color value
+' @param eDrawMode - DRAW_WHOLE_DISPLAY or DRAW_FOLD_ON_FACE (see drawLineInternal())
+' @param drawTarget - DRAW_NO_TARGET, or the face (FACE_*) the coordinates are on
 
     ' for each pixel we will
     ' draw all eight pixels
     ' NOTE: row/column here are offsets from center, not absolute coordinates
     '       The drawPixelAtRC signature is (chainIdx, row, column, color)
-    pixels.drawPixelAtRC(chainIndex, ctrRow+row, ctrColumn+column, rgbColor)
-    pixels.drawPixelAtRC(chainIndex, ctrRow+row, ctrColumn-column, rgbColor)
-    pixels.drawPixelAtRC(chainIndex, ctrRow-row, ctrColumn+column, rgbColor)
-    pixels.drawPixelAtRC(chainIndex, ctrRow-row, ctrColumn-column, rgbColor)
-    pixels.drawPixelAtRC(chainIndex, ctrRow+column, ctrColumn+row, rgbColor)
-    pixels.drawPixelAtRC(chainIndex, ctrRow+column, ctrColumn-row, rgbColor)
-    pixels.drawPixelAtRC(chainIndex, ctrRow-column, ctrColumn+row, rgbColor)
-    pixels.drawPixelAtRC(chainIndex, ctrRow-column, ctrColumn-row, rgbColor)
+    if eDrawMode == DRAW_WHOLE_DISPLAY
+        pixels.drawPixelAtRC(chainIndex, ctrRow+row, ctrColumn+column, rgbColor)
+        pixels.drawPixelAtRC(chainIndex, ctrRow+row, ctrColumn-column, rgbColor)
+        pixels.drawPixelAtRC(chainIndex, ctrRow-row, ctrColumn+column, rgbColor)
+        pixels.drawPixelAtRC(chainIndex, ctrRow-row, ctrColumn-column, rgbColor)
+        pixels.drawPixelAtRC(chainIndex, ctrRow+column, ctrColumn+row, rgbColor)
+        pixels.drawPixelAtRC(chainIndex, ctrRow+column, ctrColumn-row, rgbColor)
+        pixels.drawPixelAtRC(chainIndex, ctrRow-column, ctrColumn+row, rgbColor)
+        pixels.drawPixelAtRC(chainIndex, ctrRow-column, ctrColumn-row, rgbColor)
+    else
+        drawPixelInternal(ctrRow+row, ctrColumn+column, rgbColor, eDrawMode, drawTarget)
+        drawPixelInternal(ctrRow+row, ctrColumn-column, rgbColor, eDrawMode, drawTarget)
+        drawPixelInternal(ctrRow-row, ctrColumn+column, rgbColor, eDrawMode, drawTarget)
+        drawPixelInternal(ctrRow-row, ctrColumn-column, rgbColor, eDrawMode, drawTarget)
+        drawPixelInternal(ctrRow+column, ctrColumn+row, rgbColor, eDrawMode, drawTarget)
+        drawPixelInternal(ctrRow+column, ctrColumn-row, rgbColor, eDrawMode, drawTarget)
+        drawPixelInternal(ctrRow-column, ctrColumn+row, rgbColor, eDrawMode, drawTarget)
+        drawPixelInternal(ctrRow-column, ctrColumn-row, rgbColor, eDrawMode, drawTarget)
 
 
 CON { license }

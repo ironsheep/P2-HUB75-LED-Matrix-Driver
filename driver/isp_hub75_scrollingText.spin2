@@ -71,6 +71,7 @@ OBJ
     pixels      : "isp_hub75_screenUtils"
     fonts       : "isp_hub75_fonts"
     colorUtils  : "isp_hub75_colorUtils"
+    cube        : "isp_hub75_cube"                                  ' the cube's faces, for face-centric regions
 
 DAT  ' initialized data - class-static variables
 
@@ -91,6 +92,10 @@ VAR ' globals - instance variables
 
     LONG    maxTextColumns                                          ' specs from display object
     LONG    maxDisplayColumns                                       ' specs from buffer chain table
+    LONG    eFaceHome                                               ' the cube face the region is homed on, or NO_FACE for display coordinates
+    LONG    faceHomeTurn                                            ' the region's frame -> its home frame: quarter turns
+    LONG    faceHomeAddRow                                          ' ... and the row added after them
+    LONG    faceHomeAddColumn                                       ' ... and the column added after them
     BYTE    charWidthInPix
     BYTE    charHeightInPix
     BYTE    leadingGapInPix
@@ -126,6 +131,7 @@ PUB initialize(nChainIdx)
   instanceID := ++instanceNumber
   remainingPixToScroll := 0
   maxDisplayColumns := hub75Bffrs.maxDisplayColumns(chainIndex)
+  eFaceHome := cube.NO_FACE
 
   'debug("stx:initialize() ", udec(instanceID))
 
@@ -222,6 +228,7 @@ PUB configureScrollLoopCount(loopMode, count) | bValidRequest, validCount
 
 PUB scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbColor)
 '' Place scrolling text at row, column from a zero-terminated string using the given direction and color.
+'' Uses display coordinates.
 ''
 '' @param row - top row of the scrolling region
 '' @param column - left column of the scrolling region
@@ -230,74 +237,28 @@ PUB scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbCol
 '' @param direction - scroll direction (DIR_TO_LEFT, DIR_TO_RIGHT, DIR_UP, DIR_DOWN)
 '' @param rgbColor - 24-bit RGB color for the text
 
-  if isIdle()
-    DEBUG("stx:starcoc() #", udec_(instanceID), " [", zstr_(pZString), "](", udec_(widthInChars), ")")
-    scrollTextColor := rgbColor
+  beginScroll(cube.NO_FACE, cube.QTURN_NONE, 0, 0, row, column, widthInChars, pZString, direction, rgbColor)
 
-    ' our string length is smaller of length given or our receiving buffer length
-    ctCharsToScroll := min(strsize(pZString), MAX_SCROLL_CHAR_BYTES)
+PUB scrollFaceTextAtRCOfColor(eHomeFace, homeTurn, homeAddRow, homeAddColumn, row, column, widthInChars, pZString, direction, rgbColor)
+'' Place scrolling text on a face of the cube from a zero-terminated string using the given
+'' direction and color: the face-coordinate mode of this scroller. Row and column are face
+'' coordinates in the frame the object was homed from; every pixel is carried into the home
+'' frame and folded across the cube's edges before it is drawn, so the region can run off a
+'' face's edge and continue on the neighbouring face. The display object finds the home
+'' (isp_hub75_display.faceHomeOf()); this call only draws.
+''
+'' @param eHomeFace - the face (hwEnum.FACE_TOP .. FACE_RIGHT) the region is homed on
+'' @param homeTurn - clockwise quarter turns from the region's frame to the home frame
+'' @param homeAddRow - row added after that turn
+'' @param homeAddColumn - column added after that turn
+'' @param row - top row of the scrolling region on the face
+'' @param column - left column of the scrolling region on the face
+'' @param widthInChars - width of the visible scroll window in characters
+'' @param pZString - pointer to zero-terminated string to scroll
+'' @param direction - scroll direction (DIR_TO_LEFT, DIR_TO_RIGHT, DIR_UP, DIR_DOWN)
+'' @param rgbColor - 24-bit RGB color for the text
 
-    ' visible chars is our window size constrained by our font max text columns
-    maxVisibleChars := 1 #> widthInChars <# maxTextColumns
-
-    ' our pix length is char-width + gap-between-chars
-    windowWidthInPix := (maxVisibleChars * (charWidthInPix + horizontalGapInPix)) - horizontalGapInPix
-
-    ' remainingPix is our number of pix yet off screen to right (or to left if scrolling that direction)
-    remainingPixToScroll := ((ctCharsToScroll * (charWidthInPix + horizontalGapInPix)) - horizontalGapInPix) - windowWidthInPix
-    if direction == DIR_UP OR direction == DIR_DOWN
-      remainingPixToScroll := charHeightInPix           ' + 1 we are doing a blank row of pixels between rows
-
-    if ctCharsToScroll > 0
-      bytemove(@scrollChars, pZString, ctCharsToScroll)
-      topRow := row
-      leftColumn := column
-      case direction
-        DIR_TO_LEFT:
-          ' showing left-most chars first
-          eScrollDirection := direction
-          firstVisCharIndex := 0
-          charHzPixOffset := 0
-        DIR_TO_RIGHT:
-          ' showing right-most chars first
-          eScrollDirection := direction
-          firstVisCharIndex := ctCharsToScroll - maxVisibleChars
-          charHzPixOffset := charWidthInPix + horizontalGapInPix - 1
-        DIR_UP:
-          eScrollDirection := direction
-          firstVisCharIndex := 0
-          charVtPixOffset := 0                          ' start with full text on screen
-        DIR_DOWN:
-          eScrollDirection := direction
-          firstVisCharIndex := 0
-          charVtPixOffset := 0                          ' start with full text on screen
-        other:
-          eScrollDirection := DIR_UNKNOWN
-          DEBUG("stx:bad scroll direction, abort")
-          abort
-    '
-    ' place window chars on screen
-    '
-    ' reset scroll offset to beginning
-    if direction == DIR_TO_LEFT
-      placeColrCharsHzOfstAtRC(topRow, leftColumn, charHzPixOffset, windowWidthInPix, firstVisCharIndex, scrollTextColor)
-      charHzPixOffset++                                 ' we showed first window content just now
-    elseif direction == DIR_TO_RIGHT
-      placeColrCharsHzOfstAtRC(topRow, leftColumn, charHzPixOffset, windowWidthInPix, firstVisCharIndex, scrollTextColor)
-      charHzPixOffset--                                 ' we showed first window content just now
-      if charHzPixOffset < 0
-        charHzPixOffset := charWidthInPix + horizontalGapInPix - 1
-        firstVisCharIndex--
-    elseif direction == DIR_UP
-      placeColrCharsVtOfstAtRC(topRow, leftColumn, charVtPixOffset, windowWidthInPix, scrollTextColor)
-      charVtPixOffset++                                 ' we showed first window content just now
-    elseif direction == DIR_DOWN
-      placeColrCharsVtOfstAtRC(topRow, leftColumn, charVtPixOffset, windowWidthInPix, scrollTextColor)
-      charVtPixOffset--                                 ' we showed first window content just now
-      if charVtPixOffset < 0
-        charVtPixOffset := charHeightInPix - 1 + BLANK_ROW_PIX  ' blank row of pixels between rows
-  else
-    DEBUG("stx:scrollTxAtRCOfClr() - NOT IDLE!")
+  beginScroll(eHomeFace, homeTurn, homeAddRow, homeAddColumn, row, column, widthInChars, pZString, direction, rgbColor)
 
 PUB animateScroll()
 '' Perform one scroll animation step if scrolling is not yet complete.
@@ -385,6 +346,115 @@ VAR
     BYTE    headWidthInPix
     BYTE    tailWidthInPix
     BYTE    hzInsetInPix
+
+PRI beginScroll(eHomeFace, homeTurn, homeAddRow, homeAddColumn, row, column, widthInChars, pZString, direction, rgbColor)
+' Start scrolling text on an idle scroller and place its first window of characters. The
+' display-centric and the face-centric entries both come here: a face-centric region keeps its
+' home (face and transform) while it scrolls, and a display-centric one keeps no face.
+'
+' @param eHomeFace - the face (hwEnum.FACE_*) the region is homed on, or NO_FACE for display coordinates
+' @param homeTurn - clockwise quarter turns from the region's frame to the home frame
+' @param homeAddRow - row added after that turn
+' @param homeAddColumn - column added after that turn
+' @param row - top row of the scrolling region
+' @param column - left column of the scrolling region
+' @param widthInChars - width of the visible scroll window in characters
+' @param pZString - pointer to zero-terminated string to scroll
+' @param direction - scroll direction (DIR_TO_LEFT, DIR_TO_RIGHT, DIR_UP, DIR_DOWN)
+' @param rgbColor - 24-bit RGB color for the text
+
+  if isIdle()
+    DEBUG("stx:starcoc() #", udec_(instanceID), " [", zstr_(pZString), "](", udec_(widthInChars), ")")
+    scrollTextColor := rgbColor
+
+    ' where the pixels go: display coordinates are held to the display's right edge; face
+    ' coordinates are folded onto the cube, which has no such edge
+    eFaceHome := eHomeFace
+    faceHomeTurn := homeTurn
+    faceHomeAddRow := homeAddRow
+    faceHomeAddColumn := homeAddColumn
+
+    ' our string length is smaller of length given or our receiving buffer length
+    ctCharsToScroll := min(strsize(pZString), MAX_SCROLL_CHAR_BYTES)
+
+    ' visible chars is our window size constrained by our font max text columns
+    maxVisibleChars := 1 #> widthInChars <# maxTextColumns
+
+    ' our pix length is char-width + gap-between-chars
+    windowWidthInPix := (maxVisibleChars * (charWidthInPix + horizontalGapInPix)) - horizontalGapInPix
+
+    ' remainingPix is our number of pix yet off screen to right (or to left if scrolling that direction)
+    remainingPixToScroll := ((ctCharsToScroll * (charWidthInPix + horizontalGapInPix)) - horizontalGapInPix) - windowWidthInPix
+    if direction == DIR_UP OR direction == DIR_DOWN
+      remainingPixToScroll := charHeightInPix           ' + 1 we are doing a blank row of pixels between rows
+
+    if ctCharsToScroll > 0
+      bytemove(@scrollChars, pZString, ctCharsToScroll)
+      topRow := row
+      leftColumn := column
+      case direction
+        DIR_TO_LEFT:
+          ' showing left-most chars first
+          eScrollDirection := direction
+          firstVisCharIndex := 0
+          charHzPixOffset := 0
+        DIR_TO_RIGHT:
+          ' showing right-most chars first
+          eScrollDirection := direction
+          firstVisCharIndex := ctCharsToScroll - maxVisibleChars
+          charHzPixOffset := charWidthInPix + horizontalGapInPix - 1
+        DIR_UP:
+          eScrollDirection := direction
+          firstVisCharIndex := 0
+          charVtPixOffset := 0                          ' start with full text on screen
+        DIR_DOWN:
+          eScrollDirection := direction
+          firstVisCharIndex := 0
+          charVtPixOffset := 0                          ' start with full text on screen
+        other:
+          eScrollDirection := DIR_UNKNOWN
+          DEBUG("stx:bad scroll direction, abort")
+          abort
+    '
+    ' place window chars on screen
+    '
+    ' reset scroll offset to beginning
+    if direction == DIR_TO_LEFT
+      placeColrCharsHzOfstAtRC(topRow, leftColumn, charHzPixOffset, windowWidthInPix, firstVisCharIndex, scrollTextColor)
+      charHzPixOffset++                                 ' we showed first window content just now
+    elseif direction == DIR_TO_RIGHT
+      placeColrCharsHzOfstAtRC(topRow, leftColumn, charHzPixOffset, windowWidthInPix, firstVisCharIndex, scrollTextColor)
+      charHzPixOffset--                                 ' we showed first window content just now
+      if charHzPixOffset < 0
+        charHzPixOffset := charWidthInPix + horizontalGapInPix - 1
+        firstVisCharIndex--
+    elseif direction == DIR_UP
+      placeColrCharsVtOfstAtRC(topRow, leftColumn, charVtPixOffset, windowWidthInPix, scrollTextColor)
+      charVtPixOffset++                                 ' we showed first window content just now
+    elseif direction == DIR_DOWN
+      placeColrCharsVtOfstAtRC(topRow, leftColumn, charVtPixOffset, windowWidthInPix, scrollTextColor)
+      charVtPixOffset--                                 ' we showed first window content just now
+      if charVtPixOffset < 0
+        charVtPixOffset := charHeightInPix - 1 + BLANK_ROW_PIX  ' blank row of pixels between rows
+  else
+    DEBUG("stx:scrollTxAtRCOfClr() - NOT IDLE!")
+
+PRI plotFacePixel(faceRow, faceColumn, rgbColor) | displayRow, displayColumn
+' Draw one pixel of a face-centric region: carry it into the region's home frame, fold it across
+' the cube's edges onto the face that holds it, and draw it there; a pixel in a corner gap is not
+' drawn. The display-centric path does not come here.
+'
+' @param faceRow - pixel row in the region's frame (may run past the face's edges)
+' @param faceColumn - pixel column in the region's frame (may run past the face's edges)
+' @param rgbColor - 24-bit RGB color for the pixel
+
+' Local Variables:
+' @local displayRow - display row the pixel lands on, or NO_DISPLAY_PIXEL
+' @local displayColumn - display column the pixel lands on
+
+  displayRow, displayColumn := cube.homeFoldToDisplay(chainIndex, eFaceHome, faceHomeTurn, faceHomeAddRow, faceHomeAddColumn, faceRow, faceColumn)
+  if displayRow <> cube.NO_DISPLAY_PIXEL
+    pixels.drawPixelAtRC(chainIndex, displayRow, displayColumn, rgbColor)
 
 PRI placeColrCharsHzOfstAtRC(row, column, charHzPxOffset, windowWidth, startCharIndex, rgbColor) | actCharIndex, endColumn, pChrBitmap
 ' Write character bitmaps to screen with possible fractional first and last characters for horizontal scrolling.
@@ -497,12 +567,17 @@ PRI placeSpaceAtRC(row, column, widthInPix) : endColumn | colIndex, rowIndex
 'debug("stx:ps ", udec(widthInPix))
 
   repeat colIndex from column TO widthInPix - 1 + column
-    repeat rowIndex from row TO charHeightInPix - 1 + row
-      pixels.drawPixelAtRC(chainIndex, rowIndex, colIndex, BLACK_COLOR)
+    ' the face/flat choice is made once per column, not per pixel
+    if eFaceHome == cube.NO_FACE
+      repeat rowIndex from row TO charHeightInPix - 1 + row
+        pixels.drawPixelAtRC(chainIndex, rowIndex, colIndex, BLACK_COLOR)
+    else
+      repeat rowIndex from row TO charHeightInPix - 1 + row
+        plotFacePixel(rowIndex, colIndex, BLACK_COLOR)
 
   endColumn := column + widthInPix
 
-PRI placeBitmapFrontAtRCWithColor(row, column, bitInset, nbrFieldBits, pChrBitmap, rgbColor) : endColumn | cBitIdx, cByteIdx, cRowBits, pixColor, colOffset, pixColumn, pixRow, cBitOffset, nbrCharBits, pixVal, ditheredRGBColor
+PRI placeBitmapFrontAtRCWithColor(row, column, bitInset, nbrFieldBits, pChrBitmap, rgbColor) : endColumn | cBitIdx, cByteIdx, cRowBits, pixColor, colOffset, pixColumn, pixRow, cBitOffset, nbrCharBits, pixVal, ditheredRGBColor, ctBitsToSkip
 ' Draw the leading (front) portion of a character bitmap at the given position with color.
 '
 ' @param row - top row for bitmap placement
@@ -524,6 +599,7 @@ PRI placeBitmapFrontAtRCWithColor(row, column, bitInset, nbrFieldBits, pChrBitma
 ' @local nbrCharBits - number of actual character bits to draw (excluding gap)
 ' @local pixVal - extracted pixel value from dithered bitmap
 ' @local ditheredRGBColor - reduced brightness color for dithered pixels
+' @local ctBitsToSkip - character bits that fall left of the region's left edge and are not drawn
 
 ' startTime := getct()
 
@@ -533,38 +609,42 @@ PRI placeBitmapFrontAtRCWithColor(row, column, bitInset, nbrFieldBits, pChrBitma
   'if nbrCharBits <> charWidthInPix    ' TESTING
   '    rgbColor := $00ff00             ' TESTING color our leading char green
   endColumn := column + nbrCharBits                                             ' point to gap locn
-  if nbrCharBits > 0
+  ' dont paint beyond our left edge: the bits left of it are skipped once here, not tested per pixel
+  ctBitsToSkip := 0 #> (leftColumn - column)
+  if nbrCharBits > 0 AND ctBitsToSkip < charWidthInPix
     if bFontIsDithered
       ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, DITHER_BRIGHTNESS_PCT)  ' dithered-pixel brightness
       repeat cByteIdx from 0 TO charHeightInPix - 1
         cRowBits := WORD[pChrBitmap][cByteIdx]
         pixRow := row + cByteIdx
         ' from right edge of char to left
-        colOffset := 0
-        repeat cBitIdx from bitInset TO bitInset + charWidthInPix - 1           ' 4-0, 4-1, 4-2, 4-3, 4-4
+        colOffset := ctBitsToSkip
+        repeat cBitIdx from bitInset + ctBitsToSkip TO bitInset + charWidthInPix - 1  ' 4-0, 4-1, 4-2, 4-3, 4-4
           cBitOffset := cBitIdx * DITH_BITS_PER_PIX
           pixVal := (cRowBits & (DITH_PIX_MASK >> cBitOffset)) >> (DITH_PIX_TOP_SHIFT - cBitOffset)
           pixColor := rgbColor
           if pixVal <> DITH_PIX_FULL
             pixColor := (pixVal == DITH_PIX_HALF) ? ditheredRGBColor : BLACK_COLOR
           pixColumn := column + colOffset
-          ' dont paint beyond our left edge
-          if pixColumn >= leftColumn
+          if eFaceHome == cube.NO_FACE
             pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
+          else
+            plotFacePixel(pixRow, pixColumn, pixColor)
           colOffset++
     else
     repeat cByteIdx from 0 TO charHeightInPix - 1
       cRowBits := BYTE[pChrBitmap][cByteIdx]
       pixRow := row + cByteIdx
       ' from right edge of char to left
-      colOffset := 0
-      repeat cBitIdx from bitInset TO bitInset + charWidthInPix - 1             ' 4-0, 4-1, 4-2, 4-3, 4-4
+      colOffset := ctBitsToSkip
+      repeat cBitIdx from bitInset + ctBitsToSkip TO bitInset + charWidthInPix - 1  ' 4-0, 4-1, 4-2, 4-3, 4-4
         cBitOffset := (charWidthInPix - 1) - cBitIdx
         pixColor := cRowBits & (1 << cBitOffset) > 0 ? rgbColor : BLACK_COLOR
         pixColumn := column + colOffset
-        ' dont paint beyond our left edge
-        if pixColumn >= leftColumn
+        if eFaceHome == cube.NO_FACE
           pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
+        else
+          plotFacePixel(pixRow, pixColumn, pixColor)
         colOffset++
 
   if horizontalGapInPix > 0 && nbrFieldBits > 0
@@ -574,7 +654,7 @@ PRI placeBitmapFrontAtRCWithColor(row, column, bitInset, nbrFieldBits, pChrBitma
     'debug("stx:pBMf() ", udec(instanceID), udec(row), udec(column), udec(bitInset), udec(nbrCharBits), udec(endColumn))
     'showDuration(startTime, string("stx:pbF"))
 
-PRI placeBitmapBackAtRCWithColor(row, column, bitInset, nbrCharBits, pChrBitmap, rgbColor) : endColumn | cBitIdx, cByteIdx, cRowBits, pixColor, colOffset, pixColumn, pixRow, cBitOffset, pixVal, ditheredRGBColor
+PRI placeBitmapBackAtRCWithColor(row, column, bitInset, nbrCharBits, pChrBitmap, rgbColor) : endColumn | cBitIdx, cByteIdx, cRowBits, pixColor, colOffset, pixColumn, pixRow, cBitOffset, pixVal, ditheredRGBColor, ctBitsToDraw
 ' Draw the trailing (back) portion of a character bitmap at the given position with color.
 '
 ' @param row - top row for bitmap placement
@@ -595,11 +675,17 @@ PRI placeBitmapBackAtRCWithColor(row, column, bitInset, nbrCharBits, pChrBitmap,
 ' @local cBitOffset - computed bit offset for extracting pixel value
 ' @local pixVal - extracted pixel value from dithered bitmap
 ' @local ditheredRGBColor - reduced brightness color for dithered pixels
+' @local ctBitsToDraw - character bits to draw: all of them, or on a display region those left of the display's right edge
   'startTime := getct()
   'debug("stx:pbB ", udec(column), udec(bitInset), udec(nbrCharBits), uhex_long(pChrBitmap))
   'rgbColor := $ffff00 ' TESTING color our trailing char yellow
   endColumn := column + nbrCharBits
-  if nbrCharBits > 0
+  ' dont paint off edge of matrix: a display region stops at the display's right edge, so the
+  ' bit count is cut once here; a face region has no such edge (the cube folds its pixels)
+  ctBitsToDraw := nbrCharBits
+  if eFaceHome == cube.NO_FACE
+    ctBitsToDraw := nbrCharBits <# (maxDisplayColumns - column)
+  if ctBitsToDraw > 0
     if bFontIsDithered
       ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, DITHER_BRIGHTNESS_PCT)  ' dithered-pixel brightness
       repeat cByteIdx from 0 TO charHeightInPix - 1
@@ -607,16 +693,17 @@ PRI placeBitmapBackAtRCWithColor(row, column, bitInset, nbrCharBits, pChrBitmap,
         pixRow := row + cByteIdx
         ' from right edge of char to left
         colOffset := nbrCharBits - 1
-        repeat cBitIdx from bitInset TO bitInset + nbrCharBits - 1              ' 4-0, 4-1, 4-2, 4-3, 4-4
+        repeat cBitIdx from bitInset TO bitInset + ctBitsToDraw - 1             ' 4-0, 4-1, 4-2, 4-3, 4-4
           cBitOffset := cBitIdx * DITH_BITS_PER_PIX
           pixVal := (cRowBits & (DITH_PIX_MASK >> cBitOffset)) >> (DITH_PIX_TOP_SHIFT - cBitOffset)
           pixColor := rgbColor
           if pixVal <> DITH_PIX_FULL
             pixColor := (pixVal == DITH_PIX_HALF) ? ditheredRGBColor : BLACK_COLOR
           pixColumn := column + (nbrCharBits - 1) - colOffset
-          ' dont paint off edge of matrix
-          if pixColumn < maxDisplayColumns
+          if eFaceHome == cube.NO_FACE
             pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
+          else
+            plotFacePixel(pixRow, pixColumn, pixColor)
           colOffset--
     else
     repeat cByteIdx from 0 TO charHeightInPix - 1
@@ -624,19 +711,20 @@ PRI placeBitmapBackAtRCWithColor(row, column, bitInset, nbrCharBits, pChrBitmap,
       pixRow := row + cByteIdx
       ' from right edge of char to left
       colOffset := nbrCharBits - 1
-      repeat cBitIdx from bitInset TO bitInset + nbrCharBits - 1                ' 4-0, 4-1, 4-2, 4-3, 4-4
+      repeat cBitIdx from bitInset TO bitInset + ctBitsToDraw - 1               ' 4-0, 4-1, 4-2, 4-3, 4-4
         cBitOffset := (charWidthInPix - 1) - cBitIdx
         pixColor := cRowBits & (1 << cBitOffset) > 0 ? rgbColor : BLACK_COLOR
         pixColumn := column + (nbrCharBits - 1) - colOffset
-        ' dont paint off edge of matrix
-        if pixColumn < maxDisplayColumns
+        if eFaceHome == cube.NO_FACE
           pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
+        else
+          plotFacePixel(pixRow, pixColumn, pixColor)
         colOffset--
 
     'debug("stx:pBMb() ", udec(instanceID), udec(row), udec(column), udec(bitInset), udec(nbrCharBits), udec(endColumn))
     'showDuration(startTime, string("stx:pbB"))
 
-PRI placeColrBitmapVtOffsetAtRC(row, column, vtPxOffset, pChrBitmap, rgbColor) : endColumn | cBitIdx, rowIdx, cByteIdx, cRowBits, pixColor, pixRow, cBitOffset, colOffset, pixColumn, pixVal, ditheredRGBColor
+PRI placeColrBitmapVtOffsetAtRC(row, column, vtPxOffset, pChrBitmap, rgbColor) : endColumn | cBitIdx, rowIdx, cByteIdx, cRowBits, pixColor, pixRow, cBitOffset, colOffset, pixColumn, pixVal, ditheredRGBColor, ctBitsToDraw
 ' Draw a character bitmap vertically offset by the given pixel amount, painting black for the extra row.
 '   special NOTE: show bitmap vertically offset by {vtPxOffset}
 '   BUT!!!   vtPxOffset is 0-charHeight (meaning 1 more than rows of pixels)
@@ -660,47 +748,56 @@ PRI placeColrBitmapVtOffsetAtRC(row, column, vtPxOffset, pChrBitmap, rgbColor) :
 ' @local pixColumn - absolute column of the current pixel
 ' @local pixVal - extracted pixel value from dithered bitmap
 ' @local ditheredRGBColor - reduced brightness color for dithered pixels
+' @local ctBitsToDraw - character bits to draw: all of them, or on a display region those left of the display's right edge
   endColumn := column + charWidthInPix
-  if bFontIsDithered
-    ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, DITHER_BRIGHTNESS_PCT)  ' dithered-pixel brightness
+  ' dont paint off edge of matrix: a display region stops at the display's right edge, so the
+  ' bit count is cut once here; a face region has no such edge (the cube folds its pixels)
+  ctBitsToDraw := charWidthInPix
+  if eFaceHome == cube.NO_FACE
+    ctBitsToDraw := charWidthInPix <# (maxDisplayColumns - column)
+  if ctBitsToDraw > 0
+    if bFontIsDithered
+      ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, DITHER_BRIGHTNESS_PCT)  ' dithered-pixel brightness
+      repeat rowIdx from 0 TO charHeightInPix - 1
+        pixRow := row + rowIdx
+        cByteIdx := (rowIdx + vtPxOffset) +// (charHeightInPix + BLANK_ROW_PIX)   ' [0-(charHeight-1), and charHeight] where charHeight means black row of pixels
+        if cByteIdx > charHeightInPix - 1
+          cRowBits := 0                                                         ' no 1 bits (all BG color)
+        else
+          cRowBits := WORD[pChrBitmap][cByteIdx]
+        ' from right edge of char to left
+        colOffset := charWidthInPix - 1
+        repeat cBitIdx from 0 TO ctBitsToDraw - 1                               ' 4-0, 4-1, 4-2, 4-3, 4-4
+          cBitOffset := cBitIdx * DITH_BITS_PER_PIX
+          pixVal := (cRowBits & (DITH_PIX_MASK >> cBitOffset)) >> (DITH_PIX_TOP_SHIFT - cBitOffset)
+          pixColor := rgbColor
+          if pixVal <> DITH_PIX_FULL
+            pixColor := (pixVal == DITH_PIX_HALF) ? ditheredRGBColor : BLACK_COLOR
+          pixColumn := column + (charWidthInPix - 1) - colOffset
+          if eFaceHome == cube.NO_FACE
+            pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
+          else
+            plotFacePixel(pixRow, pixColumn, pixColor)
+          colOffset--
+    else
     repeat rowIdx from 0 TO charHeightInPix - 1
       pixRow := row + rowIdx
       cByteIdx := (rowIdx + vtPxOffset) +// (charHeightInPix + BLANK_ROW_PIX)   ' [0-(charHeight-1), and charHeight] where charHeight means black row of pixels
       if cByteIdx > charHeightInPix - 1
         cRowBits := 0                                                           ' no 1 bits (all BG color)
       else
-        cRowBits := WORD[pChrBitmap][cByteIdx]
+        cRowBits := BYTE[pChrBitmap][cByteIdx]
       ' from right edge of char to left
       colOffset := charWidthInPix - 1
-      repeat cBitIdx from 0 TO charWidthInPix - 1                               ' 4-0, 4-1, 4-2, 4-3, 4-4
-        cBitOffset := cBitIdx * DITH_BITS_PER_PIX
-        pixVal := (cRowBits & (DITH_PIX_MASK >> cBitOffset)) >> (DITH_PIX_TOP_SHIFT - cBitOffset)
-        pixColor := rgbColor
-        if pixVal <> DITH_PIX_FULL
-          pixColor := (pixVal == DITH_PIX_HALF) ? ditheredRGBColor : BLACK_COLOR
+      repeat cBitIdx from 0 TO ctBitsToDraw - 1                                 ' 4-0, 4-1, 4-2, 4-3, 4-4
+        cBitOffset := (charWidthInPix - 1) - cBitIdx
+        pixColor := cRowBits & (1 << cBitOffset) > 0 ? rgbColor : BLACK_COLOR
         pixColumn := column + (charWidthInPix - 1) - colOffset
-        ' dont paint off edge of matrix
-        if pixColumn < maxDisplayColumns
+        if eFaceHome == cube.NO_FACE
           pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
+        else
+          plotFacePixel(pixRow, pixColumn, pixColor)
         colOffset--
-  else
-  repeat rowIdx from 0 TO charHeightInPix - 1
-    pixRow := row + rowIdx
-    cByteIdx := (rowIdx + vtPxOffset) +// (charHeightInPix + BLANK_ROW_PIX)     ' [0-(charHeight-1), and charHeight] where charHeight means black row of pixels
-    if cByteIdx > charHeightInPix - 1
-      cRowBits := 0                                                             ' no 1 bits (all BG color)
-    else
-      cRowBits := BYTE[pChrBitmap][cByteIdx]
-    ' from right edge of char to left
-    colOffset := charWidthInPix - 1
-    repeat cBitIdx from 0 TO charWidthInPix - 1                                 ' 4-0, 4-1, 4-2, 4-3, 4-4
-      cBitOffset := (charWidthInPix - 1) - cBitIdx
-      pixColor := cRowBits & (1 << cBitOffset) > 0 ? rgbColor : BLACK_COLOR
-      pixColumn := column + (charWidthInPix - 1) - colOffset
-      ' dont paint off edge of matrix
-      if pixColumn < maxDisplayColumns
-        pixels.drawPixelAtRC(chainIndex, pixRow, pixColumn, pixColor)
-      colOffset--
 
 CON ' license
 

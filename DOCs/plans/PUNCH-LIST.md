@@ -52,3 +52,17 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 - **What:** the refresh core shows bit-plane k of an N-bit frame set 2^(N-1-k) times, 2^N - 1 scans per colour cycle (`driver/isp_hub75_rgb3bit.spin2`, about :841-866). `THEOPS.md` (about :188) says "16 sub-frames ... roughly 60 fps", and `DOCs/FutureDirections-ImageAndColor.md` (about :132-169) gives 153-407 Hz, computed as N frames shown once. Calculated from the code for the rig (clock time only): 4-bit about 85 Hz, 5-bit about 41 Hz, 6-bit 20, 7-bit 10, 8-bit 5.
 - **Bears on:** «#85» (bring docs up to 4.0.0) should correct both, and use Visit B's «#83» measured numbers where they exist.
 
+### Cube fold path: about five method calls per face pixel (efficiency, estimated, not measured)
+
+- **Found:** 2026-10-02, by the «#80» cleanup review.
+- **What:** a face-centric pixel goes drawFoldedPixel -> cube.homeFoldToDisplay -> turnFaceCoords (home) -> foldPoint -> turnFaceCoords (face) -> drawPixelAtRC (`driver/isp_hub75_display.spin2`, `driver/isp_hub75_cube.spin2`; the scroller's plotFacePixel is the same). Cheaper: in faceHomeOf, compose the home transform with the home face's face-to-panel transform and cell origin into one affine once per object. Per pixel, apply it with one unsigned on-face test, and call foldPoint only for off-face pixels. That saves about 3 calls on the usual pixel.
+- **Not known:** the real cost; there is no cube to time it on. Measure at the six-panel bench.
+- **Bears on:** face scrolling speed on a real cube (panel sweep).
+
+### Face drawing's home transform is hidden state (design, low risk today)
+
+- **Found:** 2026-10-02, by the «#80» cleanup review.
+- **What:** faceHomeOf writes the home transform into display VAR (faceHomeTurn/AddRow/AddColumn), and drawFoldedPixel reads it later. The scroller keeps its own copy plus eFaceHome. A call site does not show that a draw depends on state left by an earlier call, so a nested or interleaved face draw from another context would use the wrong home. Today all drawing runs in one cog, one call at a time, so it cannot happen.
+- **More general:** make the home one record (a STRUCT, or the composed affine above) that cube.homeOnFaceOfExtent returns and the draw path carries; scrollFaceTextAtRCOfColor would then take 7 parameters instead of 10.
+- **Also:** face text spaces characters with FACE_TEXT_GAP_PIX while grid text uses horizontalGapInPix (spacing defined twice), and display recomputes the scroller's window width to find the extent (the formula lives in two places).
+
