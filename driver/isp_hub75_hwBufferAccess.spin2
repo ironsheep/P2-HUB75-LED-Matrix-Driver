@@ -330,13 +330,15 @@ PUB layoutSizeAndRotation(nChainIdx) : nLayoutRows, nLayoutColumns, eDisplayRota
   eDisplayRotation := LONG[pEntry][ENTR_ROTATION_OFST]
 
 PUB displaySizeInPanels(nChainIdx) : nPanelsPerColumn, nPanelsPerRow | layoutIdx
-'' Return the size of the display's grid of cells for the nChainIdx HUB75 adapter, derived
-'' from the wiring sentences at startup. A cell may hold no panel (an L shape, for example),
-'' so the grid can have more cells than the display has panels; maxPanels() is the panel count.
+'' Return the size of the display's grid of cells for the nChainIdx HUB75 adapter as its panels
+'' are laid out (before display rotation, the geometry of the screen buffer), derived from the
+'' wiring sentences at startup. A cell may hold no panel (an L shape, for example), so the grid
+'' can have more cells than the display has panels; maxPanels() is the panel count. At 90 and
+'' 270 degrees the display as mounted has these two numbers exchanged.
 ''
 '' @param nChainIdx - the index of the desired chain
-'' @returns nPanelsPerColumn - the number of cells vertically in the display's grid
-'' @returns nPanelsPerRow - the number of cells horizontally in the display's grid
+'' @returns nPanelsPerColumn - the number of cells vertically in the display's grid, as laid out
+'' @returns nPanelsPerRow - the number of cells horizontally in the display's grid, as laid out
 
 ' Local Variables:
 ' @local layoutIdx - the chain index, checked against the adapters that exist
@@ -346,20 +348,22 @@ PUB displaySizeInPanels(nChainIdx) : nPanelsPerColumn, nPanelsPerRow | layoutIdx
   nPanelsPerRow := layoutGridColumns[layoutIdx]
 
 PUB cellSizeInPixels(nChainIdx) : nCellRows, nCellColumns | layoutIdx
-'' Return the size of one panel as the viewer sees it, in pixels: the size of one cell of the
-'' display's grid. Panel coordinates run over this size. It is the panel's own size, with rows
-'' and columns exchanged when the panels are turned sideways (C0's arrow is ARROW_LEFT or ARROW_RIGHT).
+'' Return the size of one panel as the viewer sees it, in pixels, with the display as mounted:
+'' the size of one cell of the display's grid as mounted. Panel coordinates run over this size.
+'' It is the panel's own size, with rows and columns exchanged when the panels are turned
+'' sideways (C0's arrow is ARROW_LEFT or ARROW_RIGHT), and exchanged again when the display
+'' is mounted at 90 or 270 degrees.
 ''
 '' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
-'' @returns nCellRows - pixel rows of one panel, as the viewer sees it
-'' @returns nCellColumns - pixel columns of one panel, as the viewer sees it
+'' @returns nCellRows - pixel rows of one panel, as the viewer sees it with the display as mounted
+'' @returns nCellColumns - pixel columns of one panel, as the viewer sees it with the display as mounted
 
 ' Local Variables:
 ' @local layoutIdx - the chain index, checked against the adapters that exist
 
   layoutIdx := validChainIndex(nChainIdx)
-  nCellRows := layoutCellRows[layoutIdx]
-  nCellColumns := layoutCellColumns[layoutIdx]
+  nCellRows := mountedCellRows[layoutIdx]
+  nCellColumns := mountedCellColumns[layoutIdx]
 
 PUB colorDepth(nChainIdx) : nDepthInBits | pEntry
 '' Return the number of bits for a color (red, green, or blue) [3-8 bits] for the specified HUB75 adapter.
@@ -673,26 +677,35 @@ PUB displayPixelAddress(nChainIdx, row, column) : pPixel | layoutIdx, panelPosn,
     ' buffer slot: the screen buffer holds the panels one after another, in buffer-slot order
     pPixel := LONG[pEntry][ENTR_SCRN_BUFFER_ADDR_OFST] + ((((positionToSlot[tableBase + panelPosn] * nativeRows) + nativeRow) * nativeCols) + nativeCol) * LONG[pEntry][ENTR_BYTES_PER_COLOR_OFST]
 
-PUB positionAtDisplayPixel(nChainIdx, row, column) : nPanelPosn
-'' Return the panel position (P) of the panel that holds display coordinates (row, column).
-'' Panel-centric drawing uses it to clip: a pixel whose panel position is not the panel being
-'' drawn on lies outside that panel.
+PUB positionAtDisplayPixel(nChainIdx, row, column) : nPanelPosn | layoutIdx
+'' Return the panel position (P) of the panel that holds display coordinates (row, column), with
+'' the display as mounted: the coordinates are the ones drawing uses (display rotation not yet
+'' applied) and P is numbered in reading order as mounted. Panel-centric drawing uses it to clip:
+'' a pixel whose panel position is not the panel being drawn on lies outside that panel. It is a
+'' table lookup in the mounted grid built at startup, the same cost at every rotation.
 ''
 '' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
-'' @param row - pixel row on the display (display coordinates)
-'' @param column - pixel column on the display (display coordinates)
-'' @returns nPanelPosn - panel position (P0 is the top-left panel), or NO_PANEL_POSITION when the pixel is outside the display or in a cell that holds no panel
+'' @param row - pixel row on the display, as mounted
+'' @param column - pixel column on the display, as mounted
+'' @returns nPanelPosn - panel position (P0 is the top-left panel as mounted), or NO_PANEL_POSITION when the pixel is outside the display or in a cell that holds no panel
 
-  nPanelPosn, _, _ := panelCoordsAt(validChainIndex(nChainIdx), row, column)   ' the panel coordinates are not needed here
+' Local Variables:
+' @local layoutIdx - the chain index, checked against the adapters that exist
+
+  layoutIdx := validChainIndex(nChainIdx)
+  nPanelPosn := NO_PANEL_POSITION
+  if row >= 0 and column >= 0 and row < mountedPixelRows[layoutIdx] and column < mountedPixelColumns[layoutIdx]
+    nPanelPosn := mountedCellToPosition[(layoutIdx * MAX_GRID_CELLS) + ((row / mountedCellRows[layoutIdx]) * mountedGridColumns[layoutIdx]) + (column / mountedCellColumns[layoutIdx])]
 
 PUB positionForCable(nChainIdx, nCablePos) : nPanelPosn | layoutIdx
-'' Return the panel position (P) where the panel at cable position nCablePos sits: the inverse
-'' of the panel-position to cable-position table, built from the wiring sentences at startup.
-'' The identify routine reads it to say which cable position (C) each panel position (P) is.
+'' Return the panel position (P) where the panel at cable position nCablePos sits, with the
+'' display as mounted: the inverse of the panel-position to cable-position table, built from the
+'' wiring sentences and the display rotation at startup. The identify routine reads it to say
+'' which cable position (C) each panel position (P) is.
 ''
 '' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @param nCablePos - cable position of the panel (C0 is the panel the adapter plugs into)
-'' @returns nPanelPosn - panel position (reading order from the top-left panel), or NO_PANEL_POSITION when no panel is at that cable position
+'' @returns nPanelPosn - panel position (reading order from the top-left panel as mounted), or NO_PANEL_POSITION when no panel is at that cable position
 
 ' Local Variables:
 ' @local layoutIdx - the chain index, checked against the adapters that exist
@@ -703,15 +716,16 @@ PUB positionForCable(nChainIdx, nCablePos) : nPanelPosn | layoutIdx
     nPanelPosn := cableToPosition[(layoutIdx * MAX_CABLE_POSITIONS) + nCablePos]
 
 PUB offsetToPanel(nChainIdx, nPanelIndex) : offsetPixelRows, offsetPixelColumns | layoutIdx, nMaxPanels, panelPosn, tableBase
-'' Return the display coordinates of the top-left pixel of the panel at a panel position: the
-'' offset that turns panel coordinates on that panel into display coordinates. It is read from
-'' the display's grid, derived from the wiring sentences at startup. The offset is in layout
-'' coordinates (display rotation not applied); with DISPn_ROTATION = ROT_NONE they are the same.
+'' Return the display coordinates of the top-left pixel of the panel at a panel position, with
+'' the display as mounted: the offset that turns panel coordinates on that panel (as the viewer
+'' sees it) into display coordinates, the ones drawing uses. The panel position is numbered in
+'' reading order as mounted. It is read from the mounted grid, derived from the wiring sentences
+'' and the display rotation at startup; with DISPn_ROTATION = ROT_NONE it is the layout.
 ''
 '' @param nChainIdx - the index of the desired chain
-'' @param nPanelIndex - panel position of the panel (P0 is the top-left panel, then reading order)
-'' @returns offsetPixelRows - display row of the panel's top-left pixel
-'' @returns offsetPixelColumns - display column of the panel's top-left pixel
+'' @param nPanelIndex - panel position of the panel (P0 is the top-left panel as mounted, then reading order)
+'' @returns offsetPixelRows - display row of the panel's top-left pixel, as mounted
+'' @returns offsetPixelColumns - display column of the panel's top-left pixel, as mounted
 
 ' Local Variables:
 ' @local layoutIdx - the chain index, checked against the adapters that exist
@@ -727,8 +741,39 @@ PUB offsetToPanel(nChainIdx, nPanelIndex) : offsetPixelRows, offsetPixelColumns 
     if nPanelIndex <> panelPosn
       DEBUG("* Warning invalid nPanelIndex (", udec_(nPanelIndex), ") for display! of ", udec_(nMaxPanels), " panels")
     tableBase := layoutIdx * MAX_CABLE_POSITIONS
-    offsetPixelRows := positionToCellRow[tableBase + panelPosn] * layoutCellRows[layoutIdx]
-    offsetPixelColumns := positionToCellCol[tableBase + panelPosn] * layoutCellColumns[layoutIdx]
+    offsetPixelRows := mountedCellRow[tableBase + panelPosn] * mountedCellRows[layoutIdx]
+    offsetPixelColumns := mountedCellCol[tableBase + panelPosn] * mountedCellColumns[layoutIdx]
+
+PUB layoutAreaOfPanel(nChainIdx, nPanelIndex) : nLayoutTopRow, nLayoutLeftColumn, nLayoutRows, nLayoutColumns | layoutIdx, panelPosn, tableBase, layoutPosn
+'' Return the rectangle that the panel at a panel position covers on the display as its panels
+'' are laid out (display rotation not applied): the place the screen buffer holds that panel.
+'' The panel position is numbered in reading order as mounted, so a fill of this rectangle
+'' fills the panel the viewer calls P. A panel position past the panels in use is held to the
+'' last panel (offsetToPanel() reports it).
+''
+'' @param nChainIdx - the index of the desired chain
+'' @param nPanelIndex - panel position of the panel (P0 is the top-left panel as mounted, then reading order)
+'' @returns nLayoutTopRow - layout row of the panel's top-left pixel
+'' @returns nLayoutLeftColumn - layout column of the panel's top-left pixel
+'' @returns nLayoutRows - pixel rows of the panel in the layout
+'' @returns nLayoutColumns - pixel columns of the panel in the layout
+
+' Local Variables:
+' @local layoutIdx - the chain index, checked against the adapters that exist
+' @local panelPosn - panel position clamped to the panels in use
+' @local tableBase - first entry of this adapter in the per-position tables
+' @local layoutPosn - the panel's position in the layout's own reading order
+
+  nLayoutTopRow := nLayoutLeftColumn := nLayoutRows := nLayoutColumns := 0
+  layoutIdx := validChainIndex(nChainIdx)
+  if layoutPanelCount[layoutIdx] > 0
+    panelPosn := 0 #> nPanelIndex <# layoutPanelCount[layoutIdx] - 1
+    tableBase := layoutIdx * MAX_CABLE_POSITIONS
+    layoutPosn := mountedToLayout[tableBase + panelPosn]
+    nLayoutRows := layoutCellRows[layoutIdx]
+    nLayoutColumns := layoutCellColumns[layoutIdx]
+    nLayoutTopRow := positionToCellRow[tableBase + layoutPosn] * nLayoutRows
+    nLayoutLeftColumn := positionToCellCol[tableBase + layoutPosn] * nLayoutColumns
 
 PUB getDriverFlags(nChainIdx) : desiredFlags, eChipType
 '' Return flags describing the compiled driver configuration for the specified adapter.
@@ -891,17 +936,32 @@ layoutPixelColumns  LONG    0[ADAPTER_COUNT]                    ' bounding box w
 layoutCellRows      LONG    0[ADAPTER_COUNT]                    ' one cell's height, in pixels (a panel as the viewer sees it)
 layoutCellColumns   LONG    0[ADAPTER_COUNT]                    ' one cell's width, in pixels
 
+' The same display as mounted (display rotation applied): the sizes the viewer sees.
+' At 90 and 270 degrees rows and columns exchange; otherwise they equal the layout's.
+mountedPixelRows    LONG    0[ADAPTER_COUNT]                    ' display height as mounted, in pixels
+mountedPixelColumns LONG    0[ADAPTER_COUNT]                    ' display width as mounted, in pixels
+mountedGridColumns  LONG    0[ADAPTER_COUNT]                    ' mounted bounding box width, in panels
+mountedCellRows     LONG    0[ADAPTER_COUNT]                    ' one mounted cell's height, in pixels
+mountedCellColumns  LONG    0[ADAPTER_COUNT]                    ' one mounted cell's width, in pixels
+
 ' Lookup tables for the drawing path, MAX_CABLE_POSITIONS entries per adapter; an entry
-' past the last panel holds NO_POSITION. P is the panel position (reading order).
-positionToSlot      BYTE    NO_POSITION[ADAPTER_COUNT * MAX_CABLE_POSITIONS]  ' P -> buffer slot (N-1-C)
-positionToRotation  BYTE    NO_POSITION[ADAPTER_COUNT * MAX_CABLE_POSITIONS]  ' P -> panel rotation (hwEnum.ROT_*)
-positionToCellRow   BYTE    NO_POSITION[ADAPTER_COUNT * MAX_CABLE_POSITIONS]  ' P -> grid row of its cell
-positionToCellCol   BYTE    NO_POSITION[ADAPTER_COUNT * MAX_CABLE_POSITIONS]  ' P -> grid column of its cell
+' past the last panel holds NO_POSITION. The first four are indexed by the layout's own panel
+' position (reading order over the layout, the screen buffer's geometry, called L below);
+' the mounted tables are indexed by the panel position the program sees (P, reading order as
+' mounted). At ROT_NONE, L and P are the same number.
+positionToSlot      BYTE    NO_POSITION[ADAPTER_COUNT * MAX_CABLE_POSITIONS]  ' L -> buffer slot (N-1-C)
+positionToRotation  BYTE    NO_POSITION[ADAPTER_COUNT * MAX_CABLE_POSITIONS]  ' L -> panel rotation (hwEnum.ROT_*)
+positionToCellRow   BYTE    NO_POSITION[ADAPTER_COUNT * MAX_CABLE_POSITIONS]  ' L -> layout grid row of its cell
+positionToCellCol   BYTE    NO_POSITION[ADAPTER_COUNT * MAX_CABLE_POSITIONS]  ' L -> layout grid column of its cell
+mountedToLayout     BYTE    NO_POSITION[ADAPTER_COUNT * MAX_CABLE_POSITIONS]  ' P -> L (the mounting table)
+mountedCellRow      BYTE    NO_POSITION[ADAPTER_COUNT * MAX_CABLE_POSITIONS]  ' P -> mounted grid row of its cell
+mountedCellCol      BYTE    NO_POSITION[ADAPTER_COUNT * MAX_CABLE_POSITIONS]  ' P -> mounted grid column of its cell
 cableToPosition     BYTE    NO_POSITION[ADAPTER_COUNT * MAX_CABLE_POSITIONS]  ' cable position C -> P (inverse, for identify)
 
-' The derived grid, MAX_GRID_CELLS entries per adapter: cell (row x grid columns + column) -> P,
-' or NO_POSITION for a cell that holds no panel.
+' The derived grids, MAX_GRID_CELLS entries per adapter: cell (row x grid columns + column) -> L
+' (the layout grid) or -> P (the mounted grid), or NO_POSITION for a cell that holds no panel.
 cellToPosition      BYTE    NO_POSITION[ADAPTER_COUNT * MAX_GRID_CELLS]
+mountedCellToPosition BYTE  NO_POSITION[ADAPTER_COUNT * MAX_GRID_CELLS]
 
 ' Work area for one configure() call; startup configures one adapter at a time.
 cableCellRow        LONG    0[MAX_CABLE_POSITIONS]              ' cable position -> grid row, relative to C0
@@ -1222,7 +1282,8 @@ PRI buildLayoutTables(nChainIdx, panelCount) | cablePos, minRow, maxRow, minCol,
         cellIdx := (cableCellRow[cablePos] - minRow) * gridCols + (cableCellColumn[cablePos] - minCol)
         cellToPosition[cellBase + cellIdx] := cablePos
 
-    ' then number the panels in reading order, replacing each cable position with its panel position
+    ' then number the panels in reading order over the layout (L), replacing each cable position
+    ' with its layout position; buildMountedTables() renumbers them as mounted (P)
     posn := 0
     repeat cellIdx from 0 to (gridRows * gridCols) - 1
         cablePos := cellToPosition[cellBase + cellIdx]
@@ -1231,7 +1292,6 @@ PRI buildLayoutTables(nChainIdx, panelCount) | cablePos, minRow, maxRow, minCol,
             positionToRotation[tableBase + posn] := rotationForArrow(wiringSentence(nChainIdx, cablePos) & hwEnum.ARROW_MASK)
             positionToCellRow[tableBase + posn] := cellIdx / gridCols
             positionToCellCol[tableBase + posn] := cellIdx // gridCols
-            cableToPosition[tableBase + cablePos] := posn
             cellToPosition[cellBase + cellIdx] := posn
             posn++
 
@@ -1247,9 +1307,95 @@ PRI buildLayoutTables(nChainIdx, panelCount) | cablePos, minRow, maxRow, minCol,
     layoutPixelColumns[nChainIdx] := gridCols * panelCols
     layoutCellRows[nChainIdx] := panelRows
     layoutCellColumns[nChainIdx] := panelCols
+    buildMountedTables(nChainIdx, panelCount)
 
-PRI printLayout(nChainIdx) | panelCount, gridRows, gridCols, rowIdx, colIdx, posn, cablePos, lineLen, tableBase, cellBase, bWide
-' Print the derived picture, one line per grid row, then the lookup tables.
+PRI buildMountedTables(nChainIdx, panelCount) | eRotation, gridRows, gridCols, mountedRows, mountedCols, posn, mountedPosn, cellRow, cellCol, mountedRow, mountedCol, cellIdx, tableBase, cellBase
+' Derive the display as mounted from the layout tables: turn each panel's cell by the display
+' rotation, then number the panels in reading order over the mounted grid. This is the one
+' mounting table; the drawing path reads it and never works out the mounting per pixel.
+' Runs once, at startup, after buildLayoutTables() has built the layout tables.
+'
+' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+' @param panelCount - number of cable positions in use (C0 .. C(N-1), all placed)
+
+' Local Variables:
+' @local eRotation - the display rotation: how the display is mounted
+' @local gridRows - layout bounding box height, in panels
+' @local gridCols - layout bounding box width, in panels
+' @local mountedRows - mounted bounding box height, in panels
+' @local mountedCols - mounted bounding box width, in panels
+' @local posn - panel position in the layout's reading order (L)
+' @local mountedPosn - panel position in reading order as mounted (P)
+' @local cellRow - layout grid row of the panel's cell
+' @local cellCol - layout grid column of the panel's cell
+' @local mountedRow - mounted grid row of the panel's cell
+' @local mountedCol - mounted grid column of the panel's cell
+' @local cellIdx - cell index in the mounted grid (row x grid columns + column)
+' @local tableBase - first entry of this adapter in the per-position tables
+' @local cellBase - first entry of this adapter in the grid tables
+
+    eRotation := displayRotation(nChainIdx)
+    gridRows := layoutGridRows[nChainIdx]
+    gridCols := layoutGridColumns[nChainIdx]
+    mountedRows, mountedCols := gridRows, gridCols
+    mountedPixelRows[nChainIdx] := layoutPixelRows[nChainIdx]
+    mountedPixelColumns[nChainIdx] := layoutPixelColumns[nChainIdx]
+    mountedCellRows[nChainIdx] := layoutCellRows[nChainIdx]
+    mountedCellColumns[nChainIdx] := layoutCellColumns[nChainIdx]
+    if eRotation == ROT_LEFT_90 or eRotation == ROT_RIGHT_90
+        ' hung turned sideways: rows and columns exchange everywhere
+        mountedRows, mountedCols := gridCols, gridRows
+        mountedPixelRows[nChainIdx] := layoutPixelColumns[nChainIdx]
+        mountedPixelColumns[nChainIdx] := layoutPixelRows[nChainIdx]
+        mountedCellRows[nChainIdx] := layoutCellColumns[nChainIdx]
+        mountedCellColumns[nChainIdx] := layoutCellRows[nChainIdx]
+    mountedGridColumns[nChainIdx] := mountedCols
+
+    tableBase := nChainIdx * MAX_CABLE_POSITIONS
+    cellBase := nChainIdx * MAX_GRID_CELLS
+    bytefill(@mountedToLayout[tableBase], NO_POSITION, MAX_CABLE_POSITIONS)
+    bytefill(@mountedCellRow[tableBase], NO_POSITION, MAX_CABLE_POSITIONS)
+    bytefill(@mountedCellCol[tableBase], NO_POSITION, MAX_CABLE_POSITIONS)
+    bytefill(@cableToPosition[tableBase], NO_POSITION, MAX_CABLE_POSITIONS)
+    bytefill(@mountedCellToPosition[cellBase], NO_POSITION, MAX_GRID_CELLS)
+
+    ' first turn each panel's cell as the display is mounted, and mark it with its layout position;
+    ' this is the cell form of the pixel rule in isp_hub75_screenUtils.drawPixelAtRCwithRGB
+    repeat posn from 0 to panelCount - 1
+        cellRow := positionToCellRow[tableBase + posn]
+        cellCol := positionToCellCol[tableBase + posn]
+        case eRotation
+            ROT_RIGHT_90:
+                ' the layout's left edge is the mounted top, its bottom edge the mounted left
+                mountedRow := cellCol
+                mountedCol := (gridRows - 1) - cellRow
+            ROT_LEFT_90:
+                ' the layout's right edge is the mounted top, its top edge the mounted left
+                mountedRow := (gridCols - 1) - cellCol
+                mountedCol := cellRow
+            ROT_180:
+                mountedRow := (gridRows - 1) - cellRow
+                mountedCol := (gridCols - 1) - cellCol
+            other:
+                mountedRow := cellRow
+                mountedCol := cellCol
+        mountedCellToPosition[cellBase + (mountedRow * mountedCols) + mountedCol] := posn
+
+    ' then number the panels in reading order as mounted, replacing each layout position with its panel position
+    mountedPosn := 0
+    repeat cellIdx from 0 to (mountedRows * mountedCols) - 1
+        posn := mountedCellToPosition[cellBase + cellIdx]
+        if posn <> NO_POSITION
+            mountedToLayout[tableBase + mountedPosn] := posn
+            mountedCellRow[tableBase + mountedPosn] := cellIdx / mountedCols
+            mountedCellCol[tableBase + mountedPosn] := cellIdx // mountedCols
+            cableToPosition[tableBase + (panelCount - 1 - positionToSlot[tableBase + posn])] := mountedPosn
+            mountedCellToPosition[cellBase + cellIdx] := mountedPosn
+            mountedPosn++
+
+PRI printLayout(nChainIdx) | panelCount, gridRows, gridCols, rowIdx, colIdx, posn, cablePos, lineLen, tableBase, cellBase, bWide, layoutPosn
+' Print the derived picture (the layout, one line per grid row), then the lookup tables
+' (panel positions as mounted).
 '
 ' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 
@@ -1265,6 +1411,7 @@ PRI printLayout(nChainIdx) | panelCount, gridRows, gridCols, rowIdx, colIdx, pos
 ' @local tableBase - first entry of this adapter in the per-position tables
 ' @local cellBase - first entry of this adapter in the grid table
 ' @local bWide - TRUE when cable numbers can have two digits
+' @local layoutPosn - panel position in the layout's reading order of the panel at a mounted position
 
     panelCount := layoutPanelCount[nChainIdx]
     gridRows := layoutGridRows[nChainIdx]
@@ -1286,9 +1433,11 @@ PRI printLayout(nChainIdx) | panelCount, gridRows, gridCols, rowIdx, colIdx, pos
                 lineLen := appendPanelCell(lineLen, cablePos, positionToRotation[tableBase + posn], bWide)
         pictureLine[lineLen] := 0
         debug("HUB75: DISP", udec_(nChainIdx), "   ", zstr_(@pictureLine))
+    ' one line per panel position as mounted (P); the cell, slot and rotation are the layout's
     repeat posn from 0 to panelCount - 1
-        cablePos := panelCount - 1 - positionToSlot[tableBase + posn]
-        debug("HUB75: DISP", udec_(nChainIdx), " P", udec_(posn), " = C", udec_(cablePos), ", buffer slot ", udec_(positionToSlot[tableBase + posn]), ", cell row ", udec_(positionToCellRow[tableBase + posn]), " column ", udec_(positionToCellCol[tableBase + posn]), ", rotation ", udec_((positionToRotation[tableBase + posn] - hwEnum.ROT_0) * DEGREES_PER_QUARTER))
+        layoutPosn := mountedToLayout[tableBase + posn]
+        cablePos := panelCount - 1 - positionToSlot[tableBase + layoutPosn]
+        debug("HUB75: DISP", udec_(nChainIdx), " P", udec_(posn), " = C", udec_(cablePos), ", buffer slot ", udec_(positionToSlot[tableBase + layoutPosn]), ", cell row ", udec_(positionToCellRow[tableBase + layoutPosn]), " column ", udec_(positionToCellCol[tableBase + layoutPosn]), ", rotation ", udec_((positionToRotation[tableBase + layoutPosn] - hwEnum.ROT_0) * DEGREES_PER_QUARTER))
     ' the inverse table, as identify will read it
     lineLen := 0
     repeat cablePos from 0 to panelCount - 1

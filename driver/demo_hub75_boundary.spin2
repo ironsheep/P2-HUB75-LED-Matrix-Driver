@@ -146,14 +146,13 @@ PRI drawSeamText() | textLine, textColumn
 PRI drawPanelLineOverEdge() | panelRows, panelColumns, lineRow, fromColumn, toColumn
 ' Draw a panel-centric line on panel P0 that runs on past the panel's right edge, so it must be clipped.
 '
-' @local panelRows - pixel rows in one panel
-' @local panelColumns - pixel columns in one panel
+' @local panelRows - pixel rows in one panel, as the viewer sees it with the display as mounted
+' @local panelColumns - pixel columns in one panel, as the viewer sees it with the display as mounted
 ' @local lineRow - panel row of the line
 ' @local fromColumn - panel column where the line starts
 ' @local toColumn - panel column where the line ends (beyond the right edge)
 
-  panelRows := hub75Bffrs.rowsPerPanel(chainIndex)
-  panelColumns := hub75Bffrs.columnsPerPanel(chainIndex)
+  panelRows, panelColumns := hub75Bffrs.cellSizeInPixels(chainIndex)
   lineRow := panelRows / PANEL_LINE_ROW_DIVISOR
   fromColumn := panelColumns / CENTER_DIVISOR
   toColumn := panelColumns + (panelColumns / CENTER_DIVISOR)

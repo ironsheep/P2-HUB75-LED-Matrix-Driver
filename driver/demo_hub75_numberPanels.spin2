@@ -97,17 +97,16 @@ PUB main() : ok
 
   repeat                                                        ' hold the image
 
-PRI identifyPanels() | panelCount, cablePos, panelPosn, gridRows, gridColumns, cellRows, cellColumns, bCompact
+PRI identifyPanels() | panelCount, cablePos, panelPosn, cellRows, cellColumns, bCompact
 ' Label every panel: for each cable position, look up the panel position where that panel
-' sits and draw on that panel an arrow, Ck and Pp, over a background colour of its own.
+' sits (reading order as mounted) and draw on that panel an arrow, Ck and Pp, over a
+' background colour of its own.
 '
 ' @local panelCount - number of panels in use
 ' @local cablePos - cable position being labelled
-' @local panelPosn - panel position of the panel at that cable position
-' @local gridRows - cells vertically in the display's grid
-' @local gridColumns - cells horizontally in the display's grid
-' @local cellRows - pixel rows of one panel
-' @local cellColumns - pixel columns of one panel
+' @local panelPosn - panel position of the panel at that cable position, as mounted
+' @local cellRows - pixel rows of one panel, as mounted
+' @local cellColumns - pixel columns of one panel, as mounted
 ' @local bCompact - TRUE when the panel is too small for three lines
 
   cellRows, cellColumns := hub75Bffrs.cellSizeInPixels(chainIndex)
@@ -117,9 +116,9 @@ PRI identifyPanels() | panelCount, cablePos, panelPosn, gridRows, gridColumns, c
     display.setTextFont(display.TEXT_FONT_5X7)
   display.setTextColor(color.cWhite)
 
-  gridRows, gridColumns := hub75Bffrs.displaySizeInPanels(chainIndex)
-  panelTextLines := display.numberTextLines() / gridRows
-  panelTextColumns := display.numberTextColumns() / gridColumns
+  ' text on one panel as the viewer sees it, so the labels stay right at 90 and 270 degrees
+  panelTextLines := display.textLinesPerPanel()
+  panelTextColumns := display.textColumnsPerPanel()
   bCompact := panelTextLines < MIN_SEPARATE_LINES
 
   ' start with blank screen on which to draw

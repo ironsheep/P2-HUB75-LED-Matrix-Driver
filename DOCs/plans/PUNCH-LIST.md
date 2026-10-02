@@ -30,3 +30,12 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 - **Estimate (reviewer's hand count, not measured):** about 10-15% of the half-scan converter time, more on the quarter-scan path. For scale, the rig's commit is now 14,183 us.
 - **Not known:** the real saving; a harness run before and after is needed.
 - **Bears on:** refresh/commit headroom in the limits table (§11, «#82»). Any change must re-run the «#76» harness (9/10/16 half-scan, 1/2/3 quarter-scan) and must show the same PASS set.
+
+### Panel-centric clipping looks up the panel for every pixel (efficiency, not measured)
+
+- **Found:** 2026-10-02, by the «#86» cleanup review.
+- **What:** a panel-centric line or pixel is clipped by calling `hub75Bffrs.positionAtDisplayPixel()` for every pixel (`driver/isp_hub75_display.spin2`, `drawLineInternal` / `drawPixelInternal` with `clipPanel`). Each call validates the chain index and does two divisions and a table read. The design predates «#86»; «#86» moved the lookup onto mounted tables without changing its cost.
+- **Cheaper:** compute the target panel's rectangle once per call (`offsetToPanel` + `cellSizeInPixels`) and clip each pixel with four compares, or clip the line's endpoints once.
+- **Not known:** the saving; panel-centric drawing is a small part of the boundary test's 191,538 µs.
+- **Bears on:** nothing in this sprint; a candidate for a performance pass.
+

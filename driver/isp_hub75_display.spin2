@@ -262,18 +262,19 @@ PUB fillScreen(rgbColor) | panelIndex
     fillPanelPixels(panelIndex, rgbColor)
 
 PUB fillPanel(panelIndex, rgbColor) | offsetPixelRows, offsetPixelColumns
-'' Fill the specified panel with 24-bit color value. Panels are named by panel position:
-'' reading order from the top-left panel, over the cells of the display's grid that hold a panel.
+'' Fill the specified panel with 24-bit color value. Panels are named by panel position as the
+'' display is mounted: reading order from the top-left panel as the viewer sees it, over the
+'' cells of the display's grid that hold a panel. At ROT_NONE this is the layout's order.
 ''   2x2 grid: [0][1]    3x3 grid: [0][1][2]
 ''             [2][3]              [3][4][5]
 ''                                 [6][7][8]
 ''
-'' @param panelIndex - panel position of the target panel (P0 is the top-left panel)
+'' @param panelIndex - panel position of the target panel (P0 is the top-left panel as mounted)
 '' @param rgbColor - 24-bit RGB color value
 
 ' Local Variables:
-' @local offsetPixelRows - display row of the panel's top-left pixel
-' @local offsetPixelColumns - display column of the panel's top-left pixel
+' @local offsetPixelRows - display row of the panel's top-left pixel, as mounted
+' @local offsetPixelColumns - display column of the panel's top-left pixel, as mounted
 
   offsetPixelRows, offsetPixelColumns := fillPanelPixels(panelIndex, rgbColor)
   debug("fillPanel(", udec_(panelIndex), ") ", udec_(columnsPerPanel), "x", udec_(rowsPerPanel), " @ row=", udec_(offsetPixelRows), " col=", udec_(offsetPixelColumns))
@@ -320,14 +321,15 @@ PUB homeCursor()
 PUB setCursorOnPanel(line, column, panelIndex) | boundedPanelIndex, boundedLine, boundedColumn, panelGridRow, panelGridCol, offsetPixelRows, offsetPixelColumns
 '' Position the text cursor to line, column within the selected panel
 '' Translates panel-local text coordinates to display-wide coordinates
-'' Panels are named by panel position: reading order from the top-left panel.
+'' Panels are named by panel position as the display is mounted: reading order from the
+'' top-left panel as the viewer sees it. Lines and columns count as the viewer reads them.
 ''   2x2 grid: [0][1]    3x3 grid: [0][1][2]
 ''             [2][3]              [3][4][5]
 ''                                 [6][7][8]
 ''
 '' @param line - zero-based text line number within the panel
 '' @param column - zero-based text column number within the panel
-'' @param panelIndex - panel position of the target panel (P0 is the top-left panel)
+'' @param panelIndex - panel position of the target panel (P0 is the top-left panel as mounted)
 
 ' Local Variables:
 ' @local boundedPanelIndex - panel position clamped to the panels in use
@@ -357,7 +359,7 @@ PUB setCursorOnPanel(line, column, panelIndex) | boundedPanelIndex, boundedLine,
 PUB homeCursorOnPanel(panelIndex)
 '' Return the cursor to the top left corner of the selected panel.
 ''
-'' @param panelIndex - panel position of the target panel (P0 is the top-left panel)
+'' @param panelIndex - panel position of the target panel (P0 is the top-left panel as mounted)
 
   setCursorOnPanel(HOME_LINE, HOME_COLUMN, panelIndex)
 
@@ -430,6 +432,23 @@ PUB numberTextColumns() : nbrTextColumns
 '' @returns nbrTextColumns - number of text columns that fit on the display
 
   nbrTextColumns := maxTextColumns
+
+PUB textLinesPerPanel() : nbrPanelTextLines
+'' Return the number of text lines on one panel for the currently selected font, as the viewer
+'' sees the panel with the display mounted. It is the line count setCursorOnPanel() counts over,
+'' so it follows the font and, at 90 and 270 degrees, the panel's turned shape.
+''
+'' @returns nbrPanelTextLines - number of text lines that fit on one panel, as mounted
+
+  nbrPanelTextLines := maxPanelTextLines
+
+PUB textColumnsPerPanel() : nbrPanelTextColumns
+'' Return the number of text columns on one panel for the currently selected font, as the viewer
+'' sees the panel with the display mounted. It is the column count setCursorOnPanel() counts over.
+''
+'' @returns nbrPanelTextColumns - number of text columns that fit on one panel, as mounted
+
+  nbrPanelTextColumns := maxPanelTextColumns
 
 PUB setTextColor(rgbColor)
 '' Set the 24-bit color for subsequent text display.
@@ -668,7 +687,7 @@ PUB scrollTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direction) :
 '' Place scrolling text across multiple panels on the specified line using the current text color.
 ''
 '' @param line - zero-based text line number
-'' @param panelIndex - zero-based index of the starting panel
+'' @param panelIndex - panel position of the starting panel (P0 is the top-left panel as mounted)
 '' @param panelCount - number of panels to scroll across
 '' @param pZString - pointer to zero-terminated string
 '' @param direction - scroll direction (DIR_TO_LEFT, DIR_TO_RIGHT, etc.)
@@ -680,7 +699,7 @@ PUB scrollColoredTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direc
 '' Place scrolling text across multiple panels on the specified line using the given color.
 ''
 '' @param line - zero-based text line number
-'' @param panelIndex - zero-based index of the starting panel
+'' @param panelIndex - panel position of the starting panel (P0 is the top-left panel as mounted)
 '' @param panelCount - number of panels to scroll across
 '' @param pZString - pointer to zero-terminated string
 '' @param direction - scroll direction (DIR_TO_LEFT, DIR_TO_RIGHT, etc.)
@@ -824,7 +843,7 @@ PUB drawPanelBox(panelIndex, topRow, leftColumn, width, height, filled)
 '' Draw a box in desired panel outline/filled of width x height at R,C (using current text color)
 ''   - use preceeding setTextColor() to set the outline color
 ''
-'' @param panelIndex - panel position of the target panel (P0 is the top-left panel)
+'' @param panelIndex - panel position of the target panel (P0 is the top-left panel as mounted)
 '' @param topRow - row number of top left corner
 '' @param leftColumn - column number of top left corner
 '' @param width - width of box in pixels (including outline)
@@ -835,10 +854,10 @@ PUB drawPanelBox(panelIndex, topRow, leftColumn, width, height, filled)
 
 PUB drawPanelBoxOfColor(panelIndex, topRow, leftColumn, width, height, filled, rgbColor) | rightColumn, bottomRow, rowIndex, offsetPixelRows, offsetPixelColumns, panelPosn
 '' Draw a box in desired panel a box outline/filled of width x height at R,C using rgbColor.
-'' R,C are panel coordinates; the parts of the box that fall outside the panel are clipped,
+'' R,C are panel coordinates as the viewer sees the panel with the display mounted; the parts of the box that fall outside the panel are clipped,
 '' never drawn on a neighbouring panel.
 ''
-'' @param panelIndex - panel position of the target panel (P0 is the top-left panel)
+'' @param panelIndex - panel position of the target panel (P0 is the top-left panel as mounted)
 '' @param topRow - row number of top left corner
 '' @param leftColumn - column number of top left corner
 '' @param width - width of box in pixels (including outline)
@@ -897,7 +916,7 @@ PUB drawLineOfColor(fmRow, fmColumn, toRow, toColumn, rgbColor)
 PUB drawPanelLine(panelIndex, fmRow, fmColumn, toRow, toColumn)
 '' Draw a line on the specified panel from one position to another using the current text color.
 ''
-'' @param panelIndex - panel position of the target panel (P0 is the top-left panel)
+'' @param panelIndex - panel position of the target panel (P0 is the top-left panel as mounted)
 '' @param fmRow - starting pixel row relative to the panel
 '' @param fmColumn - starting pixel column relative to the panel
 '' @param toRow - ending pixel row relative to the panel
@@ -907,10 +926,11 @@ PUB drawPanelLine(panelIndex, fmRow, fmColumn, toRow, toColumn)
 
 PUB drawPanelLineOfColor(panelIndex, fmRow, fmColumn, toRow, toColumn, rgbColor) | desiredPanelIndex, offsetPixelRows, offsetPixelColumns
 '' Draw line fromRC -> toRC using rgbColor within a specific panel
-'' Uses panel coordinates; the part of the line that falls outside the panel is clipped,
+'' Uses panel coordinates as the viewer sees the panel with the display mounted: row 0 is the
+'' panel's top, column 0 its left. The part of the line that falls outside the panel is clipped,
 '' never drawn on a neighbouring panel.
 ''
-'' @param panelIndex - panel position of the target panel (P0 is the top-left panel)
+'' @param panelIndex - panel position of the target panel (P0 is the top-left panel as mounted)
 '' @param fmRow - starting pixel row relative to the panel
 '' @param fmColumn - starting pixel column relative to the panel
 '' @param toRow - ending pixel row relative to the panel
@@ -1055,21 +1075,28 @@ PRI nextFreeScroller() : scrollerIndexToUse | scrollerIndex
     abort
     ' debug("DSP: nextFreeScroller() ", udec(scrollerIndexToUse))
 
-PRI fillPanelPixels(panelIndex, rgbColor) : offsetPixelRows, offsetPixelColumns
-' Fill one panel with a 24-bit color value: every pixel of the panel, offset to the panel's
-' place in the display, goes through the one mapping. The panel's offset is in layout
-' coordinates, so the fill skips display rotation; a fill is the same at every rotation.
+PRI fillPanelPixels(panelIndex, rgbColor) : offsetPixelRows, offsetPixelColumns | layoutTopRow, layoutLeftColumn, layoutRows, layoutColumns
+' Fill one panel with a 24-bit color value: every pixel of the panel's rectangle in the
+' layout goes through the one mapping. The panel position is numbered as mounted, and the
+' fill skips display rotation, so it fills the panel the viewer calls panelIndex at every rotation.
 '
-' @param panelIndex - panel position of the target panel (P0 is the top-left panel)
+' @param panelIndex - panel position of the target panel (P0 is the top-left panel as mounted)
 ' @param rgbColor - 24-bit RGB color value
-' @returns offsetPixelRows - display row of the panel's top-left pixel
-' @returns offsetPixelColumns - display column of the panel's top-left pixel
+' @returns offsetPixelRows - display row of the panel's top-left pixel, as mounted
+' @returns offsetPixelColumns - display column of the panel's top-left pixel, as mounted
+
+' Local Variables:
+' @local layoutTopRow - layout row of the panel's top-left pixel
+' @local layoutLeftColumn - layout column of the panel's top-left pixel
+' @local layoutRows - pixel rows of the panel in the layout
+' @local layoutColumns - pixel columns of the panel in the layout
 
   offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, panelIndex)
-  pixels.fillLayoutArea(chainIndex, offsetPixelRows, offsetPixelColumns, rowsPerPanel, columnsPerPanel, rgbColor)
+  layoutTopRow, layoutLeftColumn, layoutRows, layoutColumns := hub75Bffrs.layoutAreaOfPanel(chainIndex, panelIndex)
+  pixels.fillLayoutArea(chainIndex, layoutTopRow, layoutLeftColumn, layoutRows, layoutColumns, rgbColor)
 
 PRI drawLineInternal(fmRow, fmColumn, toRow, toColumn, rgbColor, clipPanel) | row, column
-' Internal line drawing, in display coordinates, for display-centric and panel-centric lines
+' Internal line drawing, in display coordinates as mounted, for display-centric and panel-centric lines
 '
 ' @param fmRow - starting pixel row
 ' @param fmColumn - starting pixel column
@@ -1180,8 +1207,8 @@ PRI plotLineHighInternal(x0, y0, x1, y1, rgbColor, clipPanel) | row, column, dy,
       decisionAccum := decisionAccum +BRESENHAM_TWO*dx
 
 PRI drawPixelInternal(row, column, rgbColor, clipPanel)
-' Draw a single pixel at display coordinates. A panel-centric pixel is drawn only when it
-' lies on its own panel; a pixel past that panel's edge is clipped.
+' Draw a single pixel at display coordinates as mounted. A panel-centric pixel is drawn only
+' when it lies on its own panel (panel positions as mounted); a pixel past that panel's edge is clipped.
 '
 ' @param row - pixel row position
 ' @param column - pixel column position

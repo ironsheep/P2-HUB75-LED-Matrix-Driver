@@ -85,6 +85,8 @@ PUB drawPixelAtRCwithRGB(nChainIdx, row, column, red, green, blue) | layoutRows,
 
   ' Display rotation comes first: mounted coordinates -> layout coordinates (the display as
   ' its panels are laid out). The rotation is physical: it says how the display hangs.
+  ' hub75Bffrs.buildMountedTables() applies the same rule to whole panel cells at startup;
+  ' a change to either must be made to both.
   case eRotation
     hub75Bffrs.ROT_RIGHT_90:
       ' hung turned clockwise: the layout's left edge is the mounted top, its bottom edge the mounted left
@@ -112,8 +114,9 @@ PUB drawPixelAtRCwithRGB(nChainIdx, row, column, red, green, blue) | layoutRows,
 PUB fillLayoutArea(nChainIdx, topRow, leftColumn, nRows, nColumns, rgbColor) | xlatedColor, red, green, blue, row, column, pColor
 '' Fill a rectangle of the display as its panels are laid out with rgbColor, skipping display
 '' rotation. For work that does not depend on how the display is mounted, such as filling a
-'' whole panel: callers locate panels with hub75Bffrs.offsetToPanel(), which gives layout
-'' coordinates. A pixel outside the layout, or in a cell that holds no panel, is not drawn.
+'' whole panel: callers locate a panel with hub75Bffrs.layoutAreaOfPanel(), which maps the
+'' panel position as mounted to its layout rectangle. A pixel outside the layout, or in a cell
+'' that holds no panel, is not drawn.
 '' The color is translated and corrected once per fill (once per column for cRainbow, whose hue
 '' follows the layout column), not once per pixel; the write matches drawPixelAtRCwithRGB().
 ''
