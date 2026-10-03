@@ -58,9 +58,6 @@ CON ' Magic-number vocabulary (per SPIN2-AUTHORING-GUIDE.md 5.7)
 ' RGB2 empty-check scan span (first 32 bytes)
     RGB2_CHECK_BYTE_COUNT   = 32
 
-' Clock-tick conversion
-    TICKS_PER_USEC_DIVISOR  = 1_000_000
-
 ' Test sentinel
     ALL_ONES                = $ffffffff
 
@@ -98,9 +95,6 @@ VAR ' driver instance variables
 
     LONG    pPwmFrame1
     LONG    pPwmFrame2
-
-    LONG    intrvlStart
-    LONG    intrvlStop
 
 ' ----------------------------------------------------------
 
@@ -248,8 +242,6 @@ PUB convertScreen2PWM_14(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet, pPwmFra
   '    rows 16 - 24: targetRow = ((row - 16) * 2) + 17
   '    rows 24 - 31: targetRow = (row - 24) * 2) + 16
   ' -------------------------------------------------------------------------
-
-  markStart()
 
   ' init ptrs/variables
   pPwmFrameSet            := getActivePwmBuffer()
@@ -469,7 +461,6 @@ write8SPwmByte
 doneS8
     END
 
-  markEnd(string("pasm 8S"), p24bitScreen)
   matrix.cmdWritePwmBuffer(pPwmFrameSet)
 
 ' -----------------------------------------------------------------------------
@@ -499,8 +490,6 @@ PUB convertScreen2PWM(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet, lPanelCoun
 ' NOTE: 16 longs total avail to inline pasm: params + return + local
 '  --> 13/16 used
 
-
-  markStart()
 
   ' Get PWM buffer and setup parameters
   pPwmFrameSet            := getActivePwmBuffer()
@@ -654,8 +643,6 @@ nextBit
 done16s
     END
 
-  markEnd(string("pasm 16S"), p24bitScreen)
-
 #ifdef DBG_PWM
   ' Debug code for Frame 0 MSB issue investigation (enable with -D DBG_PWM)
   nPassCt++
@@ -779,35 +766,6 @@ PRI getPwmFrameAddressForBit(nBitNumber) : pFrameBuffer | nFrameOfst, frameIdx
   nFrameOfst := frameIdx * nPwmFrameSizeInLongs ' N longs in each PWM frame
   pFrameBuffer := @LONG[getActivePwmBuffer()][nFrameOfst]
   'debug("- PWM frame(", udec_(frameIdx), "), ", uhex_long(pFrameBuffer))
-
-PRI markStart()
-' Record the starting timestamp for an interval measurement.
-'
-
-'pinl(46)    ' for timing
-'pinh(47)    ' for timing
-
-  intrvlStart := GETCT()                                ' get starting time
-
-PRI markEnd(message, pScreen) | elapsed
-' Record the ending timestamp and compute elapsed microseconds since markStart(). The debug
-' line names this instance and the screen buffer it converted, so each display's commit
-' shows which buffer it read.
-'
-' @param message - label string for the debug output
-' @param pScreen - hub address of the screen buffer that was converted
-
-' Local Variables:
-' @local elapsed - computed elapsed time in microseconds
-
-  intrvlStop := GETCT()                                 ' get stoping time
-  'pinl(47)    ' for timing
-  'pinl(46)    ' for timing
-  elapsed := intrvlStop - intrvlStart                   ' compute elapsed ticks, no need to worry about timer wrap here
-  ' elapsed := elapsed +/ (clkfreq/1000) ' convert to milliseconds
-  elapsed := elapsed +/ (clkfreq/TICKS_PER_USEC_DIVISOR) ' convert to useconds
-    'elapsed := elapsed +/ (clkfreq/1000) ' convert to useconds
-    debug("- runtime ", zstr_(message), ": ", udec_long(elapsed), " uS, PNL #", udec_(instanceID), " screen 0x", uhex_long_(pScreen))
 
 #ifdef DBG_PWM
 DAT  ' PWM/frame dump diagnostic message strings (compiled only with -D DBG_PWM)

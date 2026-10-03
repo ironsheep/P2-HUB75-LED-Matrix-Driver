@@ -32,7 +32,6 @@ CON ' boundary test geometry
     FIRST_PANEL = 0                                               ' panel position P0 (top-left)
     FIRST_ROW = 0                                                 ' top row of the display
     FIRST_COLUMN = 0                                              ' leftmost column of the display
-    USEC_PER_SECOND = 1_000_000                                   ' microseconds in one second
 
 DAT
 
@@ -71,20 +70,17 @@ PUB main() : ok
 
   repeat                                                        ' hold the image
 
-PRI demoBoundary() | startTime
-' Draw the boundary test, report how long the drawing took, then show it.
+PRI demoBoundary()
+' Draw the boundary test, then show it.
 '
-' @local startTime - system counter value when drawing began
 
   display.clearScreenBuffer()
 
-  startTime := getct()
   drawCrosshair()
   drawSpanningBox()
   drawCenterCircle()
   drawSeamText()
   drawPanelLineOverEdge()
-  showDuration(startTime, @"boundary draw")
 
   display.commitScreenToPanelSet()
 
@@ -158,20 +154,6 @@ PRI drawPanelLineOverEdge() | panelRows, panelColumns, lineRow, fromColumn, toCo
   toColumn := panelColumns + (panelColumns / CENTER_DIVISOR)
 
   display.drawPanelLineOfColor(FIRST_PANEL, lineRow, fromColumn, lineRow, toColumn, color.cRed)
-
-PRI showDuration(startTimeValue, pFuncTitle) | duration, converted
-' Calculate and display elapsed time in microseconds via debug output.
-'
-' @param startTimeValue - system counter value at start of measurement
-' @param pFuncTitle - pointer to zero-terminated function name string
-'
-' @local duration - elapsed clock ticks
-' @local converted - elapsed time in microseconds
-
-  duration := getct() - startTimeValue
-  converted := muldiv64(duration, USEC_PER_SECOND, clkfreq)
-  debug("- elapsed ", zstr_(pFuncTitle), ": ", udec_(converted), " uSec")
-
 
 CON { license }
 

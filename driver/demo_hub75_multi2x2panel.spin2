@@ -354,13 +354,9 @@ PRI demoTopBottomScroll() | scrollerID
   ' loop while scrolling finishes
   repeat while NOT display.isScrollingComplete()
     ' move the text
-    'startTime := getct()
     display.animateScroll()
-    'showDuration(startTime, string("top:ANI"))
     ' commit to screen
-    'startTime := getct()
     display.commitScreenToPanelSet()
-    'showDuration(startTime, string("top:ANI-wr"))
 
     ' delay to next movement
     'wait1000thSecs(scrollPeriod)
@@ -410,19 +406,6 @@ PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, boxColor, hueInde
     boxColor := colorUtils.rgbColorFromDegrees(panelHueWidth * hueIndex)
     display.drawPanelBoxOfColor(panelIndex, 17, 10, 40, 34, TRUE, boxColor)
   display.commitScreenToPanelSet()
-
-PRI showDuration(startTimeValue, pFuncTitle) | duration, converted
-' Report the elapsed time in microseconds since a captured start tick.
-'
-' @param startTimeValue - the getct() value captured at the start of the interval
-' @param pFuncTitle - pointer to a label string for the reported interval
-'
-' @local duration - elapsed tick count
-' @local converted - elapsed time converted to microseconds
-  duration := getct() - startTimeValue
-  converted := muldiv64(duration, 1_000_000, clkfreq)
-  debug("- elapsed ", zstr_(pFuncTitle), ": ", udec_(converted), " uSec")
-
 
 CON ' license
 

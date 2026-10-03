@@ -224,20 +224,6 @@ PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, hueIndex
 
   display.commitScreenToPanelSet()
 
-PRI showDuration(startTimeValue, pFuncTitle) | duration, converted
-' Calculate and display elapsed time in microseconds via debug output.
-'
-' @param startTimeValue - system counter value at start of measurement
-' @param pFuncTitle - pointer to zero-terminated function name string
-'
-' @local duration - elapsed clock ticks
-' @local converted - elapsed time in microseconds
-
-  duration := getct() - startTimeValue
-  converted := muldiv64(duration, 1_000_000, clkfreq)
-  debug("- elapsed ", zstr_(pFuncTitle), ": ", udec_(converted), " uSec")
-
-
 CON { license }
 
 {{

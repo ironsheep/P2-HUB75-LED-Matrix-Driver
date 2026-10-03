@@ -265,7 +265,6 @@ PUB animateScroll()
 ''
 
   if NOT isScrollingComplete()
-    'startTime := getct()
     'debug("stx:AS()")
 
     ' if scrolling left then head is next loosing left most pixel (offset dictates)
@@ -314,8 +313,6 @@ PUB animateScroll()
         if remainingPixToScroll == 0
           ctCharsToScroll := 0  ' force IDLE to report true now
             ' debug("stx:AS ", udec(remainingPixToScroll))
-
-        ' showDuration(startTime, string("stx:AS"))
 
 PUB isScrollingComplete() : doneStatus
 '' Return T/F where T means that all scrolling movement is complete.
@@ -601,8 +598,6 @@ PRI placeBitmapFrontAtRCWithColor(row, column, bitInset, nbrFieldBits, pChrBitma
 ' @local ditheredRGBColor - reduced brightness color for dithered pixels
 ' @local ctBitsToSkip - character bits that fall left of the region's left edge and are not drawn
 
-' startTime := getct()
-
   nbrCharBits := (nbrFieldBits > 0) ? nbrFieldBits - horizontalGapInPix : 0
   'debug("stx:pbF ", udec(column), udec(bitInset), udec(nbrFieldBits), udec(nbrCharBits), uhex_long(pChrBitmap))
   ' if we have some but not all char bits then we are leading char
@@ -652,7 +647,6 @@ PRI placeBitmapFrontAtRCWithColor(row, column, bitInset, nbrFieldBits, pChrBitma
     endColumn := placeSpaceAtRC(row, endColumn, horizontalGapInPix)
 
     'debug("stx:pBMf() ", udec(instanceID), udec(row), udec(column), udec(bitInset), udec(nbrCharBits), udec(endColumn))
-    'showDuration(startTime, string("stx:pbF"))
 
 PRI placeBitmapBackAtRCWithColor(row, column, bitInset, nbrCharBits, pChrBitmap, rgbColor) : endColumn | cBitIdx, cByteIdx, cRowBits, pixColor, colOffset, pixColumn, pixRow, cBitOffset, pixVal, ditheredRGBColor, ctBitsToDraw
 ' Draw the trailing (back) portion of a character bitmap at the given position with color.
@@ -676,7 +670,6 @@ PRI placeBitmapBackAtRCWithColor(row, column, bitInset, nbrCharBits, pChrBitmap,
 ' @local pixVal - extracted pixel value from dithered bitmap
 ' @local ditheredRGBColor - reduced brightness color for dithered pixels
 ' @local ctBitsToDraw - character bits to draw: all of them, or on a display region those left of the display's right edge
-  'startTime := getct()
   'debug("stx:pbB ", udec(column), udec(bitInset), udec(nbrCharBits), uhex_long(pChrBitmap))
   'rgbColor := $ffff00 ' TESTING color our trailing char yellow
   endColumn := column + nbrCharBits
@@ -722,7 +715,6 @@ PRI placeBitmapBackAtRCWithColor(row, column, bitInset, nbrCharBits, pChrBitmap,
         colOffset--
 
     'debug("stx:pBMb() ", udec(instanceID), udec(row), udec(column), udec(bitInset), udec(nbrCharBits), udec(endColumn))
-    'showDuration(startTime, string("stx:pbB"))
 
 PRI placeColrBitmapVtOffsetAtRC(row, column, vtPxOffset, pChrBitmap, rgbColor) : endColumn | cBitIdx, rowIdx, cByteIdx, cRowBits, pixColor, pixRow, cBitOffset, colOffset, pixColumn, pixVal, ditheredRGBColor, ctBitsToDraw
 ' Draw a character bitmap vertically offset by the given pixel amount, painting black for the extra row.

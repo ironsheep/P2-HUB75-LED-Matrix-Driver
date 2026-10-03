@@ -32,12 +32,24 @@ CON { I/O PINs }
 ' New P2 Eval Board HUB75 Adapter:
     ' the user-selected location: one of 0, 16, 32, and 48
 
-' Special unused P2 pins used for send signals to Logic Analyzer
-    MTX_LA_XTRA_PINS_BASE =  8
-    MTX_LA_XT_P08 =  MTX_LA_XTRA_PINS_BASE + 0
-    MTX_LA_XT_P09 =  MTX_LA_XTRA_PINS_BASE + 1
-    MTX_LA_XT_P10 =  MTX_LA_XTRA_PINS_BASE + 2
-    MTX_LA_XT_P11 =  MTX_LA_XTRA_PINS_BASE+  3
+#IFDEF HUB75_INSTRUMENT
+CON { instrumentation strobes: compiled only when HUB75_INSTRUMENT is defined }
+
+' Special unused P2 pins used to send timing marks to a Logic Analyzer and to the monitor
+' smart pins of isp_hub75_instrument.spin2. Only the refresh cog of a single adapter drives
+' them, and only when the adapter does not use them itself (start() checks the base pin).
+' Each mark is one pulse (two OUTNOTs):
+'  P08 - the refresh cog took a new command
+'  P09 - frame start: the cog began showing a PWM frame set
+'  P10 - row start: the cog began shifting one row address
+'  P11 - plane latch: the cog latched one row of one bit plane
+    MTX_LA_XTRA_PINS_BASE         = 8
+    MTX_LA_XT_P08                 = MTX_LA_XTRA_PINS_BASE + 0
+    MTX_LA_XT_P09                 = MTX_LA_XTRA_PINS_BASE + 1
+    MTX_LA_XT_P10                 = MTX_LA_XTRA_PINS_BASE + 2
+    MTX_LA_XT_P11                 = MTX_LA_XTRA_PINS_BASE + 3
+    LA_PINS_SPAN                  = 3           ' P08..P11 -> 4 pins
+#ENDIF
 
 CON ' Data
 
@@ -92,7 +104,6 @@ CON { HUB75 pin layout offsets (relative to adapter base pin) }
     ROW_ADDR_PINS_SPAN            = 4           ' A..E -> 5 pins
     COLOR_PINS_SPAN               = 5           ' R1..B2 -> 6 pins
     CONTROL_PINS_SPAN             = 2           ' CLK,OE,LATCH -> 3 pins
-    LA_PINS_SPAN                  = 3           ' P08..P11 -> 4 pins
 
 CON { scan-geometry / buffer packing }
 
@@ -246,12 +257,14 @@ VAR
     LONG    pnlRowAddrPins
     LONG    pnlColorPins
     LONG    pnlControlPins
+#IFDEF HUB75_INSTRUMENT
     ' pins for Logic Analysis (LA) connector
     LONG    pnlLedLA_08
     LONG    pnlLedLA_09
     LONG    pnlLedLA_10
     LONG    pnlLedLA_11
     LONG    pnlLAPins
+#ENDIF
 
 ' --------------------------------------------------------------------------------------------------
 PUB null()
@@ -300,18 +313,24 @@ PUB start(nID, nChainIdx) : startedCog | tmpVar, panelCt, tmpConstant, widthInPa
   pnlColorPins    := pnlLedPinR1 ADDPINS COLOR_PINS_SPAN
   pnlControlPins  := pnlLedPinCLK ADDPINS CONTROL_PINS_SPAN
 
+#IFDEF HUB75_INSTRUMENT
   pnlLedLA_08     := MTX_LA_XT_P08
   pnlLedLA_09     := MTX_LA_XT_P09
   pnlLedLA_10     := MTX_LA_XT_P10
   pnlLedLA_11     := MTX_LA_XT_P11
   pnlLAPins       := pnlLedLA_08 ADDPINS LA_PINS_SPAN
 
-  ' tell our backend driver
+  ' tell our backend driver; the strobes run only if this adapter's own pins (base to R1..B2)
+  ' stay clear of P08..P11, so an adapter at base 0 keeps its colour lines to itself
   pinGrpLAXT      := pnlLAPins
   pinLAXT_08      := pnlLedLA_08
   pinLAXT_09      := pnlLedLA_09
   pinLAXT_10      := pnlLedLA_10
   pinLAXT_11      := pnlLedLA_11
+  strobesEnabled  := (basePin > MTX_LA_XT_P11)
+  if strobesEnabled == FALSE
+    debug("RG3: instrument strobes P", udec_(MTX_LA_XT_P08), "-P", udec_(MTX_LA_XT_P11), " are this adapter's own pins (base P", udec_(basePin), "): strobes off")
+#ENDIF
 
   pinLedOE        := pnlLedPinOE
   pinLedCLK       := pnlLedPinCLK
@@ -731,12 +750,28 @@ drive_matrix
                     rdlong  pCommmand, ptra[0]
                     rdlong  pArgument, ptra[1]
 
+#IFDEF HUB75_INSTRUMENT
                     ' LA INSTRUMENTATION
+                    or      strobesEnabled, strobesEnabled  wz  ' Q: may this cog drive P08..P11?
                     'wrpin   ##P_LOW_FLOAT, pinGrpLAXT ' set these to float LOW for better Analyzer capture RING
                     'wrpin   ##P_LOW_10UA, pinGrpLAXT ' set these to float LOW for better Analyzer capture LESS RING
                     'wrpin   ##P_LOW_100UA, pinGrpLAXT ' set these to float LOW for better Analyzer capture EVEN LESS RING
-                    wrpin   ##P_LOW_1MA, pinGrpLAXT ' set these to P_LOW_1MA for best Analyzer capture no noise at 1.7v threshold
-                    drvl    pinGrpLAXT
+    if_nz           wrpin   ##P_LOW_1MA, pinGrpLAXT ' set these to P_LOW_1MA for best Analyzer capture no noise at 1.7v threshold
+    if_nz           drvl    pinGrpLAXT
+                    ' no: the adapter owns these pins, so each strobe instruction becomes a NOP
+    if_z            mov     strobeCmdA, #0
+    if_z            mov     strobeCmdB, #0
+    if_z            mov     strobeFrameA, #0
+    if_z            mov     strobeFrameB, #0
+    if_z            mov     strobeRowEndA, #0
+    if_z            mov     strobeRowEndB, #0
+    if_z            mov     strobeRowOvlpA, #0
+    if_z            mov     strobeRowOvlpB, #0
+    if_z            mov     strobeLatchEndA, #0
+    if_z            mov     strobeLatchEndB, #0
+    if_z            mov     strobeLatchOvlpA, #0
+    if_z            mov     strobeLatchOvlpB, #0
+#ENDIF
 
                     ' condition address lines
                     'wrpin   ##P_LOW_15K, maskAddr ' set low strength pulldown
@@ -813,9 +848,11 @@ getCommand
     if_z        JMP                             #chkShow
                 ' process NEW command
                 'debug("* cmd=", udec_(nxtCommand), ", arg=", uhex_long_(nxtArgument))
+#IFDEF HUB75_INSTRUMENT
                 ' LA INSTRUMENTATION
-                OUTNOT                          pinLAXT_08                                ' start NEW command
-                OUTNOT                          pinLAXT_08
+strobeCmdA      OUTNOT                          pinLAXT_08                                ' P08: new command taken
+strobeCmdB      OUTNOT                          pinLAXT_08
+#ENDIF
                 MOV                             priorCommand, nxtCommand
 chkShow
                 CMP                             nxtCommand, #CMD_SHOW_BUFFER          wz
@@ -840,8 +877,10 @@ chkFill
 ' cmdDsplyFrameSet(nxtArgument=hubAddressOfPWMFrameSet)
 '
 cmdDsplyFrameSet
-                OUTNOT                          pinLAXT_09                                ' start of PWM FrameSet
-                OUTNOT                          pinLAXT_09
+#IFDEF HUB75_INSTRUMENT
+strobeFrameA    OUTNOT                          pinLAXT_09                                ' P09: frame start (a PWM frame set)
+strobeFrameB    OUTNOT                          pinLAXT_09
+#ENDIF
                 MOV                             pwmBffrStart, nxtArgument                 ' preserve our new start address
                 MOV                             ptra, pwmBffrStart                        ' ptra scans frameset until done (pwmBffrStart is used to reset to front of frame)
                 MOV                             pwmFrameStart, ptra                       ' capture 1st pwmFrame start addr (for redisplay)
@@ -849,9 +888,6 @@ cmdDsplyFrameSet
                 MOV                             pwmFrameSetCt, maxCtPerFrame              ' set initial count: 4 for 3 bit, 8 for 4 bit, 16 for 5bit, etc.
                 MOV                             pwmFrameCt, maxPwmBuffers                 ' set loop to PWM N frames then stop to see what to do next
 nextSamePwmFrame
-                    ' LA INSTRUMENTATION
-                    outnot  pinLAXT_10    ' start of SAME single PWM Frame
-                    outnot  pinLAXT_10
                     mov     pwmSameFrameCt, pwmFrameSetCt
 nextPwmFrame
                 CALL                            #display1PwmFrame                         ' load subpages of current pwmFrame into display buffer
@@ -868,9 +904,6 @@ nextPwmFrame
 ' display1PwmFrame(nxtArgument=hubAddressOfFrame)
 '
 display1PwmFrame
-                    ' LA INSTRUMENTATION
-                    outnot  pinLAXT_11    ' start of NEW single PWM Frame
-                    outnot  pinLAXT_11
                     ' PWM frames are broken in cogBuffer sized subpages
                     ' iterate over subpages to complete the 1 pwm frame
                     ' set addr to start
@@ -967,6 +1000,10 @@ jmpInstr1of1    JMP                             #wrLatchAtEnd
 '  the following routine is for panels that DO overlap latching with serial data bits
 '   (so far this is ONLY panels with FM6126A) (author's pink tagged panels)
 wrLineLatchOvlp
+#IFDEF HUB75_INSTRUMENT
+strobeRowOvlpA  OUTNOT                          pinLAXT_10                                ' P10: row start
+strobeRowOvlpB  OUTNOT                          pinLAXT_10
+#ENDIF
                 '   for bit 0 to 63
                 '     toggle clock (28MHz)
                 MOV                             col_lng_ctr, colCtrMaxLngs                ' this is physical display width wide!
@@ -1001,6 +1038,10 @@ noDbgOvly       ROR                             reg_value, #BITS_PER_BYTE       
                 DJNZ                            col_lng_ctr, #clkNextReg
                 ' LATCH DATA complete...
                 DRVL                            pinLedLATCH                               ' end latch data
+#IFDEF HUB75_INSTRUMENT
+strobeLatchOvlpA OUTNOT                         pinLAXT_11                                ' P11: plane latch (row latched)
+strobeLatchOvlpB OUTNOT                         pinLAXT_11
+#ENDIF
 
                 ' write address AFTER
                 ADD                             row_addr, addrValue1                      ' incr address by 1
@@ -1025,6 +1066,10 @@ noDbgOvly       ROR                             reg_value, #BITS_PER_BYTE       
 wrLatchAtEnd
                 MOV                             byteOffset, #0
 wrLineLatchAtEnd
+#IFDEF HUB75_INSTRUMENT
+strobeRowEndA   OUTNOT                          pinLAXT_10                                ' P10: row start
+strobeRowEndB   OUTNOT                          pinLAXT_10
+#ENDIF
 '   for each column in row:
 '     toggle clock (fixed ~20MHz, independent of sysclk)
                 ' this tracks when we need to toggle latch at right-edge of row
@@ -1054,6 +1099,10 @@ eobytes
                     add     row_addr, addrValue1        ' incr address by 1
                     call    #emitAddr
 
+#IFDEF HUB75_INSTRUMENT
+strobeLatchEndA outnot  pinLAXT_11                          ' P11: plane latch (row about to latch)
+strobeLatchEndB outnot  pinLAXT_11
+#ENDIF
                     drvh    pinLedLATCH
                     waitx   #WAITX_LATCH_SETTLE_TICKS  ' 2 + 3 x clk  let LATCH settle
                     ' LATCH DATA complete...
@@ -1140,11 +1189,14 @@ colCtrLatchCt           LONG                    DFLT_COL_CTR_LATCH              
 pCogBffrIncr            LONG                    cogBuffer + COGBFFR_AUTOINC_FLAG          ' pointer to CogBuffer with auto-increment flag set
 
 ' need following new vars
+#IFDEF HUB75_INSTRUMENT
 pinGrpLAXT              LONG                    0                                         ' MTX_LA_XT_P08_11 pinGroup
-pinLAXT_08              LONG                    0                                         ' MTX_LA_XT_P08 pin - Start of Command Indication
-pinLAXT_09              LONG                    0                                         ' MTX_LA_XT_P09 pin - Start of PWM Frame-set (soPWM)
-pinLAXT_10              LONG                    0                                         ' MTX_LA_XT_P10 pin - Start of ea PWM Frame
-pinLAXT_11              LONG                    0                                         ' MTX_LA_XT_P11 pin -
+pinLAXT_08              LONG                    0                                         ' MTX_LA_XT_P08 pin - new command taken
+pinLAXT_09              LONG                    0                                         ' MTX_LA_XT_P09 pin - frame start
+pinLAXT_10              LONG                    0                                         ' MTX_LA_XT_P10 pin - row start
+pinLAXT_11              LONG                    0                                         ' MTX_LA_XT_P11 pin - plane latch
+strobesEnabled          LONG                    FALSE                                     ' T/F where T means this cog may drive P08..P11
+#ENDIF
 pinLedOE                LONG                    0                                         ' MTX_LED_PIN_OE
 pinLedLATCH             LONG                    0                                         ' MTX_LED_PIN_LATCH
 pinLedCLK               LONG                    0                                         ' MTX_LED_PIN_CLK

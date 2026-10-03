@@ -1,0 +1,464 @@
+'' =================================================================================================
+''
+''   File....... isp_hub75_instrument.spin2
+''   Purpose.... Measure the refresh cog from outside: monitor smart pins on the strobes and on CLK, /OE and LATCH, plus stopwatches
+''   Authors.... Stephen M Moraco / Claude Code
+''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... Oct 2026
+''   Updated.... 03 Oct 2026
+''
+'' =================================================================================================
+
+#IFNDEF HUB75_INSTRUMENT
+#ERROR isp_hub75_instrument needs HUB75_INSTRUMENT: define it, and #PRAGMA EXPORTDEF it, in the test top file
+#ENDIF
+
+{ What this object is:
+
+   The measuring half of the HUB75_INSTRUMENT build (DOCs/plans/FRAME-RATE-SPRINT-PLAN.md section 2).
+   With the symbol defined, the refresh cog of isp_hub75_rgb3bit.spin2 marks its progress on P8-P11
+   and this object starts one input-only smart pin beside each signal it watches. A monitor sits
+   up to three pins from the signal and reads it through the smart pin's A (and B) input routing,
+   so it never drives a pin. Single adapter only: the strobes belong to one refresh cog.
+
+   Monitor map for an adapter at P16 (every pin is derived, none is typed in):
+
+     signal                 pin   monitor   measures
+     P8   new command taken  P8    P5       rises per 1 s window
+     P9   frame start        P9    P6       rises per 1 s window
+     P10  row start          P10   P7       rises per 1 s window
+     P11  plane latch        P11   P12      rises per 1 s window
+     CLK                     P16   P13      high clocks and periods over period-aligned windows
+     /OE                     P17   P14      clocks LOW (lit) per 1 s window
+     LATCH                   P18   P15      rises per 1 s window
+
+   Each signal tries the pins around it nearest-below first (three below, two below, one below,
+   then one, two, three above) and takes the first that is free: not the adapter's own, not a
+   strobe, not another monitor's. A signal with no free neighbour is reported as "not monitored:
+   jumper needed". An adapter at P0 owns P0-P13, which holds the strobe pins themselves, so
+   there the strobes are not driven and no monitor starts.
+
+   CLK is one smart pin, so it alternates between two period-aligned windows: P_COUNTER_HIGHS
+   (clocks CLK was high) and P_COUNTER_PERIODS (CLK periods). Each window is X = clkfreq clocks,
+   stretched only to finish the CLK period in progress, so each count is a per-second figure
+   and the mean high time per pulse is their ratio. The window restarts by itself, so a late
+   read still gets one whole window.
+}
+
+CON ' ---- Signals and Monitors ----
+
+    ' Signals the instrument watches, in report order (MON_COUNT is how many):
+    '  MON_CMD   - P8, the refresh cog took a new command
+    '  MON_FRAME - P9, frame start
+    '  MON_ROW   - P10, row start
+    '  MON_PLANE - P11, plane latch
+    '  MON_CLK   - the adapter's CLK
+    '  MON_OE    - the adapter's /OE
+    '  MON_LATCH - the adapter's LATCH
+    #0, MON_CMD, MON_FRAME, MON_ROW, MON_PLANE, MON_CLK, MON_OE, MON_LATCH, MON_COUNT
+
+    ' Marks a signal that has no monitor pin
+    NO_PIN                  = -1
+
+    ' Smart-pin A and B inputs can reach this far from the monitor's own pin
+    MONITOR_REACH           = 3
+    ' Monitors are searched for in this many positions around a signal
+    NEIGHBOUR_CHOICES       = MONITOR_REACH * 2
+
+    ' Pins 48-63 overlap the P2's predefined pins, so a monitor is never placed there
+    LAST_USABLE_PIN         = 47
+
+    ' Y = 0: count the A input only; for the CLK windows, A rise to B rise
+    MON_COUNT_A_ONLY        = 0
+    CLK_PERIOD_TRIGGER      = %00
+
+    ' Which of its two windows the CLK monitor is running
+    #0, CLK_WINDOW_HIGHS, CLK_WINDOW_PERIODS
+
+    ' A window that has not completed after this many window lengths is given up
+    WINDOW_TIMEOUT_LENGTHS  = 2
+
+CON ' ---- Report Arithmetic ----
+
+    ' Fixed-point reports: x100 values print with one decimal; percent x100 = fraction x 10_000
+    FIXED_POINT_SCALE       = 100
+    FRACTION_DIVISOR        = 10
+    PERCENT_X100_SCALE      = 10_000
+    NS_PER_SECOND           = 1_000_000_000
+    MICROS_PER_SECOND       = 1_000_000
+
+OBJ
+
+    matrix      : "isp_hub75_rgb3bit"                               ' constants only: adapter pin layout and the strobe pins
+
+DAT ' ---- Singleton State ----
+
+    ' Per signal: the pin watched, the pin that monitors it, the neighbour choice that routes it
+    watchedPins             LONG    NO_PIN[MON_COUNT]
+    monitorPins             LONG    NO_PIN[MON_COUNT]
+    monitorRoutes           LONG    0[MON_COUNT]
+    ' Per signal: the count the last window gave
+    windowCounts            LONG    0[MON_COUNT]
+
+    ' Neighbour choices, nearest-below first: the monitor's offset from the watched pin, and the
+    ' routing that makes the monitor's A (and B) input read the watched pin
+    neighbourOffsets        LONG    -3, -2, -1, 1, 2, 3
+    routeInputA             LONG    P_PLUS3_A, P_PLUS2_A, P_PLUS1_A, P_MINUS1_A, P_MINUS2_A, P_MINUS3_A
+    routeInputB             LONG    P_PLUS3_B, P_PLUS2_B, P_PLUS1_B, P_MINUS1_B, P_MINUS2_B, P_MINUS3_B
+
+    ' The adapter's own pins, base to B2
+    adapterFirstPin         LONG    0
+    adapterLastPin          LONG    0
+
+    monitorsRunning         LONG    FALSE                           ' TRUE once any monitor has started
+    latchesPerRefresh       LONG    0                               ' LATCH rises that make one refresh (0 = unknown)
+
+    clkWindowKind           LONG    CLK_WINDOW_HIGHS                ' the window the CLK monitor is running
+    clkHighClocksPerSec     LONG    0                               ' clocks CLK was high, per second
+    clkPeriodsPerSec        LONG    0                               ' CLK periods, per second
+
+    lastRefreshX100         LONG    0                               ' refresh implied by LATCH, Hz x100
+    lastLitX100             LONG    0                               ' share of the window the panel was lit, percent x100
+    lastClkRisesPerSec      LONG    0                               ' mean CLK rises per second
+    lastClkHighNsX100       LONG    0                               ' mean CLK high time per pulse, ns x100
+
+PUB start(adapterBasePin, latchesPerRefreshCount) : bRunning | sigIdx, monitorPin
+'' Start a monitor beside each signal that has a free neighbour pin, for the adapter whose
+'' pins begin at adapterBasePin. An adapter at P0 has the strobe pins among its own: nothing
+'' is started and the reason is printed.
+''
+'' @param adapterBasePin - pin number of the adapter's CLK (0, 16 or 32)
+'' @param latchesPerRefreshCount - LATCH rises that make one full refresh, for the refresh figure (0 = not reported)
+'' @returns bRunning - TRUE if at least one monitor started
+
+' Local Variables:
+' @local sigIdx - signal being set up
+' @local monitorPin - pin chosen to monitor that signal
+
+  bRunning := FALSE
+  monitorsRunning := FALSE
+  latchesPerRefresh := latchesPerRefreshCount
+  clkWindowKind := CLK_WINDOW_HIGHS
+  adapterFirstPin := adapterBasePin
+  adapterLastPin := adapterBasePin + matrix.PIN_OFST_R1 + matrix.COLOR_PINS_SPAN
+
+  if adapterBasePin > matrix.MTX_LA_XT_P11
+    LONG[@watchedPins][MON_CMD] := matrix.MTX_LA_XT_P08
+    LONG[@watchedPins][MON_FRAME] := matrix.MTX_LA_XT_P09
+    LONG[@watchedPins][MON_ROW] := matrix.MTX_LA_XT_P10
+    LONG[@watchedPins][MON_PLANE] := matrix.MTX_LA_XT_P11
+    LONG[@watchedPins][MON_CLK] := adapterBasePin + matrix.PIN_OFST_CLK
+    LONG[@watchedPins][MON_OE] := adapterBasePin + matrix.PIN_OFST_OE
+    LONG[@watchedPins][MON_LATCH] := adapterBasePin + matrix.PIN_OFST_LATCH
+    repeat sigIdx from 0 to MON_COUNT - 1
+      LONG[@monitorPins][sigIdx] := NO_PIN
+      LONG[@windowCounts][sigIdx] := 0
+    repeat sigIdx from 0 to MON_COUNT - 1
+      monitorPin := chooseMonitorPin(sigIdx)
+      if monitorPin == NO_PIN
+        debug("INSTR: ", zstr_(signalLabel(sigIdx)), " P", udec_(LONG[@watchedPins][sigIdx]), " not monitored: jumper needed")
+      else
+        startMonitor(sigIdx)
+        bRunning := TRUE
+        debug("INSTR: ", zstr_(signalLabel(sigIdx)), " P", udec_(LONG[@watchedPins][sigIdx]), " watched by P", udec_(monitorPin))
+    monitorsRunning := bRunning
+  else
+    debug("INSTR: monitors unavailable: the adapter at P", udec_(adapterFirstPin), " owns P", udec_(adapterFirstPin), "-P", udec_(adapterLastPin), ", which holds strobes P", udec_(matrix.MTX_LA_XT_P08), "-P", udec_(matrix.MTX_LA_XT_P11), " and the monitor pins; none driven, none started")
+
+PUB stop() | sigIdx
+'' Release every monitor pin.
+''
+
+' Local Variables:
+' @local sigIdx - signal whose monitor is released
+
+  repeat sigIdx from 0 to MON_COUNT - 1
+    if LONG[@monitorPins][sigIdx] <> NO_PIN
+      pinclear(LONG[@monitorPins][sigIdx])
+      LONG[@monitorPins][sigIdx] := NO_PIN
+  monitorsRunning := FALSE
+
+PUB isRunning() : bRunning
+'' Report whether any monitor is running.
+''
+'' @returns bRunning - TRUE if at least one monitor was started and not stopped
+
+  bRunning := (monitorsRunning == TRUE)
+
+PUB sampleSecond() : bSampled | sigIdx
+'' Wait for the monitors' next one-second window, read them, and print one INSTR line. The
+'' CLK monitor is read first because its window length is timed at the moment it completes.
+''
+'' @returns bSampled - TRUE if the monitors were read, FALSE if none is running
+
+' Local Variables:
+' @local sigIdx - signal being read
+
+  bSampled := FALSE
+  if monitorsRunning == TRUE
+    readClockMonitor()
+    repeat sigIdx from 0 to MON_COUNT - 1
+      if sigIdx <> MON_CLK and LONG[@monitorPins][sigIdx] <> NO_PIN
+        LONG[@windowCounts][sigIdx] := readWindow(LONG[@monitorPins][sigIdx])
+    deriveFigures()
+    reportSecond()
+    bSampled := TRUE
+
+PUB refreshRateX100() : refreshX100
+'' Return the refresh the last window implied from LATCH rises.
+''
+'' @returns refreshX100 - refreshes per second x 100
+
+  refreshX100 := lastRefreshX100
+
+PUB litShareX100() : litX100
+'' Return the share of the last window that /OE was low (the panel lit).
+''
+'' @returns litX100 - percent x 100
+
+  litX100 := lastLitX100
+
+PUB clockRisesPerSecond() : risesPerSec
+'' Return the mean CLK rise rate over the last two CLK windows.
+''
+'' @returns risesPerSec - CLK rises per second, averaged over shifting and gaps
+
+  risesPerSec := lastClkRisesPerSec
+
+PUB clockHighNsX100() : highNsX100
+'' Return the mean time CLK stays high in each pulse.
+''
+'' @returns highNsX100 - nanoseconds x 100
+
+  highNsX100 := lastClkHighNsX100
+
+PUB stopwatchStart() : startTick
+'' Take the start of an interval, for commit time or draw time.
+''
+'' @returns startTick - the system counter now
+
+  startTick := getct()
+
+PUB stopwatchMicros(startTick) : elapsedMicros
+'' Return the microseconds since a stopwatchStart().
+''
+'' @param startTick - value stopwatchStart() returned
+'' @returns elapsedMicros - elapsed time in microseconds
+
+  elapsedMicros := muldiv64(getct() - startTick, MICROS_PER_SECOND, clkfreq)
+
+PRI chooseMonitorPin(sigIdx) : monitorPin | choiceIdx, candidatePin
+' Pick the first free neighbour of a signal, nearest-below first, and record its routing.
+'
+' @param sigIdx - signal to find a monitor for
+' @returns monitorPin - the pin chosen, or NO_PIN if no neighbour is free
+
+' Local Variables:
+' @local choiceIdx - neighbour choice being tried
+' @local candidatePin - the pin that choice would use
+
+  monitorPin := NO_PIN
+  repeat choiceIdx from 0 to NEIGHBOUR_CHOICES - 1
+    candidatePin := LONG[@watchedPins][sigIdx] + LONG[@neighbourOffsets][choiceIdx]
+    if isPinFree(candidatePin) == TRUE
+      monitorPin := candidatePin
+      LONG[@monitorPins][sigIdx] := candidatePin
+      LONG[@monitorRoutes][sigIdx] := choiceIdx
+      quit
+
+PRI isPinFree(candidatePin) : bFree | otherIdx
+' Say whether a pin may hold a monitor: usable, not the adapter's, not a strobe, not already a monitor.
+'
+' @param candidatePin - pin being considered
+' @returns bFree - TRUE if the pin is free
+
+' Local Variables:
+' @local otherIdx - signal whose monitor pin is compared
+
+  bFree := (candidatePin >= 0) and (candidatePin <= LAST_USABLE_PIN)
+  if candidatePin >= adapterFirstPin and candidatePin <= adapterLastPin
+    bFree := FALSE
+  if candidatePin >= matrix.MTX_LA_XT_P08 and candidatePin <= matrix.MTX_LA_XT_P11
+    bFree := FALSE
+  repeat otherIdx from 0 to MON_COUNT - 1
+    if LONG[@monitorPins][otherIdx] == candidatePin
+      bFree := FALSE
+
+PRI startMonitor(sigIdx) | monitorPin, routeIdx
+' Configure and start one monitor smart pin. Y is written before DIR rises, which is safe for
+' these counting modes because their Y is 0, the reset value.
+'
+' @param sigIdx - signal whose monitor starts
+
+' Local Variables:
+' @local monitorPin - the monitor's pin
+' @local routeIdx - the neighbour choice that routes it
+
+  monitorPin := LONG[@monitorPins][sigIdx]
+  routeIdx := LONG[@monitorRoutes][sigIdx]
+  case sigIdx
+    MON_CLK:
+      startClockWindow()
+    MON_OE:
+      ' count the clocks A is LOW in each window: the lit time (p2kbArchSmartPin01111CountHighsOptionalDec)
+      pinstart(monitorPin, P_COUNT_HIGHS | P_INVERT_A | LONG[@routeInputA][routeIdx], clkfreq, MON_COUNT_A_ONLY)
+    other:
+      ' count A rises in each window (p2kbArchSmartPin01110CountAEdgesOptionalBDec)
+      pinstart(monitorPin, P_COUNT_RISES | LONG[@routeInputA][routeIdx], clkfreq, MON_COUNT_A_ONLY)
+
+PRI startClockWindow() | monitorPin, routeIdx, windowMode
+' Start the CLK monitor's next period-aligned window (p2kbArchSmartPin10110CountHighsInXClocks).
+' Both inputs are routed to CLK: the window closes on the next rise of B.
+'
+
+' Local Variables:
+' @local monitorPin - the CLK monitor's pin
+' @local routeIdx - the neighbour choice that routes it
+' @local windowMode - smart-pin mode of this window
+
+  monitorPin := LONG[@monitorPins][MON_CLK]
+  routeIdx := LONG[@monitorRoutes][MON_CLK]
+  if clkWindowKind == CLK_WINDOW_HIGHS
+    windowMode := P_COUNTER_HIGHS
+  else
+    windowMode := P_COUNTER_PERIODS
+  pinstart(monitorPin, windowMode | LONG[@routeInputA][routeIdx] | LONG[@routeInputB][routeIdx], clkfreq, CLK_PERIOD_TRIGGER)
+
+PRI readClockMonitor() | monitorPin, windowValue, bDone
+' Finish the CLK window, keep its count as a per-second figure, and start the other window.
+' The window is X = clkfreq clocks plus at most the CLK period in progress, so its count is
+' per second without timing it here (p2kbArchSmartPin10110CountHighsInXClocks).
+'
+
+' Local Variables:
+' @local monitorPin - the CLK monitor's pin
+' @local windowValue - the window's count
+' @local bDone - TRUE if the window completed
+
+  monitorPin := LONG[@monitorPins][MON_CLK]
+  if monitorPin <> NO_PIN
+    bDone := waitForWindow(monitorPin)
+    windowValue := 0
+    if bDone == TRUE
+      windowValue := rdpin(monitorPin)
+    if clkWindowKind == CLK_WINDOW_HIGHS
+      clkHighClocksPerSec := windowValue
+      clkWindowKind := CLK_WINDOW_PERIODS
+    else
+      clkPeriodsPerSec := windowValue
+      clkWindowKind := CLK_WINDOW_HIGHS
+    startClockWindow()
+
+PRI readWindow(monitorPin) : windowCount | bDone
+' Wait for a monitor's window to end and return its count; 0 if it never ends.
+'
+' @param monitorPin - the monitor to read
+' @returns windowCount - the window's count
+
+' Local Variables:
+' @local bDone - TRUE if the window completed
+
+  windowCount := 0
+  bDone := waitForWindow(monitorPin)
+  if bDone == TRUE
+    windowCount := rdpin(monitorPin)
+
+PRI waitForWindow(monitorPin) : bDone | giveUpTick
+' Wait until a monitor raises IN (the end of its window), for at most WINDOW_TIMEOUT_LENGTHS
+' windows. A CLK monitor on a silent panel never completes, so the wait must end.
+'
+' @param monitorPin - the monitor to wait on
+' @returns bDone - TRUE if IN rose, FALSE if the wait timed out
+
+' Local Variables:
+' @local giveUpTick - system counter at which the wait ends
+
+  bDone := FALSE
+  giveUpTick := getct() + (clkfreq * WINDOW_TIMEOUT_LENGTHS)
+  repeat
+    if pinread(monitorPin) <> 0
+      bDone := TRUE
+      quit
+    if getct() - giveUpTick > 0
+      quit
+
+PRI deriveFigures() | latchRises, litClocks, highPulseX100
+' Turn the last window counts into the figures the report and the getters give.
+'
+
+' Local Variables:
+' @local latchRises - LATCH rises in the last window
+' @local litClocks - clocks /OE was low in the last window
+' @local highPulseX100 - mean clocks CLK is high per pulse, x100
+
+  latchRises := LONG[@windowCounts][MON_LATCH]
+  litClocks := LONG[@windowCounts][MON_OE]
+  lastRefreshX100 := 0
+  if latchesPerRefresh > 0
+    lastRefreshX100 := muldiv64(latchRises, FIXED_POINT_SCALE, latchesPerRefresh)
+  lastLitX100 := muldiv64(litClocks, PERCENT_X100_SCALE, clkfreq)
+  lastClkRisesPerSec := clkPeriodsPerSec
+  lastClkHighNsX100 := 0
+  if clkPeriodsPerSec > 0
+    highPulseX100 := muldiv64(clkHighClocksPerSec, FIXED_POINT_SCALE, clkPeriodsPerSec)
+    lastClkHighNsX100 := muldiv64(highPulseX100, NS_PER_SECOND, clkfreq)
+
+PRI reportSecond()
+' Print one INSTR line: the figures first, then the raw counts of each strobe and of LATCH.
+'
+
+  debug("INSTR: refresh ", udec_(lastRefreshX100 / FIXED_POINT_SCALE), ".", udec_((lastRefreshX100 // FIXED_POINT_SCALE) / FRACTION_DIVISOR), " Hz, lit ", udec_(lastLitX100 / FIXED_POINT_SCALE), ".", udec_((lastLitX100 // FIXED_POINT_SCALE) / FRACTION_DIVISOR), "%, clk ", udec_(lastClkRisesPerSec / matrix.HZ_PER_MHZ), ".", udec_((lastClkRisesPerSec // matrix.HZ_PER_MHZ) / (matrix.HZ_PER_MHZ / FRACTION_DIVISOR)), " MHz mean, high ", udec_(lastClkHighNsX100 / FIXED_POINT_SCALE), ".", udec_((lastClkHighNsX100 // FIXED_POINT_SCALE) / FRACTION_DIVISOR), " ns | /s: cmd ", udec_(LONG[@windowCounts][MON_CMD]), " frame ", udec_(LONG[@windowCounts][MON_FRAME]), " row ", udec_(LONG[@windowCounts][MON_ROW]), " plane ", udec_(LONG[@windowCounts][MON_PLANE]), " latch ", udec_(LONG[@windowCounts][MON_LATCH]))
+
+PRI signalLabel(sigIdx) : pLabel
+' Return the printable name of a signal.
+'
+' @param sigIdx - MON_* signal
+' @returns pLabel - zero-terminated name
+
+  case sigIdx
+    MON_CMD:
+      pLabel := string("new command")
+    MON_FRAME:
+      pLabel := string("frame start")
+    MON_ROW:
+      pLabel := string("row start")
+    MON_PLANE:
+      pLabel := string("plane latch")
+    MON_CLK:
+      pLabel := string("CLK")
+    MON_OE:
+      pLabel := string("/OE")
+    other:
+      pLabel := string("LATCH")
+
+CON ' ---- License ----
+
+{{
+
+ -------------------------------------------------------------------------------------------------
+  MIT License
+
+  Copyright (c) 2024 Iron Sheep Productions, LLC
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+ =================================================================================================
+
+}}

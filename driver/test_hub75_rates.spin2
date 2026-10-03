@@ -1,0 +1,260 @@
+'' =================================================================================================
+''
+''   File....... test_hub75_rates.spin2
+''   Purpose.... Test: run a fixed workload on one adapter and report refresh, duty, clock, commit time and draw time
+''   Authors.... Stephen M Moraco / Claude Code
+''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... Oct 2026
+''   Updated.... 03 Oct 2026
+''
+'' =================================================================================================
+
+' HUB75_INSTRUMENT turns on the refresh cog's strobes (P8-P11) and the monitors of
+' isp_hub75_instrument.spin2. It is defined only in test top files such as this one, and
+' exported so that every child object sees it.
+#DEFINE HUB75_INSTRUMENT
+#PRAGMA EXPORTDEF HUB75_INSTRUMENT
+
+{ What this program is:
+
+   The measuring top file of FRAME-RATE sprint section 2. It starts adapter 1 (DISP0_) through the
+   normal display API, starts the instrument for that adapter, and runs the same workload on it:
+   a flat fill, lines, text, a BMP, each followed by a commit. After each commit it samples the
+   monitors for SAMPLE_SECONDS windows and prints, per phase, the refresh, the lit share of /OE,
+   the CLK mean rate and high time, the draw time and the commit time.
+
+   The colour depth is a compile-time setting (DISP0_COLOR_DEPTH in isp_hub75_hwPanelConfig.spin2),
+   so one build measures one depth. Build it once for each depth 3 to 8 and compare the logs.
+   The line printed first names the depth.
+
+   With the adapter at base P0 the instrument reports its monitors unavailable (the strobes would
+   be that adapter's colour lines) and this program prints only draw and commit times.
+}
+
+CON ' ---- Timing ----
+
+    CLK_FREQ                = 335_000_000                   ' system freq as a constant
+    _CLKFREQ                = CLK_FREQ                      ' set system clock
+
+    DEBUG_COGS              = %11111111
+    DEBUG_BAUD              = 2_000_000
+
+CON ' ---- Workload ----
+
+    ' Monitor windows taken after each commit; the figures reported are the last window's
+    SAMPLE_SECONDS          = 4
+
+    ' Lines drawn in the lines phase, and how many colours they alternate between
+    LINE_COUNT              = 16
+    LINE_COLOR_PHASES       = 2
+
+    ' The phases of one pass, in order:
+    '  PHASE_FILL  - one flat colour over the whole display
+    '  PHASE_LINES - LINE_COUNT lines fanned out from the top-left corner
+    '  PHASE_TEXT  - lines of text from the top-left corner
+    '  PHASE_BMP   - the BMP file loaded into the screen buffer
+    '  PHASE_COUNT - number of phases
+    #0, PHASE_FILL, PHASE_LINES, PHASE_TEXT, PHASE_BMP, PHASE_COUNT
+
+    FIRST_ROW               = 0                             ' top row of the display
+    FIRST_COLUMN            = 0                             ' leftmost column of the display
+    FIRST_TEXT_COLUMN       = 0                             ' leftmost text column
+
+    ' Fixed-point reports: x100 values print with one decimal
+    FIXED_POINT_SCALE       = 100
+    FRACTION_DIVISOR        = 10
+
+OBJ
+
+    color       : "isp_hub75_color"
+    hub75Bffrs  : "isp_hub75_hwBufferAccess"
+    display     : "isp_hub75_display"
+    bmpHandler  : "isp_hub75_display_bmp"
+    hwEnum      : "isp_hub75_hwEnums"                       ' chip flags
+    matrix      : "isp_hub75_rgb3bit"                       ' constants only: flag mask, long size
+    instrument  : "isp_hub75_instrument"                    ' monitors and stopwatches
+
+DAT ' ---- Test State (singleton) ----
+
+    textMessage     BYTE    "HUB75 RATES 0123456789",0
+    bmpFile         FILE    "TstBG-Up.bmp"
+
+    chainIndex      LONG    0                               ' descriptor index of adapter 1
+    colorDepth      LONG    0                               ' bit planes per colour
+    drawMicros      LONG    0                               ' draw time of the phase just run, microseconds
+    commitMicros    LONG    0                               ' commit time of the phase just run, microseconds
+
+PUB main() : ok
+'' Start adapter 1 and the instrument, run every phase of the workload, report, and end the session.
+''
+'' @returns ok - cog ID of the display driver or -1 on failure
+
+  debug("RATES: ---- HUB75 rates workload ----")
+
+  ok := display.start(hub75Bffrs.HUB75_ADAPTER_1)
+  if ok == -1
+    debug("RATES: display driver failed to start")
+  else
+    chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
+    colorDepth := hub75Bffrs.colorDepth(chainIndex)
+    debug("RATES: colour depth ", udec_(colorDepth), " bits, adapter base P", udec_(hub75Bffrs.pinBase(chainIndex)))
+    instrument.start(hub75Bffrs.pinBase(chainIndex), latchesPerRefresh())
+    runWorkload()
+    instrument.stop()
+  debug("END_SESSION")
+
+PRI runWorkload() | phaseIdx
+' Run each phase once: draw it, commit it, and measure the panel while it is shown.
+'
+
+' Local Variables:
+' @local phaseIdx - phase being run
+
+  repeat phaseIdx from 0 to PHASE_COUNT - 1
+    drawPhase(phaseIdx)
+    reportPhase(phaseIdx)
+
+PRI drawPhase(phaseIdx) | drawStart, commitStart
+' Draw one phase into the screen buffer and commit it, timing each step.
+'
+' @param phaseIdx - PHASE_* to run
+
+' Local Variables:
+' @local drawStart - stopwatch tick when drawing began
+' @local commitStart - stopwatch tick when the commit began
+
+  display.clearScreenBuffer()
+  drawStart := instrument.stopwatchStart()
+  case phaseIdx
+    PHASE_FILL:
+      display.fillScreen(color.cWhite)
+    PHASE_LINES:
+      drawLines()
+    PHASE_TEXT:
+      drawText()
+    other:
+      bmpHandler.fillScreenFromBMP(chainIndex, @bmpFile)
+  drawMicros := instrument.stopwatchMicros(drawStart)
+
+  commitStart := instrument.stopwatchStart()
+  display.commitScreenToPanelSet()
+  commitMicros := instrument.stopwatchMicros(commitStart)
+
+PRI drawLines() | lastRow, lastColumn, lineIdx, endColumn
+' Draw LINE_COUNT lines from the top-left corner to evenly spaced points on the bottom edge.
+'
+
+' Local Variables:
+' @local lastRow - bottom row of the display
+' @local lastColumn - rightmost column of the display
+' @local lineIdx - line being drawn
+' @local endColumn - column where the line ends on the bottom row
+
+  lastRow := hub75Bffrs.maxDisplayRows(chainIndex) - 1
+  lastColumn := hub75Bffrs.maxDisplayColumns(chainIndex) - 1
+  repeat lineIdx from 0 to LINE_COUNT - 1
+    endColumn := (lastColumn * lineIdx) / (LINE_COUNT - 1)
+    if (lineIdx // LINE_COLOR_PHASES) <> 0
+      display.drawLineOfColor(FIRST_ROW, FIRST_COLUMN, lastRow, endColumn, color.cYellow)
+    else
+      display.drawLineOfColor(FIRST_ROW, FIRST_COLUMN, lastRow, endColumn, color.cCyan)
+
+PRI drawText() | textLine
+' Fill the display with lines of text.
+'
+
+' Local Variables:
+' @local textLine - text line being drawn
+
+  display.setTextFont(display.TEXT_FONT_5x7)
+  repeat textLine from 0 to display.numberTextLines() - 1
+    display.setColoredTextAtLnCol(textLine, FIRST_TEXT_COLUMN, @textMessage, color.cGreen)
+
+PRI reportPhase(phaseIdx) | windowIdx, bSampled
+' Sample the monitors while the phase is shown and print the phase's line from the last window.
+'
+' @param phaseIdx - PHASE_* just committed
+
+' Local Variables:
+' @local windowIdx - monitor window being taken
+' @local bSampled - TRUE if the monitors were read
+
+  bSampled := FALSE
+  repeat windowIdx from 1 to SAMPLE_SECONDS
+    bSampled := instrument.sampleSecond()
+    if bSampled == FALSE
+      quit
+  if bSampled == TRUE
+    debug("RATES: depth ", udec_(colorDepth), " ", zstr_(phaseLabel(phaseIdx)), ": refresh ", udec_(instrument.refreshRateX100() / FIXED_POINT_SCALE), ".", udec_((instrument.refreshRateX100() // FIXED_POINT_SCALE) / FRACTION_DIVISOR), " Hz, lit ", udec_(instrument.litShareX100() / FIXED_POINT_SCALE), ".", udec_((instrument.litShareX100() // FIXED_POINT_SCALE) / FRACTION_DIVISOR), "%, clock ", udec_(instrument.clockRisesPerSecond()), " rises/s, high ", udec_(instrument.clockHighNsX100() / FIXED_POINT_SCALE), ".", udec_((instrument.clockHighNsX100() // FIXED_POINT_SCALE) / FRACTION_DIVISOR), " ns, draw ", udec_(drawMicros), " uS, commit ", udec_(commitMicros), " uS")
+  else
+    debug("RATES: depth ", udec_(colorDepth), " ", zstr_(phaseLabel(phaseIdx)), ": monitors unavailable, draw ", udec_(drawMicros), " uS, commit ", udec_(commitMicros), " uS")
+
+PRI latchesPerRefresh() : latchCount | driverConfig, eChipType, chainColumns, rowLongs, rowsInFrame
+' Count the LATCH rises that make one refresh: one per row of every plane pass. This repeats the
+' sizing of isp_hub75_rgb3bit.spin2 start() (one row is what one row address shifts), and every
+' plane is shown 2^depth - 1 times in all, which hub75Bffrs.pwmFrameCount() gives.
+'
+' @returns latchCount - LATCH rises in one full refresh
+
+' Local Variables:
+' @local driverConfig - flags and chip type from getDriverFlags()
+' @local eChipType - hwEnum.CHIP_* of the panels
+' @local chainColumns - column clocks one row address shifts
+' @local rowLongs - longs in one row of the PWM frame
+' @local rowsInFrame - rows (row addresses) in one PWM frame
+
+  driverConfig, eChipType := hub75Bffrs.getDriverFlags(chainIndex)
+  chainColumns := hub75Bffrs.columnsPerPanel(chainIndex) * hub75Bffrs.maxPanels(chainIndex)
+  if (driverConfig & matrix.DRIVER_FLAGS_MASK & hwEnum.SCAN_4) <> 0
+    chainColumns *= hub75Bffrs.SCAN_4_COLUMN_FACTOR
+  rowLongs := ((chainColumns * hub75Bffrs.BYTES_PER_COLUMN_CLOCK) + matrix.BYTES_PER_LONG - 1) / matrix.BYTES_PER_LONG
+  rowsInFrame := hub75Bffrs.pwmFrameSizeInLongs(chainIndex) / rowLongs
+  latchCount := hub75Bffrs.pwmFrameCount(chainIndex) * rowsInFrame
+
+PRI phaseLabel(phaseIdx) : pLabel
+' Return the printable name of a phase.
+'
+' @param phaseIdx - PHASE_* value
+' @returns pLabel - zero-terminated name
+
+  case phaseIdx
+    PHASE_FILL:
+      pLabel := string("fill")
+    PHASE_LINES:
+      pLabel := string("lines")
+    PHASE_TEXT:
+      pLabel := string("text")
+    other:
+      pLabel := string("bmp")
+
+CON ' ---- License ----
+
+{{
+
+ -------------------------------------------------------------------------------------------------
+  MIT License
+
+  Copyright (c) 2024 Iron Sheep Productions, LLC
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+ =================================================================================================
+
+}}
