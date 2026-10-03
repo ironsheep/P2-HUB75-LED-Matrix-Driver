@@ -36,7 +36,7 @@ DRIVER_DIR = os.path.join(REPO_ROOT, "driver")
 
 # Working areas and intent documents: plans, policy, analyses and triage
 # say what should be, never what is, so they are not evidence and not audited.
-EXCLUDED_PREFIXES = ("DOCs/plans/", "DOCs/policy/", ".github/")
+EXCLUDED_PREFIXES = ("DOCs/plans/", "DOCs/policy/", "DOCs/analysis/", ".github/")
 EXCLUDED_FILES = {
     "ChangeLog.md",                   # history: names files as they were
     "Checklist-v1-v2.md",             # migration between two retired versions

@@ -34,6 +34,10 @@ Each panel is described by one sentence, each adapter starts with one call, and 
 - `placeBMP(chain, file, rotation)` places an image of any size, turned by a content rotation (`ROT_NONE`, `ROT_RIGHT_90`, `ROT_LEFT_90` or `ROT_180`).
 - **Demo**: `demo_hub75_boundary.spin2` draws across panel seams and prints the time of one full draw.
 
+#### Removed
+
+- `demo_hub75_hwGeometry.spin2`, a commented-out example of the v2/v3 settings. The [Wiring Guide](DOCs/WiringGuide.md) replaces it.
+
 #### Fixed
 
 - Chains of ten or more panels on one adapter show every panel. Chains of nine or fewer were unaffected.

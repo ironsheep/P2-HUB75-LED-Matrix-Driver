@@ -134,7 +134,7 @@ demo_hub75_*.spin2 (top-level)
 ┌─────────────────────────────────────────────────────────────────┐
 │ PASM2 DRIVER (Running continuously in dedicated COG)            │
 │                                                                  │
-│  1. Read PWM subpage from HUB into COG buffer (512 longs)       │
+│  1. Read PWM subpage from HUB into COG buffer (128 longs)       │
 │  2. Clock out pixels to panel row by row                        │
 │  3. Set row address, latch data, enable output                  │
 │  4. Repeat for all rows, all PWM frames                         │
@@ -285,7 +285,7 @@ END FOR
 
 #### COG Buffer
 - **Purpose**: Working buffer for PASM2 driver
-- **Format**: 512 longs (2KB)
+- **Format**: 512 bytes (128 longs), `LINE_BUFFER_BYTES`; one sub-page of whole PWM rows
 - **Location**: COG RAM (driver's dedicated COG)
 - **Access**: Internal to driver
 
@@ -401,7 +401,7 @@ where *rows* is 8, 16 or 32 for 3, 4 or 5 address lines and *column clocks* is t
 #### HUB-to-COG Transfer (MEDIUM PRIORITY)
 - **Location**: `isp_hub75_rgb3bit.spin2`, the sub-page load
 - **Method**: `setq` + `rdlong` bulk transfer with auto-increment
-- **Transfer Size**: 512 longs per subpage
+- **Transfer Size**: up to 128 longs (512 bytes) per sub-page
 - **Timing**: ~1μs per transfer
 
 #### Row Address Change (LOW PRIORITY)

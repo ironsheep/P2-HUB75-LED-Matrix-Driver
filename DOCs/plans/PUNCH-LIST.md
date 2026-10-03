@@ -11,7 +11,7 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 - **Not known:** which of the three is wrong. The docs say this panel works in a production road-sign display, so the code may be right and the description wrong.
 - **Bears on:** the limits table (§11, «#82») and the scan-term switch in the other docs («#85»). Settle it before «#85» writes a scan value for this chip.
 
-### Refresh core may send a row past the end of a line-buffer load (finding, reasoned from code, not measured)
+### [~] Refresh core may send a row past the end of a line-buffer load (fix applied, awaiting validation on panels)
 
 - **Found:** 2026-10-01, by the «#72» agent while deriving the line-buffer limit.
 - **What:** the refresh core sends whole rows from its line buffer until it reaches the end of each buffer load (`driver/isp_hub75_rgb3bit.spin2`, the row loop around :1020-1067). A buffer load is sized in half-rows (`pwmSubPageCount`, around :286-290). When a load holds an odd number of half-rows, the last row would be sent past the end of the buffer. That happens when floor(1024 / chain columns) is odd: for example 3 × 64 (192 columns) or 5 × 64 (320 columns). The rig (2 × 128 per row along the cable) is not affected.
@@ -46,12 +46,6 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 - **Not known:** whether any panel misbehaves at 20.94 MHz; whether the intent was "at most 20 MHz" (round the divisor up) or "about 20 MHz".
 - **Bears on:** the limits table (§11, «#82») and refresh measurements at Visit B «#83». Rounding up (17 cycles, 19.7 MHz) would cost about 6% of refresh.
 
-### Refresh-rate figures in the docs contradict the code (doc drift)
-
-- **Found:** 2026-10-02, same survey.
-- **What:** the refresh core shows bit-plane k of an N-bit frame set 2^(N-1-k) times, 2^N - 1 scans per colour cycle (`driver/isp_hub75_rgb3bit.spin2`, about :841-866). `THEOPS.md` (about :188) says "16 sub-frames ... roughly 60 fps", and `DOCs/FutureDirections-ImageAndColor.md` (about :132-169) gives 153-407 Hz, computed as N frames shown once. Calculated from the code for the rig (clock time only): 4-bit about 85 Hz, 5-bit about 41 Hz, 6-bit 20, 7-bit 10, 8-bit 5.
-- **Bears on:** «#85» (bring docs up to 4.0.0) should correct both, and use Visit B's «#83» measured numbers where they exist.
-
 ### Cube fold path: about five method calls per face pixel (efficiency, estimated, not measured)
 
 - **Found:** 2026-10-02, by the «#80» cleanup review.
@@ -74,4 +68,11 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 - **Cause of the 2026-10-01 'C1 flicker' («#67», closed 2026-10-02):** the same effect. With quadPanel's hues on all four panels at once, Stephen saw *"the most flicker is cyan, next is green, all panels flicker at the same rate"*. Cyan (hue 192) has green 11000 at 5-bit (24 scans on, 7 off in one stretch) and was C1's colour in the original sighting. Green (hue 128) has blue 00100 (one short burst). Red (11111) and yellow-green were steady. It is not the panel, the ribbon, or cable position C1.
 - **Candidate:** interleave the plane order within a frame set (scrambled or interleaved BCM, e.g. MSB, lower, MSB, lower ...), so the long planes spread across the cycle. The colour sums are unchanged and the visible artefact rate rises many-fold. It must keep the refresh core's timing budget, and the PWM frame layout stays as it is.
 - **Bears on:** the depth a rig can use without visible shimmer (today 4-bit on this rig); the limits table's refresh column.
+
+### Docs disagree on the ICN2037 maximum clock: 20 MHz or 30 MHz (doc conflict, unsettled)
+
+- **Found:** 2026-10-02, by the DISPLAY-ORGANIZATION closeout audit.
+- **What:** `DOCs/ChipCharacteristicsMatrix.md` (ICN2037 section) and the refresh core's comment (`driver/isp_hub75_rgb3bit.spin2` near the clock-target constant) say 20 MHz. `README.md`'s chip table and `DOCs/TheoryOfOperations.md` (chip timing table) say 30 MHz for ICN2037, ICN2037BP and ICN2038S. The authority is the datasheet in `DOCs/ICN2037/`, which this session could not read: no PDF tool (`pdftotext`/`pdftoppm`) is installed.
+- **Bears on:** the item "Panel clock runs above the ICN2037's 20 MHz rating": if the rating is 30 MHz, 20.94 MHz is within spec and that item closes.
+- **To settle:** read the clock spec in `DOCs/ICN2037/ICN2037_datasheet_EN_2017_V2.0.pdf` (e.g. after `brew install poppler`), correct whichever docs are wrong, and dispose of the clock item.
 

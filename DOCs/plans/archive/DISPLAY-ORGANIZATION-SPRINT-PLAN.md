@@ -1,5 +1,9 @@
 # DISPLAY-ORGANIZATION — Sprint Plan
 
+> **CLOSED 2026-10-02.** Plan certified complete; audit, exit baseline and carryover in
+> [`2026-10-02-DISPLAY-ORGANIZATION-Sprint-Closeout.md`](2026-10-02-DISPLAY-ORGANIZATION-Sprint-Closeout.md).
+> Build 4.0.0 continues in later sprints (not tagged).
+
 **Status:** Started 2026-10-01. Planning concluded the same day with no open
 questions. Re-opened 2026-10-02 for one agreed scope change (SC-1, content
 rotation; Open Questions Q1-Q6 answered the same day). **All sprint tasks complete
@@ -942,6 +946,10 @@ Mounting rotation is a compile-time setting (`DISP0_ROTATION`), so the
 mounting check builds and runs the test once at each of the four values.
 Content rotation (§5b, SC-1) is a run-time call; the boundary test exercises
 it once §5b's task lands.
+*Superseded by Q1 (2026-10-02):* content rotation became a parameter on BMP placement
+(`placeBMP`), not a drawing mode, so the drawn boundary test has nothing to turn. It is
+certified instead by «#87»'s readback test at every rotation (both mountings) and by
+Visit A runs 8 and 9, which Stephen observed.
 
 The test is written **once**, after the one-call startup (§3.4) and before
 the mapping change (§4). It uses the final startup call and drawing calls
@@ -992,6 +1000,8 @@ run on the old mapping in Visit 0 (§13).
   - correct its header, which currently reads `demo_dual_motor_rc.spin2` /
     "Demonstrate R/C driving of a two-wheeled platform" (copied from another
     project), to its real name and purpose.
+
+*As built («#81»): the sweep is 15 top files (the 11 `demo_hub75_*` after `hwGeometry` was deleted, `isp_hub75_anlyCheck`, `test_hub75_pin_identify`, `test_hub75_cube_fold` and `isp_dummy_flash`); the 13 and 14 counts in this section were planning-time numbers.*
 
 **Verify.** All 13 top files compile with 0 warnings and the style gate
 passes. Each demo that draws runs on the rig at least once in the bench visit
