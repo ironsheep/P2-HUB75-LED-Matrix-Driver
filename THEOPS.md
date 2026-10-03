@@ -8,7 +8,7 @@ On this page you'll learn what files make up the driver (and/or come with it) an
 (*I expect that this file will continue to grow over time as our driver becomes more capable. -Stephen*)
 
 
-### Pages: [README](README.md) | [Hardware Turn-on](HardwareTurnon.md) | Driver Details | [Change Log](ChangeLog.md)
+### Pages: [README](README.md) | [Hardware Turn-on](HardwareTurnon.md) | Driver Details | [Wiring Guide](DOCs/WiringGuide.md) | [Change Log](ChangeLog.md)
 
 Within this page:
 
@@ -116,7 +116,7 @@ How the whole assembled display is mounted, set by `DISPn_ROTATION`. Display rot
 
 ### wiring
 
-The per-panel sentences `DISPn_C0` through `DISPn_C15`, one for each cable position. Each sentence describes the panel at that cable position: where it sits relative to a panel already placed, and its panel rotation. The full grammar is in the wiring guide.
+The per-panel sentences `DISPn_C0` through `DISPn_C15`, one for each cable position. Each sentence describes the panel at that cable position: where it sits relative to a panel already placed, and its panel rotation. The full grammar is in the [wiring guide](DOCs/WiringGuide.md#the-wiring-sentences).
 
 ### face
 
@@ -144,6 +144,8 @@ Most panels light two rows at once, one fed by each set of color pins. A panel t
 
 
 ## Configuring the driver
+
+How the panels are arranged, cabled and rotated is described by the wiring sentences; the [Wiring Guide](DOCs/WiringGuide.md) covers them, the identify screen, rotation, the cube and the driver limits, with seven worked examples.
 
 To this driver the panels look like the following:
 

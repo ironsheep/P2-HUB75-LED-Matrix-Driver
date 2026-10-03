@@ -1,13 +1,8 @@
 # Multi-Panel Configuration Guide
 
-This guide explains how to configure the P2 HUB75 LED Matrix Driver for multi-panel displays, including arrangements up to 4×4 panels.
+This guide explains the hardware and memory side of configuring the P2 HUB75 LED Matrix Driver for multi-panel displays: the adapter pins, the driver chip, the panel size, the colour depth and the memory a display needs.
 
-## Overview
-
-The driver supports flexible panel arrangements:
-- **Horizontal chains**: 1×N panels (single row)
-- **Vertical stacks**: N×1 panels (single column)
-- **2D grids**: M×N panels (rows × columns)
+**Where the panels are, how they are cabled and which way they hang** is described by the wiring sentences, and that is covered in the [Wiring Guide](WiringGuide.md): the sentence grammar, filling in a config from the identify screen, display rotation, the cube, the driver limits per panel type, every startup message, and seven worked examples (a row of 4, two panels, a 2x2 in Z order, a 2x2 serpentine, 3 across by 2 down, an L shape and the cube).
 
 ## Configuration File
 
@@ -51,27 +46,7 @@ Common panel sizes:
 - 64×64 (4,096 pixels)
 - 128×64 (8,192 pixels)
 
-### Step 3: Panel Arrangement
-
-```spin2
-' the organization of the panels: visual layout
-DISP0_MAX_PANELS_PER_ROW = 2
-DISP0_MAX_PANELS_PER_COLUMN = 2
-```
-
-This creates a 2×2 grid with panels numbered in **Z-pattern** (row-major order):
-
-```
-┌─────────┬─────────┐
-│ Panel 0 │ Panel 1 │
-├─────────┼─────────┤
-│ Panel 2 │ Panel 3 │
-└─────────┴─────────┘
-```
-
-**Wire your panels in this same order:** Panel 0 → Panel 1 → Panel 2 → Panel 3
-
-### Step 4: Color Depth
+### Step 3: Color Depth
 
 ```spin2
 ' (3) describe the color depth you want to support [3-8] bits per LED
@@ -87,14 +62,9 @@ DISP0_COLOR_DEPTH = hwEnum.DEPTH_8BIT
 | `DEPTH_7BIT` | 2,097,152 | 3 | 127 |
 | `DEPTH_8BIT` | 16,777,216 | 3 | 255 |
 
-### Step 5: Display Rotation (Optional)
+### Step 4: Panel Layout, Cabling and Rotation
 
-```spin2
-' (4) Apply desired rotation to entire display
-DISP0_ROTATION = hwEnum.ROT_NONE
-```
-
-Options: `ROT_NONE`, `ROT_LEFT_90`, `ROT_RIGHT_90`, `ROT_180`
+Describe the layout with the wiring sentences (`DISPn_C0` ... `DISPn_C15`), and say how the whole display hangs with `DISPn_ROTATION`. Both are covered, with worked examples, in the [Wiring Guide](WiringGuide.md).
 
 ## Memory Requirements
 
@@ -142,247 +112,7 @@ Total = Screen + (2 × PWM Frameset)
 | 5-bit color | ~110K pixels |
 | 3-bit color | ~150K pixels |
 
-## Panel Arrangement Examples
-
-### Horizontal Chain (4×1)
-
-```spin2
-DISP0_MAX_PANELS_PER_ROW = 4
-DISP0_MAX_PANELS_PER_COLUMN = 1
-```
-
-```
-Wire order: 0 → 1 → 2 → 3
-
-┌────────┬────────┬────────┬────────┐
-│ Panel 0│ Panel 1│ Panel 2│ Panel 3│
-└────────┴────────┴────────┴────────┘
-```
-
-### Vertical Stack (1×4)
-
-```spin2
-DISP0_MAX_PANELS_PER_ROW = 1
-DISP0_MAX_PANELS_PER_COLUMN = 4
-```
-
-```
-Wire order: 0 → 1 → 2 → 3
-
-┌────────┐
-│ Panel 0│
-├────────┤
-│ Panel 1│
-├────────┤
-│ Panel 2│
-├────────┤
-│ Panel 3│
-└────────┘
-```
-
-### 2×2 Grid (Z-Pattern)
-
-```spin2
-DISP0_MAX_PANELS_PER_ROW = 2
-DISP0_MAX_PANELS_PER_COLUMN = 2
-```
-
-```
-Wire order: 0 → 1 → 2 → 3
-
-┌─────────┬─────────┐
-│ Panel 0 │ Panel 1 │
-├─────────┼─────────┤
-│ Panel 2 │ Panel 3 │
-└─────────┴─────────┘
-```
-
-### 3×3 Grid
-
-```spin2
-DISP0_MAX_PANELS_PER_ROW = 3
-DISP0_MAX_PANELS_PER_COLUMN = 3
-```
-
-```
-Wire order: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
-
-┌─────────┬─────────┬─────────┐
-│ Panel 0 │ Panel 1 │ Panel 2 │
-├─────────┼─────────┼─────────┤
-│ Panel 3 │ Panel 4 │ Panel 5 │
-├─────────┼─────────┼─────────┤
-│ Panel 6 │ Panel 7 │ Panel 8 │
-└─────────┴─────────┴─────────┘
-```
-
-### 4×4 Grid
-
-```spin2
-DISP0_MAX_PANELS_PER_ROW = 4
-DISP0_MAX_PANELS_PER_COLUMN = 4
-```
-
-```
-Wire order: 0 → 1 → 2 → 3 → 4 → 5 → ... → 15
-
-┌────────┬────────┬────────┬────────┐
-│ Pnl 0  │ Pnl 1  │ Pnl 2  │ Pnl 3  │
-├────────┼────────┼────────┼────────┤
-│ Pnl 4  │ Pnl 5  │ Pnl 6  │ Pnl 7  │
-├────────┼────────┼────────┼────────┤
-│ Pnl 8  │ Pnl 9  │ Pnl 10 │ Pnl 11 │
-├────────┼────────┼────────┼────────┤
-│ Pnl 12 │ Pnl 13 │ Pnl 14 │ Pnl 15 │
-└────────┴────────┴────────┴────────┘
-```
-
-## Wiring Patterns
-
-### Default: Z-Pattern (Row-Major)
-
-By default, the driver uses **Z-pattern wiring** where the wire order matches the display order:
-
-```
-Z-Pattern (row-major):
-0 → 1 → 2 → 3
-↓
-4 → 5 → 6 → 7
-```
-
-**Your physical cable connections follow the panel numbering.**
-
-### Custom Wiring: Wire Order Mapping
-
-For other wiring patterns (serpentine, reverse, etc.), you can configure custom wire order mapping in `isp_hub75_hwBufferAccess.spin2`.
-
-#### Serpentine Wiring Example
-
-Serpentine wiring snakes back and forth to minimize cable lengths:
-
-```
-Serpentine 2x2:
-0 → 1       Display order: 0, 1, 2, 3
-    ↓       Wire order:    0, 1, 3, 2
-3 ← 2       (bottom row wired right-to-left)
-
-Serpentine 4x2:
-0 → 1 → 2 → 3       Display order: 0, 1, 2, 3, 4, 5, 6, 7
-            ↓       Wire order:    0, 1, 2, 3, 7, 6, 5, 4
-7 ← 6 ← 5 ← 4       (second row reversed)
-```
-
-#### Configuring Wire Order
-
-Edit the `disp0WireOrder` table in `isp_hub75_hwBufferAccess.spin2`:
-
-```spin2
-' Default Z-pattern (no remapping)
-disp0WireOrder      BYTE    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-
-' Serpentine 2x2 example
-disp0WireOrder      BYTE    0, 1, 3, 2, ...
-
-' Serpentine 4x2 example
-disp0WireOrder      BYTE    0, 1, 2, 3, 7, 6, 5, 4, ...
-
-' Serpentine 4x4 example
-disp0WireOrder      BYTE    0, 1, 2, 3, 7, 6, 5, 4, 8, 9, 10, 11, 15, 14, 13, 12
-```
-
-Entry N specifies the wire position for display panel N.
-
-### Per-Panel Rotation
-
-With serpentine wiring, alternating rows of panels may be physically rotated 180° due to cable folding. Configure individual panel rotations in `isp_hub75_hwBufferAccess.spin2`:
-
-```spin2
-' Default: all panels upright
-disp0PanelRots      BYTE    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-
-' Serpentine 2x2: bottom row rotated 180°
-disp0PanelRots      BYTE    0, 0, 2, 2, ...
-
-' Serpentine 4x2: second row rotated 180°
-disp0PanelRots      BYTE    0, 0, 0, 0, 2, 2, 2, 2, ...
-```
-
-**Rotation values:**
-| Value | Rotation |
-|-------|----------|
-| 0 | No rotation (ROT_NONE) |
-| 1 | 90° clockwise (ROT_RIGHT_90) |
-| 2 | 180° (ROT_180) |
-| 3 | 90° counter-clockwise (ROT_LEFT_90) |
-
-### Combined Example: Serpentine 2x2
-
-For a 2x2 grid with serpentine wiring:
-
-```
-Physical layout (panels face up):
-┌─────────┬─────────┐
-│ Panel 0 │ Panel 1 │  ← Normal orientation
-├─────────┼─────────┤
-│ Panel 2 │ Panel 3 │  ← Rotated 180° (cable folds back)
-└─────────┴─────────┘
-
-Wire order: HUB75 → Panel 0 → Panel 1 → Panel 3 → Panel 2
-```
-
-Configuration:
-```spin2
-' Wire order: display [0,1,2,3] → wire [0,1,3,2]
-disp0WireOrder      BYTE    0, 1, 3, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-
-' Rotations: panels 2 and 3 are upside-down
-disp0PanelRots      BYTE    0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-```
-
-## Complete Configuration Example
-
-Here's a complete example for a 2×2 grid of 128×64 panels:
-
-```spin2
-CON { User Panel Connection and Configuration }
-
-' -------------------------------------------------------------------
-' panel set on 1st HUB75 adapter board - DISP0_* constants
-' -------------------------------------------------------------------
-
-    ' /-------------------------------------------
-    ' |  User configure
-
-    ' (1) describe the panel connections, addressing and chips
-    DISP0_ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
-    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
-    DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
-
-    ' (2) describe the single panel physical size
-    DISP0_MAX_PANEL_COLUMNS = 128
-    DISP0_MAX_PANEL_ROWS = 64
-
-    ' (3) the organization of the panels: visual layout
-    '   [0][1]      2 columns
-    '   [2][3]      2 rows
-    '
-    DISP0_MAX_PANELS_PER_ROW = 2
-    DISP0_MAX_PANELS_PER_COLUMN = 2
-
-    ' (4) describe the color depth you want to support [3-8] bits per LED
-    DISP0_COLOR_DEPTH = hwEnum.DEPTH_8BIT
-
-    ' (5) Apply desired rotation to entire display
-    DISP0_ROTATION = hwEnum.ROT_NONE
-
-    ' |  End User configure
-    ' \-------------------------------------------
-```
-
-This creates:
-- Total display: 256×128 pixels (32,768 pixels)
-- Memory usage: ~196 KB at 8-bit color
-- Wire panels: 0→1→2→3 in Z-pattern
+How many panels one adapter can drive, per panel type, is in the [Wiring Guide's driver limits](WiringGuide.md#driver-limits).
 
 ## Chip Multi-Panel Support
 
@@ -403,23 +133,22 @@ For multi-panel displays, verified chips are **FM6126A (Pink)** and **ICN2037**.
 ## Troubleshooting
 
 ### Display is flashing or unstable
-- Verify `MAX_PANELS_PER_ROW` × `MAX_PANELS_PER_COLUMN` = actual panel count
+- Check the startup picture: the number of panels it shows must equal the number of panels you have cabled
 - Check that chip type matches your panels (ICN2037 for multi-panel)
 - Ensure panel dimensions match physical panels (columns × rows)
 
-### Pixels appear on wrong panel
-- Verify wire order matches Z-pattern (row-major)
-- Check `MAX_PANELS_PER_ROW` and `MAX_PANELS_PER_COLUMN` values
-- Try adjusting `disp0WireOrder` in `isp_hub75_hwBufferAccess.spin2`
+### Startup stops with a `HUB75:` message
+- A wiring sentence is wrong. Every message the driver can print is listed, with its cause, in the [Wiring Guide](WiringGuide.md#startup-messages).
+
+### Pixels appear on wrong panel, or the panels are in the wrong order
+- Run the identify program and compare the `P` labels with where the panels hang; the [Wiring Guide](WiringGuide.md#filling-in-your-config-from-the-identify-screen) explains how to read it and correct the sentences
 
 ### Colors are wrong
 - Some chips swap R/B or G/B - check chip documentation
 - The driver handles known chip color swaps automatically
 
 ### Display is upside down or mirrored
-- Use `DISP0_ROTATION` to rotate the entire display
-- `ROT_180` flips both horizontally and vertically
-- For per-panel rotation, use `disp0PanelRots` in `isp_hub75_hwBufferAccess.spin2`
+- If one panel's content is turned, correct its arrow word; if the whole display is turned, set `DISP0_ROTATION` to how the display hangs. Both are explained in the [Wiring Guide](WiringGuide.md#display-rotation)
 
 ### Out of memory errors
 - Reduce color depth (8-bit → 5-bit saves ~40%)
@@ -445,4 +174,4 @@ display.fillPanel(panelIndex, color.cGreen)
 display.setCursorOnPanel(line, column, panelIndex)
 ```
 
-The coordinate translation happens automatically - you draw to the logical display, and the driver maps to the correct physical panel and buffer location.
+The coordinate translation happens automatically - you draw to the logical display, and the driver maps to the correct physical panel and buffer location. Panel indexes are panel positions: `0` is the top-left panel as the display hangs, numbered in reading order.

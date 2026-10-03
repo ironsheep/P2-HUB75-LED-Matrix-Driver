@@ -60,6 +60,7 @@ Additional pages:
 
 - [HardwareTurnon](HardwareTurnon.md) - Describes the initial turn-on effort of this driver
 - [Driver Details](THEOPS.md) - Provides more detail about the driver and driver-configuration
+- [Wiring Guide](DOCs/WiringGuide.md) - How to describe your panels' layout, cabling and rotation, with seven worked examples
 - [Panel Config/Timing Details](HUB75-Driver-SWver1.md) - Notes about each panel-driver chip this P2 driver supports
 - [HUB75 Card Details](HUB75-brd-config.md) - Pins and Probing Support provided by HUB75 card
 - [P2 P2 Cube testing](CubePix.md) - Author's test hardware - Flat P2 P2 Cube Configuration
