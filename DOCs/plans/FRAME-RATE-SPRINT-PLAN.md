@@ -16,7 +16,7 @@ F19-F21).
    written". The scope and punch-list dispositions are as in *Scope* below.
 2. *(Answered: the superseded performance plans.)* Stephen, 2026-10-02: "yes A".
    Both were moved to `DOCs/plans/archive/` with a "superseded" banner.
-3. *(Answered by bench visit A, 2026-10-03: the §1 prototype.)* All three panels
+3. *(Answered by bench visit A, 2026-10-03: the §1 prototype.)* All four panels
    show a correct image, with no ghosting, while the next plane shifts in during
    the lit time. Refresh and duty are within 5% of the model on each:
 
@@ -25,14 +25,16 @@ F19-F21).
    | Quad rig, 4 × 128×64 ICN2037 | 65.9 Hz (67.0) | 82.2% (83.5) | 120 W |
    | 1 × 64×32 FM6126A, overlapped latch | 155.4 Hz (159.0) | 96.9% (99.1) | 17.6 W |
    | 1 × 64×32 MBI5124GP, 1/8 scan | 307.4 Hz (313.1) | 95.8% (97.6) | 39.93 W |
+   | 1 × 64×32 FM6124 | 155.4 Hz (159.0) | 96.9% (99.1) | 14.27 W |
 
    The instrument's negative case was measured on the quad rig (92.0% lit at a
    doubled unit). Stephen saw flicker at 36.9 Hz and none at 65.9 Hz.
 
    This settles the two design points §4 had planned both ways:
    - the FM6126A's overlapped latch holds with one shift per plane;
-   - the MBI5124GP accepts a shift while lit, so no chip needs shift-while-dark,
-     and §4 does not build it (see §4 and *Named unknowns*).
+   - the MBI5124GP and the FM6124 accept a shift while lit, so no chip on the
+     bench needs shift-while-dark, and §4 does not build it (see §4 and *Named
+     unknowns*).
 
    Details are in `DOCs/bench/RUN-NOTES.md`.
 
@@ -118,7 +120,7 @@ decision it feeds. Visits run on the macOS host; the run sheet is
 
 | Visit | Earned by | Panels | Measures | Decision it feeds |
 |---|---|---|---|---|
-| **A** | §1 prototype | quad rig, then FM6126A, then MBI5124GP | image correct (by eye, against a reference pattern); refresh, OE duty and clock from the monitors | the §4 design per latch path; the MBI5124GP fallback |
+| **A** | §1 prototype | quad rig, then FM6126A, MBI5124GP and FM6124 | image correct (by eye, against a reference pattern); refresh, OE duty and clock from the monitors | the §4 design per latch path; the MBI5124GP fallback |
 | **B** | §2 harness | quad rig, today's driver | baseline: refresh at each depth 3-8, duty, clock, commit and draw times | the "before" for every later claim |
 | **C** | §3, §4, §5 | quad rig | refresh, duty and clock at each depth; tearing test; brightness scale | §4 and §5 accepted; §6 shimmer verdict |
 | **D** | §4, §5 | FM6126A, MBI5124GP, FM6124 (optional), single panels | as visit C, per chip | per-chip acceptance; chip-matrix updates |
@@ -587,11 +589,11 @@ the audit can't see, and those are fixed by keeping one canonical copy.
 
 ## Named unknowns (each with its planned response)
 
-- **A chip that cannot take data while lit:** none was found at visit A, so §4
-  has no shift-while-dark path. The FM6124 (optional at visit D) and the chips
-  not on this bench are untested. If one shows a wrong image at visit D, the
-  prototype's `SHIFT_WHILE_DARK` mode confirms the cause, and adding the path
-  to the core is raised with Stephen as a logged scope change.
+- **A chip that cannot take data while lit:** none was found at visit A, on all
+  four bench chips, so §4 has no shift-while-dark path. The ICN2038S, DP5125D and
+  GS6238S have no panel on this bench and are untested. If one later shows a
+  wrong image, the prototype's `SHIFT_WHILE_DARK` mode confirms the cause, and
+  adding the path to the core is raised with Stephen as a logged scope change.
 - **Cog RAM headroom:** about 100 longs is inferred. If §4's loop doesn't fit,
   the line buffer moves to LUT RAM (512 longs, unused).
 - **A 14-clock shift split meeting 20 ns both ways:** settled by the timing
@@ -603,4 +605,5 @@ the audit can't see, and those are fixed by keeping one canonical copy.
 - 2026-10-02 — draft written after scope confirmation and the research pass.
 - 2026-10-03 — bench visit A completed on the quad rig, FM6126A and MBI5124GP.
   Question 3 answered; §4 drops the shift-while-dark path; exit gate walked and
-  the plan marked ready.
+  the plan marked ready. Visit A then also run on the FM6124 (Stephen offered the
+  panel): correct while shifting lit.
