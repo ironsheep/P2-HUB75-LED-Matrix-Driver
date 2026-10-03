@@ -289,6 +289,46 @@ PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 
 ---
 
+## Driver Limits per Panel Type
+
+How many panels one adapter can drive, for each panel type above. **Every
+figure is calculated from the driver's constants, not measured**; the working
+arithmetic, the build the RAM figures come from, and the refresh table are in
+`DOCs/plans/DISPLAY-ORGANIZATION-SPRINT-PLAN.md` section 11 (working table). The
+final home is the wiring guide.
+
+The limit is `512 / (panel columns x factor)`, capped at 16, where 512 is
+`LINE_BUFFER_BYTES` and the factor is 2 for panels whose chip flags include
+`SCAN_4` (MBI5124GP, ICN2038S, DP5125D) and 1 otherwise
+(`driver/isp_hub75_hwBufferAccess.spin2`, "Driver Limits"). The startup check
+reports a display over that limit. Hub RAM does not set the limit on a single
+adapter (see below), but it is shared by all three adapters.
+
+| Panel type | Max panels per adapter | Set by | Measured or calculated |
+|------------|------------------------|--------|------------------------|
+| FM6126A 64x32 (cfg 1-3) | 8 = 512 / 64 | line buffer | calculated |
+| FM6124 64x32 (cfg 4) | 8 = 512 / 64 | line buffer | calculated |
+| MBI5124GP 64x32 quarter-scan (cfg 7-8) | 4 = 512 / (64 x 2) | line buffer | calculated |
+| GS6238S 64x32 (cfg 9) | 8 = 512 / 64 | line buffer | calculated |
+| ICN2037 64x64 (cfg 5-6, 10) | 8 = 512 / 64 | line buffer | calculated |
+| ICN2037 128x64 (cfg 11; the rig) | 4 = 512 / 128 | line buffer | calculated |
+| ICN2038S 64x64 quarter-scan (cfg 12) | 4 = 512 / (64 x 2) | line buffer | calculated; its scan setting is disputed (open punch-list item) |
+| DP5125D (no panel documented) | 8, 4 or 2 for a 32, 64 or 128 column panel = 512 / (width x 2) | line buffer | calculated from the code |
+
+Hub RAM per panel is `pixels x (3 + colour depth)` bytes (the screen buffer plus two
+PWM frame sets). From the `-d` build of `demo_hub75_7seg.spin2`, 451,564 bytes are
+free for buffers, which allows at most 20 panels of 64x32, 10 of 64x64 or 5 of
+128x64 at 8-bit on one adapter (calculated; the 5 and 6 panel 128x64 8-bit
+cases were compiled: 5 fits, 6 fails with the compiler's hub RAM error). All are
+above the line-buffer limits in the table.
+
+Refresh rate: **to be measured** for every type. The rig's type (ICN2037 128x64)
+is measured at the bench visit. A calculated upper bound (clock time only) at the
+limit, for 5-bit colour, is 41 Hz for the 32-row ICN2037 panels, 82 Hz for the
+16-row panels and 165 Hz for the 8-row panels; the plan table has every depth.
+
+---
+
 ## Multi-Panel Verified Configurations
 
 The following chip/panel combinations have been verified working in multi-panel arrangements:

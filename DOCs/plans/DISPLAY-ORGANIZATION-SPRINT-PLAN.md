@@ -1002,7 +1002,9 @@ chip). Its columns:
 - the maximum panels per adapter;
 - the factor that sets that limit:
   - hub RAM: buffer plus two frame sets, by colour depth;
-  - the refresh core's line buffer, `CogBuffer[256]` (`isp_hub75_rgb3bit.spin2`);
+  - the refresh core's line buffer, `LINE_BUFFER_BYTES` = 512
+    (`isp_hub75_hwBufferAccess.spin2`; sizes `cogBuffer` in
+    `isp_hub75_rgb3bit.spin2`);
   - the converter's panel limit after F1;
   - refresh rate, measured on the bench;
 - whether the number is **measured** or **calculated**.
@@ -1014,8 +1016,165 @@ This sprint fills:
   at each colour depth, and the point at which flicker becomes visible,
   agreed with Stephen at the bench.
 
-The sweep fills in the measured columns for the other types. The startup
-check (§3) enforces the hard limits: RAM, line buffer and converter.
+The sweep fills in the measured columns for the other types. The hard limits
+are enforced in two places: the startup check (`checkPanelLimit`, §3)
+enforces the line buffer and the converter limit, and the compiler enforces
+hub RAM (the buffers are DAT arrays sized from `DISPn_PANEL_COUNT`).
+
+### Working table («#82», calculated 2026-10-02)
+
+The guide («#84») gives this table its final home. Every figure below is
+**calculated** from the code unless the cell says otherwise. The only
+measured-by-the-compiler figure is the hub RAM ceiling of one config
+(ICN2037 128x64, 8-bit), in the RAM proof below. No refresh figure is
+measured. Refresh is "to be measured" for every type; Visit B («#83») measures
+the rig's type.
+
+**1. The limit constants** (`driver/isp_hub75_hwBufferAccess.spin2`, CON
+"Driver Limits", read, not edited):
+
+| Constant | Value | Line |
+|---|---|---|
+| `LINE_BUFFER_BYTES` | 512 | :69 |
+| `BYTES_PER_COLUMN_CLOCK` | 1 | :72 |
+| `LINE_BUFFER_MAX_COLUMNS` | 512 / 1 = 512 | :75 |
+| `SCAN_4_COLUMN_FACTOR` / `SINGLE_COLUMN_FACTOR` | 2 / 1 | :79-80 |
+| `CONVERTER_MAX_PANELS` | 16 (`MAX_CABLE_POSITIONS` is also 16, :61) | :64 |
+
+The startup check, `checkPanelLimit` (:1189-1211), computes
+`panelLimit = (LINE_BUFFER_MAX_COLUMNS / (panelCols * columnFactor)) <# CONVERTER_MAX_PANELS`
+(`<#` is minimum). The column factor is 2 when the chip's flags include
+`SCAN_4`, else 1 (`getDriverFlags`, :779-806: SCAN_4 is set for ICN2038S,
+MBI5124GP and DP5125D, and for no other chip). The converter has no panel
+limit of its own after F1 («#76», commit e17821a: the half-scan converter walks
+row, slot, column with no divide). `CONVERTER_MAX_PANELS` = 16 equals the
+number of cable positions the code can name, so it is the ceiling on any
+panel count.
+
+**2. Hub RAM** (calculated, with one compile proof).
+
+Bytes for one panel of P pixels at colour depth N:
+- screen buffer = P x 3 (`DISPn_SCRN_SIZE_IN_BYTES`, `hwPanelConfig` :144);
+- one PWM frame set = N x P / 2 (`DISPn_FRAMESET_SIZE_IN_LONGS` :152 with
+  `DISPn_PWM_FRAME_SIZE_IN_BYTES` :149), and there are two sets
+  (`pwmFramesN_1`, `pwmFramesN_2`, `hwBuffers.spin2` :37-38);
+- total = P x 3 + 2 x N x P / 2 = **P x (3 + N)**.
+
+RAM free after code is read from a real build. Build named: the largest of
+the 12 top demos by zero-panel size, `driver/demo_hub75_7seg.spin2`, compiled
+by `pnut-ts -d -m` (the DEBUG build the demos use) from a scratch copy of
+`driver/`. The compiler's own check, "Program requirement exceeds 512KB hub
+RAM by N bytes", gives the requirement beyond the buffers:
+
+- 6 panels of 128x64 at 8-bit = 6 x 8192 x (3 + 8) = 540,672 buffer bytes;
+  the error says it exceeds by 89,108, so the requirement is
+  524,288 + 89,108 = 613,396; minus the buffers, 613,396 - 540,672 =
+  **72,724 bytes** (code, DAT, VAR, hub base and stack the compiler reserves).
+- Free for buffers = 524,288 - 72,724 = **451,564 bytes**, shared by all
+  three adapters (their buffers are static arrays, zero length when
+  `DISPn_C0` is `NO_PANEL`; `hwBuffers.spin2` :36-60).
+- Cross-check, 5 panels: the map says Total bytes 499,596 (Code/DAT 484,232,
+  VAR 15,364, hub base $0393F), the buffers are 5 x 90,112 = 450,560, so the
+  code part is 49,036 and the requirement is 72,724 + 450,560 = 523,284,
+  1,004 bytes under 524,288.
+- The release build (no `-d`, same demo): over by 72,036 at 6 panels gives
+  524,288 + 72,036 - 540,672 = 55,652, so 468,636 bytes free for buffers.
+  The DEBUG figure is the tighter and is the one tabled; where the release
+  build holds more, the release figure is in brackets.
+
+Maximum panels by RAM alone, one adapter, nothing on the others
+(floor(451,564 / bytes per panel); bracket = release build, 468,636):
+
+| Panel (P) | 3-bit | 4-bit | 5-bit | 6-bit | 7-bit | 8-bit |
+|---|---|---|---|---|---|---|
+| 64x32 (2,048) bytes/panel | 12,288 | 14,336 | 16,384 | 18,432 | 20,480 | 22,528 |
+| 64x32 max panels | 36 (38) | 31 (32) | 27 (28) | 24 (25) | 22 | 20 |
+| 64x64 (4,096) bytes/panel | 24,576 | 28,672 | 32,768 | 36,864 | 40,960 | 45,056 |
+| 64x64 max panels | 18 (19) | 15 (16) | 13 (14) | 12 | 11 | 10 |
+| 128x64 (8,192) bytes/panel | 49,152 | 57,344 | 65,536 | 73,728 | 81,920 | 90,112 |
+| 128x64 max panels | 9 | 7 (8) | 6 (7) | 6 | 5 | 5 |
+
+On one adapter RAM never sets the limit: the line buffer's cap (below) is
+lower in every cell. The worst case is 128x64 at 8-bit, RAM 5 against the
+line-buffer 4. RAM binds only when the adapters share it: the 451,564 bytes
+cover all three adapters together (for example, two adapters of 4 x 128x64 at
+8-bit need 8 x 90,112 = 720,896).
+
+**RAM proof (scratch `driver/` copy, ICN2037 128x64, 8-bit, `demo_hub75_7seg.spin2`,
+`pnut-ts -d -m`):**
+- 5 panels (C0..C4 chained `RIGHT_OF`): compiles, 498,887-byte `.bin`, 450,560
+  of the 451,564 free bytes used by buffers.
+- 6 panels (one over): fails with
+  `demo_hub75_7seg.spin2:237:error:Program requirement exceeds 512KB hub RAM by 89,108 bytes`
+  (the compiler prints the figure without the commas).
+  This confirms the compiler enforces the RAM limit. The 5/6 boundary matches
+  the table (128x64, 8-bit: 5).
+
+**3. The table: maximum panels per adapter, by panel type.**
+
+Max panels = min(line-buffer limit, converter limit 16); RAM does not bind
+on one adapter. Line-buffer limit = 512 / (panel columns x factor).
+
+| Panel type (config in `AuthorTestConfigurations.md`) | Columns | SCAN_4 factor | Line buffer: 512 / (cols x factor) | Converter | RAM alone, 3-bit .. 8-bit | **Max panels per adapter** | Set by | Status |
+|---|---|---|---|---|---|---|---|---|
+| FM6126A 64x32, 1/16 (cfg 1-3) | 64 | 1 | 512 / 64 = 8 | 16 | 36 .. 20 | **8** | line buffer | calculated |
+| FM6124 64x32, 1/16 (cfg 4) | 64 | 1 | 512 / 64 = 8 | 16 | 36 .. 20 | **8** | line buffer | calculated |
+| MBI5124GP 64x32, 1/8 quarter-scan (cfg 7-8) | 64 | 2 | 512 / (64 x 2) = 4 | 16 | 36 .. 20 | **4** | line buffer | calculated |
+| GS6238S 64x32, 1/16 (cfg 9) | 64 | 1 | 512 / 64 = 8 | 16 | 36 .. 20 | **8** | line buffer | calculated |
+| ICN2037 64x64, 1/32 (cfg 5-6, 10) | 64 | 1 | 512 / 64 = 8 | 16 | 18 .. 10 | **8** | line buffer | calculated |
+| ICN2037 128x64, 1/32 (cfg 11, the rig's type) | 128 | 1 | 512 / 128 = 4 | 16 | 9 .. 5 (8-bit compile-checked) | **4** | line buffer | calculated |
+| ICN2038S 64x64, quarter-scan flag (cfg 12) | 64 | 2 | 512 / (64 x 2) = 4 | 16 | 18 .. 10 | **4** | line buffer | calculated; scan **disputed** (below) |
+| DP5125D, 1/8 quarter-scan, ABC; panel size not in the repo | W | 2 | 512 / (W x 2): W=32 gives 8, W=64 gives 4, W=128 gives 2 | 16 | P x (3 + N), P unknown | **by width: 8 / 4 / 2** | line buffer | calculated from code; no panel documented |
+
+Notes on the table:
+- The rig (4 x 128x64 ICN2037, 512 column clocks) is exactly at the line-buffer
+  limit: 4 x 128 = 512.
+- Every type's limit is its line buffer: the converter's 16 and the RAM
+  never bind on one adapter. Rows differ only through width and the SCAN_4 factor.
+- ICN2038S: the code gives `SCAN_4`, so the factor is 2 and the limit 4. The
+  docs also give it `ADDR_ABCDE` (32 rows), which fits 1/32 scan and would make
+  the factor 1 (limit 8). The scan setting is an open punch-list item
+  (`DOCs/plans/PUNCH-LIST.md`, "ICN2038S scan setting contradicts its address
+  lines"). This table is not settling it: it shows the code's value, 4.
+- MBI5124GP, DP5125D and ICN2038S have the factor 2 because the code flags them
+  `SCAN_4`, not because of any panel-count test.
+- Multi-panel behaviour for FM6124, MBI5124GP, GS6238S and ICN2038S is untested
+  on hardware (`AuthorTestConfigurations.md`), so the limit is the driver's
+  cap, not a demonstrated working count.
+
+**4. Refresh: calculated upper bound (clock time only), not measured.**
+
+One column clock takes 16 cycles at 335 MHz (the panel clock is
+`clkfreq / 20_000_000` = 16 cycles, 20.94 MHz, slightly above the ICN2037
+20 MHz rating: punch-list item, code not changed here). One scan of every row
+address shifts `rows x column clocks` clocks. Binary-coded modulation repeats
+plane k 2^(N-1-k) times, so a full colour cycle is 2^N - 1 scans
+(`isp_hub75_rgb3bit.spin2` ~:841-866).
+
+Refresh (Hz) = 335,000,000 / (16 x rows x column clocks x (2^N - 1)),
+where rows = 8, 16 or 32 for `ADDR_ABC`, `ADDR_ABCD`, `ADDR_ABCDE`
+(`ROWS_ABC` / `ROWS_ABCD` / `ROWS_ABCDE`, rgb3bit :106-108) and column clocks =
+panels x columns x factor. At the maximum panel count every type fills the line
+buffer (512 column clocks), so 335,000,000 / (16 x 512) = 40,893.55 and:
+
+| Rows (address lines) | Types | 3-bit (7 scans) | 4-bit (15) | 5-bit (31) | 6-bit (63) | 7-bit (127) | 8-bit (255) |
+|---|---|---|---|---|---|---|---|
+| 32 (ABCDE) | ICN2037 64x64 and 128x64; ICN2038S (32 rows per code, scan disputed) | 182.6 | 85.2 | 41.2 | 20.3 | 10.1 | 5.0 |
+| 16 (ABCD) | FM6126A, FM6124, GS6238S | 365.1 | 170.4 | 82.4 | 40.6 | 20.1 | 10.0 |
+| 8 (ABC) | MBI5124GP, DP5125D | 730.2 | 340.8 | 164.9 | 81.1 | 40.2 | 20.0 |
+
+(Each cell is 40,893.55 / (rows x scans), for example the rig, 32 rows,
+5-bit: 40,893.55 / (32 x 31) = 41.2 Hz.) These are **calculated, clock
+time only, upper bounds**: they leave out latch, output-enable, blanking and
+hub-fetch time. With fewer panels the rate is higher in proportion to the
+column clocks. **Refresh measured: to be measured** for every type; Visit B
+(«#83») measures the rig's type (ICN2037 128x64) at each colour depth.
+
+**5. What is measured and what is calculated.** Measured (by the compiler): the
+hub RAM requirement of the 5- and 6-panel 128x64 8-bit configs and the error
+text. Everything else above is calculated from the cited constants and the
+cited build's map. No limit in this table has been exercised on hardware by
+this task.
 
 ## §12 Documentation
 
@@ -1156,6 +1315,11 @@ fixed at discovery (`9254a4c`); the verification gap is logged for the retrospec
 (§5c) and content rotation (§5b) are certified on hardware for this rig.** Still for the
 panel sweep: other panel types, the green quarter-scan panels, two adapters cabled, and
 the cube.
+
+**«#81» on the rig — 2026-10-02.** A scratch build of `demo_hub75_quadPanel` showing
+its labelled-quadrant screen (`demoQuadLocations`), after a screen-buffer readback of both
+`multi2x2panel` and `quadPanel` put each named panel where its name says. Stephen:
+*"Interesting colors on screen. Labels are all correct."*
 
 **Visit B — after §5, §7, §9 and §10.**
 - The boundary test at all four rotations.
