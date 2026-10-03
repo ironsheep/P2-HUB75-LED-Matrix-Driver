@@ -123,6 +123,7 @@ second figure is with F3's 14-clock shift:
 | 2 adapters × 4 panels, 8-bit | 720,896 | no |
 | 2 adapters × 4 panels, 4-bit | 458,752 | no, about 7 KB over |
 | 2 adapters × 4 panels, 3-bit | 393,216 | yes |
+| **Cube: 1 adapter × 6 × 64×64, 8-bit** (384 of 512 columns) | 6 × 4,096 × 11 = 270,336 | yes; about 90 Hz at 84% at a 60 Hz target (study §3) |
 | 2 adapters × 4 panels, 6-bit, screen buffers in PSRAM | 8 × 8,192 × 6 = 393,216 | yes |
 | 2 adapters × 4 panels, 8-bit, screen buffers in PSRAM | 524,288 | no |
 

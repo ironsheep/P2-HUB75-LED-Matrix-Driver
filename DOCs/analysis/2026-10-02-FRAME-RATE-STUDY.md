@@ -99,6 +99,9 @@ R = 32.
 | Rig, OE-weighted + F3 clock | 14 | 183 | 162 | 86 | 81 | **77** |
 | 4×64×64 chained (256 col, 32 addr), today | 16 | 170 | 82 | 41 | 20 | 10 |
 | 4×64×64 chained, OE-weighted | 16 | 320 | 284 | 150 | 142 | **135** |
+| **Cube: 6 × 64×64 ICN2037BP, unwrapped chain (384 col, 32 addr), today** | 16 | 114 | 55 | 27 | 13 | 6.7 |
+| **Cube, 60 Hz target** (the brightest setting that meets it) | 16 | 114 (100%) | 106 (97%) | 100 (93%) | 95 (88%) | **90 (84%)** |
+| **Cube, 60 Hz target** + F3 clock | 14 | 130 (100%) | 63 (100%) | 61 (98%) | 108 (88%) | **102 (84%)** |
 | 1×64×64 (64 col, 32 addr), today | 16 | 682 | 330 | 162 | 81 | 40 |
 | 1×64×64, OE-weighted | 16 | 1278 | 1136 | 601 | 568 | **538** |
 
