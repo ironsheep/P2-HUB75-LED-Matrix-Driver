@@ -78,9 +78,11 @@ CON ' ---- User Panel Connection and Configuration ----
     DISP0_MAX_PANEL_ROWS           = 64
 
     ' (3) describe the color depth you want to support [3-8] bits per LED
-    '    NOTE full 24bit color is hwEnum.DEPTH_8BIT
-    '    NOTE: Screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
-    DISP0_COLOR_DEPTH              = hwEnum.DEPTH_5BIT
+    '    NOTE the default is hwEnum.DEPTH_8BIT, full 24bit color
+    '    NOTE hub RAM: each pixel of the panels in use takes 3 screen-buffer bytes plus
+    '         one byte per bit of depth (two PWM frame sets of depth x 4 bits), so 11
+    '         bytes at 8 bits; lower the depth only when the buffers do not fit
+    DISP0_COLOR_DEPTH              = hwEnum.DEPTH_8BIT
 
     ' (4) Say how the whole display is mounted (the rotation is physical)
     '    ROT_RIGHT_90 = hung turned 90 degrees clockwise, ROT_LEFT_90 = counter-clockwise,
@@ -165,9 +167,11 @@ CON ' ---- User Panel Connection and Configuration ----
     DISP1_MAX_PANEL_ROWS           = 64
 
     ' (3) describe the color depth you want to support [3-8] bits per LED
-    '    NOTE full 24bit color is hwEnum.DEPTH_8BIT
-    '    NOTE: Screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
-    DISP1_COLOR_DEPTH              = hwEnum.DEPTH_6BIT
+    '    NOTE the default is hwEnum.DEPTH_8BIT, full 24bit color
+    '    NOTE hub RAM: each pixel of the panels in use takes 3 screen-buffer bytes plus
+    '         one byte per bit of depth (two PWM frame sets of depth x 4 bits), so 11
+    '         bytes at 8 bits; lower the depth only when the buffers do not fit
+    DISP1_COLOR_DEPTH              = hwEnum.DEPTH_8BIT
 
     ' (4) Say how the whole display is mounted (rules above DISP0)
     DISP1_ROTATION                 = hwEnum.ROT_NONE
@@ -240,9 +244,11 @@ CON ' ---- User Panel Connection and Configuration ----
     DISP2_MAX_PANEL_ROWS           = 64
 
     ' (3) describe the color depth you want to support [3-8] bits per LED
-    '    NOTE full 24bit color is hwEnum.DEPTH_8BIT
-    '    NOTE: Screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
-    DISP2_COLOR_DEPTH              = hwEnum.DEPTH_4BIT
+    '    NOTE the default is hwEnum.DEPTH_8BIT, full 24bit color
+    '    NOTE hub RAM: each pixel of the panels in use takes 3 screen-buffer bytes plus
+    '         one byte per bit of depth (two PWM frame sets of depth x 4 bits), so 11
+    '         bytes at 8 bits; lower the depth only when the buffers do not fit
+    DISP2_COLOR_DEPTH              = hwEnum.DEPTH_8BIT
 
     ' (4) Say how the whole display is mounted (rules above DISP0)
     DISP2_ROTATION                 = hwEnum.ROT_NONE
