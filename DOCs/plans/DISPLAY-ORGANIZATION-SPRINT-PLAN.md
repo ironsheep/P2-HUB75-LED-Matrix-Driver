@@ -1366,8 +1366,13 @@ builds (the committed config was never edited). Stephen observed the panels.
   multiPanel, quadPanel, scroll and text. Each built with 0 warnings and ran with no error
   lines. Stephen, after watching the replay: *"all demo's look good no obvious errors all
   scroll directions good"*. Boundary and identify were seen at Visit A.
-- **C1 flicker («#67»):** not reported by Stephen during the replay. Not investigated
-  here; «#67» stays open for its swap test.
+- **C1 flicker («#67»):** not reported by Stephen during the replay. Afterwards he
+  added: *"flicker is not location based just specific colors at this color depth"*.
+  This fits binary-coded modulation. A channel value whose light is mostly in the MSB
+  plane (e.g. 10000 at 5-bit) is lit in one long burst per cycle, so it blinks at the
+  40 Hz cycle rate wherever it appears, while values spread over several planes blink
+  less. Hypothesis for «#67»: the 2026-10-01 "C1 flicker" was such a colour on that
+  panel, not hardware. Not investigated here; «#67» carries the check.
 - **Findings, each disposed:** the P9 lead artifact (measurement, explained); the
   interleaving candidate (punch list).
 - **Verdict: the sprint's code is ready to close for this rig.**

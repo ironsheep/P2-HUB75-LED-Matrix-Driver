@@ -69,6 +69,7 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 ### Interleave the bit-plane repeats to raise the flicker rate (refresh quality, measured motivation)
 
 - **Found:** 2026-10-02 at Visit B «#83». Stephen saw a rainbow test image at each colour depth. At 6-bit (measured 19.7 Hz full cycle) it was *"shimmering but seems to be a side-to-side shifts"*, at 5-bit (40.1 Hz) *"less shimmer"*, and at 4-bit (82 Hz) *"rock steady"*.
+- **Stephen, after Visit B:** *"flicker is not location based just specific colors at this color depth"*. Colours whose light is concentrated in the MSB plane flicker most.
 - **Why:** binary-coded modulation shows each plane's repeats back to back: at 5-bit the MSB plane takes 16 consecutive scans, then 8, 4, 2, 1 (`driver/isp_hub75_rgb3bit.spin2`, `cmdDsplyFrameSet`). At any instant only one plane is lit. On an image whose colour changes along a row, the lit pattern jumps across the columns phase by phase, and the eye sees that as sideways motion at the full-cycle rate.
 - **Candidate:** interleave the plane order within a frame set (scrambled or interleaved BCM, e.g. MSB, lower, MSB, lower ...), so the long planes spread across the cycle. The colour sums are unchanged and the visible artefact rate rises many-fold. It must keep the refresh core's timing budget, and the PWM frame layout stays as it is.
 - **Bears on:** the depth a rig can use without visible shimmer (today 4-bit on this rig); the limits table's refresh column.
