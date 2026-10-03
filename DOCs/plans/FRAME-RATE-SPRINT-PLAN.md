@@ -1,8 +1,9 @@
 # FRAME-RATE — Sprint Plan
 
-**Status:** ready. The exit gate is met and no questions are open (2026-10-03). The
-build number is set at `sprint-start`, not here. 4.0.0 is in development and
-untagged.
+**Status:** started 2026-10-03. The exit gate was met and no questions are open.
+**Build:** **4.0.0**, agreed with Stephen at sprint start (2026-10-03): "this also
+adds content to the upcoming v4 release". 4.0.0 stays in development and untagged;
+FRAME-RATE's ChangeLog entries go under `[4.0.0]`.
 **Sources:**
 - `DOCs/analysis/2026-10-02-FRAME-RATE-STUDY.md` (findings F1-F26, cited as F*n*;
   F25 and F26 are video-playback notes for the follow-on sprint)
@@ -587,6 +588,18 @@ the audit can't see, and those are fixed by keeping one canonical copy.
   `driver/PSRAM_driver_RJA_Platform_1b.spin2`, which belongs to the follow-on
   sprint.
 
+## Sprint start (2026-10-03)
+
+- **Build number:** 4.0.0 (see Status).
+- **Working tree:** clean apart from Stephen's untracked
+  `driver/PSRAM_driver_RJA_Platform_1b.spin2`. It is outside this sprint's blast
+  radius and belongs to the follow-on slideshow sprint, so it stays untracked and
+  untouched.
+- **Tracking readiness:** ready. No tasks on the board (0 to archive, none left
+  over); 2 context keys, the live resume pointer and the paused green-panel sweep
+  notes (outside this sprint); `MEMORY.md` 7 lines, no misfiled judgement.
+- **Entry baseline:** below, re-measured on the sprint-start commit.
+
 ## Named unknowns (each with its planned response)
 
 - **A chip that cannot take data while lit:** none was found at visit A, on all
@@ -603,6 +616,7 @@ the audit can't see, and those are fixed by keeping one canonical copy.
 ## Revision history
 
 - 2026-10-02 — draft written after scope confirmation and the research pass.
+- 2026-10-03 — sprint started: build 4.0.0 agreed; entry checks recorded.
 - 2026-10-03 — bench visit A completed on the quad rig, FM6126A and MBI5124GP.
   Question 3 answered; §4 drops the shift-while-dark path; exit gate walked and
   the plan marked ready. Visit A then also run on the FM6124 (Stephen offered the
