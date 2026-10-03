@@ -127,6 +127,32 @@ decision it feeds. Visits run on the macOS host; the run sheet is
 | **D** | §4, §5 | FM6126A, MBI5124GP, FM6124 (optional), single panels | as visit C, per chip | per-chip acceptance; chip-matrix updates |
 | **E** | §7, §8, §9 | quad rig | commit and draw times before and after; converter equivalence on the P2 | §7-§9 accepted |
 
+### Visit B results (2026-10-03, quad rig, today's refresh core)
+
+Measured by `driver/test_hub75_rates.spin2` (one build per depth) on the quad rig;
+logs and method in `DOCs/bench/RUN-NOTES.md` (2026-10-03, visit B). Refresh is the
+LATCH count divided by (2^depth - 1) x 32 rows; the frame-start strobe agrees at
+every depth.
+
+| Depth | Refresh (Hz) | THEOPS (Hz) | Diff | /OE lit | Commit (ms) | Draw fill / lines / text / BMP (ms) |
+|---|---|---|---|---|---|---|
+| 3 | 177.18 | 177 | +0.1% | 97.3% | 9.50 | 636.2 / 234.9 / 1,108.6 / 306.0 |
+| 4 | 82.68 | 82 | +0.8% | 97.4% | 11.84 | 636.2 / 236.0 / 1,113.0 / 306.9 |
+| 5 | 40.01 | 40.1 | -0.2% | 97.4% | 14.19 | 636.2 / 237.1 / 1,118.3 / 307.6 |
+| 6 | 19.69 | 19.7 | -0.1% | 97.4% | 16.54 | 636.2 / 238.2 / 1,123.6 / 308.5 |
+| 7 | 9.77 | 9.6 | +1.7% | 97.4% | 18.89 | 636.2 / 239.3 / 1,128.9 / 309.4 |
+| 8 | 4.86 | 4.6 | +5.7% | 97.4% | 21.24 | 636.2 / 240.4 / 1,134.2 / 310.3 |
+
+- **Shift clock:** 20.32 M rises/s mean at every depth (the loop runs 16 system
+  clocks per column, 20.94 MHz, with row gaps between). On paper the loop is 9
+  clocks high and 7 low (26.9 / 20.9 ns).
+- **Verdict:** depths 3-7 agree with THEOPS within 2%. 8-bit is +5.7%: diagnosed as
+  THEOPS's reading, not the counters. The LATCH rate is 39,687-39,690/s at all six
+  depths, so refresh scales exactly with 1 / (2^depth - 1), and the counters agree
+  with THEOPS wherever it is consistent with that scaling.
+- **This table is the "before"** for refresh, duty and clock. Commit and draw times
+  are the before for §3; §7-§9 compare against visit C (§3 changes commit).
+
 ## 1. Prototype: prove the OE-weighted method on panels (planning phase)
 
 **Why:** §4 rewrites the shared refresh core. Two premises are unproven on panels:

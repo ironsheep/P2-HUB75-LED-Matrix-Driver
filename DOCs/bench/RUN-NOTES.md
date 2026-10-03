@@ -65,3 +65,34 @@ Each hand-back adds one dated entry with three parts: tree state (scoped to
 - Stephen: "14.27 watts" (full white).
 
 **Steps completed:** visit A on the single FM6124, offered by Stephen after the plan was marked ready. The chip shows a correct image while shifting in the lit time.
+
+### 2026-10-03 — FRAME-RATE visit B, quad rig, today's refresh core (`test_hub75_rates.spin2`)
+
+**Tree:** `driver/*.spin2` at `9a695c5`, plus a temporary edit of `DISP0_COLOR_DEPTH` in `isp_hub75_hwPanelConfig.spin2` for each depth. The file was restored to `9a695c5` after the sweep (`git diff` empty). The negative-limb and base-0 runs used a scratch copy of `driver/` outside the tree.
+**Rig:** quad rig, 2 x 2 of 128x64 ICN2037 on P16-P31, 512 column clocks, 32 row addresses, 335 MHz, today's refresh core (16 clocks per column). Stephen: "yes, quad ready and powered". For each depth: `pnut-ts -d -l -m test_hub75_rates.spin2`, then `pnut-term-ts -r test_hub75_rates.bin -p Parw7ukt --headless --timeout 90 --end-marker END_SESSION`.
+
+**Observed** (`driver/logs/headless_261003-154011.log` 8-bit, `-154341` 7, `-154450` 6, `-154557` 5, `-154702` 4, `-154804` 3). Refresh is computed from the LATCH counts over 15 windows (printed figures truncate to 0.1 Hz):
+
+| Depth | Refresh (Hz) | THEOPS (Hz) | Diff | /OE lit | Commit (ms) | Draw fill / lines / text / BMP (ms) |
+|---|---|---|---|---|---|---|
+| 3 | 177.18 | 177 | +0.1% | 97.3% | 9.50 | 636.2 / 234.9 / 1,108.6 / 306.0 |
+| 4 | 82.68 | 82 | +0.8% | 97.4% | 11.84 | 636.2 / 236.0 / 1,113.0 / 306.9 |
+| 5 | 40.01 | 40.1 | -0.2% | 97.4% | 14.19 | 636.2 / 237.1 / 1,118.3 / 307.6 |
+| 6 | 19.69 | 19.7 | -0.1% | 97.4% | 16.54 | 636.2 / 238.2 / 1,123.6 / 308.5 |
+| 7 | 9.77 | 9.6 | +1.7% | 97.4% | 18.89 | 636.2 / 239.3 / 1,128.9 / 309.4 |
+| 8 | 4.86 | 4.6 | +5.7% | 97.4% | 21.24 | 636.2 / 240.4 / 1,134.2 / 310.3 |
+
+- LATCH 39,687-39,690/s at every depth. The frame-start strobe (P9) averages 4.87/s at 8-bit and 177.13/s at 3-bit, agreeing with the LATCH figure.
+- Row and plane strobes (P10, P11) count 39,689-39,690/s, the same as LATCH: the monitors catch the 2-clock strobe pulses.
+- CLK 20.32 M rises/s mean. The printed "high 29.8 ns" includes the row gaps, where CLK idles high.
+- The command strobe (P8) read 0 throughout. It fires only when the command code changes, and every commit reposts `CMD_SHOW_PWM_BUFFER`, so today's core has no "command taken" event to mark.
+
+**Verdict:** depths 3-7 within 2% of THEOPS's logic-analyzer table. 8-bit is +5.7%, which is outside 5%. Diagnosed as THEOPS's figure: the LATCH rate does not change with depth, refresh is that rate divided by (2^depth - 1) x 32, and the counters match THEOPS at the four depths where its figures follow that scaling. The strobes cost 8 system clocks per row against about 8,440 (0.1%), too small to move these figures.
+
+**Negative limb** (scratch copy, `TARGET_PANEL_HZ = 10_000_000`, 8-bit; `scratchpad/neg89/logs/headless_261003-155005.log`): `TIMING cycles/bit=33`. CLK fell to 10.00 M rises/s and refresh to 2.3 Hz (from 20.32 M and 4.86 Hz), so the counters respond.
+
+**Base 0** (scratch copy, `DISP0_ADAPTER_BASE_PIN = PIN_GROUP_P0_P15`, nothing cabled on P0-P15; `scratchpad/neg89/logs/headless_261003-155136.log`): printed "RG3: instrument strobes P8-P11 are this adapter's own pins (base P0): strobes off" and "INSTR: monitors unavailable: the adapter at P0 owns P0-P13, which holds strobes P8-P11 and the monitor pins; none driven, none started". Draw and commit times were still reported.
+
+**Clock low half (finding):** the exact low time is (window clocks - high clocks) / periods, because CLK idles high in the gaps. It gives 6.5 clocks (19.5 ns) against 7 clocks (20.9 ns) on paper at 16 cycles per column, and 14.5 against 15 at 33. The same half-clock offset at both settings points to edge asymmetry in how the monitor sees the pin. This instrument therefore resolves the 20 ns minimum only to about +/-0.5 clock (1.5 ns).
+
+**Steps completed:** visit B. The before table exists for all six depths; the negative limb and the base-0 check are recorded.

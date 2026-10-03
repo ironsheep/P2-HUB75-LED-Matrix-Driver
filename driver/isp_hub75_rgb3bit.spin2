@@ -39,7 +39,8 @@ CON { instrumentation strobes: compiled only when HUB75_INSTRUMENT is defined }
 ' smart pins of isp_hub75_instrument.spin2. Only the refresh cog of a single adapter drives
 ' them, and only when the adapter does not use them itself (start() checks the base pin).
 ' Each mark is one pulse (two OUTNOTs):
-'  P08 - the refresh cog took a new command
+'  P08 - the refresh cog saw the command code change (a repost of the same command,
+'        as every commit is today, does not mark)
 '  P09 - frame start: the cog began showing a PWM frame set
 '  P10 - row start: the cog began shifting one row address
 '  P11 - plane latch: the cog latched one row of one bit plane
@@ -850,7 +851,7 @@ getCommand
                 'debug("* cmd=", udec_(nxtCommand), ", arg=", uhex_long_(nxtArgument))
 #IFDEF HUB75_INSTRUMENT
                 ' LA INSTRUMENTATION
-strobeCmdA      OUTNOT                          pinLAXT_08                                ' P08: new command taken
+strobeCmdA      OUTNOT                          pinLAXT_08                                ' P08: command code changed
 strobeCmdB      OUTNOT                          pinLAXT_08
 #ENDIF
                 MOV                             priorCommand, nxtCommand
@@ -1191,7 +1192,7 @@ pCogBffrIncr            LONG                    cogBuffer + COGBFFR_AUTOINC_FLAG
 ' need following new vars
 #IFDEF HUB75_INSTRUMENT
 pinGrpLAXT              LONG                    0                                         ' MTX_LA_XT_P08_11 pinGroup
-pinLAXT_08              LONG                    0                                         ' MTX_LA_XT_P08 pin - new command taken
+pinLAXT_08              LONG                    0                                         ' MTX_LA_XT_P08 pin - command code changed
 pinLAXT_09              LONG                    0                                         ' MTX_LA_XT_P09 pin - frame start
 pinLAXT_10              LONG                    0                                         ' MTX_LA_XT_P10 pin - row start
 pinLAXT_11              LONG                    0                                         ' MTX_LA_XT_P11 pin - plane latch

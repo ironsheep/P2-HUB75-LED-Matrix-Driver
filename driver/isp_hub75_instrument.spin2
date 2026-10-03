@@ -26,7 +26,7 @@
    Monitor map for an adapter at P16 (every pin is derived, none is typed in):
 
      signal                 pin   monitor   measures
-     P8   new command taken  P8    P5       rises per 1 s window
+     P8   command change     P8    P5       rises per 1 s window
      P9   frame start        P9    P6       rises per 1 s window
      P10  row start          P10   P7       rises per 1 s window
      P11  plane latch        P11   P12      rises per 1 s window
@@ -50,7 +50,7 @@
 CON ' ---- Signals and Monitors ----
 
     ' Signals the instrument watches, in report order (MON_COUNT is how many):
-    '  MON_CMD   - P8, the refresh cog took a new command
+    '  MON_CMD   - P8, the refresh cog saw the command code change
     '  MON_FRAME - P9, frame start
     '  MON_ROW   - P10, row start
     '  MON_PLANE - P11, plane latch
@@ -419,7 +419,7 @@ PRI signalLabel(sigIdx) : pLabel
 
   case sigIdx
     MON_CMD:
-      pLabel := string("new command")
+      pLabel := string("command change")
     MON_FRAME:
       pLabel := string("frame start")
     MON_ROW:
