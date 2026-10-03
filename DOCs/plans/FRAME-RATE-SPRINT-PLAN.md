@@ -323,8 +323,12 @@ the method.
   - `start()` computes S = columns × clocks per column, then the smallest j with
     refresh(j) ≥ target, and T = S / 2^j.
   - T is clamped to at least the chip's minimum OE in clocks: a new per-chip
-    table from the datasheets (FM6124 30 ns; ICN2037, ICN2038S, FM6126A 40 ns;
-    MBI5124GP 50 ns), rounded up at `clkfreq`.
+    table from the datasheets (FM6124 30 ns; ICN2038S, FM6126A 40 ns; ICN2037
+    60 ns; MBI5124GP 50 ns), rounded up at `clkfreq`.
+  - The ICN2037 value is 60 ns because its datasheet revisions disagree: V1.1
+    (Nov 2016, p.2 and p.8) and Stephen's `DOCs/ICN2037/ICN2037-timing.pdf` give
+    60 ns, V2.0 (Nov 2017, p.8) gives 40 ns. The panels' revision is unknown, so
+    the value that holds for both is used.
   - If no j meets the target, start uses the largest j and prints a catalogue
     message giving the rate it does reach.
 - **Brightness (F24).** `display.setBrightness(0-256)` keeps its signature and
@@ -397,8 +401,18 @@ clocks low and 9 high.
 - The loop is reordered so its high and low halves meet those minimums at 15
   clocks, and at 14 if a split that meets both exists.
 
-Premise to settle: Q3 of the study, the 20 ns minimum CLK pulse per chip, is read
-from each dynamic table before this section is tasked.
+**Premise settled (study Q3, read 2026-10-03 from each chip's dynamic table):** the
+minimum clock pulse width, high or low, is **20 ns on every bench chip**:
+- FM6126A `TwCLK` 20 ns, `DOCs/FM6126A/FM6126A-timing.pdf` p.2;
+- MBI5124GP `tw(CLK)` 20 ns at both VDD 5.0 V and 3.3 V, `MBI5124GP-B_C.pdf` pp.9-10;
+- ICN2037 `twCLK` 20 ns, `ICN2037_datasheet_EN_2017_V2.0.pdf` p.8;
+- ICN2038S `twCLK` 20 ns, `icn2038s.pdf` p.9;
+- FM6124 `TWCLK` 20 ns, `fm6124-datasheet_en.pdf` p.4.
+
+20 ns high plus 20 ns low caps every chip at 25 MHz, below each rated maximum. The
+ICN2037 V2.0 sheet gives `FCLK` 35 MHz in its transition table (p.8) but 30 MHz in
+its feature list (p.2) and absolute maximums (p.7); V1.1 gives 30 MHz throughout.
+30 MHz is the rating used here and in §12.
 
 **Verification (visits C and D):**
 - **Normal:** P13 measures clock frequency and high-time duty. Both halves are at
@@ -566,7 +580,7 @@ the audit can't see, and those are fixed by keeping one canonical copy.
 |---|---|---|
 | **Refresh method and rates** | THEOPS.md:194-202; DOCs/TheoryOfOperations.md:150, :202, :385-391; DOCs/WiringGuide.md:228-250; ChangeLog.md:58-59 (known issues); README.md:23, :101, :390; DOCs/FutureDirections-ImageAndColor.md:146-171, :232, :266, :316, :329; HUB75-Driver-SWver1.md:100, :139, :159, :202; rgb3bit doc comments (:846 and `cmdDsplyFrameSet`) | Canonical method and rate tables in **DOCs/WiringGuide.md "Refresh rate"**, rewritten with visit C and D measurements. THEOPS and TheoryOfOperations keep a short description of the method and **link** to it. The FutureDirections copy is replaced by a link. The HUB75-Driver-SWver1 notes are history and get a "superseded" banner. |
 | **Target refresh setting (new)** | README config table :167 and its duplicate THEOPS.md:174 | Add the `DISPn_TARGET_REFRESH_HZ` row. **Make README the canonical config table and have THEOPS link to it.** |
-| **Shift clock and chip timing** | DOCs/TheoryOfOperations.md:389; DOCs/WiringGuide.md:230; DOCs/FutureDirections-ImageAndColor.md:171; DOCs/AuthorTestConfigurations.md:95, :121, :196, :243, :294, :317-318, :398; DOCs/ChipCharacteristicsMatrix.md:73-85, :173, :177, :225, :229, :702; README.md:111-116; THEOPS / TheoryOfOperations :487-491; DOCs/ICN2037/README.md:50, :55, :81, :215-218, :274, :342, :409, :413; HUB75-Driver-SWver0.md | Correct to the datasheets: ICN2037 30 MHz and 40 ns; MBI5124GP OE 50/60/70; FM6124 30 ns added; ICN2038S has register commands. **Canonical chip table in DOCs/ChipCharacteristicsMatrix.md**, with README, THEOPS, TheoryOfOperations and AuthorTestConfigurations linking to it rather than repeating the clock column. SWver0 gets a history banner. |
+| **Shift clock and chip timing** | DOCs/TheoryOfOperations.md:389; DOCs/WiringGuide.md:230; DOCs/FutureDirections-ImageAndColor.md:171; DOCs/AuthorTestConfigurations.md:95, :121, :196, :243, :294, :317-318, :398; DOCs/ChipCharacteristicsMatrix.md:73-85, :173, :177, :225, :229, :702; README.md:111-116; THEOPS / TheoryOfOperations :487-491; DOCs/ICN2037/README.md:50, :55, :81, :215-218, :274, :342, :409, :413; HUB75-Driver-SWver0.md | Correct to the datasheets: ICN2037 rated 30 MHz (20 ns pulses cap it at 25 MHz) and /OE minimum 60 ns, which `DOCs/ICN2037/README.md` already says correctly (the V2.0 sheet's 40 ns is noted beside it); MBI5124GP OE 50/60/70; FM6124 30 ns added; ICN2038S has register commands. **Canonical chip table in DOCs/ChipCharacteristicsMatrix.md**, with README, THEOPS, TheoryOfOperations and AuthorTestConfigurations linking to it rather than repeating the clock column. SWver0 gets a history banner. |
 | **Default depth 8-bit** | hwPanelConfig :83, :170, :245 and template comments; README.md:208, :245, :284; THEOPS.md:210 | Update the examples and comments. |
 | **Double buffering and `showFrameSet`** | DOCs/TheoryOfOperations.md:56, :121, :125, :186-188, :280, :310 (these claim double buffering that wasn't connected); THEOPS.md:194; panel.spin2 comments :93, :146-149, :184, :488, :688-701 | Describe the real rule and the new call; doc comment on `showFrameSet`. |
 | **Brightness** | display.spin2:260-276 doc comments; DOCs/TheoryOfOperations.md:150, :171-172; colorUtils `setBrightness` comments | Brightness is OE time; full depth at any brightness; the floor at the chip's minimum OE; lower average current. |
@@ -605,7 +619,7 @@ the audit can't see, and those are fixed by keeping one canonical copy.
 - **Tracking readiness:** ready. No tasks on the board (0 to archive, none left
   over); 2 context keys, the live resume pointer and the paused green-panel sweep
   notes (outside this sprint); `MEMORY.md` 7 lines, no misfiled judgement.
-- **Entry baseline:** below, re-measured on the sprint-start commit.
+- **Entry baseline:** above, re-measured on the sprint-start commit.
 
 ## Named unknowns (each with its planned response)
 
@@ -620,6 +634,42 @@ the audit can't see, and those are fixed by keeping one canonical copy.
   measurement in §5. 15 clocks is the fallback.
 - **The shimmer verdict:** §6, by eye at visit C.
 
+## Tasks (generated 2026-10-03, sprint tag `framerate`)
+
+| Plan § | Deliverable | Task | seq | Runs on |
+|---|---|---|---|---|
+| §2 | `HUB75_INSTRUMENT` harness, `test_hub75_rates` | «#88» | 1 | either (compile) |
+| Visit B | today's driver measured: the "before" | «#89» | 2 | macOS + quad rig |
+| §12 (chip ratings) | chip-rating docs corrected to the datasheets | «#90» | 3 | either |
+| §3 | tear-free commit, `display.showFrameSet` | «#91» | 4 | either + rig check |
+| §4 | OE-weighted refresh core, target refresh, brightness as OE time | «#92» | 5 | either + rig check |
+| §5 | shift clock at the 20 ns limit | «#93» | 6 | macOS + quad rig |
+| Visit C | §3-§5 accepted on the quad; shimmer observed; §7-§9 "before" times | «#94» | 7 | macOS + quad rig |
+| §6 | shimmer punch item closed, or planes interleaved | «#95» | 8 | either |
+| §10 | 8-bit default | «#96» | 9 | either |
+| Visit D | per-chip acceptance, single panels | «#97» | 10 | macOS + singles |
+| §7 | `MERGEB` converters, `test_hub75_converter` | «#98» | 11 | either + P2 harness |
+| §8 | colour table | «#99» | 12 | either + P2 self-test |
+| §9 | row-run primitives | «#100» | 13 | either + P2 self-test |
+| Visit E | §7-§9 accepted | «#101» | 14 | macOS + quad rig |
+| §12 (measured) | refresh, brightness, buffering docs; ChangeLog | «#102» | 15 | either |
+
+§1 (the prototype) and §11 (bench validation) have no task of their own: §1 was done
+in planning (visit A), and §11 is the visit tasks.
+
+- **Dispatch model:** `arbiter-serial`, the project default. The exclusive resources
+  are the compiler outputs in `driver/`, `ChangeLog.md` and the user configuration
+  files, so no two tasks run at once.
+- **Two-phase tasks:** «#92» (§4), «#98» (§7) and «#100» (§9). The first dispatch
+  returns the design with one instance applied for review.
+- **One boundary moved:** the brightness multiply in `correctedSingleColor` is
+  removed in «#92» (§4), not in §8. Brightness becomes OE time in §4, so leaving the
+  multiply until §8 would apply brightness twice in between.
+- **Ordering:** visit B runs before any core change, so it measures today's driver.
+  Visit C records the commit and draw times that visit E compares against, because
+  §3 changes commit. The chip-ratings docs task needs no hardware and runs during
+  bench waits.
+
 ## Revision history
 
 - 2026-10-02 — draft written after scope confirmation and the research pass.
@@ -628,3 +678,11 @@ the audit can't see, and those are fixed by keeping one canonical copy.
   the plan marked ready. Visit A then also run on the FM6124 (Stephen offered the
   panel): correct while shifting lit.
 - 2026-10-03 — sprint started: build 4.0.0 agreed; entry checks recorded.
+- 2026-10-03 — §5's premise (study Q3, 20 ns minimum clock pulse) settled from the
+  five datasheets at task generation. It had been left open when the exit gate was
+  walked.
+- 2026-10-03 — at task generation, the ICN2037 minimum /OE was corrected from 40 to
+  60 ns in §4 and §12. The datasheet revisions disagree (V1.1 and the timing sheet
+  say 60, V2.0 says 40), and §12 would otherwise have changed a correct doc to a
+  wrong one.
+- 2026-10-03 — tasks «#88»-«#102» generated; cross-reference table added.
