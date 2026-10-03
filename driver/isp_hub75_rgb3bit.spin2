@@ -39,8 +39,8 @@ CON { instrumentation strobes: compiled only when HUB75_INSTRUMENT is defined }
 ' smart pins of isp_hub75_instrument.spin2. Only the refresh cog of a single adapter drives
 ' them, and only when the adapter does not use them itself (start() checks the base pin).
 ' Each mark is one pulse (two OUTNOTs):
-'  P08 - the refresh cog saw the command code change (a repost of the same command,
-'        as every commit is today, does not mark)
+'  P08 - posted set taken: the refresh cog took a newly posted PWM frame set, so the
+'        set it shows (dvrShowing) changed. A repost of the set already shown does not mark
 '  P09 - frame start: the cog began showing a PWM frame set
 '  P10 - row start: the cog began shifting one row address
 '  P11 - plane latch: the cog latched one row of one bit plane
@@ -92,6 +92,9 @@ CON ' Data
 '  CMD_SHOW_PWM_BUFFER - display a PWM frame set
 '  CMD_STOP            - stop the driver cog
     #0, CMD_DONE, CMD_CLEAR, CMD_SHOW_BUFFER, CMD_FILL_COLOR, CMD_SHOW_PWM_BUFFER, CMD_STOP
+
+    ' dvrShowing before the driver has taken a posted PWM frame set (no hub frame set lives at 0)
+    NO_FRAME_SET                  = 0
 
 CON { HUB75 pin layout offsets (relative to adapter base pin) }
 
@@ -228,9 +231,13 @@ VAR
 
     LONG    ptrCommand                                              ' ptra[0]
     LONG    ptrArgument                                             ' ptra[1]  @buffer -OR- color value [0-7]
+    LONG    ptrShowing                                              ' ptra[2]  @dvrShowing
     ' write values here to pass to driver
-    LONG    dvrCommand                                              ' ptra[2]
-    LONG    dvrArgument                                             ' ptra[3]
+    LONG    dvrCommand
+    LONG    dvrArgument
+    ' written by the driver: hub address of the PWM frame set it is showing (NO_FRAME_SET until
+    ' it has taken its first posted set); the frame set it names is never written by a converter
+    LONG    dvrShowing
 
     LONG    dvrConfig
     LONG    driverFlags
@@ -533,6 +540,8 @@ PUB start(nID, nChainIdx) : startedCog | tmpVar, panelCt, tmpConstant, widthInPa
   ' pass values to our driver
   ptrCommand := @dvrCommand
   ptrArgument := @dvrArgument
+  ptrShowing := @dvrShowing
+  dvrShowing := NO_FRAME_SET                                                    ' nothing taken yet
   dvrCommand := CMD_DONE                                                        ' ensure we start here
 
   startedCog := cog := COGINIT(COGINIT_FREE_COG, @drive_matrix, @ptrCommand) + 1
@@ -610,7 +619,17 @@ PUB cmdWritePwmBuffer(pBuffer)
   dvrArgument := pBuffer
   dvrCommand := CMD_SHOW_PWM_BUFFER
   ' this will keep showing same PWM buffer until caller changes command!
-  ' so it just returns immediately
+  ' so it just returns immediately; the driver takes the set at its next frame-set start and
+  ' then names it in dvrShowing (see showingFrameSet())
+
+PUB showingFrameSet() : pFrameSet
+'' Return the hub address of the PWM frame set the driver is showing: the set it took at its
+'' latest frame-set start, or NO_FRAME_SET before it has taken one. A posted set is taken when
+'' this equals the posted address.
+''
+'' @returns pFrameSet - hub address of the PWM frame set on display, or NO_FRAME_SET
+
+  pFrameSet := dvrShowing
 
 PRI setupPins()
 ' Configure all HUB75 panel pins as outputs with default states.
@@ -750,6 +769,7 @@ drive_matrix
                     'allowi    ' enable interrupts
                     rdlong  pCommmand, ptra[0]
                     rdlong  pArgument, ptra[1]
+                    rdlong  pShowing, ptra[2]
 
 #IFDEF HUB75_INSTRUMENT
                     ' LA INSTRUMENTATION
@@ -760,8 +780,8 @@ drive_matrix
     if_nz           wrpin   ##P_LOW_1MA, pinGrpLAXT ' set these to P_LOW_1MA for best Analyzer capture no noise at 1.7v threshold
     if_nz           drvl    pinGrpLAXT
                     ' no: the adapter owns these pins, so each strobe instruction becomes a NOP
-    if_z            mov     strobeCmdA, #0
-    if_z            mov     strobeCmdB, #0
+    if_z            mov     strobeTakenA, #0
+    if_z            mov     strobeTakenB, #0
     if_z            mov     strobeFrameA, #0
     if_z            mov     strobeFrameB, #0
     if_z            mov     strobeRowEndA, #0
@@ -849,11 +869,6 @@ getCommand
     if_z        JMP                             #chkShow
                 ' process NEW command
                 'debug("* cmd=", udec_(nxtCommand), ", arg=", uhex_long_(nxtArgument))
-#IFDEF HUB75_INSTRUMENT
-                ' LA INSTRUMENTATION
-strobeCmdA      OUTNOT                          pinLAXT_08                                ' P08: command code changed
-strobeCmdB      OUTNOT                          pinLAXT_08
-#ENDIF
                 MOV                             priorCommand, nxtCommand
 chkShow
                 CMP                             nxtCommand, #CMD_SHOW_BUFFER          wz
@@ -878,6 +893,15 @@ chkFill
 ' cmdDsplyFrameSet(nxtArgument=hubAddressOfPWMFrameSet)
 '
 cmdDsplyFrameSet
+                ' this frame set is the one on display from here: name it for the converters, which
+                ' write only the set that is not named here
+#IFDEF HUB75_INSTRUMENT
+                CMP                             nxtArgument, showingPrior             wz  ' Q: a newly posted set?
+strobeTakenA if_nz OUTNOT                       pinLAXT_08                                ' P08: posted set taken (dvrShowing changes)
+strobeTakenB if_nz OUTNOT                       pinLAXT_08
+                MOV                             showingPrior, nxtArgument
+#ENDIF
+                WRLONG                          nxtArgument, pShowing                     ' dvrShowing := the set shown from this frame start
 #IFDEF HUB75_INSTRUMENT
 strobeFrameA    OUTNOT                          pinLAXT_09                                ' P09: frame start (a PWM frame set)
 strobeFrameB    OUTNOT                          pinLAXT_09
@@ -1192,7 +1216,8 @@ pCogBffrIncr            LONG                    cogBuffer + COGBFFR_AUTOINC_FLAG
 ' need following new vars
 #IFDEF HUB75_INSTRUMENT
 pinGrpLAXT              LONG                    0                                         ' MTX_LA_XT_P08_11 pinGroup
-pinLAXT_08              LONG                    0                                         ' MTX_LA_XT_P08 pin - command code changed
+pinLAXT_08              LONG                    0                                         ' MTX_LA_XT_P08 pin - posted set taken
+showingPrior            LONG                    0                                         ' the set named at the previous frame start (P08 marks a change)
 pinLAXT_09              LONG                    0                                         ' MTX_LA_XT_P09 pin - frame start
 pinLAXT_10              LONG                    0                                         ' MTX_LA_XT_P10 pin - row start
 pinLAXT_11              LONG                    0                                         ' MTX_LA_XT_P11 pin - plane latch
@@ -1220,6 +1245,7 @@ endCogBuffer
                 ' basic driver variables
                 pCommmand                       RES     1
                 pArgument                       RES     1
+                pShowing                        RES     1
                 byteOffset                      RES     1
                 colorByte                       RES     1
                 priorCommand                    RES     1

@@ -69,6 +69,7 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 - **Cause of the 2026-10-01 'C1 flicker' («#67», closed 2026-10-02):** the same effect. With quadPanel's hues on all four panels at once, Stephen saw *"the most flicker is cyan, next is green, all panels flicker at the same rate"*. Cyan (hue 192) has green 11000 at 5-bit (24 scans on, 7 off in one stretch) and was C1's colour in the original sighting. Green (hue 128) has blue 00100 (one short burst). Red (11111) and yellow-green were steady. It is not the panel, the ribbon, or cable position C1.
 - **Candidate:** interleave the plane order within a frame set (scrambled or interleaved BCM, e.g. MSB, lower, MSB, lower ...), so the long planes spread across the cycle. The colour sums are unchanged and the visible artefact rate rises many-fold. It must keep the refresh core's timing budget, and the PWM frame layout stays as it is.
 - **Bears on:** the depth a rig can use without visible shimmer (today 4-bit on this rig); the limits table's refresh column.
+- **At 8-bit on today's core (2026-10-03, «#91» check, demo_hub75_quadPanel; 4.86 Hz measured at visit B «#89»):** Stephen: *"cyan has deep slow blink vs. flicker"*, then *"so does green"*. The same mechanism at a lower rate: the 8-bit default («#96») landed before the new refresh core («#92»), which removes the repeats. Verdict at visit C «#94», disposition «#95».
 
 ### [x] Docs disagree on the ICN2037 maximum clock: 20 MHz or 30 MHz (doc conflict, settled)
 

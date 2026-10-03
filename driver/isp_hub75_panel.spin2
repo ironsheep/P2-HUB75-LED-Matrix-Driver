@@ -87,7 +87,6 @@ VAR ' driver instance variables
     LONG    nBytesPerColor
     LONG    nPwmFrameSizeInBytes
     LONG    nPwmFrameSizeInLongs
-    BYTE    usePwmFrameset1
 #ifdef DBG_PWM
     BYTE    bDumpOnce
     BYTE    nPassCt
@@ -95,6 +94,15 @@ VAR ' driver instance variables
 
     LONG    pPwmFrame1
     LONG    pPwmFrame2
+    LONG    pLastPosted                                 ' the frame set posted last (matrix.NO_FRAME_SET before the first post)
+#IFDEF HUB75_INSTRUMENT
+    LONG    pTraceConverted                             ' the set the latest commit converted into
+    LONG    pTraceShownAtPost                           ' the set on display when that conversion was done
+    LONG    pTraceFirstShown                            ' the set on display when the first commit posted
+    LONG    nTraceCommits                               ' commits posted
+    LONG    nTraceWaited                                ' posts that had to wait for the previous one to be taken
+    LONG    nTraceBad                                   ' commits that converted into the set on display
+#ENDIF
 
 ' ----------------------------------------------------------
 
@@ -137,10 +145,15 @@ PUB start(nID, nChainIdx) : startedCog
   DEBUG("- PNL: BFFR pwm[1][", udec_long_(nPwmFrameSizeInLongs), "] 0x", uhex_long_(pPwmFrame1))
   DEBUG("- PNL: BFFR pwm[2][", udec_long_(nPwmFrameSizeInLongs), "] 0x", uhex_long_(pPwmFrame2))
 
-  usePwmFrameset1 := TRUE
+  pLastPosted := matrix.NO_FRAME_SET                    ' nothing posted yet: the first commit has no earlier post to wait for
+#IFDEF HUB75_INSTRUMENT
+  nTraceCommits := 0
+  nTraceWaited := 0
+  nTraceBad := 0
+#ENDIF
 
-  clearPwmFrameBuffer()                                 ' clear PWM frames  and get pointer to buffer
-  clearPwmFrameBuffer()                                 ' this clears 2nd frame-set, too
+  longfill(pPwmFrame1, 0, nPwmFrameSizeInLongs * nColorDepth)   ' clear both PWM frame sets
+  longfill(pPwmFrame2, 0, nPwmFrameSizeInLongs * nColorDepth)
 
   startedCog := cog := matrix.start(instanceID, chainIndex)     ' send buffer to driver
   if startedCog == -1
@@ -162,7 +175,53 @@ PUB fillScreenNoPWM(threeBitColor)
 ''
 '' @param threeBitColor - 3-bit RGB color value to fill
 
+  waitPostedSetTaken()                                  ' a fill would replace a post the driver has not taken yet
   matrix.cmdFillScreenNoPWM(threeBitColor)
+
+PUB showFrameSet(pFrameSet) : accepted
+'' Post a PWM frame set to the refresh driver, the way a commit does. Only one of this adapter's
+'' two frame sets is accepted, so the set a converter writes stays the one that is not on
+'' display. If the previous post has not been taken yet, this waits for it first, so no post is
+'' overwritten before the driver has seen it. A refused address prints a message and posts nothing.
+''
+'' @param pFrameSet - hub address of one of the adapter's two PWM frame sets
+'' @returns accepted - TRUE if the set was posted, FALSE if the address was refused
+
+  accepted := FALSE
+  if pFrameSet == matrix.NO_FRAME_SET
+    debug("HUB75: DISP", udec_(chainIndex), ": showFrameSet(NULL) refused: no frame set given; give one of this adapter's two PWM frame sets, 0x", uhex_long_(pPwmFrame1), " or 0x", uhex_long_(pPwmFrame2))
+  elseif pFrameSet <> pPwmFrame1 and pFrameSet <> pPwmFrame2
+    debug("HUB75: DISP", udec_(chainIndex), ": showFrameSet(0x", uhex_long_(pFrameSet), ") refused: not one of this adapter's two PWM frame sets, 0x", uhex_long_(pPwmFrame1), " or 0x", uhex_long_(pPwmFrame2))
+  else
+    waitPostedSetTaken()
+    postFrameSet(pFrameSet)
+    accepted := TRUE
+
+#IFDEF HUB75_INSTRUMENT
+PUB commitTrace() : pConverted, pShownAtPost, pShownNow
+'' Instrument build only: what the latest commit did, for the frame-set handshake trace.
+''
+'' @returns pConverted - the frame set the latest commit converted into
+'' @returns pShownAtPost - the frame set on display when that conversion was done (never equal to pConverted)
+'' @returns pShownNow - the frame set on display at this call
+
+  pConverted := pTraceConverted
+  pShownAtPost := pTraceShownAtPost
+  pShownNow := matrix.showingFrameSet()
+
+PUB commitTotals() : nCommits, nWaited, nBad, pFirstShown
+'' Instrument build only: totals since start for the frame-set handshake trace.
+''
+'' @returns nCommits - commits posted
+'' @returns nWaited - posts that waited for the previous post to be taken
+'' @returns nBad - commits that converted into the frame set on display (must be 0)
+'' @returns pFirstShown - the frame set on display when the first commit posted (matrix.NO_FRAME_SET at the first commit after start)
+
+  nCommits := nTraceCommits
+  nWaited := nTraceWaited
+  nBad := nTraceBad
+  pFirstShown := pTraceFirstShown
+#ENDIF
 
 PUB convertScreen2PWM_14(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet, pPwmFrame, lOne4thLineCt, lOneHalfLineCt, lThree4thsLineCt, lPhyRows, lPanelCols, lPanelCount, lPanelSkipBytes, lPwmAddrRowBytes, lDisplayBytesPerColor, lMaxPwmBuffers, lPwmFrameSizeInBytes
 '' Load a 24-bit-color image into PWM frame buffers for 1/8 scan panels (4 scan-lines at a time) using inline PASM.
@@ -175,7 +234,7 @@ PUB convertScreen2PWM_14(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet, pPwmFra
 '' @param bSwapGB - TRUE to swap green and blue channels
 
 ' Local Variables:
-' @local pPwmFrameSet - pointer to active PWM frame set
+' @local pPwmFrameSet - pointer to the PWM frame set that is not on display (converted into, then posted)
 ' @local pPwmFrame - pointer to current PWM frame
 ' @local lOne4thLineCt - one quarter of the panel row count
 ' @local lOneHalfLineCt - one half of the panel row count
@@ -244,7 +303,7 @@ PUB convertScreen2PWM_14(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet, pPwmFra
   ' -------------------------------------------------------------------------
 
   ' init ptrs/variables
-  pPwmFrameSet            := getActivePwmBuffer()
+  pPwmFrameSet            := frameSetToConvertInto()
   lPhyRows                := nPanelRows
   lPanelCols              := nPanelColumns
   lPanelCount             := nPanelCount
@@ -397,7 +456,7 @@ next8SColumn
 next8SPwmFrame
                 ' calculate pointer to frame for this bit #
                 '   nFrameOffset := frameIdx * nPwmFrameSizeInLongs ' 256 longs in each frame
-                '   pPwmFrame := @LONG[getActivePwmBuffer()][nFrameOffset]
+                '   pPwmFrame := @LONG[pPwmFrameSet][nFrameOffset]
                 MOV         pPwmFrame, currPwmBffrIdx
                 MUL         pPwmFrame, lPwmFrameSizeInBytes
                 ADD         pPwmFrame, pPwmFrameSet
@@ -461,7 +520,7 @@ write8SPwmByte
 doneS8
     END
 
-  matrix.cmdWritePwmBuffer(pPwmFrameSet)
+  postConvertedSet(pPwmFrameSet)
 
 ' -----------------------------------------------------------------------------
 
@@ -476,7 +535,7 @@ PUB convertScreen2PWM(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet, lPanelCoun
 '' @param bSwapGB - TRUE to swap green and blue channels
 
 ' Local Variables:
-' @local pPwmFrameSet - pointer to active PWM frame set
+' @local pPwmFrameSet - pointer to the PWM frame set that is not on display (converted into, then posted)
 ' @local lPanelCount - panels on this adapter (buffer slots)
 ' @local lPanelCols - columns per panel
 ' @local lHalfPanelRows - half panel height for RGB1/RGB2 split
@@ -492,7 +551,7 @@ PUB convertScreen2PWM(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet, lPanelCoun
 
 
   ' Get PWM buffer and setup parameters
-  pPwmFrameSet            := getActivePwmBuffer()
+  pPwmFrameSet            := frameSetToConvertInto()
   lPanelCount             := nPanelCount              ' Panels on this adapter (e.g., 4)
   lPanelCols              := nPanelColumns            ' Columns per panel (e.g., 128)
   lHalfPanelRows          := nPanelRows / HALF_DIVISOR    ' Half panel height for RGB1/RGB2 split (e.g., 32)
@@ -654,7 +713,7 @@ done16s
     hub75Bffrs.dbgMemDump(@frame1Msg, pPwmFrameSet + nPwmFrameSizeInBytes, 32)
 #endif
 
-  matrix.cmdWritePwmBuffer(pPwmFrameSet)
+  postConvertedSet(pPwmFrameSet)
 
 ' -----------------------------------------------------------------------------
 
@@ -734,38 +793,53 @@ PRI emptyRgb2(pFrameBuffer) : isEmpty | byteIdx
       quit
 #endif
 
-PRI clearPwmFrameBuffer() : pPwmFrameSet
-' Clear the active PWM frame buffer and toggle to the alternate frame set for double buffering.
+PRI waitPostedSetTaken()
+' Wait until the refresh driver has taken the frame set posted last, that is, until the set it
+' shows (dvrShowing) is that set. Nothing is waited for before the first post, or after the
+' driver cog has been stopped.
 '
-' @returns pPwmFrameSet - pointer to the newly active PWM frame set
 
-  usePwmFrameset1 := !usePwmFrameset1
-  pPwmFrameSet := getActivePwmBuffer()
-  'debug("- active buffer=", uhex_long_(pPwmFrameSet))
-  longfill(pPwmFrameSet, 0, nPwmFrameSizeInLongs * nColorDepth)
+  if pLastPosted <> matrix.NO_FRAME_SET and cog <> 0
+#IFDEF HUB75_INSTRUMENT
+    if matrix.showingFrameSet() <> pLastPosted
+      nTraceWaited++
+#ENDIF
+    repeat while matrix.showingFrameSet() <> pLastPosted
 
-PRI getActivePwmBuffer() : pPwmFrameSet
-' Return the pointer to the currently active PWM frame set.
+PRI frameSetToConvertInto() : pFrameSet
+' Return the frame set a commit converts into: the one that is not on display. It first waits
+' for the previous post to be taken, so the set on display is the set posted last and the other
+' set is free; before anything has been taken, neither set is on display and set 1 is free.
 '
-' @returns pPwmFrameSet - pointer to the active PWM frame set
+' @returns pFrameSet - hub address of the frame set that is not on display
 
-  pPwmFrameSet := (usePwmFrameset1) ? pPwmFrame1 : pPwmFrame2
+  waitPostedSetTaken()
+  pFrameSet := (matrix.showingFrameSet() == pPwmFrame1) ? pPwmFrame2 : pPwmFrame1
 
-PRI getPwmFrameAddressForBit(nBitNumber) : pFrameBuffer | nFrameOfst, frameIdx
-' Return the hub address of the PWM frame corresponding to the given bit number.
+PRI postConvertedSet(pFrameSet)
+' Post the frame set a commit has just converted into. In the instrument build the commit is
+' recorded first: a set that is on display when its conversion is done is counted as bad.
 '
-' @param nBitNumber - bit index selecting the PWM frame
-' @returns pFrameBuffer - pointer to the selected PWM frame
+' @param pFrameSet - hub address of the frame set the commit converted into
 
-' Local Variables:
-' @local nFrameOfst - long offset into the frame set
-' @local frameIdx - clamped frame index
+#IFDEF HUB75_INSTRUMENT
+  pTraceConverted := pFrameSet
+  pTraceShownAtPost := matrix.showingFrameSet()
+  if nTraceCommits == 0
+    pTraceFirstShown := pTraceShownAtPost
+  if pFrameSet == pTraceShownAtPost
+    nTraceBad++
+  nTraceCommits++
+#ENDIF
+  postFrameSet(pFrameSet)
 
-  ' return indexed PWM Frame address
-  frameIdx := 0 #> nBitNumber <# nColorDepth - 1    ' limit our index to MAX_PWM_BUFFERS
-  nFrameOfst := frameIdx * nPwmFrameSizeInLongs ' N longs in each PWM frame
-  pFrameBuffer := @LONG[getActivePwmBuffer()][nFrameOfst]
-  'debug("- PWM frame(", udec_(frameIdx), "), ", uhex_long(pFrameBuffer))
+PRI postFrameSet(pFrameSet)
+' Post a frame set to the refresh driver and remember it as the set posted last.
+'
+' @param pFrameSet - hub address of the frame set to show
+
+  pLastPosted := pFrameSet
+  matrix.cmdWritePwmBuffer(pFrameSet)
 
 #ifdef DBG_PWM
 DAT  ' PWM/frame dump diagnostic message strings (compiled only with -D DBG_PWM)

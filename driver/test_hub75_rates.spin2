@@ -29,6 +29,11 @@
    so one build measures one depth. Build it once for each depth 3 to 8 and compare the logs.
    The line printed first names the depth.
 
+   After the phases it runs the frame-set handshake trace (FRAME-RATE plan section 3): 100 commits
+   back to back, each printed with the frame set it converted into and the set on display, a FAIL
+   line for any commit that converted into the set on display, and a HANDSHAKE PASS/FAIL verdict;
+   then it calls display.showFrameSet(0) and prints whether the call was refused.
+
    With the adapter at base P0 the instrument reports its monitors unavailable (the strobes would
    be that adapter's colour lines) and this program prints only draw and commit times.
 }
@@ -66,6 +71,14 @@ CON ' ---- Workload ----
     FIXED_POINT_SCALE       = 100
     FRACTION_DIVISOR        = 10
 
+CON ' ---- Frame-set handshake trace ----
+
+    ' Back-to-back commits traced (no drawing between them: the fastest commit rate)
+    TRACE_COMMITS           = 100
+
+    ' First commit of the trace: it has no earlier trace commit to compare with
+    FIRST_TRACE_COMMIT      = 0
+
 OBJ
 
     color       : "isp_hub75_color"
@@ -86,6 +99,11 @@ DAT ' ---- Test State (singleton) ----
     drawMicros      LONG    0                               ' draw time of the phase just run, microseconds
     commitMicros    LONG    0                               ' commit time of the phase just run, microseconds
 
+    ' the handshake trace, one entry per traced commit (see runHandshakeTrace())
+    traceConverted  LONG    0[TRACE_COMMITS]                ' frame set the commit converted into
+    traceShownAtPost LONG   0[TRACE_COMMITS]                ' frame set on display when that conversion was done
+    traceShownNow   LONG    0[TRACE_COMMITS]                ' frame set on display when the commit returned
+
 PUB main() : ok
 '' Start adapter 1 and the instrument, run every phase of the workload, report, and end the session.
 ''
@@ -102,6 +120,8 @@ PUB main() : ok
     debug("RATES: colour depth ", udec_(colorDepth), " bits, adapter base P", udec_(hub75Bffrs.pinBase(chainIndex)))
     instrument.start(hub75Bffrs.pinBase(chainIndex), latchesPerRefresh())
     runWorkload()
+    runHandshakeTrace()
+    refuseNullFrameSet()
     instrument.stop()
   debug("END_SESSION")
 
@@ -115,6 +135,69 @@ PRI runWorkload() | phaseIdx
   repeat phaseIdx from 0 to PHASE_COUNT - 1
     drawPhase(phaseIdx)
     reportPhase(phaseIdx)
+
+PRI runHandshakeTrace() | commitIdx, nCommitsBefore, nCommitsAfter, nWaited, nBad, pFirstShown, nProblems
+' Commit TRACE_COMMITS times back to back, then print for each commit the frame set it converted
+' into, the set on display when the conversion was done, and the set on display when the commit
+' returned. A commit that converted into the set on display, or before the previous post was
+' taken, prints a FAIL line; the verdict line says FAIL if any did. The first commit after start
+' (display.start() clears the screen with one) is checked from the totals: nothing was on display.
+'
+
+' Local Variables:
+' @local commitIdx - traced commit being run or printed
+' @local nCommitsBefore - commits posted before the trace began
+' @local nCommitsAfter - commits posted when the trace ended
+' @local nWaited - posts that had to wait for the previous post to be taken
+' @local nBad - commits the panel object counted as converting into the set on display
+' @local pFirstShown - set on display when the first commit after start posted
+' @local nProblems - FAIL lines printed
+
+  nProblems := 0
+  nCommitsBefore, nWaited, nBad, pFirstShown := display.commitTotals()
+  if pFirstShown <> matrix.NO_FRAME_SET
+    debug("RATES: FAIL: first commit after start: a set was on display (0x", uhex_long_(pFirstShown), ") before any set was taken")
+    nProblems++
+  else
+    debug("RATES: PASS: first commit after start: nothing on display (0x", uhex_long_(pFirstShown), "), converted without waiting")
+
+  repeat commitIdx from 0 to TRACE_COMMITS - 1
+    display.commitScreenToPanelSet()
+    traceConverted[commitIdx], traceShownAtPost[commitIdx], traceShownNow[commitIdx] := display.commitTrace()
+
+  nCommitsAfter, nWaited, nBad, pFirstShown := display.commitTotals()
+  repeat commitIdx from 0 to TRACE_COMMITS - 1
+    debug("RATES: trace ", udec_(commitIdx), ": converted 0x", uhex_long_(traceConverted[commitIdx]), " shown at post 0x", uhex_long_(traceShownAtPost[commitIdx]), " shown now 0x", uhex_long_(traceShownNow[commitIdx]))
+    if traceConverted[commitIdx] == traceShownAtPost[commitIdx]
+      debug("RATES: FAIL: commit ", udec_(commitIdx), " converted into the set on display, 0x", uhex_long_(traceConverted[commitIdx]))
+      nProblems++
+    if commitIdx > FIRST_TRACE_COMMIT and traceShownAtPost[commitIdx] <> traceConverted[commitIdx - 1]
+      debug("RATES: FAIL: commit ", udec_(commitIdx), " converted before the set posted by commit ", udec_(commitIdx - 1), " (0x", uhex_long_(traceConverted[commitIdx - 1]), ") was taken; on display was 0x", uhex_long_(traceShownAtPost[commitIdx]))
+      nProblems++
+
+  if nCommitsAfter - nCommitsBefore <> TRACE_COMMITS
+    debug("RATES: FAIL: ", udec_(nCommitsAfter - nCommitsBefore), " commits counted, expected ", udec_(TRACE_COMMITS))
+    nProblems++
+  if nBad <> 0
+    debug("RATES: FAIL: the panel object counted ", udec_(nBad), " commits that converted into the set on display")
+    nProblems++
+  if nProblems == 0
+    debug("RATES: HANDSHAKE PASS: ", udec_(TRACE_COMMITS), " commits, none converted into the set on display; ", udec_(nWaited), " of ", udec_(nCommitsAfter), " posts waited for the previous post to be taken")
+  else
+    debug("RATES: HANDSHAKE FAIL: ", udec_(nProblems), " problem(s) in ", udec_(TRACE_COMMITS), " commits")
+
+PRI refuseNullFrameSet() | bAccepted
+' Call display.showFrameSet(0): the call must print its refusal and post nothing.
+'
+
+' Local Variables:
+' @local bAccepted - what showFrameSet() answered
+
+  bAccepted := display.showFrameSet(matrix.NO_FRAME_SET)
+  if bAccepted == FALSE
+    debug("RATES: PASS: showFrameSet(0) refused (its message is the line above)")
+  else
+    debug("RATES: FAIL: showFrameSet(0) was accepted")
 
 PRI drawPhase(phaseIdx) | drawStart, commitStart
 ' Draw one phase into the screen buffer and commit it, timing each step.

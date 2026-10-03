@@ -313,8 +313,10 @@ PUB fillScreenNoPWM(threeBitColor)
   panelSet.fillScreenNoPWM(threeBitColor)
 
 PUB commitScreenToPanelSet()
-'' Write this display's screen buffer (its own adapter's buffer) to its panel driver PWM frames
-'' while alternating PWM frame sets.
+'' Write this display's screen buffer (its own adapter's buffer) to its panel driver PWM frames.
+'' The commit converts into the PWM frame set that is not on display and posts it, so the image
+'' on the panel never shows a half-converted screen. If the previous commit has not yet been
+'' taken by the refresh driver (within one refresh), this waits for it first.
 ''
 
 ' debug("DSP: commit!")
@@ -323,6 +325,46 @@ PUB commitScreenToPanelSet()
     panelSet.convertScreen2PWM_14(hub75Bffrs.displayBufferAddress(chainIndex), bSwapRB, bSwapGB)
   else
     panelSet.convertScreen2PWM(hub75Bffrs.displayBufferAddress(chainIndex), bSwapRB, bSwapGB)
+
+PUB showFrameSet(pFrameSet) : accepted
+'' Show a PWM frame set the caller has built, in place of a commit of the screen buffer. The
+'' address must be one of this adapter's two PWM frame sets (hub75Bffrs.pwmFrame1BufferAddress()
+'' or pwmFrame2BufferAddress() of this adapter), and the one to build into is the one that is
+'' not on display; any other address, or NULL (0), prints a message naming this call and posts
+'' nothing. If the previous post has not yet been taken by the refresh driver, this waits.
+''
+'' The frame set is exactly one PWM frame per colour bit, stored plane-major: plane 0 is the
+'' most significant colour bit, then plane 1, and so on to plane DISPn_COLOR_DEPTH - 1. Within
+'' a plane the bytes are row-major, one byte per column clock, in the order the panel is
+'' shifted (each byte holds RGB1 in bits 0-2 and RGB2 in bits 3-5, %00BGRBGR). Its size in
+'' bytes is hub75Bffrs.pwmFrameSizeInBytes() x hub75Bffrs.colorDepth() of this adapter, which
+'' is also the size of each of the two sets.
+''
+'' @param pFrameSet - hub address of one of this adapter's two PWM frame sets, built by the caller
+'' @returns accepted - TRUE if the set was posted, FALSE if the address was refused
+
+  accepted := panelSet.showFrameSet(pFrameSet)
+
+#IFDEF HUB75_INSTRUMENT
+PUB commitTrace() : pConverted, pShownAtPost, pShownNow
+'' Instrument build only: what the latest commit did, for the frame-set handshake trace.
+''
+'' @returns pConverted - the frame set the latest commit converted into
+'' @returns pShownAtPost - the frame set on display when that conversion was done
+'' @returns pShownNow - the frame set on display at this call
+
+  pConverted, pShownAtPost, pShownNow := panelSet.commitTrace()
+
+PUB commitTotals() : nCommits, nWaited, nBad, pFirstShown
+'' Instrument build only: totals since start for the frame-set handshake trace.
+''
+'' @returns nCommits - commits posted
+'' @returns nWaited - posts that waited for the previous post to be taken
+'' @returns nBad - commits that converted into the frame set on display (must be 0)
+'' @returns pFirstShown - the frame set on display when the first commit posted (0 at the first commit after start)
+
+  nCommits, nWaited, nBad, pFirstShown := panelSet.commitTotals()
+#ENDIF
 
 CON ' --------------     Text Handling     --------------
 
