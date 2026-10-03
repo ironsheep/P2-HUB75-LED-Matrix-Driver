@@ -45,21 +45,21 @@
   - the cube, the green quarter-scan panels and two cabled adapters are proven only by harness until the panel sweep;
   - 5-bit-and-up shimmer remains until the plane order is interleaved.
 
-## Methodology lessons (candidates; Stephen decides)
+## Methodology lessons (triaged with Stephen, 2026-10-02)
 
 From `feedback_skill_evolution_candidates.md` (4 entries) and this retrospective (5 new):
 
 | # | Lesson | Proposed home | Proposed verdict |
 |---|---|---|---|
-| 1 | «#68» + «#72»: planning premises missed derived quantities (the SCAN_4 chip vs its address lines; arrow mixes on non-square panels). Research should take every grammar rule and every derived quantity and ask *what input breaks it* | `sprint-plan` research step ("adversarial premise check") | Deferred → propose central edit |
-| 2 | «#75»: a transform setting can be named in two frames. Research should ask *in which frame is this named, and is there a second one someone will reach for?* The agreed-scope-changes log should be a standard plan section | `sprint-plan` research + plan template (D4 already carries the in-the-moment rule) | Deferred → propose central edit |
-| 3 | «#77»: a task whose deliverable is an image closed on logs alone. Closing needs one observation of the rendered output (a person, or a buffer readback) | `task-execution` §1b + `plan-to-tasks` §2 verify lines | Deferred → propose central edit |
-| 4 | Task card read at 1/14 starts; breadcrumb skipped once. The trigger is prose, so it should move up a tier toward structure (e.g. `todo_start` itself echoes the card's start steps) | `task-execution` / tracking (authoring rule 7: prose → point of action → structure) | Deferred → propose central edit |
-| 5 | An agent claiming "spot-checked" quoted output is a partial claim. The arbiter's check is a script over every quote, plus a negative probe that proves the checker can fail | `task-execution` §1b (verify the return) | Deferred → propose central edit |
-| 6 | pnut-term-ts: a `debug()` line followed at once by `END_SESSION` may be truncated in the log. Add `waitms` before the marker. macOS has no `timeout`; use `--timeout` | `p2-dev-cycle` (tool facts) | Deferred → propose central edit |
+| 1 | «#68» + «#72»: planning premises missed derived quantities (the SCAN_4 chip vs its address lines; arrow mixes on non-square panels). Research should take every grammar rule and every derived quantity and ask *what input breaks it* | `sprint-plan` research step ("adversarial premise check") | **Addressed** (Stephen, Q1 A): local `sprint-plan` overlay; travels as a central candidate via the overlay harvest |
+| 2 | «#75»: a transform setting can be named in two frames. Research should ask *in which frame is this named, and is there a second one someone will reach for?* The agreed-scope-changes log should be a standard plan section | `sprint-plan` research + plan template (D4 already carries the in-the-moment rule) | **Closed-no-change** (Stephen, Q2): a perspective that appears only once the domain is understood cannot be planned for; it was correctly handled as an agreed scope change (SC-1), not feature creep. Recorded under D4 in the doctrine overlay |
+| 3 | «#77»: a task whose deliverable is an image closed on logs alone. Closing needs one observation of the rendered output (a person, or a buffer readback) | `task-execution` §1b + `plan-to-tasks` §2 verify lines | **Addressed** (Stephen, Q3 A): local `task-execution` overlay |
+| 4 | Task card read at 1/14 starts; breadcrumb skipped once. The trigger is prose, so it should move up a tier toward structure (e.g. `todo_start` itself echoes the card's start steps) | `task-execution` / tracking (authoring rule 7: prose → point of action → structure) | **Addressed** (Stephen, Q4 A): point-of-action checklist in the local `task-execution` overlay; **central recommendation**: `todo_start` prints the card |
+| 5 | An agent claiming "spot-checked" quoted output is a partial claim. The arbiter's check is a script over every quote, plus a negative probe that proves the checker can fail | `task-execution` §1b (verify the return) | **Addressed** (Stephen, Q5 A): local `task-execution` overlay |
+| 6 | pnut-term-ts: a `debug()` line followed at once by `END_SESSION` may be truncated in the log. Add `waitms` before the marker. macOS has no `timeout`; use `--timeout` | `p2-dev-cycle` (tool facts) | **Addressed** (Stephen, Q6): local `p2-dev-cycle` overlay. Always use `pnut-term-ts --timeout`, never an external timeout (*"that's why pnut-term-ts has it's own timeout"*); the end-marker pause is a central candidate |
 | 7 | Bench instruments: calibrate against a known signal before trusting a count. Physical leads on the pins can ring. This *confirmed* bench rule 5 (instrument, wire, code) on a real catch | none: the rule already exists and worked | Closed-no-change (evidence for rule 5, recorded here) |
 | 8 | `simplify`'s four-agent fan-out on trivial diffs | `simplify` is a built-in skill, not a central one | Closed-no-change (outside the skill set; the single-pass variant was used and disclosed) |
-| 9 | Central has no human-reader documentation guide, so `DOCs/*.md` has no `CONFORMANCE_GUIDES` row | a central guide (new) | Proposal (build-sized) |
+| 9 | Central has no human-reader documentation guide, so `DOCs/*.md` has no `CONFORMANCE_GUIDES` row | a project voicing guide | **Deferred**, owner Stephen (Q7: *"i'll find a voicing guide for this project"*); add its conformance row when it lands |
 
 **Attention lines flagged and still broken:** «#80»'s line "D6 - the refactor must not add per-pixel work on the flat path". It was caught at the review step, not by the implementer. That is evidence for lesson 4's tier move. **Plan revisions by cause:** 1, frames / research incomplete (SC-1), which routes to lesson 2. **Attention metric:** about 0.1 card reads per task started, far under 2. The trigger is the finding (lesson 4).
 
@@ -72,3 +72,23 @@ From `feedback_skill_evolution_candidates.md` (4 entries) and this retrospective
   - **Converter per-plane hoists:** the «#76» buffer-level harness (9/10/16 half-scan, 1-3 quarter-scan) validates any converter change on the P2 with no panels.
   - **Panel-centric clip, cube fold depth, hidden home state:** the «#86» panel-frame probe, the scroll-equivalence hash and the 163-case self-test catch any behaviour change from an optimisation.
   - **ICN2037 20/30 MHz and the panel-clock item:** cheaper only once a PDF reader is installed (`brew install poppler`); then it is a five-minute read.
+
+## Triage outcome
+
+All 9 candidates have a verdict:
+- 5 Addressed, through local overlays (`sprint-plan`, `task-execution`, `p2-dev-cycle`);
+- 3 Closed-no-change (lessons 2, 7 and 8);
+- 1 Deferred, owned by Stephen.
+
+The buffer `feedback_skill_evolution_candidates.md` now holds only the deferred entry.
+Two corrections from Stephen became doctrine-overlay principles, not memory:
+- **under D8:** ask the whole queue before acting on any answer;
+- **under D4:** domain expansion found at the work is an agreed scope change.
+
+**Central recommendations:**
+- `todo_start` prints the task card's start steps;
+- the `pnut-term-ts` end-marker pause;
+- the adversarial premise check (via the overlay harvest).
+
+The overlays and `.claude/doctrine-overlay.md` live in `.claude/`, which is untracked
+(`.gitignore:87`), so they are not in git history.
