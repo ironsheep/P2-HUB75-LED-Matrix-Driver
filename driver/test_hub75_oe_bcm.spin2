@@ -89,7 +89,7 @@ CON ' ---- Test Settings (edit these) ----
     PATTERN_SOLID_BLUE, PATTERN_SOLID_WHITE, PATTERN_CHECKER, PATTERN_COUNT
 
     ' The pattern shown first, and how long each is held before the next (0 = hold forever)
-    FIRST_PATTERN           = PATTERN_GREY_RAMP
+    FIRST_PATTERN           = PATTERN_CHECKER
     PATTERN_HOLD_SECONDS    = 10
 
     ' TRUE: the ramps run along the whole cable (C0 first), so 512 columns show every level
@@ -198,6 +198,10 @@ DAT ' ---- Spin-side state (singleton) ----
     frameSetSizeBytes       LONG    0                   ' planes x plane size
     refreshCogId            LONG    -1                  ' the refresh cog, or -1
     framesShownHub          LONG    0                   ' frames completed, written by the refresh cog
+    showSetHub              LONG    0                   ' frame set to show, read by the refresh cog each frame (follows framesShownHub)
+    buildSetAddress         LONG    0                   ' frame set the pattern builder writes
+    setAddressOne           LONG    0                   ' first of the two 8-bit frame sets
+    setAddressTwo           LONG    0                   ' second of the two 8-bit frame sets
 
 PUB main() | bReady
 '' Configure adapter 1 from DISP0_, build the test frame set, start the refresh cog and the
@@ -361,8 +365,8 @@ PRI reportModel() | predictedClockRises, predictedLatchRises, oeUnitNs
   debug("OE-BCM: T = ", udec_(modelOeUnit), " clocks (", udec_(oeUnitNs), " ns), j = ", udec_(modelJ), " (S / T = ", udec_(shiftClocks / modelOeUnit), "), min /OE pulse ", udec_(minOeClocks), " clocks, target ", udec_(TARGET_REFRESH_HZ), " Hz (0 = fixed T)")
   if oeUnitClocks <> modelOeUnit
     debug("OE-BCM: ERROR TEST: the cog runs T = ", udec_(oeUnitClocks), " clocks; the model below keeps T = ", udec_(modelOeUnit))
-  debug("OE-BCM: MODEL (study, S only): refresh ", udec_(studyRefreshX100 / FIXED_POINT_SCALE), ".", udec_((studyRefreshX100 // FIXED_POINT_SCALE) / pnl.DECIMAL_BASE), udec_(studyRefreshX100 // pnl.DECIMAL_BASE), " Hz, lit ", udec_(studyDutyX100 / FIXED_POINT_SCALE), ".", udec_((studyDutyX100 // FIXED_POINT_SCALE) / pnl.DECIMAL_BASE), udec_(studyDutyX100 // pnl.DECIMAL_BASE), "%")
-  debug("OE-BCM: MODEL (+load/latch): refresh ", udec_(modelRefreshX100 / FIXED_POINT_SCALE), ".", udec_((modelRefreshX100 // FIXED_POINT_SCALE) / pnl.DECIMAL_BASE), udec_(modelRefreshX100 // pnl.DECIMAL_BASE), " Hz, lit ", udec_(modelDutyX100 / FIXED_POINT_SCALE), ".", udec_((modelDutyX100 // FIXED_POINT_SCALE) / pnl.DECIMAL_BASE), udec_(modelDutyX100 // pnl.DECIMAL_BASE), "%, expect CLK ", udec_(predictedClockRises), "/s, LATCH ", udec_(predictedLatchRises), "/s")
+  debug("OE-BCM: MODEL (study, S only): refresh ", udec_(studyRefreshX100 / FIXED_POINT_SCALE), ".", udec_((studyRefreshX100 // FIXED_POINT_SCALE) / pnl.DECIMAL_BASE), " Hz, lit ", udec_(studyDutyX100 / FIXED_POINT_SCALE), ".", udec_((studyDutyX100 // FIXED_POINT_SCALE) / pnl.DECIMAL_BASE), "%")
+  debug("OE-BCM: MODEL (+load/latch): refresh ", udec_(modelRefreshX100 / FIXED_POINT_SCALE), ".", udec_((modelRefreshX100 // FIXED_POINT_SCALE) / pnl.DECIMAL_BASE), " Hz, lit ", udec_(modelDutyX100 / FIXED_POINT_SCALE), ".", udec_((modelDutyX100 // FIXED_POINT_SCALE) / pnl.DECIMAL_BASE), "%, expect CLK ", udec_(predictedClockRises), "/s, LATCH ", udec_(predictedLatchRises), "/s")
 
 PRI locateFrameSet() : bFits | pScreen, pSetOne, pSetTwo, screenBytes, setBytes
 ' Place the test frame set in adapter 1's own buffers. isp_hub75_hwBuffers.spin2 lays out the
@@ -388,9 +392,13 @@ PRI locateFrameSet() : bFits | pScreen, pSetOne, pSetTwo, screenBytes, setBytes
   rowSizeBytes := columnClocks * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
   planeSizeBytes := rowSizeBytes * rowAddressCount
   frameSetSizeBytes := planeSizeBytes * TEST_COLOR_DEPTH
-  bFits := (pSetOne == pScreen + screenBytes) and (pSetTwo == pSetOne + setBytes) and (frameSetSizeBytes <= screenBytes + (setBytes * 2))
+  bFits := (pSetOne == pScreen + screenBytes) and (pSetTwo == pSetOne + setBytes) and ((frameSetSizeBytes * 2) <= screenBytes + (setBytes * 2))
   if bFits == TRUE
-    frameSetAddress := pScreen
+    setAddressOne := pScreen
+    setAddressTwo := pScreen + frameSetSizeBytes
+    frameSetAddress := setAddressOne
+    buildSetAddress := setAddressOne
+    showSetHub := setAddressOne
     debug("OE-BCM: frame set ", udec_(frameSetSizeBytes), " bytes at $", uhex_long_(frameSetAddress), " (", udec_(TEST_COLOR_DEPTH), " planes of ", udec_(planeSizeBytes), ")")
   else
     debug("OE-BCM: REFUSED: adapter 1 buffers are not one region of ", udec_(frameSetSizeBytes), " bytes ", uhex_long(pScreen, pSetOne, pSetTwo, screenBytes, setBytes))
@@ -419,7 +427,7 @@ PRI buildPattern(patternId) | slotIdx, physRow, colIdx, pLineByte, redBit, green
 ' @local planeBits - the pixel's colour bits for this plane
 
   announcePattern(patternId)
-  bytefill(frameSetAddress, 0, frameSetSizeBytes)
+  bytefill(buildSetAddress, 0, frameSetSizeBytes)
   repeat slotIdx from 0 to panelsOnChain - 1
     repeat physRow from 0 to panelPixelRows - 1
       pLineByte, redBit, greenBit, blueBit := lineStart(slotIdx, physRow)
@@ -467,7 +475,7 @@ PRI lineStart(slotIdx, physRow) : pLineByte, redBit, greenBit, blueBit | rowAddr
       columnOffset += panelPixelColumns
   else
     columnOffset := slotIdx * panelPixelColumns
-  pLineByte := frameSetAddress + (rowAddress * rowSizeBytes) + columnOffset
+  pLineByte := buildSetAddress + (rowAddress * rowSizeBytes) + columnOffset
 
   if bBottomHalf == TRUE
     redBit := pnl.RGB2_RED_BIT
@@ -761,8 +769,11 @@ PRI monitorForever() | clockRises, litClocks, latchRises, framesNow, framesBefor
       secondsOnPattern++
       if secondsOnPattern >= PATTERN_HOLD_SECONDS
         patternId := (patternId + 1) // PATTERN_COUNT
-        ' redrawn in place while it is shown: expect a brief tear (the method is unchanged)
+        ' build into the set not on show, then hand it over: the refresh cog takes it at its
+        ' next frame start, so the new pattern appears whole (no tear)
+        buildSetAddress := (showSetHub == setAddressOne) ? setAddressTwo : setAddressOne
         buildPattern(patternId)
+        showSetHub := buildSetAddress
         secondsOnPattern := 0
         ' the redraw delayed this loop past a window boundary: discard that window
         framesBefore := syncToWindow()
@@ -798,7 +809,7 @@ PRI reportSecond(clockRises, litClocks, latchRises, framesCounted) | refreshX100
   litX100 := muldiv64(litClocks, PERCENT_X100_SCALE, clkfreq)
   refreshErrX100 := ((refreshX100 - modelRefreshX100) * PERCENT_X100_SCALE) / modelRefreshX100
   litErrX100 := ((litX100 - modelDutyX100) * PERCENT_X100_SCALE) / modelDutyX100
-  debug("MON: CLK ", udec_(clockRises), "/s LATCH ", udec_(latchRises), "/s refresh ", udec_(refreshX100 / FIXED_POINT_SCALE), ".", udec_((refreshX100 // FIXED_POINT_SCALE) / pnl.DECIMAL_BASE), udec_(refreshX100 // pnl.DECIMAL_BASE), " Hz (cog ", udec_(framesCounted), " frames) lit ", udec_(litX100 / FIXED_POINT_SCALE), ".", udec_((litX100 // FIXED_POINT_SCALE) / pnl.DECIMAL_BASE), udec_(litX100 // pnl.DECIMAL_BASE), "% | vs model: refresh ", sdec_(refreshErrX100), " lit ", sdec_(litErrX100), " (x0.01%)")
+  debug("MON: CLK ", udec_(clockRises), "/s LATCH ", udec_(latchRises), "/s refresh ", udec_(refreshX100 / FIXED_POINT_SCALE), ".", udec_((refreshX100 // FIXED_POINT_SCALE) / pnl.DECIMAL_BASE), " Hz (cog ", udec_(framesCounted), " frames) lit ", udec_(litX100 / FIXED_POINT_SCALE), ".", udec_((litX100 // FIXED_POINT_SCALE) / pnl.DECIMAL_BASE), "% | vs model: refresh ", sdec_(refreshErrX100), " lit ", sdec_(litErrX100), " (x0.01%)")
 
 PRI modelRowClocks(oeUnit, loadClocks, latchClocks) : rowClocks | pulseWeightNow, litClocks
 ' Return the model's clocks for one row address: every plane is shifted once and lit for
@@ -930,6 +941,7 @@ refreshCog
                 mov     framesShown, #0
 
 frameLoop
+                rdlong  frameSetAddress, ptra[1]        ' the set to show: switch only at a frame start
                 mov     rowHubAddress, frameSetAddress
                 mov     rowAddressBits, #0
                 mov     rowsLeft, rowAddressCount
