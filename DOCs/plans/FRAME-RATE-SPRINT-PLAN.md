@@ -577,16 +577,23 @@ the audit can't see, and those are fixed by keeping one canonical copy.
 | **ChangeLog** | ChangeLog.md `[4.0.0]` (in development) | User-facing entries: the refresh method, the target refresh setting, 8-bit default, brightness, tear-free commit, `showFrameSet`, faster commit and drawing, chip-doc corrections, and the strobe-pin fix for base-0 adapters. Known issues :58-59 rewritten from measurement. |
 | **Prior art** | THEOPS refresh section | One sentence: the method is the widely used binary-coded (bit-angle) modulation with output-enable weighting. |
 
-## Entry baseline (re-measured 2026-10-03, at HEAD `5fb9bfd`; first measured 2026-10-02 at `86830c4`)
+## Entry baseline (measured 2026-10-03 on the sprint-start commit `407b609`, macOS)
 
-- All 16 top files compile with `pnut-ts -d -l -m`: rc 0, 0 warnings each
-  (the BUILD_COMMAND list in `.claude/skill-conventions.md`, run on macOS).
-- Style gate `python3 tools/check_style.py`: exit 0. The T1+T2 (5), T2 (20) and
-  T3 (2) rules are reported as not checked, as before.
-- Doc audit: 0/0/0 (23 documents, 33 `.spin2` sources).
-- Tree: clean apart from this plan's own edits, and Stephen's untracked
-  `driver/PSRAM_driver_RJA_Platform_1b.spin2`, which belongs to the follow-on
-  sprint.
+- **Build (the substitute gate; the project has no automated test suite):** all 16
+  top files compile with `pnut-ts -d -l -m` (the `BUILD_COMMAND` list in
+  `.claude/skill-conventions.md`): rc 0 each, 0 warnings and 0 errors in the full
+  captured log, 48 outputs written (`.bin`, `.lst`, `.map` per file).
+- **Coverage:** the 16 files in the list are exactly the 16 `driver/` files that set
+  `_clkfreq`. No top file is excluded.
+- **Style gate** `python3 tools/check_style.py`: exit 0. Not checked by the script:
+  19 rules assigned T1 but not yet implemented, 5 T1+T2, 20 T2 (agent audit) and
+  2 T3 (Stephen's decision). The script is unchanged since the first measurement
+  at `86830c4`, so these were unchecked then too.
+- **Doc audit** `python3 tools/check_docs.py`: 0/0/0 (23 documents, 33 `.spin2`
+  sources).
+- **Failure groups:** none, so there is no fix-when decision to record.
+- **What this does not prove:** compiling is not running. Behaviour is verified
+  only at the bench visits (`DOCs/bench/RUN-SHEET.md`, results in `RUN-NOTES.md`).
 
 ## Sprint start (2026-10-03)
 
@@ -616,8 +623,8 @@ the audit can't see, and those are fixed by keeping one canonical copy.
 ## Revision history
 
 - 2026-10-02 — draft written after scope confirmation and the research pass.
-- 2026-10-03 — sprint started: build 4.0.0 agreed; entry checks recorded.
 - 2026-10-03 — bench visit A completed on the quad rig, FM6126A and MBI5124GP.
   Question 3 answered; §4 drops the shift-while-dark path; exit gate walked and
   the plan marked ready. Visit A then also run on the FM6124 (Stephen offered the
   panel): correct while shifting lit.
+- 2026-10-03 — sprint started: build 4.0.0 agreed; entry checks recorded.
