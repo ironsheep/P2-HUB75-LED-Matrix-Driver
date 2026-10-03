@@ -2,7 +2,11 @@
 
 **Status:** Started 2026-10-01. Planning concluded the same day with no open
 questions. Re-opened 2026-10-02 for one agreed scope change (SC-1, content
-rotation): §5b is in planning until its open questions are answered.
+rotation; Open Questions Q1-Q6 answered the same day). **All sprint tasks complete
+2026-10-02** (Visit B verdict: the code closes for this rig). Build 4.0.0 is **not
+finished by this sprint**: Stephen, 2026-10-02, *"v4.0.0 is correct but we are not
+done with new content this just starts the content"*. Later sprints add to 4.0.0, and
+it is tagged when its content is complete.
 
 **Build:** **4.0.0**, agreed with Stephen at sprint start (2026-10-01). He
 chose strict SemVer: the configuration format changes, so every user must
@@ -1459,7 +1463,7 @@ catalogue) and **§7** (the edge table, fold and drawing core).
 | Whether the green panels need the remap as well as F2 | the sweep's green session. Research is saved. If it's neither understood nor fixable quickly, the no-black-holes rule applies |
 | Refresh limits for panel types other than the rig's | measured in the sweep. Until then the rows say "calculated" |
 | Whether the one-call startup reveals hardware ordering needs with two adapters cabled (both starting at once) | the sweep's two-adapter session |
-| Cause of the C1 flicker («#67») | its own task. It could be the panel, the ribbon or the driver. It is not a wiring defect, so it does not gate this sprint |
+| Cause of the C1 flicker («#67») | *Resolved 2026-10-02:* a colour effect of the bit-plane order, not hardware. With the same colour on all four panels, every panel flickered alike (cyan most, then green). The fix is the punch-list interleave item |
 | Per-pixel cost after §4 and §7 | measured at Visit A (§4) and handed to the draw-path performance sprint |
 
 ## Plan section ↔ task cross-reference
@@ -1477,7 +1481,8 @@ C1 flicker) is outside this sprint and sits after it, at seq 19.
 | §13 | Bench Visit 0 — before-pictures and draw time | «#70» | 6 |
 | §4 | One mapping; swap and wire tables deleted | «#74» | 7 |
 | §5 | Display rotation reports the mounted size | «#75» | 8 |
-| §5b | Content rotation API (SC-1) | not yet generated: waits for Open Questions Q1-Q5 | after 8, before Visit A |
+| §5b | Content rotation: BMP placed turned (SC-1) | «#87» | after 8, before Visit A |
+| §5c | Panel-centric calls in the viewer's frame (Q6) | «#86» | after 8, before Visit A |
 | §6 | F1, F2, F3 and chain-length frame sizes | «#76» | 9 |
 | §8 | Identify routine | «#77» | 10 |
 | §13 | Bench Visit A | «#78» | 11 |
