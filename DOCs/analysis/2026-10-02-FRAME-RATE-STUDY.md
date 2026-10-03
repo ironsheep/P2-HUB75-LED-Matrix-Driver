@@ -36,8 +36,8 @@ Four paths are studied, and each is ranked separately:
 
 **Source material:** these were read for their topics only, and every claim was
 checked against today's code:
-- `DOCs/plans/Sprint-Performance-Upgrade.md`
-- `DOCs/plans/DRAW-PATH-PERFORMANCE-SPRINT-PLAN.md`
+- `DOCs/plans/archive/Sprint-Performance-Upgrade.md`
+- `DOCs/plans/archive/DRAW-PATH-PERFORMANCE-SPRINT-PLAN.md`
 - `DOCs/CodeAssessment.md` §2 and §4
 - the punch list's performance items
 

@@ -1,5 +1,7 @@
 # Draw-Path Performance Sprint Plan
 
+> **Superseded (2026-10-02):** never executed. Its ground is covered, re-checked against the 4.0.0 code, by [FRAME-RATE-SPRINT-PLAN.md](../FRAME-RATE-SPRINT-PLAN.md) and the [frame-rate study](../../analysis/2026-10-02-FRAME-RATE-STUDY.md). Several numbers and conclusions here no longer hold.
+
 **Status:** Planned (not started). Execution gated on close-out of the
 SOURCE-RECONCILIATION sprint (3.0.3) — see *Relationship to Outstanding
 Work* below. Build number is set at `sprint-start`, not here.

@@ -13,14 +13,8 @@ F19-F21).
 
 1. *(Answered before research: scope.)* Stephen, 2026-10-02: "ok, stands as
    written". The scope and punch-list dispositions are as in *Scope* below.
-2. **The superseded performance plans.**
-   - What: `DOCs/plans/Sprint-Performance-Upgrade.md` and
-     `DOCs/plans/DRAW-PATH-PERFORMANCE-SPRINT-PLAN.md` were never executed. This
-     plan covers their ground, after checking it against today's code (the study's
-     "What the source documents got wrong").
-   - **Recommended:** move both to `DOCs/plans/archive/`, each with a one-line
-     "superseded by FRAME-RATE-SPRINT-PLAN.md" banner, so nobody plans from their
-     stale numbers.
+2. *(Answered: the superseded performance plans.)* Stephen, 2026-10-02: "yes A".
+   Both were moved to `DOCs/plans/archive/` with a "superseded" banner.
 3. **The prototype's outcome (§1)** settles two design points in §4, each planned
    both ways:
    - whether the MBI5124GP accepts a shift while it is lit;

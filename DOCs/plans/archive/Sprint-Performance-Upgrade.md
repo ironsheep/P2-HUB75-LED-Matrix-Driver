@@ -1,5 +1,7 @@
 # Sprint: HUB75 Driver Performance Upgrade
 
+> **Superseded (2026-10-02):** never executed. Its ground is covered, re-checked against the 4.0.0 code, by [FRAME-RATE-SPRINT-PLAN.md](../FRAME-RATE-SPRINT-PLAN.md) and the [frame-rate study](../../analysis/2026-10-02-FRAME-RATE-STUDY.md). Several numbers and conclusions here no longer hold.
+
 ## Executive Summary: What Actually Improves Refresh Rate
 
 **Bottom Line:** The display refresh rate is fundamentally limited by BCM (Binary Coded Modulation) timing. Most hardware features provide marginal gains. The table below shows actual impact on refresh rate.
