@@ -61,7 +61,7 @@ From `feedback_skill_evolution_candidates.md` (4 entries) and this retrospective
 | 8 | `simplify`'s four-agent fan-out on trivial diffs | `simplify` is a built-in skill, not a central one | Closed-no-change (outside the skill set; the single-pass variant was used and disclosed) |
 | 9 | Central has no human-reader documentation guide, so `DOCs/*.md` has no `CONFORMANCE_GUIDES` row | a central guide (new) | Proposal (build-sized) |
 
-**Attention lines flagged and still broken:** «#80»'s D6 line ("the refresh-structure must not add per-pixel work on the flat path"). It was caught at the review step, not by the implementer. That is evidence for lesson 4's tier move. **Plan revisions by cause:** 1, frames / research incomplete (SC-1), which routes to lesson 2. **Attention metric:** about 0.1 card reads per task started, far under 2. The trigger is the finding (lesson 4).
+**Attention lines flagged and still broken:** «#80»'s line "D6 - the refactor must not add per-pixel work on the flat path". It was caught at the review step, not by the implementer. That is evidence for lesson 4's tier move. **Plan revisions by cause:** 1, frames / research incomplete (SC-1), which routes to lesson 2. **Attention metric:** about 0.1 card reads per task started, far under 2. The trigger is the finding (lesson 4).
 
 ## Punch-list triage
 
