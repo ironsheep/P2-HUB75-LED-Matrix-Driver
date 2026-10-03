@@ -1026,9 +1026,29 @@ hub RAM (the buffers are DAT arrays sized from `DISPn_PANEL_COUNT`).
 The guide («#84») gives this table its final home. Every figure below is
 **calculated** from the code unless the cell says otherwise. The only
 measured-by-the-compiler figure is the hub RAM ceiling of one config
-(ICN2037 128x64, 8-bit), in the RAM proof below. No refresh figure is
-measured. Refresh is "to be measured" for every type; Visit B («#83») measures
-the rig's type.
+(ICN2037 128x64, 8-bit), in the RAM proof below. Refresh is "to be measured"
+for every type except the rig's, which Visit B («#83») measured:
+
+**Measured refresh, the rig's type (ICN2037 128x64, 4 panels, 512 column clocks,
+1/32 scan), Visit B 2026-10-02.** It is the full colour cycle, counted on the
+P2: a smart pin in `P_COUNT_RISES` mode, input-only on P13 with A = P10, counts
+the refresh core's per-plane-group pulse for 2 s; that count / N / 2 s is the
+cycle rate. The counter was calibrated first against a known 2-clock pulse
+train from a second cog (2,000 counted, 2,000 sent, with strong and with
+`P_LOW_1MA` drive). The frame-set pulse on P9 counted about 3x too high, which
+is impossible against the clock-time ceiling. Stephen confirmed flying
+logic-analyzer leads on P8-P11, so that count was discarded as lead ringing.
+Flicker was judged by Stephen's eye on a full-screen rainbow with white text.
+
+| Depth | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|
+| Measured (Hz) | 177 | 82 | 40.1 | 19.7 | 9.6 | 4.6 |
+| Calculated ceiling, clock time only (Hz) | 182.6 | 85.2 | 41.2 | 20.3 | 10.1 | 5.0 |
+| Seen by Stephen | — | *"rock steady"* | *"less shimmer"* | *"shimmering but seems to be a side-to-side shifts"* | — | — |
+
+So visible flicker on this rig starts between 82 Hz (4-bit) and 40 Hz
+(5-bit). The sideways shimmer comes from the plane order: see the punch-list
+item on interleaving the bit-plane repeats.
 
 **1. The limit constants** (`driver/isp_hub75_hwBufferAccess.spin2`, CON
 "Driver Limits", read, not edited):
@@ -1327,6 +1347,37 @@ its labelled-quadrant screen (`demoQuadLocations`), after a screen-buffer readba
 - Refresh measurements for the rig's limits rows.
 - The fold self-test (§7.7, no panels needed).
 - Decides: whether the sprint closes.
+
+**Visit B record — 2026-10-02 («#83»).** The 2x2 rig at HEAD `e803ea2`, headless scratch
+builds (the committed config was never edited). Stephen observed the panels.
+- **Run sheet:**
+  - purpose: certification (does the sprint's code close?) plus measurement (refresh, flicker);
+  - hardware risk: none (the display, plus input-only smart pins and one calibrator output on a free pin);
+  - no carried state; about 1 min per run; repeatable.
+- **Trimmed for least observation:** the boundary test at four mountings was certified at
+  Visit A, and buffer-probed again after «#79» and «#80» (0 FAIL at all four), so it was
+  not shown again.
+- **Refresh and flicker:** see §11's measured table. 4-bit *"rock steady"*, 5-bit *"less
+  shimmer"*, 6-bit *"shimmering ... side-to-side shifts"*.
+- **Fold self-test** (no panels): 163 PASS, 0 FAIL, built from HEAD.
+- **Full draw:** `demo_hub75_boundary` at `ROT_NONE` takes 191,883 µs
+  (`headless_261002-183032.log`). Visit 0 was 287,436 µs; Visit A 191,538 µs.
+- **Every converted demo once:** 5x7font, 7seg, color, colorPad, multi2x2panel,
+  multiPanel, quadPanel, scroll and text. Each built with 0 warnings and ran with no error
+  lines. Stephen, after watching the replay: *"all demo's look good no obvious errors all
+  scroll directions good"*. Boundary and identify were seen at Visit A.
+- **C1 flicker («#67»):** not reported by Stephen during the replay. Not investigated
+  here; «#67» stays open for its swap test.
+- **Findings, each disposed:** the P9 lead artifact (measurement, explained); the
+  interleaving candidate (punch list).
+- **Verdict: the sprint's code is ready to close for this rig.**
+- **Not yet proven, for the panel sweep:**
+  - a cube on six real panels (the fold is proven by the 163-case self-test only);
+  - the green MBI5124GP quarter-scan panels (multi-panel quarter-scan is proven by the
+    «#76» harness only);
+  - two adapters cabled at once («#76» F3 proven by harness);
+  - any panel type other than the ICN2037 128x64;
+  - measured refresh for every other type.
 
 Each visit's run sheet follows *the bench visit* rules
 (`SKILLS-AUTHORING.md`).
