@@ -1,10 +1,11 @@
 # FRAME-RATE — Sprint Plan
 
-**Status:** draft. It is in the questions pass and waits on the §1 prototype bench
-visit; it is not ready to be tasked. The build number is set at `sprint-start`, not
-here. 4.0.0 is in development and untagged.
+**Status:** ready. The exit gate is met and no questions are open (2026-10-03). The
+build number is set at `sprint-start`, not here. 4.0.0 is in development and
+untagged.
 **Sources:**
-- `DOCs/analysis/2026-10-02-FRAME-RATE-STUDY.md` (findings F1-F24, cited as F*n*)
+- `DOCs/analysis/2026-10-02-FRAME-RATE-STUDY.md` (findings F1-F26, cited as F*n*;
+  F25 and F26 are video-playback notes for the follow-on sprint)
 - `DOCs/analysis/2026-10-02-CAPACITY-TRADEOFF-MODEL.md`
 **Follow-on sprint (not this plan):** the PSRAM and microSD slideshow (study F16,
 F19-F21).
@@ -15,22 +16,25 @@ F19-F21).
    written". The scope and punch-list dispositions are as in *Scope* below.
 2. *(Answered: the superseded performance plans.)* Stephen, 2026-10-02: "yes A".
    Both were moved to `DOCs/plans/archive/` with a "superseded" banner.
-3. *(Partly answered: visit A on the quad rig passed, 2026-10-03.)* Quad rig only
-   (Stephen), 8-bit, shift while lit:
-   - refresh 65.9 Hz against the model's 67.0; lit 82.2% against 83.5;
-   - the image is correct, and there is no checkerboard ghosting;
-   - the instrument's negative case was measured (92.0% lit at a doubled unit);
-   - Stephen saw flicker at 36.9 Hz and none at 65.9 Hz;
-   - full white draws 120 W.
+3. *(Answered by bench visit A, 2026-10-03: the §1 prototype.)* All three panels
+   show a correct image, with no ghosting, while the next plane shifts in during
+   the lit time. Refresh and duty are within 5% of the model on each:
 
-   Details are in `DOCs/bench/RUN-NOTES.md`. Still open, below, held until
-   Stephen re-cables:
-   **The prototype's outcome (§1)** settles two design points in §4, each planned
-   both ways:
-   - whether the MBI5124GP accepts a shift while it is lit;
-   - whether the FM6126A's overlapped latch holds with one shift per plane.
+   | Panel | Refresh (model) | Lit (model) | Full white |
+   |---|---|---|---|
+   | Quad rig, 4 × 128×64 ICN2037 | 65.9 Hz (67.0) | 82.2% (83.5) | 120 W |
+   | 1 × 64×32 FM6126A, overlapped latch | 155.4 Hz (159.0) | 96.9% (99.1) | 17.6 W |
+   | 1 × 64×32 MBI5124GP, 1/8 scan | 307.4 Hz (313.1) | 95.8% (97.6) | 39.93 W |
 
-   These close at bench visit A, not by asking.
+   The instrument's negative case was measured on the quad rig (92.0% lit at a
+   doubled unit). Stephen saw flicker at 36.9 Hz and none at 65.9 Hz.
+
+   This settles the two design points §4 had planned both ways:
+   - the FM6126A's overlapped latch holds with one shift per plane;
+   - the MBI5124GP accepts a shift while lit, so no chip needs shift-while-dark,
+     and §4 does not build it (see §4 and *Named unknowns*).
+
+   Details are in `DOCs/bench/RUN-NOTES.md`.
 
 ## Goal, and what done means
 
@@ -41,7 +45,7 @@ Drawing and committing should be fast enough not to limit animation.
 
 **Done means:**
 - Every section's verification passes on its stated benches.
-- All 15 top files compile with 0 warnings, the style gate passes, and the doc
+- All top files (16 today, 18 after §2 and §7) compile with 0 warnings, the style gate passes, and the doc
   audit reports 0/0/0.
 - The measured results replace the calculated ones in the docs.
 
@@ -300,9 +304,10 @@ the method.
     FM6126A's overlapped latch);
   - start the OE pulse of Y = 2^k periods of length P = T·b, where b is the
     brightness scale;
-  - move on to the next plane's load and shift (shift-while-lit), or wait for
-    `IN` first (shift-while-dark, for any chip that §1 shows needs it, set by a
-    chip flag).
+  - move on to the next plane's load and shift while this plane is lit. Visit A
+    showed that every chip on the bench accepts this, so the core has no
+    shift-while-dark path. The prototype keeps that mode as a compile-time
+    choice for diagnosing a new chip.
 - **The address changes only with OE off.** The sub-page machinery goes; one row
   is the unit. This keeps the whole-row rule from the open punch item.
 - **OE becomes a smart pin owned by the refresh cog.** `start()` releases cog 0's
@@ -366,8 +371,8 @@ quantity, and the planned check that catches it):
   the predicted j.
 - **Edge:**
   - Brightness 256, 128 and 1, plus the clamp.
-  - Visit D: FM6126A overlapped latch, MBI5124GP 8-row quarter-scan in its §1
-    mode, FM6124 at 30 ns.
+  - Visit D: FM6126A overlapped latch, MBI5124GP 8-row quarter-scan shifting
+    while lit, FM6124 at 30 ns.
 - **Error:** a target set above what the chain can reach prints the catalogue
   message and runs at the best rate.
 - **Compiled:** cog RAM fits, with the listing count recorded.
@@ -523,7 +528,7 @@ the punch list's per-plane hoists.
 - The README and THEOPS examples follow (§12).
 
 **Verification:**
-- All 15 top files compile at 8-bit on the rig config. The rig's buffers are
+- All top files compile at 8-bit on the rig config. The rig's buffers are
   4 × 8,192 × 11 = 360,448 bytes against 451,564 free.
 - **Error:** a config over RAM fails at compile with `Program requirement exceeds
   512KB hub RAM`. The Wiring Guide states that (it is not a startup check).
@@ -565,26 +570,28 @@ the audit can't see, and those are fixed by keeping one canonical copy.
 | **Instrumentation** | DOCs/AuthorTestConfigurations.md:368-416 (logic-analyzer setup) | Replace with the `HUB75_INSTRUMENT` harness and its monitor map; the logic analyzer kept for waveform shape only. |
 | **Limits and capacity** | DOCs/WiringGuide.md:189 "Driver limits" (canonical); DOCs/AuthorTestConfigurations.md:325-333 (duplicate) | Fold the capacity model's tables into the Wiring Guide; replace the AuthorTestConfigurations copy with a link. |
 | **Timing claims** | `14,183`, `24,742` in analysis and plan docs only | Updated by measurement in the Wiring Guide where rates are stated; analysis docs keep their dated figures. |
-| **New files** (`test_hub75_oe_bcm`, `test_hub75_rates`, `test_hub75_converter`, `isp_hub75_instrument`) | THEOPS file-organization table; CLAUDE.md architecture and top-file count (15 → 18); `.claude/skill-conventions.md` `BUILD_COMMAND` list | Add them, and update the count wherever it is stated. |
+| **New files** (`test_hub75_oe_bcm`, `test_hub75_rates`, `test_hub75_converter`, `isp_hub75_instrument`) | THEOPS file-organization table; CLAUDE.md architecture and top-file count (16 → 18; `test_hub75_oe_bcm` is already in the `BUILD_COMMAND` list); `.claude/skill-conventions.md` `BUILD_COMMAND` list | Add them, and update the count wherever it is stated. |
 | **ChangeLog** | ChangeLog.md `[4.0.0]` (in development) | User-facing entries: the refresh method, the target refresh setting, 8-bit default, brightness, tear-free commit, `showFrameSet`, faster commit and drawing, chip-doc corrections, and the strobe-pin fix for base-0 adapters. Known issues :58-59 rewritten from measurement. |
 | **Prior art** | THEOPS refresh section | One sentence: the method is the widely used binary-coded (bit-angle) modulation with output-enable weighting. |
 
-## Entry baseline (measured 2026-10-02, at HEAD `86830c4`)
+## Entry baseline (re-measured 2026-10-03, at HEAD `5fb9bfd`; first measured 2026-10-02 at `86830c4`)
 
-- All 15 top files compile with `pnut-ts -d -l -m`: rc 0, 0 warnings each
+- All 16 top files compile with `pnut-ts -d -l -m`: rc 0, 0 warnings each
   (the BUILD_COMMAND list in `.claude/skill-conventions.md`, run on macOS).
 - Style gate `python3 tools/check_style.py`: exit 0. The T1+T2 (5), T2 (20) and
   T3 (2) rules are reported as not checked, as before.
-- Doc audit: 0/0/0 (above).
-- Tree: clean, except Stephen's untracked
+- Doc audit: 0/0/0 (23 documents, 33 `.spin2` sources).
+- Tree: clean apart from this plan's own edits, and Stephen's untracked
   `driver/PSRAM_driver_RJA_Platform_1b.spin2`, which belongs to the follow-on
   sprint.
 
 ## Named unknowns (each with its planned response)
 
-- **Whether the MBI5124GP takes data while lit:** visit A decides. If it doesn't,
-  the chip flag selects shift-while-dark, and that chip's lower refresh is
-  documented.
+- **A chip that cannot take data while lit:** none was found at visit A, so §4
+  has no shift-while-dark path. The FM6124 (optional at visit D) and the chips
+  not on this bench are untested. If one shows a wrong image at visit D, the
+  prototype's `SHIFT_WHILE_DARK` mode confirms the cause, and adding the path
+  to the core is raised with Stephen as a logged scope change.
 - **Cog RAM headroom:** about 100 longs is inferred. If §4's loop doesn't fit,
   the line buffer moves to LUT RAM (512 longs, unused).
 - **A 14-clock shift split meeting 20 ns both ways:** settled by the timing
@@ -594,3 +601,6 @@ the audit can't see, and those are fixed by keeping one canonical copy.
 ## Revision history
 
 - 2026-10-02 — draft written after scope confirmation and the research pass.
+- 2026-10-03 — bench visit A completed on the quad rig, FM6126A and MBI5124GP.
+  Question 3 answered; §4 drops the shift-while-dark path; exit gate walked and
+  the plan marked ready.
