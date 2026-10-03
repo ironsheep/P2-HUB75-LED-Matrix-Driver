@@ -324,6 +324,20 @@ the method.
     `cmdClearPanel`;
   - the dead `modeSlowCLK` and `bSetMidPins`, and the ISR stubs.
 
+**No old-mode switch** (Stephen asked, 2026-10-02, whether to keep the old method
+as a compile-time choice for small displays). Not needed:
+- The old method is this loop with j = 0 (T = S): every plane fills its slot,
+  brightness is 100%, and the refresh rate is today's.
+- The target rule picks j = 0 whenever the old method already reaches the target.
+- At a 60 Hz target (calculated, 16 clocks per column), 1 × 64×32 gets 100% at
+  every depth. 2 × 64×32 and 1 × 64×64 get 99.6% at 8-bit (80 Hz against today's
+  40). 1 × 128×64 gets 98% at 8-bit (79 Hz against 20). Only long chains at deep
+  colour drop noticeably; the rig at 8-bit gets 84%, at 67 Hz against 5.
+- A user wanting full brightness on a large display lowers
+  `DISPn_TARGET_REFRESH_HZ`.
+- Keeping two cores would double every chip path's code and its bench
+  validation (D5: delete the superseded mechanism).
+
 **Adversarial premise check** (sprint-plan overlay: what input breaks each derived
 quantity, and the planned check that catches it):
 
