@@ -2,6 +2,8 @@
 
 This document provides a comprehensive matrix of all driver chip characteristics needed for proper panel control.
 
+**Scan** is written *1/S scan*, where S is the number of row addresses the panel's address lines select; each address lights panel rows ÷ S rows at once (the [glossary](../THEOPS.md#scan) defines it). Most panels light two rows at once. A panel that lights four rows at once, such as a 64×32 1/8-scan panel, needs a different screen-to-panel conversion, which the driver selects with the `SCAN_4` chip flag.
+
 ## Quick Reference Matrix
 
 | Chip | Color | Addr Lines | Scan | R/B Swap | G/B Swap | Wide CLK | Init Req | Latch Style | Multi-Panel |
@@ -10,7 +12,7 @@ This document provides a comprehensive matrix of all driver chip characteristics
 | **FM6124** | Orange | ABCD | 1/16 | - | - | - | - | Standard | ⚠️ Untested |
 | **FM6124C** | - | ABCDE | 1/32 | - | - | - | - | Standard | ⚠️ Untested |
 | **ICN2037/BP** | - | ABCDE | 1/32 | **Yes** | - | **Yes** | - | Enclosed | ✅ Tested |
-| **ICN2038S** | - | ABCDE | 1/8 | - | - | **Yes** | - | Enclosed | N/A (single) |
+| **ICN2038S** | - | ABCDE | disputed* | - | - | **Yes** | - | Enclosed | N/A (single) |
 | **MBI5124GP** | Green | ABC | 1/8 | - | - | - | **Yes** | Enclosed | ⚠️ Untested |
 | **GS6238S** | Cyan | ABCD | 1/16 | - | **Yes** | - | - | Offset+Overlap | ⚠️ Untested |
 | **DP5125D** | - | ABC | 1/8 | - | - | - | - | Offset+Overlap | ⚠️ Untested |
@@ -18,6 +20,7 @@ This document provides a comprehensive matrix of all driver chip characteristics
 **Notes:**
 - ICN2037BP is the same chip as ICN2037 in SSOP24-P-150 package
 - Supporting chipsets vary by panel (see detailed sections below)
+- *ICN2038S scan is **disputed**: the driver flags the chip `SCAN_4` (four rows lit at once), but the panel is described with five address lines (ABCDE, 32 row addresses), which suggests 1/32 scan (two rows lit at once). It is an open item (`DOCs/plans/PUNCH-LIST.md`); no scan value is given for this chip until it is settled.
 
 ---
 
@@ -218,7 +221,7 @@ CHIP_MANUAL_SPEC | CLK_WIDE_PULSE | RB_SWAP
 | Characteristic | Value | Notes |
 |----------------|-------|-------|
 | Address Lines | ABCDE (5) | 32 row addressing |
-| Scan Rate | 1/8 | SCAN_4 flag |
+| Scan Rate | Disputed | The code sets the `SCAN_4` flag (four rows lit at once); ABCDE (32 addresses) suggests 1/32 scan. Open item, see the note under the Quick Reference Matrix |
 | Max Clock | 20 MHz | |
 | R/B Swap | No | **Different from ICN2037** |
 | G/B Swap | No | |
@@ -234,8 +237,7 @@ CHIP_MANUAL_SPEC | CLK_WIDE_PULSE | SCAN_4
 ```
 
 **Notes:**
-- Similar to ICN2037 but with 1/8 scan and **no R/B swap**
-- SCAN_4 flag indicates special 1/8 scan pattern
+- Similar to ICN2037 but with **no R/B swap**, and the driver flags it `SCAN_4` (four rows lit at once); whether that flag or the five address lines is right is disputed (see the note under the Quick Reference Matrix)
 - Commercial all-weather panel, single-ended construction
 - Working in production road-sign display application
 
@@ -371,7 +373,7 @@ CHIP_MANUAL_SPEC | LAT_STYLE_OFFSET | LAT_POSN_OVERLAP | SCAN_4
 | `INIT_PANEL_REQUIRED` | $400 | Panel requires special initialization sequence at power-up |
 | `CLK_WIDE_PULSE` | $800 | Clock signal needs wider pulse (slower effective clock) |
 | `RB_SWAP` | $1000 | Red and Blue color channels are physically swapped |
-| `SCAN_4` | $2000 | Uses 1/8 scan pattern (4-line addressing for 8 rows) |
+| `SCAN_4` | $2000 | Four rows lit at once (1/8 scan on a 32-row panel); needs the quarter-scan screen-to-panel conversion, and the refresh line holds two column clocks for every panel column |
 | `GB_SWAP` | $4000 | Green and Blue color channels are physically swapped |
 
 ---
@@ -739,19 +741,18 @@ These chips operate as standard shift registers - clock in data, latch, enable o
 
 ## Scan Rate / Address Line Relationship
 
-| Address Lines | Rows Addressed | Typical Scan | Panel Height |
-|---------------|----------------|--------------|--------------|
-| ABC (3) | 8 | 1/8 | 16, 32 rows |
-| ABCD (4) | 16 | 1/16 | 32, 64 rows |
-| ABCDE (5) | 32 | 1/32 | 64, 128 rows |
+| Address Lines | Row addresses (S) | Scan | Typical panel height |
+|---------------|-------------------|------|----------------------|
+| ABC (3) | 8 | 1/8 scan | 16, 32 rows |
+| ABCD (4) | 16 | 1/16 scan | 32, 64 rows |
+| ABCDE (5) | 32 | 1/32 scan | 64, 128 rows |
 
-**How scan works:**
-- Panel is divided into sections
-- Each scan cycle displays one section
-- Higher scan rate = more sections = dimmer per-cycle but higher refresh
-- 1/8 scan: Display shows 1/8 of rows at a time, cycles 8x per frame
-- 1/16 scan: Display shows 1/16 of rows at a time, cycles 16x per frame
-- 1/32 scan: Display shows 1/32 of rows at a time, cycles 32x per frame
+**How scan works** (the term is defined in the [glossary](../THEOPS.md#scan)):
+- A panel is **1/S scan**, where S is the number of row addresses its address lines select; each address lights panel rows ÷ S rows at once
+- The refresh cycles through all S addresses, lighting that group of rows at each
+- 1/8 scan: 8 row addresses, cycling through them to draw one pass over the panel; a 64×32 panel lights 4 rows at once (the `SCAN_4` flag)
+- 1/16 scan: 16 row addresses; a 64×32 panel lights 2 rows at once
+- 1/32 scan: 32 row addresses; a 64×64 or 128×64 panel lights 2 rows at once
 
 ---
 
@@ -807,7 +808,7 @@ To add support for a new chip:
 
 1. Identify the chip's characteristics:
    - Address lines (ABC/ABCD/ABCDE)
-   - Scan rate (1/8, 1/16, 1/32)
+   - Scan (1/8, 1/16, 1/32; whether it lights four rows at once, the `SCAN_4` flag)
    - Color swapping (R/B, G/B)
    - Clock requirements
    - Initialization needs

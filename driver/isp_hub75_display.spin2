@@ -245,14 +245,14 @@ PUB stop()
     cog := 0
 
 PUB clearScreen()
-'' Clear the panel to BLACK.
+'' Clear the display to BLACK.
 ''
 
   hub75Bffrs.zeroFillBuffer(chainIndex)
   commitScreenToPanelSet()
 
 PUB clearScreenBuffer()
-'' Clear the screen buffer to BLACK without committing to panel.
+'' Clear the screen buffer to BLACK without committing it to the display.
 ''
 
   hub75Bffrs.zeroFillBuffer(chainIndex)

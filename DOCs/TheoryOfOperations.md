@@ -1,7 +1,7 @@
 # P2 HUB75 LED Matrix Driver - Theory of Operations
 
-**Document Version:** 1.0  
-**Date:** December 2024  
+**Document Version:** 2.0 (driver 4.0.0)  
+**Date:** December 2024; brought up to the 4.0.0 display model October 2026  
 **Author:** Generated from codebase analysis
 
 ---
@@ -42,9 +42,10 @@ The P2 HUB75 LED Matrix Driver is a multi-layered system designed to drive HUB75
                            │
 ┌──────────────────────────▼──────────────────────────────────────┐
 │                    BUFFER MANAGEMENT LAYER                       │
-│  isp_hub75_hwBufferAccess.spin2 - Buffer tables, geometry        │
+│  isp_hub75_hwBufferAccess.spin2 - Wiring check, layout, tables   │
 │  isp_hub75_hwBuffers.spin2 - Screen RAM allocation               │
 │  isp_hub75_hwPanelConfig.spin2 - User configuration              │
+│  isp_hub75_cube.spin2 - Cube faces and edge folding              │
 │  isp_hub75_hwEnums.spin2 - Constants and enumerations            │
 └──────────────────────────┬──────────────────────────────────────┘
                            │
@@ -93,6 +94,7 @@ demo_hub75_*.spin2 (top-level)
 3. **Double-Buffering**: Smooth animation through alternating PWM frame sets
 4. **Dedicated COG Execution**: PASM2 driver runs in its own COG for deterministic timing
 5. **Multi-Adapter Support**: Up to 3 independent HUB75 adapters per P2
+6. **Configure by description**: you describe where each panel is and which way it points in one sentence per panel; the driver checks the sentences at startup and derives the grid and its lookup tables once, so drawing only looks things up
 
 ---
 
@@ -104,7 +106,9 @@ demo_hub75_*.spin2 (top-level)
 ┌─────────────────────────────────────────────────────────────────┐
 │ APPLICATION: screen.drawPixelAtRC(chain, row, col, rgb)         │
 │              Uses 24-bit color values (0x000000 - 0xFFFFFF)     │
+│              (row, col) are display coordinates, as mounted     │
 └──────────────────────────┬──────────────────────────────────────┘
+                           │ Map to the panel's buffer slot (2.2)
                            │ Apply color correction
                            │ (gamma, brightness)
                            ▼
@@ -122,7 +126,7 @@ demo_hub75_*.spin2 (top-level)
 │  Format: 4 bits/pixel (2 pixels per byte)                       │
 │  Frames: color_depth frames per set (3-bit=7, 8-bit=255)        │
 │  Size: (width × height / 2) × color_depth bytes                 │
-│  Example: 256×128 @ 8-bit = 4,194,304 bytes per set             │
+│  Example: 256×128 @ 8-bit = 131,072 bytes per set               │
 └──────────────────────────┬──────────────────────────────────────┘
                            │ cmdWritePwmBuffer() - async command
                            │ PASM2 driver reads in chunks
@@ -149,24 +153,33 @@ demo_hub75_*.spin2 (top-level)
 
 ### 2.2 Pixel Write Operation
 
-When `drawPixelAtRCwithRGB(chainIdx, row, col, red, green, blue)` is called:
+Every drawing path (text, scrolling, lines, boxes, circles, image placement, panel-centric calls and face-centric calls) ends in one pixel write, `drawPixelAtRCwithRGB(chainIdx, row, col, red, green, blue)`, so every path gets the same mapping. `row` and `col` are **display coordinates as the display is mounted**, with (0, 0) at the top-left (see the [glossary](../THEOPS.md#glossary)). The panels' buffer is stored panel by panel (in buffer-slot order), not as one raster, so the write maps each pixel to its place in it:
 
-1. **Rotation Transform** (if configured):
-   - ROT_NONE: offset = (row × maxColumns + col) × bytesPerColor
-   - ROT_180: offset = ((maxRows-1-row) × maxColumns + (maxCols-1-col)) × bytesPerColor
-   - ROT_90/270: Swap row/column coordinates
+1. **Hold to the mounted size.** The size the accessors report is the size as mounted: width and height swap when `DISPn_ROTATION` is 90 or 270 degrees.
 
-2. **Color Correction**:
-   - Apply brightness scaling: `pwmValue = (colorValue × brightness) >> 8`
-   - Apply gamma correction (optional): `pwmValue = gammaTable[pwmValue]`
-   - Map to color depth: `finalValue = (pwmValue × maxPwmFrames) / 255`
+2. **Undo the display rotation.** `DISPn_ROTATION` is physical (how the display hangs); this step turns mounted coordinates into layout coordinates, the display as its panels are laid out. `ROT_NONE` leaves them unchanged.
 
-3. **Buffer Write**:
+3. **Map to the buffer** (`displayPixelAddress`). Each step is a table lookup, built once at startup from the wiring sentences, so the per-pixel path does no searching:
+   - layout coordinates → the cell of the display's grid;
+   - cell → panel position (a cell that holds no panel, such as the hole in an L shape, has none, and the pixel is not drawn);
+   - panel position → panel coordinates (row and column within that panel, as the viewer sees it);
+   - panel rotation (the panel's arrow) → native coordinates (as the panel's own chips address it);
+   - panel position → buffer slot (slot = N-1-C for the panel at cable position C of N);
+   - `offset = ((((slot × panelRows) + nativeRow) × panelColumns) + nativeColumn) × bytesPerColor`.
+
+4. **Color Correction** (`colorUtils.correctedSingleColor`):
+   - Apply brightness scaling, rounded to nearest: `value = (colorValue × brightness + 128) >> 8`
+   - Apply gamma correction (optional): `value = gammaTable[value]`
+   - Adjust to the color depth's bit width.
+
+5. **Buffer Write**:
    ```
    screenBuffer[offset + 0] = correctedRed
    screenBuffer[offset + 1] = correctedGreen
    screenBuffer[offset + 2] = correctedBlue
    ```
+
+Panel-centric calls take (panel position, panel coordinates) in the viewer's frame, clip at the panel's edge, add the panel's display offset and then enter this same path. Face-centric calls on a cube fold a pixel across the cube's edges first, then enter it too.
 
 ### 2.3 Screen Commit Operation
 
@@ -241,16 +254,16 @@ END FOR
 
 ### 3.4 Color Depth Trade-offs
 
-| Depth | Colors | PWM Frames | Relative Speed | Memory Factor |
-|-------|--------|------------|----------------|---------------|
-| 3-bit | 512 | 7 | Fastest | 1.0× |
-| 4-bit | 4,096 | 15 | Fast | 1.0× |
-| 5-bit | 32,768 | 31 | Medium | 1.0× |
-| 6-bit | 262,144 | 63 | Slow | 1.5× |
-| 7-bit | 2,097,152 | 127 | Slower | 1.5× |
-| 8-bit | 16,777,216 | 255 | Slowest | 1.5× |
+| Depth | Colors | PWM Frames | Relative Speed | Bytes per pixel (buffers) |
+|-------|--------|------------|----------------|---------------------------|
+| 3-bit | 512 | 7 | Fastest | 6 |
+| 4-bit | 4,096 | 15 | Fast | 7 |
+| 5-bit | 32,768 | 31 | Medium | 8 |
+| 6-bit | 262,144 | 63 | Slow | 9 |
+| 7-bit | 2,097,152 | 127 | Slower | 10 |
+| 8-bit | 16,777,216 | 255 | Slowest | 11 |
 
-**Note**: 3-5 bit depths use 2 bytes per pixel in screen buffer; 6-8 bit depths use 3 bytes.
+**Note**: the screen buffer always uses 3 bytes per pixel, at every depth. The rest of each pixel's buffer space is the two PWM frame sets (N/2 bytes per pixel each), which is why a pixel costs 3 + N bytes in all (see 4.2). How often the full color cycle repeats at each depth, measured on the author's rig, is in the [Driver Details](../THEOPS.md#notes-on-driver-internals).
 
 ---
 
@@ -278,15 +291,17 @@ END FOR
 
 ### 4.2 Memory Calculation
 
-For a display configuration:
+Buffers are sized by the **number of panels in use** (`DISPn_PANEL_COUNT`, counted from the wiring sentences), not by the display's bounding box: a display with a hole in it (an L shape) holds no memory for the hole. An adapter with no panels has zero-length buffers. For a display of `panelCount` panels of `panelColumns × panelRows` pixels:
 
 ```
+Panel pixels P:
+  = panelColumns × panelRows
+
 Screen Buffer Size:
-  = displayWidth × displayHeight × bytesPerColor
-  = displayWidth × displayHeight × (colorDepth > 5 ? 3 : 2)
+  = panelCount × P × 3 bytes  (3 bytes per pixel at every depth)
 
 PWM Frame Size (single frame):
-  = (displayWidth × displayHeight) / 2 bytes
+  = (panelCount × P) / 2 bytes
 
 PWM Frameset Size:
   = colorDepth × PWM_Frame_Size
@@ -296,78 +311,95 @@ Total PWM Memory:
 
 Total Memory Per Adapter:
   = Screen_Buffer + (2 × PWM_Frameset)
+  = panelCount × P × (3 + colorDepth) bytes
 ```
+
+The three adapters' buffers share the P2's hub RAM; the compiler stops the build if they do not fit. How many panels that allows, per panel type, is in the [Wiring Guide's driver limits](WiringGuide.md#driver-limits).
 
 ### 4.3 Memory Examples
 
-**Example 1: Single 64×64 panel, 5-bit color**
+**Example 1: one 64×64 panel, 5-bit color**
 ```
-Screen Buffer:  64 × 64 × 2 = 8,192 bytes (8 KB)
-PWM Frame:      (64 × 64) / 2 = 2,048 bytes
+Screen Buffer:  1 × 4,096 × 3 = 12,288 bytes (12 KB)
+PWM Frame:      4,096 / 2 = 2,048 bytes
 PWM Frameset:   5 × 2,048 = 10,240 bytes (10 KB)
-Total:          8 KB + (2 × 10 KB) = 28 KB
+Total:          12 KB + (2 × 10 KB) = 32 KB   (= 4,096 × (3 + 5))
 ```
 
-**Example 2: 2×2 panel grid (256×128), 8-bit color**
+**Example 2: four 128×64 panels in a 2×2 grid (256×128), 8-bit color**
 ```
-Screen Buffer:  256 × 128 × 3 = 98,304 bytes (96 KB)
-PWM Frame:      (256 × 128) / 2 = 16,384 bytes
+Screen Buffer:  4 × 8,192 × 3 = 98,304 bytes (96 KB)
+PWM Frame:      (4 × 8,192) / 2 = 16,384 bytes
 PWM Frameset:   8 × 16,384 = 131,072 bytes (128 KB)
-Total:          96 KB + (2 × 128 KB) = 352 KB
+Total:          96 KB + (2 × 128 KB) = 352 KB   (= 32,768 × (3 + 8))
 ```
+
+**Example 3: an L of three 64×64 panels (a 2×2 grid with one empty cell), 6-bit color**
+```
+Screen Buffer:  3 × 4,096 × 3 = 36,864 bytes (36 KB)
+PWM Frame:      (3 × 4,096) / 2 = 6,144 bytes
+PWM Frameset:   6 × 6,144 = 36,864 bytes (36 KB)
+Total:          36 KB + (2 × 36 KB) = 108 KB   (= 12,288 × (3 + 6))
+```
+The bounding box would be 128×128, but the buffers hold only the three panels.
 
 ### 4.4 Buffer Table Structure
 
-The `isp_hub75_hwBufferAccess.spin2` file maintains a table for each HUB75 adapter:
+The `isp_hub75_hwBufferAccess.spin2` file maintains one descriptor for each HUB75 adapter. All three are always present, and the descriptor's buffer addresses, chip type, pin base and address lines are filled in when the adapter is started (`configureAdapter`, which the display's start call makes):
 
 ```
-Entry Structure (17 LONGs per adapter):
+Descriptor Structure (13 LONGs per adapter):
   [0]  Screen buffer address
   [1]  PWM frameset 1 address
   [2]  PWM frameset 2 address
-  [3]  Display columns (total width)
-  [4]  Display rows (total height)
-  [5]  Color depth (3-8)
-  [6]  Bytes per color (2 or 3)
-  [7]  Screen size in longs
-  [8]  PWM frame size in bytes
-  [9]  Rotation setting
-  [10] Panel columns (single panel width)
-  [11] Panel rows (single panel height)
-  [12] Panels per column (vertical count)
-  [13] Panels per row (horizontal count)
-  [14] Panel chip type
-  [15] HUB75 pin base
-  [16] Address line count (ABC/ABCD/ABCDE)
+  [3]  Color depth (3-8)
+  [4]  Bytes per color (3)
+  [5]  Screen size in longs
+  [6]  PWM frame size in bytes
+  [7]  Display rotation (DISPn_ROTATION, how the display is mounted)
+  [8]  Panel columns (single panel width, native)
+  [9]  Panel rows (single panel height, native)
+  [10] Panel chip type
+  [11] HUB75 pin base
+  [12] Address line count (ABC/ABCD/ABCDE)
 ```
+
+The display's size and grid are **not** in the descriptor. The wiring sentences are decoded and checked once at startup, and the layout derived from them lives in lookup tables, one entry per cable or panel position, per adapter:
+
+| Table | Maps | Used for |
+|---|---|---|
+| panel position (layout) → buffer slot | the panel's place in the screen buffer (slot = N-1-C) | the mapping (2.2) |
+| panel position (layout) → panel rotation | the panel's arrow | the mapping (2.2) |
+| cell → panel position | the display's grid; a cell with no panel has none | the mapping (2.2), and which panel holds a pixel |
+| panel position (as mounted) → layout position, and its cell | display rotation applied to whole panels | panel-centric calls and `fillPanel` in the viewer's frame |
+| cable position → panel position | the inverse | the identify screen's `C` and `P` labels |
+
+For a cube, `isp_hub75_cube.spin2` additionally holds the edge table: for each face, which face lies beyond each edge and how coordinates carry across it.
 
 ---
 
 ## 5. Timing and Performance
 
-### 5.1 Frame Rate Calculation
+### 5.1 Refresh Rate
 
-```
-Panel Electrical Refresh Rate ≈ 600-1000 Hz (varies by panel)
+The refresh core shows plane *k* of an *N*-bit frame set 2^(*N*-1-*k*) times, so one full color cycle is 2^*N* - 1 scans of the display, and each scan clocks out `rows × column clocks` columns. The refresh rate is how often the full color cycle repeats:
 
-Visible Frame Rate = Electrical_Rate / Total_PWM_Frames
+> refresh (Hz) = clock rate ÷ (rows × column clocks × (2^*N* - 1))
 
-Examples:
-  3-bit @ 800 Hz: 800 / 7 = 114 fps
-  5-bit @ 800 Hz: 800 / 31 = 26 fps
-  8-bit @ 800 Hz: 800 / 255 = 3.1 fps
-```
+where *rows* is 8, 16 or 32 for 3, 4 or 5 address lines and *column clocks* is the number of panels along the cable × their columns (× 2 for the chips the driver flags `SCAN_4`). The panel clock is `clkfreq / 20_000_000` core cycles per column, 16 cycles at 335 MHz.
+
+**Measured** on the author's rig (four ICN2037 128x64 panels, 512 column clocks, 1/32 scan), the full color-cycle rate was 177 Hz at 3-bit, 82 Hz at 4-bit, 40.1 Hz at 5-bit, 19.7 Hz at 6-bit, 9.6 Hz at 7-bit and 4.6 Hz at 8-bit, each a little below the formula's clock-time ceiling (182.6, 85.2, 41.2, 20.3, 10.1 and 5.0 Hz). Other panel types are calculated, not measured: see the [Wiring Guide's refresh tables](WiringGuide.md#refresh-rate), which also say what the rig looked like to the eye at each depth.
 
 ### 5.2 Timing-Critical Operations
 
 #### Pixel Clocking (HIGHEST PRIORITY)
-- **Location**: `isp_hub75_rgb3bit.spin2` lines 1087-1102
+- **Location**: `isp_hub75_rgb3bit.spin2`, the column-clocking loop
 - **Requirement**: 15-30 MHz clock rate depending on panel chip
 - **Implementation**: Uses `rep` instruction for zero-overhead loop
 - **Timing**: ~25-50ns per pixel at 335 MHz P2 clock
 
 #### HUB-to-COG Transfer (MEDIUM PRIORITY)
-- **Location**: `isp_hub75_rgb3bit.spin2` line 952
+- **Location**: `isp_hub75_rgb3bit.spin2`, the sub-page load
 - **Method**: `setq` + `rdlong` bulk transfer with auto-increment
 - **Transfer Size**: 512 longs per subpage
 - **Timing**: ~1μs per transfer
@@ -415,32 +447,34 @@ There is no group for pins 48-63: they overlap the P2's reserved pins.
 
 ### 6.3 Configuration
 
-Each adapter is configured via `DISPx_` constants in `isp_hub75_hwPanelConfig.spin2`:
+Adapter *k* drives display `DISP(k-1)_`, configured by `DISPx_` constants in `isp_hub75_hwPanelConfig.spin2`. The panels' layout, cabling and mounting are the wiring sentences (`DISPx_C0` ... `DISPx_C15`), `DISPx_ROTATION` and, for a cube, `DISPx_SHAPE`; see the [Wiring Guide](WiringGuide.md). A 2×2 grid of 128×64 panels on the first adapter, with the adapter plugged into the bottom-left panel and the ribbon running along the bottom row and then the top row, looks like this:
 
 ```spin2
-' Adapter 0 configuration
+' Display 0, driven by HUB75_ADAPTER_1
 DISP0_ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
 DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
 DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 DISP0_MAX_PANEL_COLUMNS = 128
 DISP0_MAX_PANEL_ROWS = 64
-DISP0_MAX_PANELS_PER_ROW = 2
-DISP0_MAX_PANELS_PER_COLUMN = 2
 DISP0_COLOR_DEPTH = hwEnum.DEPTH_5BIT
 DISP0_ROTATION = hwEnum.ROT_NONE
+DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP         ' bottom-left
+DISP0_C1 = hwEnum.RIGHT_OF | hwEnum.C0 | hwEnum.ARROW_UP   ' bottom-right
+DISP0_C2 = hwEnum.ABOVE | hwEnum.C0 | hwEnum.ARROW_UP      ' top-left
+DISP0_C3 = hwEnum.RIGHT_OF | hwEnum.C2 | hwEnum.ARROW_UP   ' top-right
 
-' Adapter 1 configuration (if used)
-DISP1_ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P32_P47
-...
+' Display 1, driven by HUB75_ADAPTER_2: set every DISP1_C0 ... DISP1_C15 to
+' hwEnum.NO_PANEL until it has panels
 ```
 
 ### 6.4 Enabling Additional Adapters
 
-To enable adapters beyond the first:
+All three adapters are always present in `isp_hub75_hwBufferAccess.spin2` and `isp_hub75_hwBuffers.spin2`, and nothing in those files is edited. An adapter whose `DISPx_C0` is `NO_PANEL` has zero-length buffers and costs no memory. To use another adapter:
 
-1. **In `isp_hub75_hwBufferAccess.spin2`**: Uncomment table entries for DISP1/DISP2
-2. **In `isp_hub75_hwBuffers.spin2`**: Uncomment buffer allocations for DISP1/DISP2
-3. **In `isp_hub75_hwPanelConfig.spin2`**: Configure DISP1_/DISP2_ constants
+1. **In `isp_hub75_hwPanelConfig.spin2`**: describe the panels of `DISP1_` (second adapter) or `DISP2_` (third adapter): pin group, chip, address lines, panel size, color depth, and the wiring sentences.
+2. **In your program**: start it with its own display object, `display[1].start(hub75Bffrs.HUB75_ADAPTER_2)` (or `HUB75_ADAPTER_3`). Each adapter runs its own display object and refresh COG.
+
+The startup check halts with a message if a display that is started has no panels, or if the combined buffers of all three adapters do not fit hub RAM (the compiler reports the second). See the [upgrade checklist](../Checklist-v3-v4.md#starting-a-second-or-third-adapter) for the call sequence.
 
 ---
 
@@ -469,9 +503,10 @@ To enable adapters beyond the first:
 - Some panels require Red/Blue swap or Green/Blue swap
 - Configured via chip type selection
 
-**Scan Modes**:
-- Standard: 1/16 or 1/32 scan
-- Special: 1/8 scan (MBI5124GP) - requires different row mapping
+**Scan Modes** (the [glossary](../THEOPS.md#scan) defines the term: a panel is **1/S scan**, where S is the number of row addresses its address lines select, and each address lights panel rows ÷ S rows at once):
+- Standard: two rows lit at once, one fed by each set of color pins: 1/16 scan on a 64x32 panel, 1/32 scan on a 64x64 or 128x64 panel
+- Special: four rows lit at once, flagged `SCAN_4` (MBI5124GP and DP5125D, 1/8 scan on a 64x32 panel) - requires a different screen-to-panel conversion, and the refresh line holds two column clocks for every panel column
+- ICN2038S: the driver flags it `SCAN_4`, but its five address lines suggest 1/32 scan; this is an open item (see the Change Log's Known Issues) and the panel's scan is **disputed** until it is settled
 
 ### 7.3 Adding New Chip Support
 

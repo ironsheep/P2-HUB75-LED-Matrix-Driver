@@ -2,6 +2,8 @@
 
 This document catalogs all panel configurations the author has tested, as documented in `isp_hub75_hwPanelConfig.spin2`.
 
+Each configuration below is shown as the `DISP0_` settings that describe it: the adapter's pin group, chip, address lines and panel size, plus the wiring sentence for each panel (`DISP0_C0` ... `DISP0_C15`; a position not shown is `hwEnum.NO_PANEL`). How the sentences work is in the [Wiring Guide](WiringGuide.md). **Scan** is written *1/S scan*, where S is the number of row addresses the address lines select, as defined in the [glossary](../THEOPS.md#scan). The **Multi-Panel** status says whether multi-panel use has been proven on hardware; how many panels one adapter can drive for each panel type is in the [driver limits table](WiringGuide.md#driver-limits).
+
 ## Configuration Summary Table
 
 | Config | Panel Model | Color Label | Size | Chip | Addr | Pin Base | Multi-Panel | Notes |
@@ -14,6 +16,7 @@ This document catalogs all panel configurations the author has tested, as docume
 | 9 | P2.5-16S-V1.0 | **Cyan** | 64×32 | GS6238S | ABCD | P16-P31 | Untested | G/B swapped |
 | 10 | P2-2020210240-200 | - | 64×64 | ICN2037 | ABCDE | P16-P31 | **Multi-panel OK** | P2 Cube FLAT, R/B swapped |
 | 11 | P2-2020210240-200 | - | 128×64 | ICN2037 | ABCDE | P16-P31 | **Multi-panel OK** | LARGE panels, R/B swapped |
+| 12 | (road-sign panel) | - | 64×64 | ICN2038S | ABCDE | P0-P15 | N/A (single-ended) | Scan setting disputed (see Configuration 12) |
 
 ### Color Label Quick Reference
 
@@ -40,14 +43,17 @@ This document catalogs all panel configurations the author has tested, as docume
 - Address Lines: ABCD (4 lines)
 - Max Clock: 30MHz (16.5ns hi/16.5ns lo)
 
-**Configuration:**
+**Configuration** (one panel):
 ```spin2
-ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
-PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6126A
-PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
+DISP0_ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
+DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6126A
+DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
+DISP0_MAX_PANEL_COLUMNS = 64
+DISP0_MAX_PANEL_ROWS = 32
+DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP     ' DISP0_C1 .. DISP0_C15 are hwEnum.NO_PANEL
 ```
 
-**Multi-Panel Status:** ❌ Single panel only (requires initialization sequence)
+**Multi-Panel Status:** ✅ Working in multi-panel chains (the panels need the initialization sequence). A row of four of these is [Example 1](WiringGuide.md#example-1-a-row-of-4) in the Wiring Guide; the number of panels one adapter can drive is in the [driver limits table](WiringGuide.md#driver-limits) (calculated, not yet exercised at that count).
 
 ---
 
@@ -62,14 +68,17 @@ PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
 - Address Lines: ABCD (4 lines)
 - Max Clock: 30MHz
 
-**Configuration:**
+**Configuration** (one panel):
 ```spin2
-ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
-PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6124
-PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
+DISP0_ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
+DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6124
+DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
+DISP0_MAX_PANEL_COLUMNS = 64
+DISP0_MAX_PANEL_ROWS = 32
+DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP     ' DISP0_C1 .. DISP0_C15 are hwEnum.NO_PANEL
 ```
 
-**Multi-Panel Status:** ❌ Single panel only
+**Multi-Panel Status:** ❌ Single panel only; multi-panel is untested. The driver's limit for this panel type is in the [driver limits table](WiringGuide.md#driver-limits).
 
 ---
 
@@ -86,14 +95,17 @@ PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
 - Max Clock: 20MHz (25ns hi/25ns lo)
 - Color Note: **Red/Blue swapped** (driver handles automatically)
 
-**Configuration:**
+**Configuration** (one panel):
 ```spin2
-ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
-PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
-PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
+DISP0_ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
+DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
+DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
+DISP0_MAX_PANEL_COLUMNS = 64
+DISP0_MAX_PANEL_ROWS = 64
+DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP     ' DISP0_C1 .. DISP0_C15 are hwEnum.NO_PANEL
 ```
 
-**Multi-Panel Status:** ✅ **Working in multi-panel chains**
+**Multi-Panel Status:** ✅ **Working in multi-panel chains.** The number of panels one adapter can drive is in the [driver limits table](WiringGuide.md#driver-limits) (calculated).
 
 ---
 
@@ -103,19 +115,22 @@ PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 
 **Specifications:**
 - Size: 64 columns × 32 rows = 2,048 pixels
-- Scan: **1/8 scan** (special addressing)
+- Scan: **1/8 scan** (8 row addresses, so four rows lit at once: the driver flag `SCAN_4`, which needs its own screen-to-panel conversion)
 - Driver Chip: MBI5124GP
 - Address Lines: ABC (3 lines)
 - Max Clock: 20MHz
 
-**Configuration:**
+**Configuration** (one panel):
 ```spin2
-ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
-PANEL_DRIVER_CHIP = hwEnum.CHIP_MBI5124GP
-PANEL_ADDR_LINES = hwEnum.ADDR_ABC
+DISP0_ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
+DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_MBI5124GP
+DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABC
+DISP0_MAX_PANEL_COLUMNS = 64
+DISP0_MAX_PANEL_ROWS = 32
+DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP     ' DISP0_C1 .. DISP0_C15 are hwEnum.NO_PANEL
 ```
 
-**Multi-Panel Status:** ❌ Single panel only (1/8 scan complexity)
+**Multi-Panel Status:** ❌ Single panel only (1/8 scan complexity). The 4.0.0 driver reads quarter-scan panels panel by panel for a chain, but that is proven only by a buffer-level test, not on these panels. The driver limit for this type is in the [driver limits table](WiringGuide.md#driver-limits).
 
 ---
 
@@ -125,14 +140,17 @@ PANEL_ADDR_LINES = hwEnum.ADDR_ABC
 
 Same as Configuration 7 but using alternate pin group.
 
-**Configuration:**
+**Configuration** (one panel):
 ```spin2
-ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P32_P47
-PANEL_DRIVER_CHIP = hwEnum.CHIP_MBI5124GP
-PANEL_ADDR_LINES = hwEnum.ADDR_ABC
+DISP0_ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P32_P47
+DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_MBI5124GP
+DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABC
+DISP0_MAX_PANEL_COLUMNS = 64
+DISP0_MAX_PANEL_ROWS = 32
+DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP     ' DISP0_C1 .. DISP0_C15 are hwEnum.NO_PANEL
 ```
 
-**Multi-Panel Status:** ❌ Single panel only
+**Multi-Panel Status:** ❌ Single panel only (see Configuration 7; [driver limits table](WiringGuide.md#driver-limits))
 
 ---
 
@@ -148,14 +166,17 @@ PANEL_ADDR_LINES = hwEnum.ADDR_ABC
 - Max Clock: 30MHz
 - Color Note: **Green/Blue swapped** (driver handles automatically)
 
-**Configuration:**
+**Configuration** (one panel):
 ```spin2
-ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
-PANEL_DRIVER_CHIP = hwEnum.CHIP_GS6238S
-PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
+DISP0_ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
+DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_GS6238S
+DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
+DISP0_MAX_PANEL_COLUMNS = 64
+DISP0_MAX_PANEL_ROWS = 32
+DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP     ' DISP0_C1 .. DISP0_C15 are hwEnum.NO_PANEL
 ```
 
-**Multi-Panel Status:** ❌ Single panel only
+**Multi-Panel Status:** ❌ Single panel only; multi-panel is untested. The driver's limit for this panel type is in the [driver limits table](WiringGuide.md#driver-limits).
 
 ---
 
@@ -182,14 +203,17 @@ PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
 | MW245B | Bus transceiver (Sunmoon) |
 | TC7262BJ | Row driver (Fuman, anti-ghosting) |
 
-**Configuration:**
+**Configuration** (the chip settings and the panel size; the cube's sentences and its Top and Front are in [Example 7](WiringGuide.md#example-7-the-cube-wired-in-a-ring-with-top-and-front) of the Wiring Guide):
 ```spin2
-ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
-PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
-PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
+DISP0_ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
+DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
+DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
+DISP0_MAX_PANEL_COLUMNS = 64
+DISP0_MAX_PANEL_ROWS = 64
+DISP0_SHAPE = hwEnum.SHAPE_CUBE             ' with DISP0_C0 .. DISP0_C5, DISP0_CUBE_TOP and DISP0_CUBE_FRONT
 ```
 
-**Multi-Panel Status:** ✅ **Working in multi-panel chains** (used in cube project with 6 panels)
+**Multi-Panel Status:** ✅ **Working in multi-panel chains** (used in cube project with 6 panels). The 4.0.0 cube drawing layer is proven by its self-test only; it has not yet run on these six panels. The driver limit for this panel type is in the [driver limits table](WiringGuide.md#driver-limits).
 
 **Notes:** These panels share the same supporting chipset (MW245B + TC7262BJ) as the Cyan (GS6238S) panels, but use ICN2037BP as the LED driver.
 
@@ -227,24 +251,30 @@ PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 | 74HC04D | Hex inverter (signal conditioning) |
 | RUC7258D | Row driver (Ruichips) |
 
-**Configuration:**
+**Configuration** (one panel):
 ```spin2
-ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
-PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
-PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
+DISP0_ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
+DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
+DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
+DISP0_MAX_PANEL_COLUMNS = 128
+DISP0_MAX_PANEL_ROWS = 64
+DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP     ' DISP0_C1 .. DISP0_C15 are hwEnum.NO_PANEL
 ```
 
-**Multi-Panel Status:** ✅ **Working in multi-panel chains**
+**Multi-Panel Status:** ✅ **Working in multi-panel chains.** This is the rig's panel type, and the only one whose refresh has been measured. Four of these (the rig) sit exactly at the driver's limit for this panel type: see the [driver limits table](WiringGuide.md#driver-limits).
 
-**2×2 Grid Configuration:**
+**2×2 Grid Configuration** (the author's rig: the panels hang upside down, the adapter plugs into the bottom-left panel, and the ribbon runs along the bottom row and then the top row; every arrow is `ARROW_DOWN`):
 ```spin2
 DISP0_MAX_PANEL_COLUMNS = 128
 DISP0_MAX_PANEL_ROWS = 64
-DISP0_MAX_PANELS_PER_ROW = 2
-DISP0_MAX_PANELS_PER_COLUMN = 2
+DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_DOWN
+DISP0_C1 = hwEnum.RIGHT_OF | hwEnum.C0 | hwEnum.ARROW_DOWN
+DISP0_C2 = hwEnum.ABOVE | hwEnum.C0 | hwEnum.ARROW_DOWN
+DISP0_C3 = hwEnum.RIGHT_OF | hwEnum.C2 | hwEnum.ARROW_DOWN
+DISP0_C4 = hwEnum.NO_PANEL                  ' and so on, to DISP0_C15
 ```
 
-This creates a 256×128 pixel display (32,768 total pixels).
+This creates a 256×128 pixel display (32,768 total pixels). [Example 3](WiringGuide.md#example-3-2x2-in-z-order-from-bottom-left-the-rig) of the Wiring Guide works this one through.
 
 ---
 
@@ -258,20 +288,23 @@ This creates a 256×128 pixel display (32,768 total pixels).
 
 **Specifications:**
 - Size: 64 columns × 64 rows = 4,096 pixels
-- Scan: 1/8 (SCAN_4)
+- Scan: **disputed** - the code sets `SCAN_4` (four rows lit at once, which would be 1/8 scan on this panel), but the five address lines (ABCDE, 32 row addresses) suggest 1/32 scan (two rows lit at once). It is an open item (`DOCs/plans/PUNCH-LIST.md`); until it is settled, this document gives no scan value for the chip.
 - Driver Chip: ICN2038S
 - Address Lines: ABCDE (5 lines)
 - Max Clock: 20MHz
 - Color Note: **No color swap** (unlike ICN2037)
 
-**Configuration:**
+**Configuration** (one panel):
 ```spin2
-ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P0_P15
-PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2038S
-PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
+DISP0_ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P0_P15
+DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2038S
+DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
+DISP0_MAX_PANEL_COLUMNS = 64
+DISP0_MAX_PANEL_ROWS = 64
+DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP     ' DISP0_C1 .. DISP0_C15 are hwEnum.NO_PANEL
 ```
 
-**Multi-Panel Status:** ❌ Single panel only (no daisy-chain by design)
+**Multi-Panel Status:** ❌ Single panel only (no daisy-chain by design). The driver's limit for this type (which depends on the disputed scan setting) is in the [driver limits table](WiringGuide.md#driver-limits).
 
 ---
 
@@ -291,41 +324,14 @@ PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 
 ## Driver Limits per Panel Type
 
-How many panels one adapter can drive, for each panel type above. **Every
-figure is calculated from the driver's constants, not measured**; the working
-arithmetic, the build the RAM figures come from, and the refresh table are in
-`DOCs/plans/DISPLAY-ORGANIZATION-SPRINT-PLAN.md` section 11 (working table). The
-final home is the wiring guide.
-
-The limit is `512 / (panel columns x factor)`, capped at 16, where 512 is
-`LINE_BUFFER_BYTES` and the factor is 2 for panels whose chip flags include
-`SCAN_4` (MBI5124GP, ICN2038S, DP5125D) and 1 otherwise
-(`driver/isp_hub75_hwBufferAccess.spin2`, "Driver Limits"). The startup check
-reports a display over that limit. Hub RAM does not set the limit on a single
-adapter (see below), but it is shared by all three adapters.
-
-| Panel type | Max panels per adapter | Set by | Measured or calculated |
-|------------|------------------------|--------|------------------------|
-| FM6126A 64x32 (cfg 1-3) | 8 = 512 / 64 | line buffer | calculated |
-| FM6124 64x32 (cfg 4) | 8 = 512 / 64 | line buffer | calculated |
-| MBI5124GP 64x32 quarter-scan (cfg 7-8) | 4 = 512 / (64 x 2) | line buffer | calculated |
-| GS6238S 64x32 (cfg 9) | 8 = 512 / 64 | line buffer | calculated |
-| ICN2037 64x64 (cfg 5-6, 10) | 8 = 512 / 64 | line buffer | calculated |
-| ICN2037 128x64 (cfg 11; the rig) | 4 = 512 / 128 | line buffer | calculated |
-| ICN2038S 64x64 quarter-scan (cfg 12) | 4 = 512 / (64 x 2) | line buffer | calculated; its scan setting is disputed (open punch-list item) |
-| DP5125D (no panel documented) | 8, 4 or 2 for a 32, 64 or 128 column panel = 512 / (width x 2) | line buffer | calculated from the code |
-
-Hub RAM per panel is `pixels x (3 + colour depth)` bytes (the screen buffer plus two
-PWM frame sets). From the `-d` build of `demo_hub75_7seg.spin2`, 451,564 bytes are
-free for buffers, which allows at most 20 panels of 64x32, 10 of 64x64 or 5 of
-128x64 at 8-bit on one adapter (calculated; the 5 and 6 panel 128x64 8-bit
-cases were compiled: 5 fits, 6 fails with the compiler's hub RAM error). All are
-above the line-buffer limits in the table.
-
-Refresh rate: **to be measured** for every type. The rig's type (ICN2037 128x64)
-is measured at the bench visit. A calculated upper bound (clock time only) at the
-limit, for 5-bit colour, is 41 Hz for the 32-row ICN2037 panels, 82 Hz for the
-16-row panels and 165 Hz for the 8-row panels; the plan table has every depth.
+How many panels one adapter can drive, for each panel type above, is in the
+[Wiring Guide's driver limits table](WiringGuide.md#driver-limits), the one home of that
+table: the maximum per adapter, what sets it (the refresh line buffer, for every type), the
+hub RAM available, and the refresh rate. Its rows are these configurations. Every limit in it
+is **calculated** from the driver's constants and none has been exercised at that panel count
+on hardware; only the rig's type (configuration 11, ICN2037 128x64, four panels) has measured
+refresh rates, which are in the same page. Configuration 12 (ICN2038S) is listed with the
+code's scan setting, which is disputed (see Configuration 12).
 
 ---
 
@@ -338,20 +344,24 @@ The following chip/panel combinations have been verified working in multi-panel 
 3. **ICN2037 128×64** - Tested in chains and 2×2 grids
 
 The following are expected to work but not yet verified:
-- **ICN2038S** - Similar to ICN2037
+- **ICN2038S** - Similar to ICN2037 (its scan setting is disputed; see Configuration 12)
 - **FM6124 (Orange)** - Similar to FM6126A
 - **DP5125D** - Untested
+
+Not yet proven on hardware with the 4.0.0 driver: the cube on six real panels, multiple quarter-scan panels in one chain (the green MBI5124GP panels), a second adapter cabled at the same time, and any panel type other than the ICN2037 128x64. See the Known Issues in the [Change Log](../ChangeLog.md).
 
 ---
 
 ## Configuration Toggle Mechanism
 
-**Note:** The commented configurations in `isp_hub75_hwPanelConfig.spin2` (lines 198-426) are documentation examples only. They are NOT individually toggleable.
+**Note:** The commented configurations in the "More Hardware Setup Notes" block at the end of `isp_hub75_hwPanelConfig.spin2` are documentation examples only. They are NOT individually toggleable.
 
 To change configuration:
-1. Edit the `DISP0_*` constants directly in the "User configure" section (lines 38-66)
+1. Edit the `DISP0_*` constants directly in the "User configure" section of the first adapter's group, including its wiring sentences
 2. Match the values to your hardware from the examples above
-3. Recompile and flash
+3. Recompile and flash; the startup picture and the identify screen confirm the wiring sentences (see the [Wiring Guide](WiringGuide.md))
+
+Nothing in `isp_hub75_hwBufferAccess.spin2` or `isp_hub75_hwBuffers.spin2` is edited for a configuration change.
 
 ---
 
@@ -432,4 +442,4 @@ If any channel shows an unexpected frequency or no activity, check wiring and co
 
 ---
 
-*Last Updated: January 2025*
+*Last Updated: October 2026 (driver 4.0.0)*

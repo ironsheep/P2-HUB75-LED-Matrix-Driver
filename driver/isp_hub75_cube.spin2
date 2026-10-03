@@ -175,7 +175,7 @@ PUB foldNet(nChainIdx, pCellRows, pCellColumns, pCablePositions, topCable, front
 '' Fold a net of six panels into a cube and build the nChainIdx cube's tables: the face table
 '' (each face's cable position, panel position and turn in its cell) and the edge table (all 12
 '' edges, in both directions: the neighbour across each edge of each face and the transform of
-'' coordinates across it). configure() calls it for a display with DISPn_SHAPE = SHAPE_CUBE;
+'' coordinates across it). configureAdapter() calls it for a display with DISPn_SHAPE = SHAPE_CUBE;
 '' the fold self-test (test_hub75_cube_fold.spin2) calls it with a reference net. A net that is
 '' not one of the 11 cube nets, or a front face that does not share an edge with the top face,
 '' prints its message and leaves the display without faces; the caller decides whether to stop.

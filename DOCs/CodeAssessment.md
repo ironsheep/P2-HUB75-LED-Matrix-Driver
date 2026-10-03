@@ -4,6 +4,8 @@
 **Date:** December 2024  
 **Author:** Generated from codebase analysis
 
+> **Point-in-time analysis of the v3.0.x code (December 2024).** It is kept as a record of that assessment and is not updated as the driver changes. Names it uses for the panel-layout settings (panels per row and column, wire order, per-panel rotation tables) and the methods it proposes were removed or replaced in 4.0.0, when panel layout became per-panel wiring sentences. For the current design see the [Wiring Guide](WiringGuide.md), [Driver Details](../THEOPS.md) and [Theory of Operations](TheoryOfOperations.md).
+
 ---
 
 ## Table of Contents

@@ -8,7 +8,10 @@ source actually contains. Spec: ~/.claude/skills/sprint-plan/references/
 doc-audit-instruments.md. Findings, one per line, grouped by type:
 
   ORPHAN     a doc names a .spin2 file, an object method (`obj.method(`)
-             or an object constant (`obj.NAME`) the source does not have
+             or an object constant (`obj.NAME`) the source does not have.
+             Released upgrade checklists (files named Checklist-v*.md) are
+             exempt: they show the old calls and settings of the version
+             being left, by design, so those names are not drift.
   DUPLICATE  the same fenced code block is maintained in more than one doc
   COUNT      a number or roster the docs assert disagrees with its source
              (named driver chips in hwEnums vs README; DISPn adapter
@@ -56,9 +59,11 @@ SPIN2_FILE = re.compile(r"(?<![/.\w-])([A-Za-z0-9_\\]+\.spin2)\b")
 # How-to examples name a hypothetical constant or method on purpose.
 PLACEHOLDER = re.compile(r"(^|_)(NEW|YOUR|MY|EXAMPLE)(_|$)")
 PLACEHOLDER_METHODS = {"method", "foo", "bar"}
-# A migration guide's prose names the files of the version being migrated
-# FROM; only its code blocks (the target configuration) are checked for files.
-MIGRATION_GUIDES = {"Checklist-v2-v3.md"}
+# An upgrade checklist (Checklist-v<from>-v<to>.md) documents the API of the
+# version being left: its old files, methods and constants no longer exist in
+# the source on purpose. Such files are exempt from ORPHAN checking (they are
+# still checked for DUPLICATE and COUNT).
+UPGRADE_CHECKLIST = re.compile(r"^Checklist-v[\w.-]*\.md$")
 OBJECT_METHOD = re.compile(r"\b([a-z][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\(")
 OBJECT_CONSTANT = re.compile(r"\b([a-z][A-Za-z0-9_]*)\.([A-Z][A-Z0-9_]{2,})\b")
 CODE_SPAN = re.compile(r"`([^`]+)`")
@@ -133,9 +138,9 @@ def fenced_blocks(lines):
 
 def check_orphans(path, lines, inventory, findings):
     files, methods, constants, _ = inventory
-    file_lines = (code_fragments(lines) if path in MIGRATION_GUIDES
-                  else enumerate(lines, start=1))
-    for lineno, line in file_lines:
+    if UPGRADE_CHECKLIST.match(os.path.basename(path)):
+        return                        # documents the old API on purpose
+    for lineno, line in enumerate(lines, start=1):
         for name in SPIN2_FILE.findall(line):
             plain = name.replace("\\", "")
             if plain.lower() not in files:

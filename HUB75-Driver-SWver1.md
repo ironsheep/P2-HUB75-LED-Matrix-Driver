@@ -6,7 +6,7 @@ NOTE: this is NEW information as of v1.x! It applies to v1.0.x and later.  An ol
 
 ## Intent
 
-The P2 HUB75 backend-end driver has configuration values we place in the files: **isp\_hub75_hwPanelConfig.spin2** and **isp\_hub75_hwBuffers.spin2**.  This page presents more detail of what's happening behind the scenes for some of these configurable values.
+The P2 HUB75 backend-end driver has configuration values we place in the file **isp\_hub75_hwPanelConfig.spin2**.  This page presents more detail of what's happening behind the scenes for some of these configurable values.
 
 ## Driver Adjustable Settings for given Panel
 

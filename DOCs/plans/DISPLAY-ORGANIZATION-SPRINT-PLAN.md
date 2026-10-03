@@ -1413,30 +1413,31 @@ The audit reports no drift today. The list below is what this sprint's
 changes make stale. It comes from the planning survey and was spot-checked
 by reading the source.
 
-| Artifact | Lines | What changes |
-|---|---|---|
-| `README.md` | 85, 112 | the feature bullets: wire order and per-panel rotation become the sentences and the cube |
-| `README.md` | 136, 150-159 | the config table: `MAX_PANELS_PER_ROW/COLUMN` removed; sentences, `SHAPE` and `CUBE_*` added; the rotation note ("work best on square displays") replaced by the §5 behaviour |
-| `README.md` | 183-274 | three sample configs converted to sentences |
-| `THEOPS.md` | 51-52 | the file table: `hwBufferAccess` / `hwBuffers` are no longer edited by users |
-| `THEOPS.md` | 77, 94-104 | the configuration rows: wire and per-panel rotation rows replaced; glossary added (§1) |
-| `THEOPS.md` | 168-172 | size limits: by panel count, pointing to the limits table |
-| `DOCs/MultiPanelConfiguration.md` | 18-445 (almost all) | replaced by the new guide (§12). Its per-panel rotation value table (295-316) contradicts the code (`$20..` versus `0..3`) and goes |
-| `DOCs/TheoryOfOperations.md` | 105, 152-157 | the pixel pipeline rewritten to the §4 path; it already describes a raster that the code no longer uses |
-| `DOCs/TheoryOfOperations.md` | 291-334 | memory examples by panel count; the descriptor table layout |
-| `DOCs/TheoryOfOperations.md` | 422-443 | config example converted |
-| `DOCs/TECHNICAL_DEBT.md` | 7-41 | TD-001 (wire-order table optimisation) retired: the table is gone |
-| `DOCs/AuthorTestConfigurations.md` | 241-244 and the per-config blocks | configs converted; the multi-panel status column cross-references the limits table; the scan term per the glossary |
-| `DOCs/ChipCharacteristicsMatrix.md` | the scan column, 14 and 244+ | scan term per the glossary |
-| `Checklist-v2-v3.md` / a new upgrade checklist | — | the config conversion (§12.3) |
-| `ChangeLog.md` | new entry | §12.4 |
-| `CLAUDE.md` (project) | the *User Configuration Files* section | `hwBufferAccess` / `hwBuffers` are no longer per-setup edits |
-| docstrings | every PUB touched in §2-§8 | renamed or re-scoped methods (`panelRotation` → display rotation; deleted wire methods); the 2×2/3×3 diagrams at `isp_hub75_display.spin2:268-271, 328-333` |
-| code comments | `isp_hub75_hwBufferAccess.spin2:111-172`, `hwPanelConfig` config groups | rewritten in the vocabulary (§1) |
+| Artifact | Lines | What changes | Done |
+|---|---|---|---|
+| `README.md` | 85, 112 | the feature bullets: wire order and per-panel rotation become the sentences and the cube | [x] «#85» |
+| `README.md` | 136, 150-159 | the config table: `MAX_PANELS_PER_ROW/COLUMN` removed; sentences, `SHAPE` and `CUBE_*` added; the rotation note ("work best on square displays") replaced by the §5 behaviour | [x] «#85» |
+| `README.md` | 183-274 | three sample configs converted to sentences | [x] «#85» |
+| `THEOPS.md` | 51-52 | the file table: `hwBufferAccess` / `hwBuffers` are no longer edited by users | [x] «#85» |
+| `THEOPS.md` | 77, 94-104 | the configuration rows: wire and per-panel rotation rows replaced; glossary added (§1) | [x] glossary «#68»; rows «#85» |
+| `THEOPS.md` | 168-172 | size limits: by panel count, pointing to the limits table | [x] «#85» (also the refresh paragraph, :188) |
+| `DOCs/MultiPanelConfiguration.md` | 18-445 (almost all) | replaced by the new guide (§12). Its per-panel rotation value table (295-316) contradicts the code (`$20..` versus `0..3`) and goes | [x] guide «#84»; memory tables corrected to P x (3 + N) «#85» |
+| `DOCs/TheoryOfOperations.md` | 105, 152-157 | the pixel pipeline rewritten to the §4 path; it already describes a raster that the code no longer uses | [x] «#85» (also 3.4 byte-per-pixel note, 5.1 refresh, 7.2 scan) |
+| `DOCs/TheoryOfOperations.md` | 291-334 | memory examples by panel count; the descriptor table layout | [x] «#85» |
+| `DOCs/TheoryOfOperations.md` | 422-443 | config example converted | [x] «#85» |
+| `DOCs/TECHNICAL_DEBT.md` | 7-41 | TD-001 (wire-order table optimisation) retired: the table is gone | [x] «#85» |
+| `DOCs/AuthorTestConfigurations.md` | 241-244 and the per-config blocks | configs converted; the multi-panel status column cross-references the limits table; the scan term per the glossary | [x] «#85» (ICN2038S scan marked disputed, not settled) |
+| `DOCs/ChipCharacteristicsMatrix.md` | the scan column, 14 and 244+ | scan term per the glossary | [x] «#85» (ICN2038S scan marked disputed, not settled) |
+| `Checklist-v2-v3.md` / a new upgrade checklist | — | the config conversion (§12.3) | [x] `Checklist-v3-v4.md` «#85»; `check_docs.py` exempts released `Checklist-v*.md` from ORPHAN |
+| `ChangeLog.md` | new entry | §12.4 | [x] `[4.0.0]` «#85» |
+| `CLAUDE.md` (project) | the *User Configuration Files* section | `hwBufferAccess` / `hwBuffers` are no longer per-setup edits | [x] «#85» (untracked file; not committed) |
+| docstrings | every PUB touched in §2-§8 | renamed or re-scoped methods (`panelRotation` → display rotation; deleted wire methods); the 2×2/3×3 diagrams at `isp_hub75_display.spin2:268-271, 328-333` | [x] «#85»: diagrams already in reading order as mounted; stale `configure()` references fixed in `hwBufferAccess` and `cube` |
+| code comments | `isp_hub75_hwBufferAccess.spin2:111-172`, `hwPanelConfig` config groups | rewritten in the vocabulary (§1) | [x] «#85» checked; the retired grid-table comment in `hwEnums` and its rotation header also rewritten |
 
-Not affected (checked: no wiring content): `HUB75-brd-config.md`,
-`CubePix.md`, `HUB75Adapter.md`, `HUB75-Driver-SWver0/1.md`,
-`HardwareTurnon.md`, `driver/README.md`.
+Not affected (checked again in «#85»): `HUB75-brd-config.md`,
+`CubePix.md`, `HUB75Adapter.md`, `HUB75-Driver-SWver0.md`,
+`HardwareTurnon.md`, `driver/README.md`. The check found one stale line in
+`HUB75-Driver-SWver1.md` (it named `hwBuffers` as a file the user configures); fixed.
 
 ## Dispatch
 

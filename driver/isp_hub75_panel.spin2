@@ -112,7 +112,7 @@ PUB start(nID, nChainIdx) : startedCog
 '' Start the backend PASM2 driver for the matrix.
 ''
 '' @param nID - panel instance identifier
-'' @param nChainIdx - index of this panel in the daisy-chain
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @returns startedCog - cog ID on success or -1 on failure
 
   chainIndex := nChainIdx

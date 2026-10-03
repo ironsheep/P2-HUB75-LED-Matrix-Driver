@@ -810,7 +810,7 @@ PRI demoColorBrightness() | red, green, blue, row, col, rowCtr, colorIndex, useR
   display.commitScreenToPanelSet()
 
 PRI demoHueLines() | row, col, colorOffset
-' Draw hue-based color lines across the display panel.
+' Draw hue-based color lines across the display.
 '
 
 ' Local Variables:

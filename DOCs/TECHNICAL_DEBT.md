@@ -6,39 +6,9 @@ This document tracks known technical debt and potential future optimizations.
 
 ## TD-001: Wire Order Table - Preprocessor Optimization
 
-**Date Identified:** January 2025
+**Status:** Retired in 4.0.0 (October 2026).
 
-**Current Implementation:**
-The wire order configuration system uses runtime computation in `buildWireOrderFromEnums()` to generate the wire order lookup table from `WIRE_START` and `WIRE_TRAVERSE` enum settings. This approach:
-- Computes the wire order table at startup via `configure()`
-- Supports both enum-based configuration (rectangular grids) and explicit grid mode (non-rectangular shapes)
-- Auto-detects configuration mode by checking enum value ranges ($40+ = enums, 0-16 = explicit)
-
-**Potential Optimization:**
-Using preprocessor directives (`#if`, `#ifdef`) could eliminate runtime computation for simple rectangular grid cases, saving approximately 240 bytes of code space:
-
-- `buildWireOrderFromEnums()` function: ~120 bytes
-- `wirePositionToGridCoords()` helper: ~120 bytes
-
-**Implementation Notes:**
-Both FlexProp and PNut/PNut-ts support `#if` and `#ifdef` preprocessor directives. A conditional compile approach could:
-1. Pre-compute wire order tables at compile time for common configurations
-2. Only include runtime computation code when explicit grid mode is detected
-3. Use simple pattern: `#if DISP0_WIRE_START >= $40` to detect enum mode
-
-**Trade-offs:**
-- Pro: Saves ~240 bytes of hub RAM
-- Pro: Slightly faster startup (no runtime table computation)
-- Con: Adds preprocessor complexity
-- Con: Less flexible for future dynamic configuration changes
-
-**Decision:**
-Deferred. Current runtime approach is simpler and the 240-byte savings is not critical. Revisit if memory pressure becomes an issue.
-
-**Related Files:**
-- `isp_hub75_hwBufferAccess.spin2` - Contains `buildWireOrderFromEnums()` and `wirePositionToGridCoords()`
-- `isp_hub75_hwPanelConfig.spin2` - Contains `DISPx_WIRE_START` and `DISPx_WIRE_TRAVERSE` constants
-- `isp_hub75_hwEnums.spin2` - Contains wire pattern enum definitions
+**Why retired:** the debt was the code that computed a wire-order table at startup from the two wire-pattern settings, and the idea of compiling it out for simple grids. That table, the settings and the code that built it are gone. Wiring is now described by one sentence per panel and decoded once at startup into lookup tables (see the [Wiring Guide](WiringGuide.md)), so there is no wire-order table left to optimise.
 
 ---
 
@@ -65,7 +35,7 @@ The project has two parallel sets of Theory of Operations documentation:
 
 1. **Depth vs. Accessibility:** Claude-generated docs contain detailed technical analysis (timing calculations, signal path budgets, PASM2 loop tracing) that isn't reflected in user-facing docs. User docs are more approachable but lack this depth.
 
-2. **Version Drift:** User docs reference older file names (`isp_hub75_hwGeometry.spin2`) and may not reflect current architecture changes (2D grid support, wire order enums, per-panel rotation).
+2. **Version Drift:** User docs reference older file names (`isp_hub75_hwGeometry.spin2`) and may not reflect current architecture changes (2D grid support, the wiring sentences, per-panel rotation by arrow word).
 
 3. **Fragmentation:** Related information is scattered across multiple files. For example:
    - PWM/BCM explanation partially in THEOPS.md, fully detailed in DOCs/TheoryOfOperations.md

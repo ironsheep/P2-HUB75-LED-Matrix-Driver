@@ -45,7 +45,7 @@ CON ' ---- Driver Limits ----
     {Spin2_Doc_CON}
 
     ' The hard limits on how many panels one adapter can drive. The startup check in
-    ' configure() enforces them; the limits table in the wiring guide is computed
+    ' configureAdapter() enforces them; the limits table in the wiring guide is computed
     ' from them.
     '
     ' The panel limit for a display is the smaller of:
@@ -943,7 +943,7 @@ wiringSentences     LONG    user.DISP0_C0, user.DISP0_C1, user.DISP0_C2, user.DI
                     LONG    user.DISP2_C8, user.DISP2_C9, user.DISP2_C10, user.DISP2_C11
                     LONG    user.DISP2_C12, user.DISP2_C13, user.DISP2_C14, user.DISP2_C15
 
-' The layout of each display, derived once by configure(); one entry per adapter.
+' The layout of each display, derived once by configureAdapter(); one entry per adapter.
 layoutPanelCount    LONG    0[ADAPTER_COUNT]                    ' N, the panels in use
 layoutGridRows      LONG    0[ADAPTER_COUNT]                    ' bounding box height, in panels
 layoutGridColumns   LONG    0[ADAPTER_COUNT]                    ' bounding box width, in panels
@@ -979,7 +979,7 @@ cableToPosition     BYTE    NO_POSITION[ADAPTER_COUNT * MAX_CABLE_POSITIONS]  ' 
 cellToPosition      BYTE    NO_POSITION[ADAPTER_COUNT * MAX_GRID_CELLS]
 mountedCellToPosition BYTE  NO_POSITION[ADAPTER_COUNT * MAX_GRID_CELLS]
 
-' Work area for one configure() call; startup configures one adapter at a time.
+' Work area for one configureAdapter() call; startup configures one adapter at a time.
 cableCellRow        LONG    0[MAX_CABLE_POSITIONS]              ' cable position -> grid row, relative to C0
 cableCellColumn     LONG    0[MAX_CABLE_POSITIONS]              ' cable position -> grid column, relative to C0
 cablePlaced         LONG    0[MAX_CABLE_POSITIONS]              ' cable position -> TRUE once its cell is known
@@ -994,7 +994,7 @@ msgNoArrow          BYTE    "has no arrow word; add one of ARROW_UP, ARROW_DOWN,
 msgManyArrows       BYTE    "has more than one arrow word; use exactly one of ARROW_UP, ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT", 0
 
 ' The cube settings of every display: DISPn_SHAPE, DISPn_CUBE_TOP, DISPn_CUBE_FRONT. The cube's
-' faces, edges and tables are in isp_hub75_cube.spin2, which configure() calls for SHAPE_CUBE.
+' faces, edges and tables are in isp_hub75_cube.spin2, which configureAdapter() calls for SHAPE_CUBE.
 cubeSettings        LONG    user.DISP0_SHAPE, user.DISP0_CUBE_TOP, user.DISP0_CUBE_FRONT
                     LONG    user.DISP1_SHAPE, user.DISP1_CUBE_TOP, user.DISP1_CUBE_FRONT
                     LONG    user.DISP2_SHAPE, user.DISP2_CUBE_TOP, user.DISP2_CUBE_FRONT

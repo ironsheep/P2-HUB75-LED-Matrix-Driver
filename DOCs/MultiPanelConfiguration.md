@@ -53,14 +53,16 @@ Common panel sizes:
 DISP0_COLOR_DEPTH = hwEnum.DEPTH_8BIT
 ```
 
-| Depth | Colors | Bytes/Pixel | PWM Frames |
-|-------|--------|-------------|------------|
-| `DEPTH_3BIT` | 512 | 2 | 7 |
-| `DEPTH_4BIT` | 4,096 | 2 | 15 |
-| `DEPTH_5BIT` | 32,768 | 2 | 31 |
-| `DEPTH_6BIT` | 262,144 | 3 | 63 |
-| `DEPTH_7BIT` | 2,097,152 | 3 | 127 |
-| `DEPTH_8BIT` | 16,777,216 | 3 | 255 |
+| Depth | Colors | Buffer bytes/pixel (screen + PWM) | PWM Frames |
+|-------|--------|-----------------------------------|------------|
+| `DEPTH_3BIT` | 512 | 6 | 7 |
+| `DEPTH_4BIT` | 4,096 | 7 | 15 |
+| `DEPTH_5BIT` | 32,768 | 8 | 31 |
+| `DEPTH_6BIT` | 262,144 | 9 | 63 |
+| `DEPTH_7BIT` | 2,097,152 | 10 | 127 |
+| `DEPTH_8BIT` | 16,777,216 | 11 | 255 |
+
+(The screen buffer is 3 bytes per pixel at every depth; the rest is the two PWM frame sets, see below.)
 
 ### Step 4: Panel Layout, Cabling and Rotation
 
@@ -72,47 +74,41 @@ The P2 has **512 KB** of hub RAM. The driver requires three buffers:
 
 | Buffer | Size Formula |
 |--------|--------------|
-| Screen Buffer | `width × height × bytes_per_pixel` |
-| PWM Frameset 1 | `width × height × 0.5 × color_depth` |
-| PWM Frameset 2 | `width × height × 0.5 × color_depth` |
+| Screen Buffer | `panel count × panel pixels × 3` (3 bytes per pixel at every depth) |
+| PWM Frameset 1 | `panel count × panel pixels × 0.5 × color_depth` |
+| PWM Frameset 2 | `panel count × panel pixels × 0.5 × color_depth` |
+
+The buffers hold the panels in use, not the display's bounding box: a display with a hole in it (an L shape) holds no memory for the hole, and an adapter with no panels holds none at all.
 
 ### Memory Calculator
 
-For a display of W columns × H rows at D-bit color depth:
+For a display of N panels of P pixels each (columns × rows) at D-bit color depth:
 
 ```
-Screen Buffer = W × H × (D <= 5 ? 2 : 3) bytes
-PWM Frameset = W × H × 0.5 × D bytes (×2 for double-buffer)
-Total = Screen + (2 × PWM Frameset)
+Screen Buffer = N × P × 3 bytes
+PWM Frameset = N × P × 0.5 × D bytes (×2 for double-buffer)
+Total = Screen + (2 × PWM Frameset) = N × P × (3 + D) bytes
 ```
 
 ### Example Configurations
 
-| Arrangement | Panel Size | Total Pixels | 8-bit Memory | 5-bit Memory |
-|-------------|------------|--------------|--------------|--------------|
-| 1×1 | 64×64 | 4,096 | 24 KB | 14 KB |
-| 1×1 | 128×64 | 8,192 | 49 KB | 29 KB |
-| 2×1 | 128×64 | 16,384 | 98 KB | 57 KB |
-| 1×2 | 128×64 | 16,384 | 98 KB | 57 KB |
-| **2×2** | **128×64** | **32,768** | **196 KB** | **115 KB** |
-| 4×1 | 128×64 | 32,768 | 196 KB | 115 KB |
-| 3×2 | 64×64 | 24,576 | 147 KB | 86 KB |
-| 4×2 | 64×64 | 32,768 | 196 KB | 115 KB |
-| 3×3 | 64×64 | 36,864 | 221 KB | 129 KB |
-| **4×4** | **64×64** | **65,536** | **393 KB** | **229 KB** |
-| 4×4 | 64×32 | 32,768 | 196 KB | 115 KB |
+| Arrangement | Panel Size | Panels | Total Pixels | 8-bit Memory | 5-bit Memory |
+|-------------|------------|--------|--------------|--------------|--------------|
+| 1×1 | 64×64 | 1 | 4,096 | 44 KB | 32 KB |
+| 1×1 | 128×64 | 1 | 8,192 | 88 KB | 64 KB |
+| 2×1 | 128×64 | 2 | 16,384 | 176 KB | 128 KB |
+| 1×2 | 128×64 | 2 | 16,384 | 176 KB | 128 KB |
+| **2×2** | **128×64** | 4 | **32,768** | **352 KB** | **256 KB** |
+| 4×1 | 128×64 | 4 | 32,768 | 352 KB | 256 KB |
+| 3×2 | 64×64 | 6 | 24,576 | 264 KB | 192 KB |
+| 4×2 | 64×64 | 8 | 32,768 | 352 KB | 256 KB |
+| 8×1 | 64×32 | 8 | 16,384 | 176 KB | 128 KB |
 
-**Note:** Configurations over ~400 KB may not leave enough RAM for your application code.
+**Note:** the three adapters share the hub RAM, and your application code takes some of it: in the DEBUG build of the largest demo, 451,564 bytes are free for buffers. Hub RAM is calculated in full, with the build it comes from, in the [Wiring Guide's Hub RAM section](WiringGuide.md#hub-ram).
 
 ### Maximum Practical Configurations
 
-| Target | Recommended Max |
-|--------|-----------------|
-| 8-bit color | ~65K pixels (e.g., 4×4 @ 64×64, or 2×2 @ 128×64) |
-| 5-bit color | ~110K pixels |
-| 3-bit color | ~150K pixels |
-
-How many panels one adapter can drive, per panel type, is in the [Wiring Guide's driver limits](WiringGuide.md#driver-limits).
+On a single adapter the number of panels is limited by the refresh line buffer (512 column clocks along the cable), well before hub RAM is: for example 8 panels of 64 columns, or 4 panels of 128 columns, whatever the color depth. That is why larger grids such as 3×3 or 4×4 panels of 64×64 do not fit on one adapter. How many panels one adapter can drive, per panel type, is in the [Wiring Guide's driver limits](WiringGuide.md#driver-limits).
 
 ## Chip Multi-Panel Support
 
