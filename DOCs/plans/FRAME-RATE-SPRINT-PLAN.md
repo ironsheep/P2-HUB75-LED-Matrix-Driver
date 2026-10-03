@@ -15,7 +15,17 @@ F19-F21).
    written". The scope and punch-list dispositions are as in *Scope* below.
 2. *(Answered: the superseded performance plans.)* Stephen, 2026-10-02: "yes A".
    Both were moved to `DOCs/plans/archive/` with a "superseded" banner.
-3. **The prototype's outcome (§1)** settles two design points in §4, each planned
+3. *(Partly answered: visit A on the quad rig passed, 2026-10-03.)* Quad rig only
+   (Stephen), 8-bit, shift while lit:
+   - refresh 65.9 Hz against the model's 67.0; lit 82.2% against 83.5;
+   - the image is correct, and there is no checkerboard ghosting;
+   - the instrument's negative case was measured (92.0% lit at a doubled unit);
+   - Stephen saw flicker at 36.9 Hz and none at 65.9 Hz;
+   - full white draws 120 W.
+
+   Details are in `DOCs/bench/RUN-NOTES.md`. Still open, below, held until
+   Stephen re-cables:
+   **The prototype's outcome (§1)** settles two design points in §4, each planned
    both ways:
    - whether the MBI5124GP accepts a shift while it is lit;
    - whether the FM6126A's overlapped latch holds with one shift per plane.
