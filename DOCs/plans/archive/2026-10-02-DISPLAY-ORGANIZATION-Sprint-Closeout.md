@@ -1,5 +1,7 @@
 # DISPLAY-ORGANIZATION — Sprint Closeout
 
+Retrospective: [`2026-10-02-DISPLAY-ORGANIZATION-Retrospective.md`](2026-10-02-DISPLAY-ORGANIZATION-Retrospective.md)
+
 **Closed:** 2026-10-02. **Plan:** [`DISPLAY-ORGANIZATION-SPRINT-PLAN.md`](DISPLAY-ORGANIZATION-SPRINT-PLAN.md)
 (archived beside this file). **Build:** 4.0.0, which is **not finished by this sprint**.
 Stephen, 2026-10-02: *"v4.0.0 is correct but we are not done with new content this just
