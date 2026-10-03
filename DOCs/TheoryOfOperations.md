@@ -482,16 +482,18 @@ The startup check halts with a message if a display that is started has no panel
 
 ### 7.1 Supported Chips
 
-| Chip | Address Lines | Max Clock | Multi-Panel | Notes |
-|------|---------------|-----------|-------------|-------|
-| ICN2037 | ABCDE | 30 MHz | Yes | P2 Cube panels |
-| ICN2037BP | ABCDE | 30 MHz | Yes | Variant |
-| ICN2038S | ABCDE | 30 MHz | Yes | Renamed from ICN2037_B |
-| FM6126A | ABCD | 30 MHz | Yes | Requires init sequence |
-| FM6124 | ABCD | 30 MHz | Single only | |
-| DP5125D | ABC | TBD | Yes | |
-| GS6238S | ABCD | TBD | Single only | Green/Blue swap |
-| MBI5124GP | ABC | 25 MHz | Single only | 1/8 scan |
+| Chip | Address Lines | Multi-Panel | Notes |
+|------|---------------|-------------|-------|
+| ICN2037 | ABCDE | Yes | P2 Cube panels |
+| ICN2037BP | ABCDE | Yes | Variant |
+| ICN2038S | ABCDE | Yes | Renamed from ICN2037_B |
+| FM6126A | ABCD | Yes | Requires init sequence |
+| FM6124 | ABCD | Single only | |
+| DP5125D | ABC | Yes | |
+| GS6238S | ABCD | Single only | Green/Blue swap |
+| MBI5124GP | ABC | Single only | 1/8 scan |
+
+Each chip's datasheet clock and /OE ratings are in the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings).
 
 ### 7.2 Chip-Specific Features
 

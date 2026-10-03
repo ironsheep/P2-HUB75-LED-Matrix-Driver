@@ -16,7 +16,7 @@ CON ' timing
 ' clock is setup in top-level file
 
     ' Target panel clock frequency (Hz) - independent of sysclk
-    ' ICN2037 datasheet specifies max 20 MHz clock
+    ' The chips' 20 ns minimum clock pulse caps any panel at 25 MHz (DOCs/ChipCharacteristicsMatrix.md)
     TARGET_PANEL_HZ = 20_000_000
 
     ' Base loop cycle count (with WAITX D=0)

@@ -39,12 +39,13 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 - **Not known:** the saving; panel-centric drawing is a small part of the boundary test's 191,538 µs.
 - **Bears on:** nothing in this sprint; a candidate for a performance pass.
 
-### Panel clock runs above the ICN2037's 20 MHz rating (finding, calculated from code)
+### [x] Panel clock runs above the ICN2037's 20 MHz rating (finding, calculated from code)
 
 - **Found:** 2026-10-02, by the colour-pipeline survey for Stephen's image brief.
 - **What:** the refresh core sets clock cycles per column bit as `clkfreq / 20_000_000` with integer division (`driver/isp_hub75_rgb3bit.spin2`, about :324). At the demos' 335 MHz that is 16 cycles, so the panel clock is 335 / 16 = **20.94 MHz**, about 4.7% above the ICN2037's 20 MHz maximum (`DOCs/ChipCharacteristicsMatrix.md`, ICN2037 section). The comment near :1038 says "20 MHz". The rig works at this rate.
 - **Not known:** whether any panel misbehaves at 20.94 MHz; whether the intent was "at most 20 MHz" (round the divisor up) or "about 20 MHz".
 - **Bears on:** the limits table (§11, «#82») and refresh measurements at Visit B «#83». Rounding up (17 cycles, 19.7 MHz) would cost about 6% of refresh.
+- **Resolved by «#90» (2026-10-03): the premise was wrong.** The ICN2037 is rated 30 MHz, and its 20 ns minimum clock pulse high and low caps it at 25 MHz, so 20.94 MHz is within spec. The canonical ratings are in `DOCs/ChipCharacteristicsMatrix.md` (Datasheet Clock and /OE Ratings). FRAME-RATE §5 sets the shift clock afresh. Sweep this item at closeout.
 
 ### Cube fold path: about five method calls per face pixel (efficiency, estimated, not measured)
 
@@ -69,10 +70,11 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 - **Candidate:** interleave the plane order within a frame set (scrambled or interleaved BCM, e.g. MSB, lower, MSB, lower ...), so the long planes spread across the cycle. The colour sums are unchanged and the visible artefact rate rises many-fold. It must keep the refresh core's timing budget, and the PWM frame layout stays as it is.
 - **Bears on:** the depth a rig can use without visible shimmer (today 4-bit on this rig); the limits table's refresh column.
 
-### Docs disagree on the ICN2037 maximum clock: 20 MHz or 30 MHz (doc conflict, unsettled)
+### [x] Docs disagree on the ICN2037 maximum clock: 20 MHz or 30 MHz (doc conflict, settled)
 
 - **Found:** 2026-10-02, by the DISPLAY-ORGANIZATION closeout audit.
 - **What:** `DOCs/ChipCharacteristicsMatrix.md` (ICN2037 section) and the refresh core's comment (`driver/isp_hub75_rgb3bit.spin2` near the clock-target constant) say 20 MHz. `README.md`'s chip table and `DOCs/TheoryOfOperations.md` (chip timing table) say 30 MHz for ICN2037, ICN2037BP and ICN2038S. The authority is the datasheet in `DOCs/ICN2037/`, which this session could not read: no PDF tool (`pdftotext`/`pdftoppm`) is installed.
 - **Bears on:** the item "Panel clock runs above the ICN2037's 20 MHz rating": if the rating is 30 MHz, 20.94 MHz is within spec and that item closes.
 - **To settle:** read the clock spec in `DOCs/ICN2037/ICN2037_datasheet_EN_2017_V2.0.pdf` (e.g. after `brew install poppler`), correct whichever docs are wrong, and dispose of the clock item.
+- **Resolved by «#90» (2026-10-03).** The datasheets (V1.1 throughout, V2.0 p.2/p.7) rate the ICN2037 at 30 MHz, with a 20 ns minimum pulse that caps it at 25 MHz. `DOCs/ChipCharacteristicsMatrix.md` is now the one chip table; README.md, `DOCs/TheoryOfOperations.md` and `DOCs/AuthorTestConfigurations.md` link to it, and the refresh core's comment points there. Sweep this item at closeout.
 

@@ -41,7 +41,7 @@ Each configuration below is shown as the `DISP0_` settings that describe it: the
 - Half-panel: 1,024 pixels each (top: R1/G1/B1, bottom: R2/G2/B2)
 - Driver Chip: FM6126A
 - Address Lines: ABCD (4 lines)
-- Max Clock: 30MHz (16.5ns hi/16.5ns lo)
+- Clock and /OE ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)
 
 **Configuration** (one panel):
 ```spin2
@@ -66,7 +66,7 @@ DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP     ' DISP0_C1 .. DISP0_C15 are 
 - Scan: 1/16
 - Driver Chip: FM6124 (from Hackerbox kit)
 - Address Lines: ABCD (4 lines)
-- Max Clock: 30MHz
+- Clock and /OE ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)
 
 **Configuration** (one panel):
 ```spin2
@@ -92,7 +92,7 @@ DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP     ' DISP0_C1 .. DISP0_C15 are 
 - Half-panel: 2,048 pixels each
 - Driver Chip: ICN2037
 - Address Lines: ABCDE (5 lines)
-- Max Clock: 20MHz (25ns hi/25ns lo)
+- Clock and /OE ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)
 - Color Note: **Red/Blue swapped** (driver handles automatically)
 
 **Configuration** (one panel):
@@ -118,7 +118,7 @@ DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP     ' DISP0_C1 .. DISP0_C15 are 
 - Scan: **1/8 scan** (8 row addresses, so four rows lit at once: the driver flag `SCAN_4`, which needs its own screen-to-panel conversion)
 - Driver Chip: MBI5124GP
 - Address Lines: ABC (3 lines)
-- Max Clock: 20MHz
+- Clock and /OE ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)
 
 **Configuration** (one panel):
 ```spin2
@@ -163,7 +163,7 @@ DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP     ' DISP0_C1 .. DISP0_C15 are 
 - Scan: 1/16
 - Driver Chip: GS6238S
 - Address Lines: ABCD (4 lines)
-- Max Clock: 30MHz
+- Clock and /OE ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)
 - Color Note: **Green/Blue swapped** (driver handles automatically)
 
 **Configuration** (one panel):
@@ -193,7 +193,7 @@ DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP     ' DISP0_C1 .. DISP0_C15 are 
 - Total: 6 panels × 4,096 = 24,576 pixels
 - Driver Chip: ICN2037BP
 - Address Lines: ABCDE (5 lines)
-- Max Clock: 20MHz
+- Clock and /OE ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)
 - Color Note: **Red/Blue swapped**
 
 **On-Board Chips:**
@@ -240,7 +240,7 @@ DISP0_SHAPE = hwEnum.SHAPE_CUBE             ' with DISP0_C0 .. DISP0_C5, DISP0_C
 - Half-panel: 4,096 pixels each
 - Driver Chip: ICN2037BP
 - Address Lines: ABCDE (5 lines)
-- Max Clock: 20MHz
+- Clock and /OE ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)
 - Color Note: **Red/Blue swapped**
 
 **On-Board Chips:**
@@ -291,7 +291,7 @@ This creates a 256×128 pixel display (32,768 total pixels). [Example 3](WiringG
 - Scan: **disputed** - the code sets `SCAN_4` (four rows lit at once, which would be 1/8 scan on this panel), but the five address lines (ABCDE, 32 row addresses) suggest 1/32 scan (two rows lit at once). It is an open item (`DOCs/plans/PUNCH-LIST.md`); until it is settled, this document gives no scan value for the chip.
 - Driver Chip: ICN2038S
 - Address Lines: ABCDE (5 lines)
-- Max Clock: 20MHz
+- Clock and /OE ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)
 - Color Note: **No color swap** (unlike ICN2037)
 
 **Configuration** (one panel):
@@ -310,15 +310,17 @@ DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP     ' DISP0_C1 .. DISP0_C15 are 
 
 ## Chip Quick Reference
 
-| Chip | Color | Address Lines | Clock | Color Swap | Init Required | Multi-Panel |
-|------|-------|---------------|-------|------------|---------------|-------------|
-| FM6126A | Pink | ABCD | 30MHz | None | Yes | **Yes** |
-| FM6124 | Orange | ABCD | 30MHz | None | No | Untested |
-| ICN2037 | - | ABCDE | 20MHz | R/B | No | **Yes** |
-| ICN2038S | - | ABCDE | 20MHz | None | No | N/A (single-ended) |
-| MBI5124GP | Green | ABC | 20MHz | None | Yes | Untested |
-| GS6238S | Cyan | ABCD | 30MHz | G/B | No | Untested |
-| DP5125D | - | ABC | - | None | No | Untested |
+| Chip | Color | Address Lines | Color Swap | Init Required | Multi-Panel |
+|------|-------|---------------|------------|---------------|-------------|
+| FM6126A | Pink | ABCD | None | Yes | **Yes** |
+| FM6124 | Orange | ABCD | None | No | Untested |
+| ICN2037 | - | ABCDE | R/B | No | **Yes** |
+| ICN2038S | - | ABCDE | None | Untested | N/A (single-ended) |
+| MBI5124GP | Green | ABC | None | Yes | Untested |
+| GS6238S | Cyan | ABCD | G/B | No | Untested |
+| DP5125D | - | ABC | None | No | Untested |
+
+Each chip's datasheet clock and /OE ratings are in the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings).
 
 ---
 
@@ -395,7 +397,7 @@ The author's logic analyzer configuration for debugging HUB75 signals.
 - Blue pins (B1, B2) are not monitored - R/G sufficient for color debugging
 - LA instrumentation pins (P8-P11) are directly on P2, not on HUB75 connector
 - HUB75 signals assume `BASE_PIN = 16` (P16-P31 adapter)
-- Expected CLK frequency: ~20 MHz (max for ICN2037 chips)
+- Expected CLK frequency: ~20 MHz (chip ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings))
 - Observed CLK during debugging: ~833 kHz (indicating timing issues)
 
 ### Pin Identification Test

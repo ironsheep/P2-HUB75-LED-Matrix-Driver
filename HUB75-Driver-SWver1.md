@@ -1,5 +1,7 @@
 # HUB75 Driver - configuring for a chip we haven't seen yet
 
+> **History, superseded.** This page is kept as the record of the version 1.x work. Its clock figures (20 MHz) are not the chips' ratings; the current ratings are in the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings).
+
 ![Project Maintenance][maintenance-shield]
 
 NOTE: this is NEW information as of v1.x! It applies to v1.0.x and later.  An older version is here: [Sofware Ver0.x Timings](HUB75-Driver-SWver0.md)

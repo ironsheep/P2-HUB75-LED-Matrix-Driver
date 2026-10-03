@@ -138,7 +138,7 @@ Screen Buffer (24-bit RGB)
 | Display Resolution | 256 x 128 pixels |
 | Physical Chain | 512 columns (4 × 128) |
 | Scan Rate | 1/32 (32 address lines) |
-| Driver Chip | ICN2037 (rated 20 MHz; the driver clocks it at 20.94 MHz) |
+| Driver Chip | ICN2037 (rated 30 MHz; the driver clocks it at 20.94 MHz) |
 | Row Clock Time | 512 ÷ 20.94 MHz = **24.4 µs** |
 
 #### Refresh Rates by Color Depth (full color cycle)
@@ -277,9 +277,9 @@ The driver supports multiple panel types with different characteristics:
 |------|-----------|------|---------------|-------------------|
 | FM6126A | 30 MHz | 1/16 | Yes | Tested |
 | FM6124 | 30 MHz | 1/16 | No | Untested |
-| ICN2037/BP | 20 MHz | 1/32 | No | Tested |
-| ICN2038S | 20 MHz | disputed (see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md)) | No | Single-ended |
-| MBI5124GP | 20 MHz | 1/8 | Yes | Untested |
+| ICN2037/BP | 30 MHz | 1/32 | No | Tested |
+| ICN2038S | 30 MHz | disputed (see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md)) | Untested | Single-ended |
+| MBI5124GP | 25 MHz | 1/8 | Yes | Untested |
 | GS6238S | 30 MHz | 1/16 | No | Untested |
 | DP5125D | - | 1/8 | No | Untested |
 
@@ -323,7 +323,7 @@ The driver supports multiple panel types with different characteristics:
 | Metric | Value |
 |--------|-------|
 | P2 Clock | 335 MHz |
-| HUB75 Clock | 20.94 MHz (335 MHz ÷ 16; ICN2037 rated 20 MHz) |
+| HUB75 Clock | 20.94 MHz (335 MHz ÷ 16; ICN2037 rated 30 MHz) |
 | Display Size | 256 × 128 |
 | Color Depth | 8-bit (configurable 3-8) |
 | Refresh Rate | 4.6 Hz full color cycle @ 8-bit (measured; 177 Hz @ 3-bit, 82 Hz @ 4-bit) |

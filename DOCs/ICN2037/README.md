@@ -52,7 +52,7 @@ The ICN2037 is a 16-channel constant current LED sink driver with dual latch, ma
 | **Data Hold Time** | tHOLD1/2 | 5 | - | - | ns | SIN stable after CLK rising |
 | **Clock Rise/Fall Time** | tr/tf | - | - | 500 | ns | Maximum allowed |
 
-**Note:** The timing PDF clarifies OE minimum pulse width is **60ns** (not 40ns). This is critical for proper blanking.
+**Note:** The minimum OE pulse width is **60ns** (V1.1 datasheet and the timing PDF). The V2.0 datasheet gives 40ns; the conservative 60ns holds. This is critical for proper blanking.
 
 ### 2.2 Propagation Delays
 
@@ -213,7 +213,7 @@ P2 Pin → 74HCT244 (adapter) → HUB75 Cable → 74HC245 (panel) → ICN2037
 |-------------|-----------------|-------|
 | **Safe (all conditions)** | **15 MHz** | Works at temperature extremes |
 | **Standard** | 20 MHz | Good margin at room temperature |
-| **Maximum** | 25 MHz | Datasheet limit, minimal margin |
+| **Maximum** | 25 MHz | Rated 30 MHz; 20 ns pulses cap it at 25 MHz; minimal margin |
 
 **Important**: The "30 MHz max" from the ICN2037 datasheet does NOT account for panel support chips. Real-world panels with 74HC245 buffers should use ≤20 MHz for reliable operation.
 
@@ -406,7 +406,7 @@ Both panel types share these ICN2037-specific characteristics:
 |----------------|-------|-------|
 | Address Lines | ABCDE (5) | 32 row addressing |
 | Scan Rate | 1/32 | Full scan |
-| Max Clock | 20 MHz | Wide pulse recommended |
+| Max Clock | 30 MHz rated; 25 MHz cap | 20 ns pulses cap it at 25 MHz; wide pulse recommended |
 | **R/B Swap** | **Yes** | Red and Blue channels physically swapped |
 | G/B Swap | No | |
 | Wide Clock Pulse | **Yes** | `CLK_WIDE_PULSE` flag |
@@ -430,7 +430,7 @@ Based on ICN2037 specifications, the following driver configuration values shoul
 |-----------------|-------------------|--------|
 | `CHIP_TYPE` | `CHIP_ICN2037` | Identifies chip family |
 | `ADDR_LINES` | 5 (ABCDE) | 1/32 scan requires 5 address lines |
-| `CLK_FREQ` | 20-25 MHz | Conservative timing margin |
+| `CLK_FREQ` | 20-25 MHz | Rated 30 MHz; 20 ns pulses cap it at 25 MHz |
 | `LATCH_STYLE` | Standard | No special init sequence needed |
 | `OE_POLARITY` | Active LOW | OE=0 enables outputs |
 | `LATCH_POLARITY` | Active HIGH | LE pulse HIGH to latch |
@@ -458,14 +458,14 @@ The ICN2037 is compatible with:
 
 | Symptom | Expected | Observed | Likely Cause |
 |---------|----------|----------|--------------|
-| Clock speed | 20 MHz | 833 kHz | Clock generation ~24× too slow |
+| Clock speed | 20-25 MHz (rated 30 MHz; 20 ns pulses cap it at 25 MHz) | 833 kHz | Clock generation ~24× too slow |
 | LAT/OE | Proper sequencing | Incorrect | Control signal timing wrong |
 | Display | Correct orientation | Upside down | Coordinate transform issue |
 | Refresh | Continuous | 103ms bursts | PWM loop not continuous |
 
 ### Signal Requirements Checklist:
 
-- [ ] CLK: 20-25 MHz, clean edges
+- [ ] CLK: 20-25 MHz (rated 30 MHz; 20 ns pulses cap it at 25 MHz), clean edges
 - [ ] SIN: Valid data 5ns before CLK rising edge
 - [ ] LE: 20ns+ pulse after last CLK of row
 - [ ] OE: LOW during display, HIGH during row switch (blanking)

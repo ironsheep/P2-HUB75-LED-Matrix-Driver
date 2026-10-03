@@ -12,7 +12,7 @@ This document provides a comprehensive matrix of all driver chip characteristics
 | **FM6124** | Orange | ABCD | 1/16 | - | - | - | - | Standard | ⚠️ Untested |
 | **FM6124C** | - | ABCDE | 1/32 | - | - | - | - | Standard | ⚠️ Untested |
 | **ICN2037/BP** | - | ABCDE | 1/32 | **Yes** | - | **Yes** | - | Enclosed | ✅ Tested |
-| **ICN2038S** | - | ABCDE | disputed* | - | - | **Yes** | - | Enclosed | N/A (single) |
+| **ICN2038S** | - | ABCDE | disputed* | - | - | **Yes** | Untested | Enclosed | N/A (single) |
 | **MBI5124GP** | Green | ABC | 1/8 | - | - | - | **Yes** | Enclosed | ⚠️ Untested |
 | **GS6238S** | Cyan | ABCD | 1/16 | - | **Yes** | - | - | Offset+Overlap | ⚠️ Untested |
 | **DP5125D** | - | ABC | 1/8 | - | - | - | - | Offset+Overlap | ⚠️ Untested |
@@ -21,6 +21,24 @@ This document provides a comprehensive matrix of all driver chip characteristics
 - ICN2037BP is the same chip as ICN2037 in SSOP24-P-150 package
 - Supporting chipsets vary by panel (see detailed sections below)
 - *ICN2038S scan is **disputed**: the driver flags the chip `SCAN_4` (four rows lit at once), but the panel is described with five address lines (ABCDE, 32 row addresses), which suggests 1/32 scan (two rows lit at once). It is an open item (`DOCs/plans/PUNCH-LIST.md`); no scan value is given for this chip until it is settled.
+
+## Datasheet Clock and /OE Ratings
+
+This table is the one place the project states each chip's datasheet clock and /OE ratings; other documents link here.
+
+| Chip | Rated max clock | Min clock pulse (high and low) | Min /OE pulse |
+|------|-----------------|--------------------------------|---------------|
+| **ICN2037/BP** | 30 MHz | 20 ns | 60 ns |
+| **ICN2038S** | 30 MHz | 20 ns | 40 ns |
+| **FM6126A** | 30 MHz | 20 ns | 40 ns |
+| **FM6124** | 30 MHz | 20 ns | 30 ns |
+| **MBI5124GP** | 25 MHz | 20 ns | 45 ns at VDD 5.0 V, 50 ns at VDD 3.3 V |
+
+**Notes:**
+- A 20 ns minimum pulse high and low caps the clock at 25 MHz for every chip in the table.
+- ICN2037: the V1.1 datasheet and `DOCs/ICN2037/ICN2037-timing.pdf` give a 60 ns minimum /OE pulse; the V2.0 datasheet gives 40 ns. The conservative 60 ns holds. V2.0's transition table (p.8) lists a 35 MHz clock; the rating on its pp.2 and 7, and in V1.1, is 30 MHz, which holds.
+- ICN2038S: the datasheet has FM6126A-style register commands. Whether the panels need them is untested.
+- MBI5124GP: typical and maximum /OE pulse widths are in the timing table in its section below (MBI5124GP-B_C datasheet, pp.9-10).
 
 ---
 
@@ -34,7 +52,8 @@ This document provides a comprehensive matrix of all driver chip characteristics
 |----------------|-------|-------|
 | Address Lines | ABCD (4) | 16 row addressing |
 | Scan Rate | 1/16 | Standard scan |
-| Max Clock | 30 MHz | 16.5ns hi/16.5ns lo |
+| Max Clock | 30 MHz rated; 25 MHz cap | 20ns min pulse high and low caps the clock at 25 MHz |
+| Min /OE Pulse | 40 ns | |
 | R/B Swap | No | |
 | G/B Swap | No | |
 | Wide Clock Pulse | No | |
@@ -70,7 +89,8 @@ CHIP_MANUAL_SPEC | LAT_STYLE_OFFSET | LAT_POSN_OVERLAP | INIT_PANEL_REQUIRED
 |----------------|-------|-------|
 | Address Lines | ABCD (4) | 16 row addressing |
 | Scan Rate | 1/16 | Standard scan |
-| Max Clock | 30 MHz | |
+| Max Clock | 30 MHz rated; 25 MHz cap | 20ns min pulse high and low caps the clock at 25 MHz |
+| Min /OE Pulse | 30 ns | |
 | R/B Swap | No | |
 | G/B Swap | No | |
 | Wide Clock Pulse | No | |
@@ -170,7 +190,8 @@ CHIP_MANUAL_SPEC
 |----------------|-------|-------|
 | Address Lines | ABCDE (5) | 32 row addressing |
 | Scan Rate | 1/32 | Full scan |
-| Max Clock | 20 MHz | 25ns hi/25ns lo |
+| Max Clock | 30 MHz rated; 25 MHz cap | 20ns min pulse high and low caps the clock at 25 MHz |
+| Min /OE Pulse | 60 ns | |
 | R/B Swap | **Yes** | Red and Blue swapped |
 | G/B Swap | No | |
 | Wide Clock Pulse | **Yes** | Slower clock required |
@@ -222,11 +243,12 @@ CHIP_MANUAL_SPEC | CLK_WIDE_PULSE | RB_SWAP
 |----------------|-------|-------|
 | Address Lines | ABCDE (5) | 32 row addressing |
 | Scan Rate | Disputed | The code sets the `SCAN_4` flag (four rows lit at once); ABCDE (32 addresses) suggests 1/32 scan. Open item, see the note under the Quick Reference Matrix |
-| Max Clock | 20 MHz | |
+| Max Clock | 30 MHz rated; 25 MHz cap | 20ns min pulse high and low caps the clock at 25 MHz |
+| Min /OE Pulse | 40 ns | |
 | R/B Swap | No | **Different from ICN2037** |
 | G/B Swap | No | |
 | Wide Clock Pulse | **Yes** | |
-| Init Required | No | |
+| Init Required | Untested | The datasheet has FM6126A-style register commands; whether the panels need them is untested |
 | Latch Style | Enclosed | |
 | Latch Position | Standard | |
 | Multi-Panel | N/A | Single-ended panel (no daisy-chain by design) |
@@ -261,7 +283,8 @@ CHIP_MANUAL_SPEC | CLK_WIDE_PULSE | SCAN_4
 |----------------|-------|-------|
 | Address Lines | ABC (3) | 8 row addressing |
 | Scan Rate | 1/8 | Special scan pattern |
-| Max Clock | 25 MHz | Per MBI5124 datasheet |
+| Max Clock | 25 MHz | Per MBI5124 datasheet; 20ns min clock pulse |
+| Min /OE Pulse | 45 ns at VDD 5.0 V, 50 ns at VDD 3.3 V | Datasheet minimum; typical and maximum are in the timing table below |
 | R/B Swap | No | |
 | G/B Swap | No | |
 | Wide Clock Pulse | No | |
@@ -699,7 +722,8 @@ This differs from many other HUB75 drivers that use falling-edge clocking.
 | Clock frequency | fCLK | - | - | 25 | MHz |
 | Clock pulse width | tw(CLK) | 20 | - | - | ns |
 | LE pulse width | tw(L) | 20 | - | - | ns |
-| OE pulse width | tw(OE) | 45 | 55 | 65 | ns |
+| OE pulse width, VDD 5.0 V | tw(OE) | 45 | 55 | 65 | ns |
+| OE pulse width, VDD 3.3 V | tw(OE) | 50 | 60 | 70 | ns |
 | Setup time (SDI) | tsu(D) | 3 | - | - | ns |
 | Hold time (SDI) | th(D) | 5 | - | - | ns |
 | Setup time (LE) | tsu(L) | 5 | - | - | ns |

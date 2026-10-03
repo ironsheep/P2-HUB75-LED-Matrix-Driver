@@ -105,16 +105,18 @@ What's working today with the current driver:
 ## Chips Supported
 This driver works with the following chips. Other chips may well work since the adaptation to a chip is selecting various driver settings control signalling to the chip.  Here are the chips we have tested and proven working in Single- or Multi-panel configurations:
 
-| Chip | Address | Max Clk | Status | Manufacturer | Notes
-| --- | --- | --- | --- | --- | --- |
-| DP5125D | ABC | ?? | working `Multi-panel` | Shenzhen Developer Microelectronics Co., Ltd |
-| FM6124 | ABCD | 30 MHz | working `Single-panel` | Shenzhen Funman Electronics Group Co., Ltd. 
-| FM6126A | ABCD | 30 MHz | working `Multi-panel` | Shenzhen Funman Electronics Group Co., Ltd. | Requires Panel init sequence to get Multi-panel working!
-| GS6238S | ABCD | ?? | working `Single-panel` | ?? | ??
-| ICN2037 | ABCDE | 30 MHz | working `Multi-panel` | Chipone Technology (Beijing) Co., Ltd. | Our P2 P2 cube panels 
-| ICN2037BP | ABCDE | 30 MHz | working `Multi-panel` |Chipone Technology (Beijing) Co., Ltd. |
-| ICN2038S | ABCDE | 30 MHz | working `Multi-panel` | Chipone Technology (Beijing) Co., Ltd. |
-| MBI5124GP | ABC | 25 MHz | working `Single-panel` | Macroblock, Inc. (Taiwan) | Requires Panel init sequence to get Multi-panel working! Finally have datasheet, there is hope!
+| Chip | Address | Status | Manufacturer | Notes
+| --- | --- | --- | --- | --- |
+| DP5125D | ABC | working `Multi-panel` | Shenzhen Developer Microelectronics Co., Ltd |
+| FM6124 | ABCD | working `Single-panel` | Shenzhen Funman Electronics Group Co., Ltd. 
+| FM6126A | ABCD | working `Multi-panel` | Shenzhen Funman Electronics Group Co., Ltd. | Requires Panel init sequence to get Multi-panel working!
+| GS6238S | ABCD | working `Single-panel` | ?? | ??
+| ICN2037 | ABCDE | working `Multi-panel` | Chipone Technology (Beijing) Co., Ltd. | Our P2 P2 cube panels 
+| ICN2037BP | ABCDE | working `Multi-panel` |Chipone Technology (Beijing) Co., Ltd. |
+| ICN2038S | ABCDE | working `Multi-panel` | Chipone Technology (Beijing) Co., Ltd. |
+| MBI5124GP | ABC | working `Single-panel` | Macroblock, Inc. (Taiwan) | Requires Panel init sequence to get Multi-panel working! Finally have datasheet, there is hope!
+
+Each chip's datasheet clock and /OE ratings are in the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings).
 
 ## Pending Development
 
