@@ -1372,7 +1372,10 @@ builds (the committed config was never edited). Stephen observed the panels.
   plane (e.g. 10000 at 5-bit) is lit in one long burst per cycle, so it blinks at the
   40 Hz cycle rate wherever it appears, while values spread over several planes blink
   less. Hypothesis for «#67»: the 2026-10-01 "C1 flicker" was such a colour on that
-  panel, not hardware. Not investigated here; «#67» carries the check.
+  panel, not hardware. *Confirmed in «#67» (2026-10-02):* with each quadPanel hue on
+  all four panels at once, Stephen: *"the most flicker is cyan, next is green, all
+  panels flicker at the same rate"*. Cyan (hue 192, green 11000 at 5-bit) was C1's
+  colour in the sighting. The cause is the bit-plane order (punch list), not hardware.
 - **Findings, each disposed:** the P9 lead artifact (measurement, explained); the
   interleaving candidate (punch list).
 - **Verdict: the sprint's code is ready to close for this rig.**
