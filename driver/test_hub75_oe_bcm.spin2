@@ -299,29 +299,32 @@ PRI loadConfiguration() : bValid | eAddrLines, driverConfig, scanDivisor
     debug("OE-BCM: REFUSED: ", udec_(columnClocks), " column clocks exceed the ", udec_(hub75Bffrs.LINE_BUFFER_BYTES), "-byte row buffer")
     bValid := FALSE
 
-PRI computeTiming() | cyclesPerBit, extraCycles, candidateUnit, candidateRow, jIdx
-' Derive the column-clock timing the way rgb3bit start() does (waitCyclesLow, waitCyclesHigh),
-' then the OE unit T and the model's predicted refresh and lit share (study section 3).
+PRI computeTiming() | minPulseClocks, minPeriodClocks, extraCycles, candidateUnit, candidateRow, jIdx
+' Derive the column-clock timing the way rgb3bit start() does (columnLoopClocks: waitCyclesLow,
+' waitCyclesHigh), then the OE unit T and the model's predicted refresh and lit share (study
+' section 3).
 '
 
 ' Local Variables:
-' @local cyclesPerBit - system clocks per column clock at TARGET_PANEL_HZ
-' @local extraCycles - clocks beyond the loop's minimum, split between the two WAITX
+' @local minPulseClocks - the chip's minimum CLK pulse (high or low) in clocks, rounded up
+' @local minPeriodClocks - the shortest period the chip's clock rating allows, in clocks
+' @local extraCycles - clocks the rating needs beyond the two minimum pulses, split between the WAITX
 ' @local candidateUnit - a T being tried against TARGET_REFRESH_HZ
 ' @local candidateRow - model clocks per row address for candidateUnit
 ' @local jIdx - the j being tried (T = S / 2^j)
 
-  cyclesPerBit := clkfreq / matrix.TARGET_PANEL_HZ
-  if cyclesPerBit < matrix.BASE_LOOP_CYCLES
-    debug("OE-BCM: WARNING: sysclk too slow for a ", udec_(matrix.TARGET_PANEL_HZ), " Hz column clock")
-    clockLowWait := 0
-    clockHighWait := 0
-    clocksPerColumn := matrix.BASE_LOOP_CYCLES
-  else
-    extraCycles := cyclesPerBit - matrix.BASE_LOOP_CYCLES
-    clockLowWait := extraCycles / matrix.HALF_DIVISOR
-    clockHighWait := extraCycles - clockLowWait
-    clocksPerColumn := cyclesPerBit
+  minPulseClocks := muldiv64(clkfreq, matrix.MIN_CLK_PULSE_NS, NS_PER_SECOND)
+  ' round up: minPulseClocks clocks must last at least the minimum pulse
+  if muldiv64(minPulseClocks, NS_PER_SECOND, matrix.MIN_CLK_PULSE_NS) < clkfreq
+    minPulseClocks++
+  clockHighWait := 0 #> (minPulseClocks - matrix.LOOP_HIGH_FIXED_CLOCKS)
+  clockLowWait := 0 #> (minPulseClocks - matrix.LOOP_LOW_FIXED_CLOCKS)
+  minPeriodClocks := (clkfreq + chipMaxClockHz(chipTypeId) - 1) / chipMaxClockHz(chipTypeId)
+  extraCycles := minPeriodClocks - (matrix.BASE_LOOP_CYCLES + clockHighWait + clockLowWait)
+  if extraCycles > 0
+    clockLowWait += extraCycles / matrix.HALF_DIVISOR
+    clockHighWait += extraCycles - (extraCycles / matrix.HALF_DIVISOR)
+  clocksPerColumn := matrix.BASE_LOOP_CYCLES + clockHighWait + clockLowWait
   shiftClocks := columnClocks * clocksPerColumn
   ' round up: a pulse shorter than the chip's minimum may not light at all
   minOeClocks := muldiv64(clkfreq, MIN_OE_PULSE_NS, NS_PER_SECOND) + 1
@@ -903,6 +906,27 @@ PRI chipName(eChip) : pName
     other:
       pName := string("manual / unlisted")
 
+PRI chipMaxClockHz(eChip) : maxHz
+' Return the chip's rated maximum clock (rgb3bit columnLoopClocks' table); a chip with no rating
+' gets matrix.MAX_CLK_HZ_UNRATED.
+'
+' @param eChip - hwEnum.CHIP_* value
+' @returns maxHz - rated maximum clock, Hz
+
+  case eChip
+    hwEnum.CHIP_FM6124:
+      maxHz := matrix.MAX_CLK_HZ_FM6124
+    hwEnum.CHIP_FM6126A:
+      maxHz := matrix.MAX_CLK_HZ_FM6126A
+    hwEnum.CHIP_ICN2038S:
+      maxHz := matrix.MAX_CLK_HZ_ICN2038S
+    hwEnum.CHIP_ICN2037:
+      maxHz := matrix.MAX_CLK_HZ_ICN2037
+    hwEnum.CHIP_MBI5124GP:
+      maxHz := matrix.MAX_CLK_HZ_MBI5124GP
+    other:
+      maxHz := matrix.MAX_CLK_HZ_UNRATED
+
 DAT ' ---- Refresh Cog: OE-weighted bit planes ----
 
 { Loop structure (one cog owns every adapter pin):
@@ -1009,18 +1033,22 @@ lightPlane
                 jmp     #frameLoop
 
 ' shiftColumns(columnsToShift, columnByteIndex): clock columnsToShift bytes of rowBuffer out
-' to R1..B2. The same seven instructions as rgb3bit shiftColumns: 14 clocks plus the two WAITX
-' extensions, 16 clocks per column at 335 MHz. CLK is left high; finishClock drops it.
+' to R1..B2. The same instructions in the same order as rgb3bit shiftColumns: 14 clocks plus the
+' two WAITX extensions, CLK high matrix.LOOP_HIGH_FIXED_CLOCKS + clockHighWait and low
+' matrix.LOOP_LOW_FIXED_CLOCKS + clockLowWait. CLK is left high; finishClock drops it.
 shiftColumns
+                altgb   columnByteIndex, rowBufferAutoInc   ' first byte of rowBuffer, index advances
+                getbyte columnColor, 0-0, #0-0
                 rep     @shiftColumnsEnd, columnsToShift
+colorOutInst    setbyte OUTA, columnColor, #matrix.OUT_RGB_BYTE_POS  ' this column's data; port and byte set at start
+                drvl    clockPin                            ' CLK low: the high half ends
                 altgb   columnByteIndex, rowBufferAutoInc   ' next byte of rowBuffer, index advances
                 getbyte columnColor, 0-0, #0-0
-                drvl    clockPin                            ' CLK low: prepare the rising edge
-colorOutInst    setbyte OUTA, columnColor, #matrix.OUT_RGB_BYTE_POS  ' port and byte set at start
-                waitx   clockLowWait                        ' data setup
+                waitx   clockLowWait                        ' low time (data setup)
                 drvh    clockPin                            ' rising edge clocks the data in
                 waitx   clockHighWait                       ' clock high time
 shiftColumnsEnd
+                sub     columnByteIndex, #1                 ' undo the loop's one byte of look-ahead
                 ret
 
 ' finishClock: end the last column's clock pulse (the WAITX + DRVL after each shiftColumns call in

@@ -44,7 +44,9 @@
    (clocks CLK was high) and P_COUNTER_PERIODS (CLK periods). Each window is X = clkfreq clocks,
    stretched only to finish the CLK period in progress, so each count is a per-second figure
    and the mean high time per pulse is their ratio. The window restarts by itself, so a late
-   read still gets one whole window.
+   read still gets one whole window. The refresh core drives CLK low at the end of every shift, so
+   CLK idles low between shifts and highs / periods is the mean high time of one pulse; the
+   low half is the column period (RG3 TIMING line) minus it.
 }
 
 CON ' ---- Signals and Monitors ----
@@ -122,6 +124,7 @@ DAT ' ---- Singleton State ----
     lastRefreshX100         LONG    0                               ' refresh implied by LATCH, Hz x100
     lastLitX100             LONG    0                               ' share of the window the panel was lit, percent x100
     lastClkRisesPerSec      LONG    0                               ' mean CLK rises per second
+    lastClkHighClocksX100   LONG    0                               ' mean CLK high time per pulse, clocks x100
     lastClkHighNsX100       LONG    0                               ' mean CLK high time per pulse, ns x100
 
 PUB start(adapterBasePin, latchesPerRefreshCount) : bRunning | sigIdx, monitorPin
@@ -228,7 +231,8 @@ PUB clockRisesPerSecond() : risesPerSec
   risesPerSec := lastClkRisesPerSec
 
 PUB clockHighNsX100() : highNsX100
-'' Return the mean time CLK stays high in each pulse.
+'' Return the mean time CLK stays high in each pulse, high clocks / periods (CLK idles low
+'' between shifts, so no gap time is counted). The monitor reads it long by up to one clock.
 ''
 '' @returns highNsX100 - nanoseconds x 100
 
@@ -385,7 +389,10 @@ PRI waitForWindow(monitorPin) : bDone | giveUpTick
       quit
 
 PRI deriveFigures() | latchRises, litClocks, highPulseX100
-' Turn the last window counts into the figures the report and the getters give.
+' Turn the last window counts into the figures the report and the getters give. CLK idles low
+' in the gaps between shifts, so high clocks / periods is the mean high time of one pulse. The
+' monitor sees the pin through its own input threshold and reads the high half long by about
+' 0.5 to 1 clock (DOCs/bench/RUN-NOTES.md, "Clock low half", and task #93).
 '
 
 ' Local Variables:
@@ -400,16 +407,18 @@ PRI deriveFigures() | latchRises, litClocks, highPulseX100
     lastRefreshX100 := muldiv64(latchRises, FIXED_POINT_SCALE, latchesPerRefresh)
   lastLitX100 := muldiv64(litClocks, PERCENT_X100_SCALE, clkfreq)
   lastClkRisesPerSec := clkPeriodsPerSec
+  lastClkHighClocksX100 := 0
   lastClkHighNsX100 := 0
   if clkPeriodsPerSec > 0
     highPulseX100 := muldiv64(clkHighClocksPerSec, FIXED_POINT_SCALE, clkPeriodsPerSec)
+    lastClkHighClocksX100 := highPulseX100
     lastClkHighNsX100 := muldiv64(highPulseX100, NS_PER_SECOND, clkfreq)
 
 PRI reportSecond()
 ' Print one INSTR line: the figures first, then the raw counts of each strobe and of LATCH.
 '
 
-  debug("INSTR: refresh ", udec_(lastRefreshX100 / FIXED_POINT_SCALE), ".", udec_((lastRefreshX100 // FIXED_POINT_SCALE) / FRACTION_DIVISOR), " Hz, lit ", udec_(lastLitX100 / FIXED_POINT_SCALE), ".", udec_((lastLitX100 // FIXED_POINT_SCALE) / FRACTION_DIVISOR), "%, clk ", udec_(lastClkRisesPerSec / matrix.HZ_PER_MHZ), ".", udec_((lastClkRisesPerSec // matrix.HZ_PER_MHZ) / (matrix.HZ_PER_MHZ / FRACTION_DIVISOR)), " MHz mean, high ", udec_(lastClkHighNsX100 / FIXED_POINT_SCALE), ".", udec_((lastClkHighNsX100 // FIXED_POINT_SCALE) / FRACTION_DIVISOR), " ns | /s: cmd ", udec_(LONG[@windowCounts][MON_CMD]), " frame ", udec_(LONG[@windowCounts][MON_FRAME]), " row ", udec_(LONG[@windowCounts][MON_ROW]), " plane ", udec_(LONG[@windowCounts][MON_PLANE]), " latch ", udec_(LONG[@windowCounts][MON_LATCH]))
+  debug("INSTR: refresh ", udec_(lastRefreshX100 / FIXED_POINT_SCALE), ".", udec_((lastRefreshX100 // FIXED_POINT_SCALE) / FRACTION_DIVISOR), " Hz, lit ", udec_(lastLitX100 / FIXED_POINT_SCALE), ".", udec_((lastLitX100 // FIXED_POINT_SCALE) / FRACTION_DIVISOR), "%, clk ", udec_(lastClkRisesPerSec / matrix.HZ_PER_MHZ), ".", udec_((lastClkRisesPerSec // matrix.HZ_PER_MHZ) / (matrix.HZ_PER_MHZ / FRACTION_DIVISOR)), " MHz mean, high ", udec_(lastClkHighClocksX100 / FIXED_POINT_SCALE), ".", udec_((lastClkHighClocksX100 // FIXED_POINT_SCALE) / FRACTION_DIVISOR), " clk ", udec_(lastClkHighNsX100 / FIXED_POINT_SCALE), ".", udec_((lastClkHighNsX100 // FIXED_POINT_SCALE) / FRACTION_DIVISOR), " ns | /s: cmd ", udec_(LONG[@windowCounts][MON_CMD]), " frame ", udec_(LONG[@windowCounts][MON_FRAME]), " row ", udec_(LONG[@windowCounts][MON_ROW]), " plane ", udec_(LONG[@windowCounts][MON_PLANE]), " latch ", udec_(LONG[@windowCounts][MON_LATCH]))
 
 PRI signalLabel(sigIdx) : pLabel
 ' Return the printable name of a signal.

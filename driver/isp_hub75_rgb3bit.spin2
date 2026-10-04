@@ -15,17 +15,26 @@ CON ' timing
 
 ' clock is setup in top-level file
 
-    ' Target panel clock frequency (Hz) - independent of sysclk
-    ' The chips' 20 ns minimum clock pulse caps any panel at 25 MHz (DOCs/ChipCharacteristicsMatrix.md)
-    TARGET_PANEL_HZ = 20_000_000
+    ' Shortest CLK pulse each chip accepts, high and low alike, in ns (DOCs/ChipCharacteristicsMatrix.md,
+    ' "Datasheet Clock and /OE Ratings"): 20 ns on every chip in the table
+    MIN_CLK_PULSE_NS              = 20
 
-    ' Base loop cycle count (with WAITX D=0)
-    ' 7 instructions x 2 cycles = 14 cycles minimum
-    BASE_LOOP_CYCLES = 14
+    ' Highest clock each chip is rated for, in Hz (same table). MBI5124GP is 25 MHz, the rest 30 MHz;
+    ' the 20 ns pulses cap every chip at 25 MHz. A chip with no rating in the table uses
+    ' MAX_CLK_HZ_UNRATED, and start() says so.
+    MAX_CLK_HZ_FM6124             = 30_000_000
+    MAX_CLK_HZ_FM6126A            = 30_000_000
+    MAX_CLK_HZ_ICN2038S           = 30_000_000
+    MAX_CLK_HZ_ICN2037            = 30_000_000
+    MAX_CLK_HZ_MBI5124GP          = 25_000_000
+    MAX_CLK_HZ_UNRATED            = 20_000_000
 
-    ' Minimum system clock = BASE_LOOP_CYCLES x TARGET_PANEL_HZ
-    ' = 14 x 20 MHz = 280 MHz minimum for 20 MHz panel clock
-    MIN_SYSCLK_HZ = BASE_LOOP_CYCLES * TARGET_PANEL_HZ
+    ' The column loop (shiftColumns), 7 instructions of 2 clocks each with both WAITX at D = 0.
+    ' CLK is high from DRVH to the next DRVL: DRVH, WAITX, SETBYTE = 6 clocks. It is low from
+    ' DRVL to DRVH: DRVL, ALTGB, GETBYTE, WAITX = 8 clocks. A WAITX of D extends its half by D.
+    LOOP_HIGH_FIXED_CLOCKS        = 6
+    LOOP_LOW_FIXED_CLOCKS         = 8
+    BASE_LOOP_CYCLES              = LOOP_HIGH_FIXED_CLOCKS + LOOP_LOW_FIXED_CLOCKS
 
 CON { OE-weighted bit planes: the /OE smart pin, brightness and the refresh model }
 
@@ -358,23 +367,6 @@ PUB start(nID, nChainIdx) : startedCog | tmpVar, panelCt, tmpConstant, widthInPa
   pinGrpAddr      := pnlRowAddrPins
   pinGrpColor     := pnlColorPins
 
-  ' Calculate clock-frequency-independent timing
-  ' This ensures panel receives consistent ~20 MHz clock regardless of sysclk
-  tmpVar := clkfreq / TARGET_PANEL_HZ      ' cycles per panel clock bit
-  if tmpVar < BASE_LOOP_CYCLES
-    ' System clock too slow for target panel frequency
-    ' Use minimum timing (fastest panel clock possible at this sysclk)
-    debug("RG3: WARNING: sysclk too slow! Panel clock will be < ", udec_(TARGET_PANEL_HZ / HZ_PER_MHZ), " MHz")
-    waitCyclesLow := 0
-    waitCyclesHigh := 0
-    clocksPerColumn := BASE_LOOP_CYCLES
-  else
-    tmpConstant := tmpVar - BASE_LOOP_CYCLES   ' extra cycles to distribute
-    waitCyclesLow := tmpConstant / HALF_DIVISOR ' data setup extension
-    waitCyclesHigh := tmpConstant - waitCyclesLow  ' clock high extension
-    clocksPerColumn := tmpVar
-  debug("RG3:  TIMING cycles/bit=", udec_(tmpVar), " waitLo=", udec_(waitCyclesLow), " waitHi=", udec_(waitCyclesHigh))
-
   tmpConstant := hub75Bffrs.colorDepth(chainIndex)
   debug("RG3:  CONFIG ColorDepth = ", udec_long_(tmpConstant))
 
@@ -397,6 +389,10 @@ PUB start(nID, nChainIdx) : startedCog | tmpVar, panelCt, tmpConstant, widthInPa
       debug("  -- ICN2037")
     elseif eChipType == hwEnum.CHIP_ICN2038S
       debug("  -- ICN2038S")
+  ' the column clock: each half of the pulse at least MIN_CLK_PULSE_NS, the whole at most the chip's rating
+  clocksPerColumn := columnLoopClocks(eChipType)
+  tmpVar := clkfreq / clocksPerColumn
+  debug("RG3:  TIMING cycles/bit=", udec_(clocksPerColumn), " waitLo=", udec_(waitCyclesLow), " waitHi=", udec_(waitCyclesHigh), ", CLK high ", udec_(LOOP_HIGH_FIXED_CLOCKS + waitCyclesHigh), " low ", udec_(LOOP_LOW_FIXED_CLOCKS + waitCyclesLow), " clocks, ", udec_(tmpVar / HZ_PER_MHZ), ".", udec_((tmpVar // HZ_PER_MHZ) / (HZ_PER_MHZ / FRACTION_DIVISOR)), " MHz")
   heightInPanels, widthInPanels := hub75Bffrs.displaySizeInPanels(chainIndex)
   debug("  -- ", udec_(panelCt), " panel(s), wh=(", udec_(widthInPanels), "x", udec_(heightInPanels), "), pixels wh=(", udec_(maxDisplayColumns), "x", udec_(maxDisplayRows), ")")
   debug("  -- chain in panels (", udec_(panelCt), "), cols/pnl=(", udec_(maxPanelColumns), "), cols/chain (", udec_(maxChainColumns), ")")
@@ -723,6 +719,57 @@ bitIdx          LONG    0
 
   END
 
+PRI nsToClocks(durationNs) : durationClocks
+' Return a duration in system clocks at clkfreq, rounded up: durationClocks clocks last at
+' least durationNs.
+'
+' @param durationNs - the duration, in nanoseconds
+' @returns durationClocks - the duration, in clocks
+
+  durationClocks := muldiv64(clkfreq, durationNs, NS_PER_SECOND)
+  if muldiv64(durationClocks, NS_PER_SECOND, durationNs) < clkfreq
+    durationClocks++
+
+PRI columnLoopClocks(eChip) : loopClocks | maxHz, minPulseClocks, minPeriodClocks, extraClocks
+' Set the column loop's two WAITX extensions (waitCyclesLow, waitCyclesHigh) and return the loop's
+' clocks per column. Each half of the CLK pulse is at least MIN_CLK_PULSE_NS (rounded up in
+' clocks) and the whole period is at least one clock period of the chip's rated maximum
+' (rounded up); any extra clocks that rating needs are shared between the halves. A chip with no
+' rating in the table uses MAX_CLK_HZ_UNRATED and says so.
+'
+' @param eChip - hwEnum.CHIP_* of the panels
+' @returns loopClocks - system clocks per column clock
+
+' Local Variables:
+' @local maxHz - the chip's rated maximum clock, Hz
+' @local minPulseClocks - MIN_CLK_PULSE_NS in clocks
+' @local minPeriodClocks - the shortest period the rating allows, in clocks
+' @local extraClocks - clocks the rating needs beyond the two minimum pulses
+
+  case eChip
+    hwEnum.CHIP_FM6124:
+      maxHz := MAX_CLK_HZ_FM6124
+    hwEnum.CHIP_FM6126A:
+      maxHz := MAX_CLK_HZ_FM6126A
+    hwEnum.CHIP_ICN2038S:
+      maxHz := MAX_CLK_HZ_ICN2038S
+    hwEnum.CHIP_ICN2037:
+      maxHz := MAX_CLK_HZ_ICN2037
+    hwEnum.CHIP_MBI5124GP:
+      maxHz := MAX_CLK_HZ_MBI5124GP
+    other:
+      maxHz := MAX_CLK_HZ_UNRATED
+      debug("HUB75: DISP", udec_(chainIndex), ": this panel chip has no clock rating in the driver's table; the clock is held to ", udec_(MAX_CLK_HZ_UNRATED / HZ_PER_MHZ), " MHz")
+  minPulseClocks := nsToClocks(MIN_CLK_PULSE_NS)
+  waitCyclesHigh := 0 #> (minPulseClocks - LOOP_HIGH_FIXED_CLOCKS)
+  waitCyclesLow := 0 #> (minPulseClocks - LOOP_LOW_FIXED_CLOCKS)
+  minPeriodClocks := (clkfreq + maxHz - 1) / maxHz
+  extraClocks := minPeriodClocks - (BASE_LOOP_CYCLES + waitCyclesHigh + waitCyclesLow)
+  if extraClocks > 0
+    waitCyclesLow += extraClocks / HALF_DIVISOR
+    waitCyclesHigh += extraClocks - (extraClocks / HALF_DIVISOR)
+  loopClocks := BASE_LOOP_CYCLES + waitCyclesHigh + waitCyclesLow
+
 PRI oeMinimumClocks(eChip) : minClocks | minNs
 ' Return the chip's shortest /OE pulse in system clocks, rounded up at clkfreq. A chip with no
 ' rating in the table uses MIN_OE_NS_UNRATED and says so.
@@ -1007,19 +1054,27 @@ planeDone
 ' subroutines
 '
 ' shiftColumns: clock columnsToShift bytes of cogBuffer, from byteOffset on, out to R1..B2.
-' 7 instructions = 14 clocks + the two WAITX extensions (16 clocks per column at 335 MHz for a
-' ~20 MHz panel clock). CLK is left high; the caller ends the last pulse. columnsToShift is
-' never 0: a row is always wider than LATCH_OVERLAP_COLS columns.
+' 7 instructions of 2 clocks (p2kbPasm2Waitx: WAITX is 2 + D) plus the two WAITX extensions.
+' CLK is high from DRVH to the next DRVL: DRVH, WAITX, SETBYTE = LOOP_HIGH_FIXED_CLOCKS +
+' waitCyclesHigh. It is low from DRVL to DRVH: DRVL, ALTGB, GETBYTE, WAITX = LOOP_LOW_FIXED_CLOCKS
+' + waitCyclesLow (p2kbPasm2Altgb: ALTGB alters the next instruction, so it stays next to GETBYTE).
+' Each pass puts out the byte fetched in the pass before, so the first byte is fetched before the
+' loop and the loop's last fetch is one byte past the columns shifted: byteOffset is stepped back.
+' CLK is left high; the caller ends the last pulse. columnsToShift is never 0: a row is always
+' wider than LATCH_OVERLAP_COLS columns.
 shiftColumns
+                    altgb   byteOffset, pCogBffrIncr        ' first byte of cogBuffer, index advances
+                    getbyte colorByte, 0-0, #0-0
                     rep     @shiftEnd, columnsToShift
+colorOutInst        setbyte OUTA, colorByte, #OUT_RGB_BYTE_POS  ' this column's data, set while CLK is high; port and byte set at start
+                    drvl    pinLedCLK                       ' CLK low: the high half ends
                     altgb   byteOffset, pCogBffrIncr        ' next byte of cogBuffer, index advances
                     getbyte colorByte, 0-0, #0-0
-                    drvl    pinLedCLK                       ' CLK low: prepare the rising edge
-colorOutInst        setbyte OUTA, colorByte, #OUT_RGB_BYTE_POS  ' port and byte set at start
-                    waitx   waitCyclesLow                   ' data setup
+                    waitx   waitCyclesLow                   ' low time (data setup)
                     drvh    pinLedCLK                       ' rising edge clocks the data in
                     waitx   waitCyclesHigh                  ' clock high time
 shiftEnd
+                    sub     byteOffset, #1                  ' undo the loop's one byte of look-ahead
                     ret
 
 ' emitAddress: put rowAddr on A..E and let it settle. Called only while the panel is dark.

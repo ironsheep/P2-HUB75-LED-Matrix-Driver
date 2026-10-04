@@ -270,7 +270,7 @@ PRI reportPhase(phaseIdx) | windowIdx, bSampled
     if bSampled == FALSE
       quit
   if bSampled == TRUE
-    debug("RATES: depth ", udec_(colorDepth), " ", zstr_(phaseLabel(phaseIdx)), ": refresh ", udec_(instrument.refreshRateX100() / FIXED_POINT_SCALE), ".", udec_((instrument.refreshRateX100() // FIXED_POINT_SCALE) / FRACTION_DIVISOR), " Hz, lit ", udec_(instrument.litShareX100() / FIXED_POINT_SCALE), ".", udec_((instrument.litShareX100() // FIXED_POINT_SCALE) / FRACTION_DIVISOR), "%, clock ", udec_(instrument.clockRisesPerSecond()), " rises/s, high ", udec_(instrument.clockHighNsX100() / FIXED_POINT_SCALE), ".", udec_((instrument.clockHighNsX100() // FIXED_POINT_SCALE) / FRACTION_DIVISOR), " ns, draw ", udec_(drawMicros), " uS, commit ", udec_(commitMicros), " uS")
+    debug("RATES: depth ", udec_(colorDepth), " ", zstr_(phaseLabel(phaseIdx)), ": refresh ", udec_(instrument.refreshRateX100() / FIXED_POINT_SCALE), ".", udec_((instrument.refreshRateX100() // FIXED_POINT_SCALE) / FRACTION_DIVISOR), " Hz, lit ", udec_(instrument.litShareX100() / FIXED_POINT_SCALE), ".", udec_((instrument.litShareX100() // FIXED_POINT_SCALE) / FRACTION_DIVISOR), "%, clock ", udec_(instrument.clockRisesPerSecond()), " rises/s, CLK high ", udec_(instrument.clockHighNsX100() / FIXED_POINT_SCALE), ".", udec_((instrument.clockHighNsX100() // FIXED_POINT_SCALE) / FRACTION_DIVISOR), " ns, draw ", udec_(drawMicros), " uS, commit ", udec_(commitMicros), " uS")
   else
     debug("RATES: depth ", udec_(colorDepth), " ", zstr_(phaseLabel(phaseIdx)), ": monitors unavailable, draw ", udec_(drawMicros), " uS, commit ", udec_(commitMicros), " uS")
 
