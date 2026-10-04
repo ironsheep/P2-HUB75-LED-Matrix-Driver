@@ -153,6 +153,21 @@ every depth.
 - **This table is the "before"** for refresh, duty and clock. Commit and draw times
   are the before for §3; §7-§9 compare against visit C (§3 changes commit).
 
+### Visit C finding (2026-10-03): two §4 defects, fixed by «#103» before visit C resumes
+
+The first visit-C sweep (`driver/logs/headless_261003-210125.log` to `-210748.log`) failed
+§4's "within 5% of the model" limb below 7-bit, and the brightness limb:
+- **/OE pulse start latency.** P_PULSE starts at the next base period after WYPIN
+  (p2kbArchSmartPin00100PulseCycleOutput), so each plane waits up to one period T before it
+  lights. Refresh vs model: 8-bit 70.3 / 71.1 Hz, 5-bit 75.6 / 84.7, 4-bit 71.6 / 90.5,
+  3-bit 135.8 / 193.4. The 4-bit row excess is 4 x T.
+- **Brightness is not linear.** A shorter pulse period shortens the row, so refresh rises as
+  brightness falls, and brightness 128 delivers 79% of full light, not 50%.
+
+What passed: the 60 Hz target picked the predicted j at every depth, the handshake passed,
+brightness 0 read 0.0%, and brightness 1 sat at the chip-minimum floor. «#103» fixes both
+defects inside §4's targets; it is not a scope change. «#94» then re-runs visit C in full.
+
 ## 1. Prototype: prove the OE-weighted method on panels (planning phase)
 
 **Why:** §4 rewrites the shared refresh core. Two premises are unproven on panels:

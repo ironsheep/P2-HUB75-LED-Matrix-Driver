@@ -79,6 +79,25 @@ CON ' ---- Frame-set handshake trace ----
     ' First commit of the trace: it has no earlier trace commit to compare with
     FIRST_TRACE_COMMIT      = 0
 
+CON ' ---- Brightness steps and tearing test (visit C) ----
+
+    ' Monitor windows taken at each brightness step; the step reports the last one
+    BRIGHTNESS_SAMPLE_SECONDS = 2
+
+    ' Brightness when no adjustment is wanted (display.setBrightness() full scale)
+    FULL_BRIGHTNESS         = 256
+
+    ' Brightness steps measured, in order (BRIGHTNESS_STEP_COUNT entries in brightnessSteps)
+    BRIGHTNESS_STEP_COUNT   = 4
+
+    ' Seconds the tearing test alternates two full-screen patterns at the fastest commit rate
+    TEAR_TEST_SECONDS       = 20
+    MS_PER_SECOND           = 1_000
+
+    ' Screen-buffer byte values for the tearing test's two patterns (every channel full, or off)
+    SCREEN_BYTE_WHITE       = $FF
+    SCREEN_BYTE_BLACK       = $00
+
 OBJ
 
     color       : "isp_hub75_color"
@@ -98,6 +117,9 @@ DAT ' ---- Test State (singleton) ----
     colorDepth      LONG    0                               ' bit planes per colour
     drawMicros      LONG    0                               ' draw time of the phase just run, microseconds
     commitMicros    LONG    0                               ' commit time of the phase just run, microseconds
+
+    ' brightness steps measured by runBrightnessSteps(): full, half, the chip-minimum floor, off
+    brightnessSteps LONG    FULL_BRIGHTNESS, FULL_BRIGHTNESS / 2, 1, 0
 
     ' the handshake trace, one entry per traced commit (see runHandshakeTrace())
     traceConverted  LONG    0[TRACE_COMMITS]                ' frame set the commit converted into
@@ -122,6 +144,8 @@ PUB main() : ok
     runWorkload()
     runHandshakeTrace()
     refuseNullFrameSet()
+    runBrightnessSteps()
+    runTearingTest()
     instrument.stop()
   debug("END_SESSION")
 
@@ -185,6 +209,51 @@ PRI runHandshakeTrace() | commitIdx, nCommitsBefore, nCommitsAfter, nWaited, nBa
     debug("RATES: HANDSHAKE PASS: ", udec_(TRACE_COMMITS), " commits, none converted into the set on display; ", udec_(nWaited), " of ", udec_(nCommitsAfter), " posts waited for the previous post to be taken")
   else
     debug("RATES: HANDSHAKE FAIL: ", udec_(nProblems), " problem(s) in ", udec_(TRACE_COMMITS), " commits")
+
+PRI runBrightnessSteps() | stepIdx, windowIdx, brightness
+' Measure the lit share at each brightness step while the last committed image is shown, then
+' restore full brightness. Brightness is /OE time, so the lit share follows it down to the
+' chip-minimum floor, and 0 must read 0%.
+'
+
+' Local Variables:
+' @local stepIdx - brightness step being measured
+' @local windowIdx - monitor window being taken
+' @local brightness - brightness value of this step
+
+  repeat stepIdx from 0 to BRIGHTNESS_STEP_COUNT - 1
+    brightness := LONG[@brightnessSteps][stepIdx]
+    display.setBrightness(brightness)
+    debug("RATES: brightness ", udec_(brightness), " now showing")
+    repeat windowIdx from 1 to BRIGHTNESS_SAMPLE_SECONDS
+      instrument.sampleSecond()
+    debug("RATES: brightness ", udec_(brightness), ": refresh ", udec_(instrument.refreshRateX100() / FIXED_POINT_SCALE), ".", udec_((instrument.refreshRateX100() // FIXED_POINT_SCALE) / FRACTION_DIVISOR), " Hz, lit ", udec_(instrument.litShareX100() / FIXED_POINT_SCALE), ".", udec_((instrument.litShareX100() // FIXED_POINT_SCALE) / FRACTION_DIVISOR), "%")
+  display.setBrightness(FULL_BRIGHTNESS)
+
+PRI runTearingTest() | endMs, commitCount, pScreen, screenBytes
+' Alternate a full white and a full black screen at the fastest commit rate for TEAR_TEST_SECONDS.
+' The screen buffer is filled directly (a byte fill takes microseconds) so the commits run back
+' to back. Without tearing every refresh shows one whole screen; a torn frame shows a band of each.
+'
+
+' Local Variables:
+' @local endMs - millisecond count (getms()) when the test ends; the system counter would wrap
+' @local commitCount - commits made
+' @local pScreen - hub address of the screen buffer
+' @local screenBytes - size of the screen buffer in bytes
+
+  commitCount := 0
+  pScreen := hub75Bffrs.displayBufferAddress(chainIndex)
+  screenBytes := hub75Bffrs.displaySizeInLongs(chainIndex) * matrix.BYTES_PER_LONG
+  debug("RATES: TEARING TEST: white and black alternating for ", udec_(TEAR_TEST_SECONDS), " s")
+  endMs := getms() + (TEAR_TEST_SECONDS * MS_PER_SECOND)
+  repeat while getms() - endMs < 0
+    bytefill(pScreen, SCREEN_BYTE_WHITE, screenBytes)
+    display.commitScreenToPanelSet()
+    bytefill(pScreen, SCREEN_BYTE_BLACK, screenBytes)
+    display.commitScreenToPanelSet()
+    commitCount += 2
+  debug("RATES: TEARING TEST done: ", udec_(commitCount), " commits in ", udec_(TEAR_TEST_SECONDS), " s")
 
 PRI refuseNullFrameSet() | bAccepted
 ' Call display.showFrameSet(0): the call must print its refusal and post nothing.

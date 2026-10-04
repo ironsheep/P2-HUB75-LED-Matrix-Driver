@@ -39,15 +39,21 @@ CON ' timing
 CON { OE-weighted bit planes: the /OE smart pin, brightness and the refresh model }
 
     ' /OE is a P_PULSE smart pin owned by the refresh cog (p2kbArchSmartPin00100PulseCycleOutput).
-    ' X[15:0] is the base period P and X[31:16] = 0, so the output is high for all Y x P clocks;
-    ' inverted, so the pin idles HIGH (blank) and goes LOW (lit) for the pulse. P_OE lets the
-    ' smart pin drive the pin. Plane k is lit for Y = 2^k periods.
+    ' A pulse starts at the next base period after Y is written, and the base period counter runs
+    ' free, so the base period X[15:0] is one clock: a pulse starts within a clock of its WYPIN,
+    ' whatever the counter's phase. X[31:16] = 0, so the output is high for all Y base periods,
+    ' that is for Y clocks; inverted, so the pin idles HIGH (blank) and goes LOW (lit) for the
+    ' pulse. P_OE lets the smart pin drive the pin. Y carries the plane's lit time in clocks.
     OE_PIN_MODE                   = P_PULSE | P_OE | P_INVERT_OUTPUT
+    OE_BASE_PERIOD_CLOCKS         = 1           ' X: base period 1 clock, compare field 0
 
-    ' The base period is the 16-bit field X[15:0] (p2kbArchSmartPin00100PulseCycleOutput)
-    MAX_PULSE_BASE_CLOCKS         = $FFFF
+    ' T is one 16-bit operand of the cog's brightness multiply (p2kbPasm2Mul)
+    MAX_OE_UNIT_CLOCKS            = $FFFF
 
-    ' Brightness b scales the base period: P = T x b / FULL_BRIGHTNESS. 256 is no reduction, 0 is off.
+    ' Brightness b scales the lit time inside a slot that does not change: plane k's slot is
+    ' 2^k x T clocks, and it is lit for 2^k x L of them, L = T x b / FULL_BRIGHTNESS (never below
+    ' the chip's minimum /OE). 256 is no reduction, 0 is off. Row timing, and so the refresh
+    ' rate, is the same at every b.
     FULL_BRIGHTNESS               = 256
     BRIGHTNESS_SHIFT              = 8           ' divide by FULL_BRIGHTNESS
 
@@ -226,7 +232,7 @@ CON { SETR self-modify encodings + pack shifts }
 
 DAT ' ---- Brightness (singleton: every adapter's refresh cog reads it once per frame) ----
 
-    brightnessScale         LONG    FULL_BRIGHTNESS     ' b, 0-256: P = T x b / 256; 0 = never lit
+    brightnessScale         LONG    FULL_BRIGHTNESS     ' b, 0-256: L = T x b / 256; 0 = never lit
 
 OBJ
 
@@ -486,9 +492,11 @@ PUB start(nID, nChainIdx) : startedCog | tmpVar, panelCt, tmpConstant, widthInPa
   minOeClocks := oeMinimumClocks(eChipType)
   targetHz := hub75Bffrs.targetRefreshHz(chainIndex)
   oeUnitClocks, jValue, refreshX100, bTargetMet := chooseOeUnit(shiftClocks, rowLoadClocks, targetHz)
-  if oeUnitClocks > MAX_PULSE_BASE_CLOCKS
-    debug("HUB75: DISP", udec_(chainIndex), ": the /OE unit T = ", udec_(oeUnitClocks), " clocks is longer than the /OE smart pin's 16-bit period (", udec_(MAX_PULSE_BASE_CLOCKS), " clocks); startup stopped")
+  if oeUnitClocks > MAX_OE_UNIT_CLOCKS
+    debug("HUB75: DISP", udec_(chainIndex), ": the /OE unit T = ", udec_(oeUnitClocks), " clocks is longer than the brightness multiply's 16-bit operand (", udec_(MAX_OE_UNIT_CLOCKS), " clocks); startup stopped")
     abort
+  ' plane k's slot is 2^k x T at every brightness: the cog halves the MSB's slot for each plane
+  firstSlotClocks := firstPulseWeight * oeUnitClocks
   if bTargetMet == FALSE
     debug("HUB75: DISP", udec_(chainIndex), ": DISP", udec_(chainIndex), "_TARGET_REFRESH_HZ = ", udec_(targetHz), " Hz is out of reach for this display; running at ", udec_(refreshX100 / FIXED_POINT_SCALE), ".", udec_((refreshX100 // FIXED_POINT_SCALE) / FRACTION_DIVISOR), " Hz, its fastest (j = ", udec_(jValue), ")")
   dutyX100 := dutyX100For(oeUnitClocks, modelRowClocks(oeUnitClocks, shiftClocks, rowLoadClocks))
@@ -580,12 +588,13 @@ PUB showingFrameSet() : pFrameSet
   pFrameSet := dvrShowing
 
 PUB setBrightness(newBrightness)
-'' Set the brightness scale b that every refresh cog reads once per frame. b scales the /OE
-'' period: a row is lit for P = T x b / 256 per pulse period, so b scales how long the panel is
-'' lit, not the colour values. 256 is no reduction; 0 is off (/OE never pulses). P is never
-'' shorter than the panel chip's minimum /OE pulse, so below that point every b but 0 gives
-'' the same floor brightness (on a display whose T is already at the minimum, that is every b
-'' but 0). Values outside 0-256 are clamped.
+'' Set the brightness scale b that every refresh cog reads once per frame. b scales how long
+'' each bit plane is lit inside its slot, not the colour values: plane k is lit for 2^k x L
+'' clocks of its 2^k x T slot, L = T x b / 256, so the light is in proportion to b and the row
+'' timing and refresh rate do not change. 256 is no reduction; 0 is off (/OE never pulses). L is
+'' never shorter than the panel chip's minimum /OE pulse, so below that point every b but 0
+'' gives the same floor brightness (on a display whose T is already at the minimum, that is
+'' every b but 0). Values outside 0-256 are clamped.
 ''
 '' @param newBrightness - the desired brightness value [0-256]
 
@@ -833,8 +842,10 @@ PRI chooseOeUnit(shiftClocks, loadClocks, targetHz) : oeUnit, jValue, refreshX10
 
 PRI modelRowClocks(oeUnit, shiftClocks, loadClocks) : rowClocks | pulseWeightNow
 ' Return the model's clocks for one row address: every plane is loaded, shifted and latched
-' once and lit for 2^k x T, and the next plane loads and shifts while this one is lit, so each
-' plane's slot is the longer of its light and the next load + shift, plus the latch sequence.
+' once and given a light slot of 2^k x T (lit for all of it at brightness 256, for b/256 of it
+' at b), and the next plane loads and shifts during the slot, so each plane costs the longer of
+' its slot and the next load + shift, plus the latch sequence. The pulse starts within a clock
+' of its WYPIN, so the model has no start latency term; the row cost is the same at every b.
 '
 ' @param oeUnit - T in clocks
 ' @param shiftClocks - S: clocks to shift one row of one plane
@@ -885,9 +896,11 @@ DAT     { driver assembly code }
                                 a settle gap when enclosed, none when offset
                     overlapped: shift all but the last LATCH_OVERLAP_COLS; wait dark; LATCH high;
                                 shift the rest; LATCH low; row address
-                  WYPIN 2^k on /OE: lit for 2^k x P clocks, P = T x b / 256
-  "Wait dark" waits until the previous plane's pulse is over (IN high). The row address changes
-  only while /OE is off, and a latch never happens while it is on.
+                  WYPIN 2^k x L on /OE: lit for 2^k x L clocks, L = T x b / 256, and the
+                  plane's slot of 2^k x T clocks starts (the CT1 event target)
+  "Wait dark" waits until the previous plane's slot is over (CT1 event) and then its pulse
+  (IN high). The row address changes only while /OE is off, and a latch never happens while
+  it is on. The slot does not depend on b, so neither does the row timing.
 }
 drive_matrix
                     debug("MTX: --Start--")
@@ -940,9 +953,13 @@ drive_matrix
                     ' (p2kbArchSmartPins); each WYPIN later starts one pulse. It idles blank.
                     dirl    pinLedOE
                     wrpin   ##OE_PIN_MODE, pinLedOE
-                    wxpin   oeUnitClocks, pinLedOE          ' X[15:0] = T, X[31:16] = 0: lit all of each period
+                    wxpin   #OE_BASE_PERIOD_CLOCKS, pinLedOE ' X[15:0] = 1 clock, X[31:16] = 0: lit for Y clocks
                     dirh    pinLedOE
                     mov     pulseStarted, #0                ' no pulse yet: nothing to wait for
+                    ' no slot yet either: a CT1 target already passed fires at once (p2kbPasm2Addct1),
+                    ' so the first plane's wait returns at once
+                    getct   slotEnd                         ' (p2kbPasm2Getct)
+                    addct1  slotEnd, #0
 
 frameStart
                     ' a frame set is taken only here, at the start of a whole frame
@@ -963,17 +980,16 @@ strobeTakenB if_nz  outnot  pinLAXT_08
 strobeFrameA        outnot  pinLAXT_09                      ' P09: frame start
 strobeFrameB        outnot  pinLAXT_09
 #ENDIF
-                    ' brightness, once per frame: P = T x b / 256, never below the chip's minimum
+                    ' brightness, once per frame: L = T x b / 256, never below the chip's minimum.
+                    ' It sets only Y, the lit clocks of each pulse, so a pulse still lit from the
+                    ' previous frame keeps its own length.
                     rdlong  brightnessNow, pBrightness
-                    mov     pulsePeriod, oeUnitClocks
-                    mul     pulsePeriod, brightnessNow      ' 16 x 16 bits: T <= $FFFF, b <= 256 (p2kbPasm2Mul)
-                    shr     pulsePeriod, #BRIGHTNESS_SHIFT
-                    fge     pulsePeriod, minOeClocks        ' (p2kbPasm2Fge)
-                    ' X changes only between pulses; WXPIN also lowers IN (p2kbArchSmartPins), so
-                    ' afterwards no pulse is outstanding
-                    call    #waitPanelDark
-                    wxpin   pulsePeriod, pinLedOE
-                    mov     pulseStarted, #0
+                    mov     litUnitClocks, oeUnitClocks
+                    mul     litUnitClocks, brightnessNow    ' 16 x 16 bits: T <= $FFFF, b <= 256 (p2kbPasm2Mul)
+                    shr     litUnitClocks, #BRIGHTNESS_SHIFT
+                    fge     litUnitClocks, minOeClocks      ' (p2kbPasm2Fge)
+                    mov     firstLitClocks, litUnitClocks
+                    mul     firstLitClocks, firstPulseWeight ' the MSB's lit clocks: 2^(N-1) x L, both <= $FFFF
 
                     mov     rowHubAddr, frameSetAddr
                     mov     rowAddr, #0
@@ -984,7 +1000,8 @@ strobeRowA          outnot  pinLAXT_10                      ' P10: row start
 strobeRowB          outnot  pinLAXT_10
 #ENDIF
                     mov     planeHubAddr, rowHubAddr
-                    mov     pulseWeight, firstPulseWeight
+                    mov     litClocks, firstLitClocks
+                    mov     slotClocks, firstSlotClocks
                     mov     planesLeft, planeCount
 planeLoop
                     ' load this plane's row into cog RAM (p2kbPasm2SetqBlockOps: one long per
@@ -1035,14 +1052,20 @@ strobeOvlpLatchB    outnot  pinLAXT_11
                     call    #emitAddress
 
 lightPlane
-                    ' light the row for pulseWeight periods; IN rises when the pulse is over
+                    ' light the row for litClocks: with a one-clock base period the pulse starts
+                    ' within a clock and IN rises when it is over
                     ' (p2kbArchSmartPin00100PulseCycleOutput). Brightness 0 never lights.
-                    tjz     brightnessNow, #planeDone
-                    wypin   pulseWeight, pinLedOE
+                    tjz     brightnessNow, #startSlot
+                    wypin   litClocks, pinLedOE
                     mov     pulseStarted, #1                ' a pulse is now outstanding
-planeDone
+startSlot
+                    ' the plane's slot, 2^k x T at every brightness, ends at the CT1 event
+                    ' (p2kbPasm2Addct1); waitPanelDark waits for it before the next latch
+                    getct   slotEnd
+                    addct1  slotEnd, slotClocks
                     add     planeHubAddr, planeSizeBytes
-                    shr     pulseWeight, #1                 ' next plane has half the weight
+                    shr     litClocks, #1                   ' next plane has half the weight
+                    shr     slotClocks, #1
                     djnz    planesLeft, #planeLoop
 
                     add     rowHubAddr, rowSizeBytes
@@ -1084,10 +1107,12 @@ addrOutInst         muxq    OUTA, rowAddr                   ' port set at start
                     waitx   #WAITX_LATCH_SETTLE_TICKS       ' let the address settle
                     ret
 
-' waitPanelDark: return once the outstanding light pulse has ended. TESTP reads the smart pin's
-' IN (p2kbPasm2Testp), which P_PULSE raises when Y reaches 0 and WXPIN/WYPIN lower
-' (p2kbArchSmartPins), so a second call before the next WYPIN returns at once.
+' waitPanelDark: return once the previous plane's slot and its light pulse have both ended.
+' WAITCT1 waits for the CT1 event the slot set, then clears it (p2kbPasm2Waitct1); each slot is
+' waited on once. TESTP reads the smart pin's IN (p2kbPasm2Testp), which P_PULSE raises when Y
+' reaches 0 and WXPIN/WYPIN lower (p2kbArchSmartPins), so after the last pulse it returns at once.
 waitPanelDark
+                    waitct1
                     cmp     pulseStarted, #0            wz
     if_z            ret
 waitPanelDarkPoll
@@ -1133,6 +1158,7 @@ firstPulseWeight        LONG                    0                               
 ' /OE timing
 oeUnitClocks            LONG                    0                                         ' T: the /OE unit at brightness 256
 minOeClocks             LONG                    0                                         ' the chip's shortest /OE pulse, in clocks
+firstSlotClocks         LONG                    0                                         ' 2^(planes-1) x T: the MSB's slot at every brightness
 
 #IFDEF HUB75_INSTRUMENT
 pinGrpLAXT              LONG                    0                                         ' MTX_LA_XT_P08_11 pinGroup
@@ -1167,15 +1193,18 @@ endCogBuffer
                 nxtCommand                      RES     1                                 ' the command read at a frame start
                 frameSetAddr                    RES     1                                 ' the frame set on display
                 brightnessNow                   RES     1                                 ' b for this frame
-                pulsePeriod                     RES     1                                 ' P = T x b / 256, at least minOeClocks
+                litUnitClocks                   RES     1                                 ' L = T x b / 256, at least minOeClocks
+                firstLitClocks                  RES     1                                 ' 2^(planes-1) x L: the MSB's lit clocks this frame
                 pulseStarted                    RES     1                                 ' nonzero while a pulse may be outstanding
+                slotEnd                         RES     1                                 ' the CT1 target: when this plane's slot ends
 
                 ' variables
                 rowHubAddr                      RES     1                                 ' plane 0's copy of this row
                 rowAddr                         RES     1                                 ' current row address, in port position
                 rowsLeft                        RES     1                                 ' row addresses left in this frame
                 planeHubAddr                    RES     1                                 ' this plane's copy of this row
-                pulseWeight                     RES     1                                 ' 2^k for the plane being shifted
+                litClocks                       RES     1                                 ' 2^k x L: the lit clocks of the plane being shifted
+                slotClocks                      RES     1                                 ' 2^k x T: the slot of the plane being shifted
                 planesLeft                      RES     1                                 ' planes left in this row
                 columnsToShift                  RES     1                                 ' REP count for shiftColumns
                 byteOffset                      RES     1                                 ' next byte of cogBuffer
