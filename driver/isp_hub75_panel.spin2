@@ -142,8 +142,8 @@ PUB start(nID, nChainIdx) : startedCog
   nPwmFrameSizeInLongs := hub75Bffrs.pwmFrameSizeInLongs(chainIndex)
   DEBUG("- PNL: PHYScols=", udec_long_(maxChainColumns), " PHYSrows=", udec_long_(maxChainRows))
   DEBUG("- PNL: maxPwmBuffers=", udec_long_(nColorDepth), " PwmBufferSizeInLongs=", udec_long_(nPwmFrameSizeInLongs))
-  DEBUG("- PNL: BFFR pwm[1][", udec_long_(nPwmFrameSizeInLongs), "] 0x", uhex_long_(pPwmFrame1))
-  DEBUG("- PNL: BFFR pwm[2][", udec_long_(nPwmFrameSizeInLongs), "] 0x", uhex_long_(pPwmFrame2))
+  DEBUG("- PNL: BFFR pwm[1][", udec_long_(nPwmFrameSizeInLongs), "] ", uhex_long_(pPwmFrame1))
+  DEBUG("- PNL: BFFR pwm[2][", udec_long_(nPwmFrameSizeInLongs), "] ", uhex_long_(pPwmFrame2))
 
   pLastPosted := matrix.NO_FRAME_SET                    ' nothing posted yet: the first commit has no earlier post to wait for
 #IFDEF HUB75_INSTRUMENT
@@ -170,13 +170,35 @@ PUB stop()
     matrix.stop()
     cog := 0
 
-PUB fillScreenNoPWM(threeBitColor)
-'' Fill screen with a solid 3-bit color without PWM (for testing the underlying driver).
+PUB fillScreenNoPWM(threeBitColor) | pFrameSet
+'' Fill screen with a solid 3-bit color without PWM (for testing the underlying driver). Every
+'' bit plane of the frame set that is not on display is filled with the color at full level,
+'' and that set is posted the way a commit posts it, so the fill never writes the set on
+'' display. The screen buffer is not touched.
 ''
 '' @param threeBitColor - 3-bit RGB color value to fill
 
-  waitPostedSetTaken()                                  ' a fill would replace a post the driver has not taken yet
-  matrix.cmdFillScreenNoPWM(threeBitColor)
+' Local Variables:
+' @local pFrameSet - the frame set that is not on display, which the fill writes
+
+  pFrameSet := frameSetToConvertInto()                  ' waits for the previous post to be taken
+  bytefill(pFrameSet, matrix.fillByteForColor(threeBitColor), nPwmFrameSizeInBytes * nColorDepth)
+  postFrameSet(pFrameSet)
+
+PUB setBrightness(newBrightness)
+'' Set the brightness scale every refresh driver applies to its /OE time
+'' (see isp_hub75_rgb3bit.spin2 setBrightness()).
+''
+'' @param newBrightness - the desired brightness value [0-256]
+
+  matrix.setBrightness(newBrightness)
+
+PUB getBrightness() : nBrightness
+'' Return the brightness scale the refresh drivers apply to their /OE time.
+''
+'' @returns nBrightness - the brightness value [0-256]
+
+  nBrightness := matrix.getBrightness()
 
 PUB showFrameSet(pFrameSet) : accepted
 '' Post a PWM frame set to the refresh driver, the way a commit does. Only one of this adapter's
@@ -189,9 +211,9 @@ PUB showFrameSet(pFrameSet) : accepted
 
   accepted := FALSE
   if pFrameSet == matrix.NO_FRAME_SET
-    debug("HUB75: DISP", udec_(chainIndex), ": showFrameSet(NULL) refused: no frame set given; give one of this adapter's two PWM frame sets, 0x", uhex_long_(pPwmFrame1), " or 0x", uhex_long_(pPwmFrame2))
+    debug("HUB75: DISP", udec_(chainIndex), ": showFrameSet(NULL) refused: no frame set given; give one of this adapter's two PWM frame sets, ", uhex_long_(pPwmFrame1), " or ", uhex_long_(pPwmFrame2))
   elseif pFrameSet <> pPwmFrame1 and pFrameSet <> pPwmFrame2
-    debug("HUB75: DISP", udec_(chainIndex), ": showFrameSet(0x", uhex_long_(pFrameSet), ") refused: not one of this adapter's two PWM frame sets, 0x", uhex_long_(pPwmFrame1), " or 0x", uhex_long_(pPwmFrame2))
+    debug("HUB75: DISP", udec_(chainIndex), ": showFrameSet(", uhex_long_(pFrameSet), ") refused: not one of this adapter's two PWM frame sets, ", uhex_long_(pPwmFrame1), " or ", uhex_long_(pPwmFrame2))
   else
     waitPostedSetTaken()
     postFrameSet(pFrameSet)

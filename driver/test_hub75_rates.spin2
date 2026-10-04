@@ -156,10 +156,10 @@ PRI runHandshakeTrace() | commitIdx, nCommitsBefore, nCommitsAfter, nWaited, nBa
   nProblems := 0
   nCommitsBefore, nWaited, nBad, pFirstShown := display.commitTotals()
   if pFirstShown <> matrix.NO_FRAME_SET
-    debug("RATES: FAIL: first commit after start: a set was on display (0x", uhex_long_(pFirstShown), ") before any set was taken")
+    debug("RATES: FAIL: first commit after start: a set was on display (", uhex_long_(pFirstShown), ") before any set was taken")
     nProblems++
   else
-    debug("RATES: PASS: first commit after start: nothing on display (0x", uhex_long_(pFirstShown), "), converted without waiting")
+    debug("RATES: PASS: first commit after start: nothing on display (", uhex_long_(pFirstShown), "), converted without waiting")
 
   repeat commitIdx from 0 to TRACE_COMMITS - 1
     display.commitScreenToPanelSet()
@@ -167,12 +167,12 @@ PRI runHandshakeTrace() | commitIdx, nCommitsBefore, nCommitsAfter, nWaited, nBa
 
   nCommitsAfter, nWaited, nBad, pFirstShown := display.commitTotals()
   repeat commitIdx from 0 to TRACE_COMMITS - 1
-    debug("RATES: trace ", udec_(commitIdx), ": converted 0x", uhex_long_(traceConverted[commitIdx]), " shown at post 0x", uhex_long_(traceShownAtPost[commitIdx]), " shown now 0x", uhex_long_(traceShownNow[commitIdx]))
+    debug("RATES: trace ", udec_(commitIdx), ": converted ", uhex_long_(traceConverted[commitIdx]), " shown at post ", uhex_long_(traceShownAtPost[commitIdx]), " shown now ", uhex_long_(traceShownNow[commitIdx]))
     if traceConverted[commitIdx] == traceShownAtPost[commitIdx]
-      debug("RATES: FAIL: commit ", udec_(commitIdx), " converted into the set on display, 0x", uhex_long_(traceConverted[commitIdx]))
+      debug("RATES: FAIL: commit ", udec_(commitIdx), " converted into the set on display, ", uhex_long_(traceConverted[commitIdx]))
       nProblems++
     if commitIdx > FIRST_TRACE_COMMIT and traceShownAtPost[commitIdx] <> traceConverted[commitIdx - 1]
-      debug("RATES: FAIL: commit ", udec_(commitIdx), " converted before the set posted by commit ", udec_(commitIdx - 1), " (0x", uhex_long_(traceConverted[commitIdx - 1]), ") was taken; on display was 0x", uhex_long_(traceShownAtPost[commitIdx]))
+      debug("RATES: FAIL: commit ", udec_(commitIdx), " converted before the set posted by commit ", udec_(commitIdx - 1), " (", uhex_long_(traceConverted[commitIdx - 1]), ") was taken; on display was ", uhex_long_(traceShownAtPost[commitIdx]))
       nProblems++
 
   if nCommitsAfter - nCommitsBefore <> TRACE_COMMITS
@@ -275,9 +275,9 @@ PRI reportPhase(phaseIdx) | windowIdx, bSampled
     debug("RATES: depth ", udec_(colorDepth), " ", zstr_(phaseLabel(phaseIdx)), ": monitors unavailable, draw ", udec_(drawMicros), " uS, commit ", udec_(commitMicros), " uS")
 
 PRI latchesPerRefresh() : latchCount | driverConfig, eChipType, chainColumns, rowLongs, rowsInFrame
-' Count the LATCH rises that make one refresh: one per row of every plane pass. This repeats the
-' sizing of isp_hub75_rgb3bit.spin2 start() (one row is what one row address shifts), and every
-' plane is shown 2^depth - 1 times in all, which hub75Bffrs.pwmFrameCount() gives.
+' Count the LATCH rises that make one refresh: one per row of every plane. This repeats the
+' sizing of isp_hub75_rgb3bit.spin2 start() (one row is what one row address shifts), and the
+' OE-weighted refresh core latches each plane once per row, so one refresh is rows x depth.
 '
 ' @returns latchCount - LATCH rises in one full refresh
 
@@ -294,7 +294,7 @@ PRI latchesPerRefresh() : latchCount | driverConfig, eChipType, chainColumns, ro
     chainColumns *= hub75Bffrs.SCAN_4_COLUMN_FACTOR
   rowLongs := ((chainColumns * hub75Bffrs.BYTES_PER_COLUMN_CLOCK) + matrix.BYTES_PER_LONG - 1) / matrix.BYTES_PER_LONG
   rowsInFrame := hub75Bffrs.pwmFrameSizeInLongs(chainIndex) / rowLongs
-  latchCount := hub75Bffrs.pwmFrameCount(chainIndex) * rowsInFrame
+  latchCount := hub75Bffrs.colorDepth(chainIndex) * rowsInFrame
 
 PRI phaseLabel(phaseIdx) : pLabel
 ' Return the printable name of a phase.

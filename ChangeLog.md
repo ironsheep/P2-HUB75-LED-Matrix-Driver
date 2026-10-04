@@ -22,6 +22,7 @@ Each panel is described by one sentence, each adapter starts with one call, and 
 - **BREAKING**: panel-centric calls (`fillPanel()`, `setCursorOnPanel()`, `drawPanelBox()`, `drawPanelLine()`, `scrollColoredTextOnLnOfNPanels()` and their siblings) take panel positions: `P0` is the top-left panel as the display hangs, numbered in reading order. A program that numbered panels by their place in the buffer must renumber; on a display wired from the bottom-left, `fillPanel(0)` now fills the top-left panel.
 - **BREAKING**: `DISPx_ROTATION` states how the display is mounted: `ROT_RIGHT_90` is hung turned 90 degrees clockwise, and content is drawn to read upright as hung. A program that sets a rotation should re-check it against how the display hangs.
 - **BREAKING**: `wireStart()`, `wireTraverse()`, `wireOrderForPanel()`, `displayPanelForWire()`, `needsPanelColumnSwap()`, `panelRotationAt()`, `displayToPanelCoords()`, `panelPixelOffset()` and `indexToPanel()` are removed from `isp_hub75_hwBufferAccess.spin2`, and `panelRotation()` is `displayRotation()`. Programs that draw through the display object need no change.
+- **BREAKING**: the `CLK_WIDE_PULSE` manual-config flag is removed; it had no effect. A config that ORs it onto `CHIP_MANUAL_SPEC` does not compile until it is taken out.
 
 #### Added
 

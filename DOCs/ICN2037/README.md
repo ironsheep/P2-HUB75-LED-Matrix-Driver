@@ -409,13 +409,12 @@ Both panel types share these ICN2037-specific characteristics:
 | Max Clock | 30 MHz rated; 25 MHz cap | 20 ns pulses cap it at 25 MHz; wide pulse recommended |
 | **R/B Swap** | **Yes** | Red and Blue channels physically swapped |
 | G/B Swap | No | |
-| Wide Clock Pulse | **Yes** | `CLK_WIDE_PULSE` flag |
 | Init Required | No | Works immediately at power-up |
 | Latch Style | Enclosed | Latch at end of data |
 
 **Driver Flags:**
 ```spin2
-CHIP_MANUAL_SPEC | CLK_WIDE_PULSE | RB_SWAP
+CHIP_MANUAL_SPEC | RB_SWAP
 ```
 
 ---

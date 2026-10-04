@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2026
-''   Updated.... 02 Oct 2026
+''   Updated.... 03 Oct 2026
 ''
 '' =================================================================================================
 
@@ -21,7 +21,7 @@
 
    The method, per row address, per bit plane k (MSB first):
      1. read the plane's row into cog RAM (SETQ + RDLONG),
-     2. shift it out with today's column loop (isp_hub75_rgb3bit.spin2 :1039-1050),
+     2. shift it out with the driver's column loop (isp_hub75_rgb3bit.spin2 shiftColumns),
      3. wait until the previous plane's light pulse has ended (the panel is dark),
      4. set the row address and latch, in the chip's style,
      5. start the /OE pulse: a P_PULSE smart pin lights the row for 2^k x T clocks
@@ -231,7 +231,7 @@ PUB main() | bReady
 
 PRI loadConfiguration() : bValid | eAddrLines, driverConfig, scanDivisor
 ' Read DISP0's chip, geometry and pins through hwBufferAccess, the way isp_hub75_rgb3bit.spin2
-' start() does (:278-379, :414-489), and check the prototype can run on it.
+' start() does, and check the prototype can run on it.
 '
 ' @returns bValid - TRUE if the configuration is usable
 
@@ -247,7 +247,7 @@ PRI loadConfiguration() : bValid | eAddrLines, driverConfig, scanDivisor
   panelsOnChain := hub75Bffrs.maxPanels(adapterChainIndex)
   chainPixelColumns := panelPixelColumns * panelsOnChain
 
-  ' the adapter's pins (rgb3bit :291-301)
+  ' the adapter's pins (as rgb3bit start() sets its pnlLedPin* and pin groups)
   clockPin := basePinNumber + matrix.PIN_OFST_CLK
   enablePin := basePinNumber + matrix.PIN_OFST_OE
   latchPin := basePinNumber + matrix.PIN_OFST_LATCH
@@ -300,8 +300,8 @@ PRI loadConfiguration() : bValid | eAddrLines, driverConfig, scanDivisor
     bValid := FALSE
 
 PRI computeTiming() | cyclesPerBit, extraCycles, candidateUnit, candidateRow, jIdx
-' Derive the column-clock timing the way rgb3bit start() does (:322-335), then the OE unit T
-' and the model's predicted refresh and lit share (study section 3).
+' Derive the column-clock timing the way rgb3bit start() does (waitCyclesLow, waitCyclesHigh),
+' then the OE unit T and the model's predicted refresh and lit share (study section 3).
 '
 
 ' Local Variables:
@@ -405,8 +405,8 @@ PRI locateFrameSet() : bFits | pScreen, pSetOne, pSetTwo, screenBytes, setBytes
 
 PRI buildPattern(patternId) | slotIdx, physRow, colIdx, pLineByte, redBit, greenBit, blueBit, redLevel, greenLevel, blueLevel, pPlaneByte, planeIdx, bitIdx, planeBits
 ' Fill the frame set with one test pattern. Layout: plane-major, plane 0 = MSB; one plane is
-' rowAddressCount rows of columnClocks bytes; a byte is %00_B2G2R2_B1G1R1 (panel.spin2 :22-27),
-' with RB_SWAP / GB_SWAP applied as the converter does (panel.spin2 :305-324).
+' rowAddressCount rows of columnClocks bytes; a byte is %00_B2G2R2_B1G1R1 (panel.spin2 RGB1_*_BIT,
+' RGB2_*_BIT), with RB_SWAP / GB_SWAP applied as the converter does (panel.spin2 startS8).
 '
 ' @param patternId - PATTERN_* to draw
 
@@ -449,7 +449,7 @@ PRI buildPattern(patternId) | slotIdx, physRow, colIdx, pLineByte, redBit, green
 PRI lineStart(slotIdx, physRow) : pLineByte, redBit, greenBit, blueBit | rowAddress, bBottomHalf, columnOffset, halfRows
 ' Locate one panel row in plane 0 and choose its colour bits (RGB1 for the top half, RGB2 for
 ' the bottom half). Half scan: row address = row mod (rows / 2). SCAN_4 follows
-' convertScreen2PWM_14 (panel.spin2 :245-371): row address = row mod (rows / 4); each slot
+' convertScreen2PWM_14 (panel.spin2): row address = row mod (rows / 4); each slot
 ' holds two lines per address, and the line whose row mod (rows / 2) is in the first quarter
 ' goes in the second half.
 '
@@ -570,10 +570,10 @@ PRI announcePattern(patternId) | pName
   debug("OE-BCM: PATTERN ", udec_(patternId), ": ", zstr_(pName))
 
 PRI initPanel()
-' Run the chip's register init before the panel is driven, as rgb3bit start() does (:390-397).
+' Run the chip's register init before the panel is driven, as rgb3bit start() does (bInitPanel).
 '
 
-  ' setupPins() of rgb3bit (:595-605): every adapter pin an output, /OE high (blank)
+  ' setupPins() of rgb3bit: every adapter pin an output, /OE high (blank)
   pinlow(clockPin)
   pinlow(latchPin)
   pinhigh(enablePin)
@@ -582,11 +582,11 @@ PRI initPanel()
   if chipTypeId == hwEnum.CHIP_FM6126A
     initPanelFM6126A()
   elseif chipTypeId == hwEnum.CHIP_MBI5124GP
-    debug("OE-BCM: MBI5124GP: the driver has no init for this chip (rgb3bit :607-613); none done")
+    debug("OE-BCM: MBI5124GP: the driver has no init for this chip (rgb3bit resetPanelMBI5124); none done")
 
 PRI initPanelFM6126A() | maxPhysicalCols, last11Cols, last12Cols, lPinOE, lPinLATCH, lPinCLK, lPnlRowAddrPins, lPnlColorPins
 ' Write FM6126A control registers 11 and 12. This reproduces resetPanelFM6126() of
-' isp_hub75_rgb3bit.spin2 (:615-709) instruction for instruction, with two changes: the
+' isp_hub75_rgb3bit.spin2 instruction for instruction, with two changes: the
 ' redundant DRVL of pin A is dropped (it is in the address group), and the sequence ends with
 ' /OE HIGH (blank) rather than low, because the refresh cog, not this one, lights the panel.
 '
@@ -712,7 +712,8 @@ PRI startRefreshCog() : bStarted | colorByteIdx
 ' Local Variables:
 ' @local colorByteIdx - which byte of the port holds R1..B2
 
-  ' which port, and which byte of it, carries the colour pins (rgb3bit :400-479, :755-772)
+  ' which port, and which byte of it, carries the colour pins (rgb3bit start()'s pin-group case
+  ' and drive_matrix's colorOutInst set-up)
   usePortB := (basePinNumber >= PINS_PER_PORT)
   colorByteIdx := ((basePinNumber + matrix.PIN_OFST_R1) & PORT_PIN_MASK) / matrix.BITS_PER_BYTE
   case colorByteIdx
@@ -917,7 +918,7 @@ DAT ' ---- Refresh Cog: OE-weighted bit planes ----
                 ORG     0
 refreshCog
                 ' Point the two OUT-writing instructions at the adapter's port, and the colour
-                ' write at the byte holding R1..B2 (the self-modification of rgb3bit :755-772)
+                ' write at the byte holding R1..B2 (the self-modification in rgb3bit drive_matrix)
                 cmp     usePortB, #0                wz
     if_z        setd    colorOutInst, #OUTA
     if_z        setd    addressOutInst, #OUTA
@@ -962,7 +963,7 @@ planeLoop
     if_nz       jmp     #overlapPlane
 
                 ' Latch at end (ICN2037, FM6124, MBI5124GP ...): shift every column, then once
-                ' the panel is dark set the address and pulse LATCH (rgb3bit :1049-1067)
+                ' the panel is dark set the address and pulse LATCH (rgb3bit planeLoop, latch at end)
                 mov     columnsToShift, columnClocks
                 call    #shiftColumns
                 call    #finishClock
@@ -978,7 +979,7 @@ planeLoop
 
 overlapPlane
                 ' Overlapped latch (FM6126A, GS6238S, DP5125D): LATCH is high while the last
-                ' 3 columns clock in (rgb3bit :987-1007). The previous plane must be dark
+                ' 3 columns clock in (rgb3bit overlapPlane). The previous plane must be dark
                 ' before LATCH rises; the address changes after the latch, as today.
                 mov     columnsToShift, columnClocksBeforeLatch
                 call    #shiftColumns
@@ -1008,7 +1009,7 @@ lightPlane
                 jmp     #frameLoop
 
 ' shiftColumns(columnsToShift, columnByteIndex): clock columnsToShift bytes of rowBuffer out
-' to R1..B2. The same seven instructions as rgb3bit :1039-1047: 14 clocks plus the two WAITX
+' to R1..B2. The same seven instructions as rgb3bit shiftColumns: 14 clocks plus the two WAITX
 ' extensions, 16 clocks per column at 335 MHz. CLK is left high; finishClock drops it.
 shiftColumns
                 rep     @shiftColumnsEnd, columnsToShift
@@ -1022,7 +1023,8 @@ colorOutInst    setbyte OUTA, columnColor, #matrix.OUT_RGB_BYTE_POS  ' port and 
 shiftColumnsEnd
                 ret
 
-' finishClock: end the last column's clock pulse (rgb3bit :1049-1050)
+' finishClock: end the last column's clock pulse (the WAITX + DRVL after each shiftColumns call in
+' rgb3bit planeLoop)
 finishClock
                 waitx   #matrix.WAITX_EOBYTE_TICKS
                 drvl    clockPin
@@ -1038,7 +1040,7 @@ waitPanelDarkPoll
     if_nc       jmp     #waitPanelDarkPoll
                 ret
 
-' emitAddress: put rowAddressBits on A..E and let it settle (rgb3bit :1082-1086)
+' emitAddress: put rowAddressBits on A..E and let it settle (rgb3bit emitAddress)
 emitAddress
                 setq    addressMask
 addressOutInst  muxq    OUTA, rowAddressBits                ' port set at start

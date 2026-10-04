@@ -122,6 +122,12 @@ CON ' ---- User Panel Connection and Configuration ----
     DISP0_CUBE_TOP                 = hwEnum.NO_PANEL
     DISP0_CUBE_FRONT               = hwEnum.NO_PANEL
 
+    ' (7) The refresh rate to aim for, in Hz (default 60)
+    '    The driver picks the brightest panel timing that reaches this rate. A long chain at
+    '    deep colour may not reach it; the driver then runs at the fastest rate it can and
+    '    prints that rate at startup. Lower it for more brightness on a large display.
+    DISP0_TARGET_REFRESH_HZ        = 60
+
     ' End User configure
 
     ' The display's size, its grid of panels and each panel's place and rotation are
@@ -203,6 +209,9 @@ CON ' ---- User Panel Connection and Configuration ----
     DISP1_CUBE_TOP                 = hwEnum.NO_PANEL
     DISP1_CUBE_FRONT               = hwEnum.NO_PANEL
 
+    ' (7) The refresh rate to aim for, in Hz (default 60; rules above DISP0)
+    DISP1_TARGET_REFRESH_HZ        = 60
+
     ' End User configure
 
     ' Screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
@@ -279,6 +288,9 @@ CON ' ---- User Panel Connection and Configuration ----
     DISP2_SHAPE                    = hwEnum.SHAPE_FLAT
     DISP2_CUBE_TOP                 = hwEnum.NO_PANEL
     DISP2_CUBE_FRONT               = hwEnum.NO_PANEL
+
+    ' (7) The refresh rate to aim for, in Hz (default 60; rules above DISP0)
+    DISP2_TARGET_REFRESH_HZ        = 60
 
     ' End User configure
 

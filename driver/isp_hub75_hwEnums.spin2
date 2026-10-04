@@ -76,8 +76,8 @@ CON ' Hardware Interface Constants
 '   PANEL_DRIVER_CHIP = CHIP_FM6126A    ' which is: CHIP_MANUAL_SPEC | LAT_STYLE_OFFSET | LAT_POSN_OVERLAP | INIT_PANEL_REQUIRED
 '   PANEL_DRIVER_CHIP = CHIP_FM6124     ' which is: CHIP_MANUAL_SPEC
 '   PANEL_DRIVER_CHIP = CHIP_GS6238S    ' which is: CHIP_MANUAL_SPEC | LAT_STYLE_OFFSET | LAT_POSN_OVERLAP | GB_SWAP
-'   PANEL_DRIVER_CHIP = CHIP_ICN2037    ' which is: CHIP_MANUAL_SPEC | CLK_WIDE_PULSE | RB_SWAP
-'   PANEL_DRIVER_CHIP = CHIP_ICN2038S   ' which is: CHIP_MANUAL_SPEC | CLK_WIDE_PULSE | SCAN_4
+'   PANEL_DRIVER_CHIP = CHIP_ICN2037    ' which is: CHIP_MANUAL_SPEC | RB_SWAP
+'   PANEL_DRIVER_CHIP = CHIP_ICN2038S   ' which is: CHIP_MANUAL_SPEC | SCAN_4
 '   PANEL_DRIVER_CHIP = CHIP_MBI5124GP  ' which is: CHIP_MANUAL_SPEC | CHIP_UNK_LAT_END_ENCL | SCAN_4 | INIT_PANEL_REQUIRED
 '   PANEL_DRIVER_CHIP = CHIP_DP5125D    ' which is: CHIP_MANUAL_SPEC | LAT_STYLE_OFFSET | LAT_POSN_OVERLAP | SCAN_4
 
@@ -86,11 +86,10 @@ CON ' Hardware Interface Constants
 '   LAT_STYLE_OFFSET    ($100)  - latch pulse uses offset style
 '   LAT_POSN_OVERLAP    ($200)  - latch position overlaps last clock
 '   INIT_PANEL_REQUIRED ($400)  - panel requires power-on init sequence
-'   CLK_WIDE_PULSE      ($800)  - clock uses wide pulse timing
 '   RB_SWAP             ($1000) - swap red and blue color channels
 '   SCAN_4              ($2000) - 1/4 scan panel addressing
 '   GB_SWAP             ($4000) - swap green and blue color channels
-    #$100, LAT_STYLE_OFFSET, #$200, LAT_POSN_OVERLAP, #$400, INIT_PANEL_REQUIRED, #$800, CLK_WIDE_PULSE, #$1000, RB_SWAP, #$2000, SCAN_4, #$4000, GB_SWAP
+    #$100, LAT_STYLE_OFFSET, #$200, LAT_POSN_OVERLAP, #$400, INIT_PANEL_REQUIRED, #$1000, RB_SWAP, #$2000, SCAN_4, #$4000, GB_SWAP
 
 '  (5) Describe the overall layout of your hardware panel(s):
 ' SUPPORTED address widths:  A-B-C, or A-B-C-D, or A-B-C-D-E

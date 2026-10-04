@@ -224,7 +224,7 @@ CHIP_MANUAL_SPEC
 
 **Driver Flags:**
 ```spin2
-CHIP_MANUAL_SPEC | CLK_WIDE_PULSE | RB_SWAP
+CHIP_MANUAL_SPEC | RB_SWAP
 ```
 
 **Notes:**
@@ -255,7 +255,7 @@ CHIP_MANUAL_SPEC | CLK_WIDE_PULSE | RB_SWAP
 
 **Driver Flags:**
 ```spin2
-CHIP_MANUAL_SPEC | CLK_WIDE_PULSE | SCAN_4
+CHIP_MANUAL_SPEC | SCAN_4
 ```
 
 **Notes:**
@@ -394,7 +394,6 @@ CHIP_MANUAL_SPEC | LAT_STYLE_OFFSET | LAT_POSN_OVERLAP | SCAN_4
 | `LAT_STYLE_OFFSET` | $100 | Latch signal uses offset timing style |
 | `LAT_POSN_OVERLAP` | $200 | Latch position overlaps with data clock |
 | `INIT_PANEL_REQUIRED` | $400 | Panel requires special initialization sequence at power-up |
-| `CLK_WIDE_PULSE` | $800 | Clock signal needs wider pulse (slower effective clock) |
 | `RB_SWAP` | $1000 | Red and Blue color channels are physically swapped |
 | `SCAN_4` | $2000 | Four rows lit at once (1/8 scan on a 32-row panel); needs the quarter-scan screen-to-panel conversion, and the refresh line holds two column clocks for every panel column |
 | `GB_SWAP` | $4000 | Green and Blue color channels are physically swapped |

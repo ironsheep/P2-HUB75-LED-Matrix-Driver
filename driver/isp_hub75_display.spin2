@@ -218,7 +218,7 @@ PUB startWithId(nId, eHub75Adapter) : workerCog | scrollerIndex, dvrConfig, eChi
   ' panel coordinates run over a panel as the viewer sees it (one cell of the display's grid)
   rowsPerPanel, columnsPerPanel := hub75Bffrs.cellSizeInPixels(chainIndex)
 
-  debug("DSP: BFFR screen[", udec_long_(hub75Bffrs.displaySizeInLongs(chainIndex)), "] 0x", uhex_long_(hub75Bffrs.displayBufferAddress(chainIndex)))
+  debug("DSP: BFFR screen[", udec_long_(hub75Bffrs.displaySizeInLongs(chainIndex)), "] ", uhex_long_(hub75Bffrs.displayBufferAddress(chainIndex)))
 
   dvrConfig, eChipType := hub75Bffrs.getDriverFlags(chainIndex)
   bScan_1_4 := (dvrConfig & hwEnum.SCAN_4) > 0 ? True : False
@@ -258,13 +258,16 @@ PUB clearScreenBuffer()
   hub75Bffrs.zeroFillBuffer(chainIndex)
 
 PUB setBrightness(newBrightness)
-'' Set the global brightness value
+'' Set the global brightness value (every adapter)
 ''  - where 256 is NO brightness adjustment
 ''  - where 0 is OFF, 205 = 80%, etc.
+''  - brightness scales how long each row is lit (the /OE time), not the colour values
+''  - the lit time never goes below the panel chip's shortest /OE pulse: low values give that
+''    floor brightness rather than less (0 is still OFF)
 ''
 '' @param newBrightness - the desired brightness value [0-255,256]
 
-  colorUtils.setBrightness(newBrightness)
+  panelSet.setBrightness(newBrightness)
 
 PUB getBrightness() : brightness
 '' Return the global brightness value
@@ -273,7 +276,7 @@ PUB getBrightness() : brightness
 ''  - where 256 is NO brightness adjustment
 ''  - where 0 is OFF, 205 = 80%, etc.
 
-  brightness := colorUtils.getBrightness()
+  brightness := panelSet.getBrightness()
 
 PUB fillScreen(rgbColor) | panelIndex
 '' Fill the display with 24-bit color value. The display is filled panel by panel, so a

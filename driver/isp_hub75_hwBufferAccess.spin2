@@ -107,6 +107,7 @@ screenTableEnt0         ' The start of the 1st HUB75 chain descriptor table
         LONG    user.DISP0_SCRN_SIZE_IN_LONGS, user.DISP0_PWM_FRAME_SIZE_IN_BYTES, user.DISP0_ROTATION
         LONG    user.DISP0_MAX_PANEL_COLUMNS, user.DISP0_MAX_PANEL_ROWS
         LONG    PLACEHOLDER_CHIP_TYPE, PLACEHOLDER_PIN_BASE, PLACEHOLDER_ADDR_LINES
+        LONG    user.DISP0_TARGET_REFRESH_HZ
 screenTableEnt0End      ' The end of the 1st HUB75 chain descriptor table
 
 screenTableEnt1         ' The start of the 2nd HUB75 adapter's descriptor (display DISP1)
@@ -116,6 +117,7 @@ screenTableEnt1         ' The start of the 2nd HUB75 adapter's descriptor (displ
         LONG    user.DISP1_SCRN_SIZE_IN_LONGS, user.DISP1_PWM_FRAME_SIZE_IN_BYTES, user.DISP1_ROTATION
         LONG    user.DISP1_MAX_PANEL_COLUMNS, user.DISP1_MAX_PANEL_ROWS
         LONG    PLACEHOLDER_CHIP_TYPE, PLACEHOLDER_PIN_BASE, PLACEHOLDER_ADDR_LINES
+        LONG    user.DISP1_TARGET_REFRESH_HZ
 
 screenTableEnt2         ' The start of the 3rd HUB75 adapter's descriptor (display DISP2)
 '                    LONG    @hub75Buffer2, @pwmFrames2_1, @pwmFrames2_2
@@ -124,6 +126,7 @@ screenTableEnt2         ' The start of the 3rd HUB75 adapter's descriptor (displ
         LONG    user.DISP2_SCRN_SIZE_IN_LONGS, user.DISP2_PWM_FRAME_SIZE_IN_BYTES, user.DISP2_ROTATION
         LONG    user.DISP2_MAX_PANEL_COLUMNS, user.DISP2_MAX_PANEL_ROWS
         LONG    PLACEHOLDER_CHIP_TYPE, PLACEHOLDER_PIN_BASE, PLACEHOLDER_ADDR_LINES
+        LONG    user.DISP2_TARGET_REFRESH_HZ
 
 screenTableEntEnd      ' The end of the all of the chain descriptor tables
 
@@ -185,13 +188,15 @@ CON { PRIVATE internal constants }
     '  ENTR_CHIP_TYPE_OFST          - LED driver chip type enum
     '  ENTR_HUB75_PIN_BASE_OFST     - base pin group enum
     '  ENTR_HPANEL_ADDR_LINES_OFST  - address line count enum
+    '  ENTR_TARGET_REFRESH_OFST     - refresh target in Hz (DISPn_TARGET_REFRESH_HZ)
     ' The display's size and its grid of panels are not in the descriptor: they are
     ' derived from the wiring sentences at startup (layoutPixelRows and the tables below them).
     #0, ENTR_SCRN_BUFFER_ADDR_OFST, ENTR_FRM1_BUFFER_ADDR_OFST, ENTR_FRM2_BUFFER_ADDR_OFST, ...
     ENTR_COLOR_DEPTH, ENTR_BYTES_PER_COLOR_OFST, ...
     ENTR_SCRN_SIZE_IN_LONGS_OFST, ENTR_FRM_SIZE_IN_BYTES_OFST, ENTR_ROTATION_OFST, ...
     ENTR_PANEL_COLUMNS_OFST, ENTR_PANEL_ROWS_OFST, ...
-    ENTR_CHIP_TYPE_OFST, ENTR_HUB75_PIN_BASE_OFST, ENTR_HPANEL_ADDR_LINES_OFST
+    ENTR_CHIP_TYPE_OFST, ENTR_HUB75_PIN_BASE_OFST, ENTR_HPANEL_ADDR_LINES_OFST, ...
+    ENTR_TARGET_REFRESH_OFST
 
 PUB null()
 '' Placeholder to prevent this object from being used as a top-level file.
@@ -552,6 +557,19 @@ PUB addressLines(nChainIdx) : nAddrLines | pEntry
   pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
   nAddrLines := LONG[pEntry][ENTR_HPANEL_ADDR_LINES_OFST]
 
+PUB targetRefreshHz(nChainIdx) : nTargetHz | pEntry
+'' Return the refresh rate the specified HUB75 adapter's refresh driver aims for: its
+'' DISPn_TARGET_REFRESH_HZ setting.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @returns nTargetHz - the refresh target, in Hz
+
+' Local Variables:
+' @local pEntry - pointer to the chain descriptor table entry
+
+  pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
+  nTargetHz := LONG[pEntry][ENTR_TARGET_REFRESH_OFST]
+
 PUB maxPanels(nChainIdx) : nMaxPanels
 '' Return the total number of panels connected to the nChainIdx HUB75 adapter: the cable
 '' positions in use in its wiring sentences. Panel positions run from 0 to this count - 1.
@@ -797,9 +815,9 @@ PUB getDriverFlags(nChainIdx) : desiredFlags, eChipType
       desiredFlags := hwEnum.CHIP_MANUAL_SPEC
   elseif eChipType == hwEnum.CHIP_ICN2037 OR eChipType == hwEnum.CHIP_ICN2038S OR eChipType == hwEnum.CHIP_UNK_LAT_END_ENCL_SLO_CLK
     if eChipType == hwEnum.CHIP_ICN2037
-      desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.CLK_WIDE_PULSE | hwEnum.RB_SWAP
+      desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.RB_SWAP
     elseif eChipType == hwEnum.CHIP_ICN2038S
-      desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.CLK_WIDE_PULSE | hwEnum.SCAN_4
+      desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.SCAN_4
   elseif eChipType & CHIP_TYPE_MASK <> hwEnum.CHIP_MANUAL_SPEC
     ' report ERROR and exit
     DEBUG("- have unknown CHIP ", ubin_word(desiredFlags))

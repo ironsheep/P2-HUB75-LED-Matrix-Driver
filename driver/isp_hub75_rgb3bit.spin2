@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 15 Jan 2024
+''   Updated.... 03 Oct 2026
 ''
 '' =================================================================================================
 
@@ -27,6 +27,44 @@ CON ' timing
     ' = 14 x 20 MHz = 280 MHz minimum for 20 MHz panel clock
     MIN_SYSCLK_HZ = BASE_LOOP_CYCLES * TARGET_PANEL_HZ
 
+CON { OE-weighted bit planes: the /OE smart pin, brightness and the refresh model }
+
+    ' /OE is a P_PULSE smart pin owned by the refresh cog (p2kbArchSmartPin00100PulseCycleOutput).
+    ' X[15:0] is the base period P and X[31:16] = 0, so the output is high for all Y x P clocks;
+    ' inverted, so the pin idles HIGH (blank) and goes LOW (lit) for the pulse. P_OE lets the
+    ' smart pin drive the pin. Plane k is lit for Y = 2^k periods.
+    OE_PIN_MODE                   = P_PULSE | P_OE | P_INVERT_OUTPUT
+
+    ' The base period is the 16-bit field X[15:0] (p2kbArchSmartPin00100PulseCycleOutput)
+    MAX_PULSE_BASE_CLOCKS         = $FFFF
+
+    ' Brightness b scales the base period: P = T x b / FULL_BRIGHTNESS. 256 is no reduction, 0 is off.
+    FULL_BRIGHTNESS               = 256
+    BRIGHTNESS_SHIFT              = 8           ' divide by FULL_BRIGHTNESS
+
+    ' Shortest /OE pulse each chip accepts, in ns (DOCs/ChipCharacteristicsMatrix.md, "Datasheet
+    ' Clock and /OE Ratings"). ICN2037: its datasheets disagree (V1.1 60 ns, V2.0 40 ns), and 60
+    ' holds for both. MBI5124GP: the 3.3 V row. A chip with no rating in the table uses
+    ' MIN_OE_NS_UNRATED, and start() says so.
+    MIN_OE_NS_FM6124              = 30
+    MIN_OE_NS_FM6126A             = 40
+    MIN_OE_NS_ICN2038S            = 40
+    MIN_OE_NS_ICN2037             = 60
+    MIN_OE_NS_MBI5124GP           = 50
+    MIN_OE_NS_UNRATED             = 50
+
+    ' Refresh model overheads (estimates, in clocks, as in test_hub75_oe_bcm.spin2): the fixed cost
+    ' of a SETQ+RDLONG row load on top of one clock per long, and the clocks from the end of a
+    ' shift to the WYPIN that lights the plane (end of clock, IN poll, address, LATCH pulse)
+    ROW_LOAD_SETUP_CLOCKS         = 24
+    LATCH_SEQUENCE_CLOCKS         = 64
+
+    ' Fixed-point reports: x100 values print with one decimal
+    NS_PER_SECOND                 = 1_000_000_000
+    FIXED_POINT_SCALE             = 100
+    PERCENT_X100_SCALE            = 10_000
+    FRACTION_DIVISOR              = 10
+
 CON { I/O PINs }
 
 ' New P2 Eval Board HUB75 Adapter:
@@ -41,8 +79,8 @@ CON { instrumentation strobes: compiled only when HUB75_INSTRUMENT is defined }
 ' Each mark is one pulse (two OUTNOTs):
 '  P08 - posted set taken: the refresh cog took a newly posted PWM frame set, so the
 '        set it shows (dvrShowing) changed. A repost of the set already shown does not mark
-'  P09 - frame start: the cog began showing a PWM frame set
-'  P10 - row start: the cog began shifting one row address
+'  P09 - frame start: the cog began showing a PWM frame set (all rows, all planes)
+'  P10 - row start: the cog began the planes of one row address
 '  P11 - plane latch: the cog latched one row of one bit plane
     MTX_LA_XTRA_PINS_BASE         = 8
     MTX_LA_XT_P08                 = MTX_LA_XTRA_PINS_BASE + 0
@@ -61,8 +99,6 @@ CON ' Data
     ' driver COG internal buffer size: the line buffer, whose size is the driver limit
     ' hub75Bffrs.LINE_BUFFER_BYTES (the startup panel-limit check reads the same value)
     MAX_COG_BUFFER_SIZE_IN_LONGS  = (hub75Bffrs.LINE_BUFFER_BYTES + 3) / 4
-    ' fewest PWM rows a sub-page may hold when searching for a size that tiles the frame
-    MIN_PWM_ROWS_PER_SUBPAGE      = 1
 
 ' offsets in longs
     RED_OFFSET                    = 0
@@ -84,17 +120,20 @@ CON ' Data
     YELLOW                        = $06
     WHITE                         = $07
 
-' Driver command codes (internal cog dispatch, caller writes one into dvrCommand):
-'  CMD_DONE            - no command pending / command completed
-'  CMD_CLEAR           - clear the display buffer
-'  CMD_SHOW_BUFFER     - copy and display caller buffer (no PWM)
-'  CMD_FILL_COLOR      - fill the cog buffer with a 3-bit color
-'  CMD_SHOW_PWM_BUFFER - display a PWM frame set
-'  CMD_STOP            - stop the driver cog
-    #0, CMD_DONE, CMD_CLEAR, CMD_SHOW_BUFFER, CMD_FILL_COLOR, CMD_SHOW_PWM_BUFFER, CMD_STOP
+' Driver command codes (caller writes one into dvrCommand):
+'  CMD_DONE            - no frame set posted yet: the panel stays blank
+'  CMD_SHOW_PWM_BUFFER - show the PWM frame set in dvrArgument (taken at the next frame start)
+    #0, CMD_DONE, CMD_SHOW_PWM_BUFFER
 
     ' dvrShowing before the driver has taken a posted PWM frame set (no hub frame set lives at 0)
     NO_FRAME_SET                  = 0
+
+    ' The hub longs handed to the refresh cog, in ptra order (ptrCommand onward in VAR):
+    '  HUB_PTR_COMMAND    - @dvrCommand
+    '  HUB_PTR_ARGUMENT   - @dvrArgument, the posted frame set
+    '  HUB_PTR_SHOWING    - @dvrShowing, written by the cog at each frame start
+    '  HUB_PTR_BRIGHTNESS - @brightnessScale, read by the cog at each frame start
+    #0, HUB_PTR_COMMAND, HUB_PTR_ARGUMENT, HUB_PTR_SHOWING, HUB_PTR_BRIGHTNESS
 
 CON { HUB75 pin layout offsets (relative to adapter base pin) }
 
@@ -122,67 +161,29 @@ CON { scan-geometry / buffer packing }
     ROWS_ABCD                     = 16          ' A-D address lines -> 16 rows
     ROWS_ABC                      = 8           ' A-C address lines -> 8 rows
 
-    ' DAT-initial placeholder column counts (overwritten by start())
+    ' DAT-initial placeholder column count (overwritten by start())
     DFLT_COL_CTR_MAX              = 64                            ' default columns total
-    DFLT_COL_CTR_MAX_LNGS         = DFLT_COL_CTR_MAX / BYTES_PER_LONG   ' 64 cols = 16 longs
-    DFLT_COL_CTR_LATCH            = DFLT_COL_CTR_MAX - LATCH_OVERLAP_COLS ' colCtrMax-3
 
 CON { driver-config flag extraction }
 
     DRIVER_FLAGS_MASK             = $ff00       ' driver-flag byte within dvrConfig
 
-CON { addr/pin bitmask + addr-value wall (per pin-group x per addr-mode) }
+CON { row-address bitmask + one-row step (per pin-group x per addr-mode) }
 
 ' Pin groups by 16-bit region within the 32-bit port:
 '   LO16  = pins  0-15  (also pins 32-47 of port B)
-'   MID16 = pins  8-23
 '   HI16  = pins 16-31  (also pins 48-63 of port B)
 
     ' --- LO16 (low 16 pins) ---
-    MASK_ALLPINS_LO16_ABCDE       = %00000000_00000000_00111111_11111111
     MASK_ADDR_LO16_ABCDE          = %00000000_00000000_00000000_11111000
-    MASK_UNUSED_LO16_ABCDE        = %00000000_00000000_00000000_00000000
-    ADDR_VAL_MAX_LO16_ABCDE       = $0000_00F8  ' 31 in upper 5 bits of byte
-    MASK_ALLPINS_LO16_ABCD        = %00000000_00000000_00111111_01111111
     MASK_ADDR_LO16_ABCD           = %00000000_00000000_00000000_01111000
-    MASK_UNUSED_LO16_ABCD         = %00000000_00000000_00000000_10000000
-    ADDR_VAL_MAX_LO16_ABCD        = $0000_0078  ' 15 in upper 5 bits of byte
-    MASK_ALLPINS_LO16_ABC         = %00000000_00000000_00111111_00111111
     MASK_ADDR_LO16_ABC            = %00000000_00000000_00000000_00111000
-    MASK_UNUSED_LO16_ABC          = %00000000_00000000_00000000_11000000
-    ADDR_VAL_MAX_LO16_ABC         = $0000_0038  ' 7 in upper 5 bits of byte
-    MASK_RGB12_LO16               = %00000000_00000000_00111111_00000000
     ADDR_VAL_ONE_LO16             = $0000_0008  ' 1 in upper 5 bits of byte
 
-    ' --- MID16 (middle 16 pins) ---
-    MASK_ALLPINS_MID16_ABCDE      = %00000000_00111111_11111111_00000000
-    MASK_ADDR_MID16_ABCDE         = %00000000_00000000_11111000_00000000
-    MASK_UNUSED_MID16_ABCDE       = %00000000_00000000_00000000_00000000
-    ADDR_VAL_MAX_MID16_ABCDE      = $0000_00F8  ' 31 in upper 5 bits of byte
-    MASK_ALLPINS_MID16_ABCD       = %00000000_00111111_01111111_00000000
-    MASK_ADDR_MID16_ABCD          = %00000000_00000000_01111000_00000000
-    MASK_UNUSED_MID16_ABCD        = %00000000_00000000_10000000_00000000
-    ADDR_VAL_MAX_MID16_ABCD       = $0000_0078  ' 15 in upper 5 bits of byte
-    MASK_ALLPINS_MID16_ABC        = %00000000_00111111_00111111_00000000
-    MASK_ADDR_MID16_ABC           = %00000000_00000000_00111000_00000000
-    MASK_UNUSED_MID16_ABC         = %00000000_00000000_11000000_00000000
-    ADDR_VAL_MAX_MID16_ABC        = $0000_0038  ' 7 in upper 5 bits of byte
-    MASK_RGB12_MID16              = %00000000_00111111_00000000_00000000
-
     ' --- HI16 (high 16 pins) ---
-    MASK_ALLPINS_HI16_ABCDE       = %00111111_11111111_00000000_00000000
     MASK_ADDR_HI16_ABCDE          = %00000000_11111000_00000000_00000000
-    MASK_UNUSED_HI16_ABCDE        = %00000000_00000000_00000000_00000000
-    ADDR_VAL_MAX_HI16_ABCDE       = $00F8_0000  ' 31 in upper 5 bits of byte
-    MASK_ALLPINS_HI16_ABCD        = %00111111_01111111_00000000_00000000
     MASK_ADDR_HI16_ABCD           = %00000000_01111000_00000000_00000000
-    MASK_UNUSED_HI16_ABCD         = %00000000_10000000_00000000_00000000
-    ADDR_VAL_MAX_HI16_ABCD        = $0078_0000  ' 15 in upper 5 bits of byte
-    MASK_ALLPINS_HI16_ABC         = %00111111_00111111_00000000_00000000
     MASK_ADDR_HI16_ABC            = %00000000_00111000_00000000_00000000
-    MASK_UNUSED_HI16_ABC          = %00000000_11000000_00000000_00000000
-    ADDR_VAL_MAX_HI16_ABC         = $0038_0000  ' 7 in upper 5 bits of byte
-    MASK_RGB12_HI16               = %00111111_00000000_00000000_00000000
     ADDR_VAL_ONE_HI16             = $0008_0000  ' 1 in upper 5 bits of byte
 
 CON { COGINIT / inline-PASM timing + FM6126A register init }
@@ -201,22 +202,22 @@ CON { COGINIT / inline-PASM timing + FM6126A register init }
     FM6126_CLK_LOW_TICKS          = 500         ' FM6126A clock-low wait
     FM6126_REG_GAP_TICKS          = 50          ' delay between register loads
 
-CON { SETR/SETD self-modify encodings + pack/fill shifts }
+CON { SETR self-modify encodings + pack shifts }
 
-    ' SETR re-targets outInst2of3's SETBYTE byte selector (%1000110 = SETBYTE op)
-    SETR_SETBYTE_BYTE1            = %1000110_01 ' setbyte #1 (high 16 bits)
-    SETR_SETBYTE_BYTE2            = %1000110_10 ' setbyte #2 (middle 16 bits)
-    SETR_SETBYTE_BYTE3            = %1000110_11 ' setbyte #3 (low 16 bits)
-    SETR_MAKE_ROR                 = %0000001_00 ' re-target rotInstr -> ROR
-    SETR_MAKE_ROL_NOP             = %0000000_00 ' re-target -> ROL / NOP form
-    SETD_NOP_ARG                  = 0           ' SETD arg that completes a NOP
+    ' SETR re-targets colorOutInst's SETBYTE byte selector (%1000110 = SETBYTE op)
+    SETR_SETBYTE_BYTE1            = %1000110_01 ' setbyte #1 (pins 8-15 of the port)
+    SETR_SETBYTE_BYTE2            = %1000110_10 ' setbyte #2 (pins 16-23 of the port)
+    SETR_SETBYTE_BYTE3            = %1000110_11 ' setbyte #3 (pins 24-31 of the port)
 
     OUT_RGB_BYTE_POS              = 3           ' SETBYTE pos for RGB output byte
-    COLOR_NIBBLE_SHIFT            = 3           ' shift to pack 3-bit color into byte
-    FILL_BYTE_SHIFT               = 8           ' shift to replicate byte across long
+    COLOR_NIBBLE_SHIFT            = 3           ' shift from the RGB1 bits to the RGB2 bits of a byte
 
     COG_RAM_FIT_LIMIT             = 496         ' last usable cog-RAM long for FIT
     COGBFFR_AUTOINC_FLAG          = $200        ' pointer auto-increment flag bit
+
+DAT ' ---- Brightness (singleton: every adapter's refresh cog reads it once per frame) ----
+
+    brightnessScale         LONG    FULL_BRIGHTNESS     ' b, 0-256: P = T x b / 256; 0 = never lit
 
 OBJ
 
@@ -229,9 +230,10 @@ VAR
     LONG    instanceID
     LONG    chainIndex
 
-    LONG    ptrCommand                                              ' ptra[0]
-    LONG    ptrArgument                                             ' ptra[1]  @buffer -OR- color value [0-7]
-    LONG    ptrShowing                                              ' ptra[2]  @dvrShowing
+    LONG    ptrCommand                                              ' ptra[HUB_PTR_COMMAND]
+    LONG    ptrArgument                                             ' ptra[HUB_PTR_ARGUMENT]  @dvrArgument
+    LONG    ptrShowing                                              ' ptra[HUB_PTR_SHOWING]  @dvrShowing
+    LONG    ptrBrightness                                           ' ptra[HUB_PTR_BRIGHTNESS]  @brightnessScale
     ' write values here to pass to driver
     LONG    dvrCommand
     LONG    dvrArgument
@@ -251,8 +253,6 @@ VAR
     LONG    maxPanelColumns
     LONG    maxPanelRows
     LONG    pwmBufferCount
-    LONG    pwmSubPageCount
-    LONG    pwmSubPageSizeInLongs
 
     ' individual pins
     LONG    basePin
@@ -279,8 +279,15 @@ PUB null()
 '' This is not a top level object.
 ''
 
-PUB start(nID, nChainIdx) : startedCog | tmpVar, panelCt, tmpConstant, widthInPanels, heightInPanels, pwmRowSizeInLongs, pwmRowsInCogBuffer, pwmRowsInFrame
+PUB start(nID, nChainIdx) : startedCog | tmpVar, panelCt, tmpConstant, widthInPanels, heightInPanels, clocksPerColumn, shiftClocks, rowLoadClocks, jValue, refreshX100, dutyX100, targetHz, bTargetMet
 '' Set up PASM2 driver variables and start a new cog running the matrix driver.
+''
+'' The refresh cog shows OE-weighted bit planes: per row address it loads, shifts and latches
+'' each plane once, MSB first, and lights plane k for 2^k periods of the /OE unit T. start()
+'' picks T for the display's DISPn_TARGET_REFRESH_HZ: the brightest T (the smallest j, with
+'' T = S / 2^j and S the clocks to shift one row) whose predicted refresh meets the target,
+'' never shorter than the panel chip's minimum /OE pulse. If no j meets the target it uses the
+'' largest and prints the rate it reaches.
 ''
 '' @param nID - debug instance id
 '' @param nChainIdx - index of the desired chain
@@ -292,9 +299,14 @@ PUB start(nID, nChainIdx) : startedCog | tmpVar, panelCt, tmpConstant, widthInPa
 ' @local tmpConstant - temporary constant for debug output
 ' @local widthInPanels - number of panels across the display width
 ' @local heightInPanels - number of panels across the display height
-' @local pwmRowSizeInLongs - size of one PWM row (one row address along the whole chain) in longs
-' @local pwmRowsInCogBuffer - number of whole PWM rows in one sub-page of the cog buffer
-' @local pwmRowsInFrame - number of PWM rows (row addresses) in one PWM frame
+' @local clocksPerColumn - system clocks per column clock of the shift loop
+' @local shiftClocks - S: system clocks to shift one row of one plane
+' @local rowLoadClocks - estimated clocks to SETQ+RDLONG one row into cog RAM
+' @local jValue - the j chosen (T = S / 2^j)
+' @local refreshX100 - predicted refresh at the chosen T, Hz x100
+' @local dutyX100 - predicted lit share at the chosen T, percent x100
+' @local targetHz - the display's DISPn_TARGET_REFRESH_HZ
+' @local bTargetMet - TRUE if the chosen T reaches the target
 
   chainIndex := nChainIdx
   instanceID := nID
@@ -343,8 +355,8 @@ PUB start(nID, nChainIdx) : startedCog | tmpVar, panelCt, tmpConstant, widthInPa
   pinLedOE        := pnlLedPinOE
   pinLedCLK       := pnlLedPinCLK
   pinLedLATCH     := pnlLedPinLATCH
-
-  maxPwmBuffers       := pwmBufferCount
+  pinGrpAddr      := pnlRowAddrPins
+  pinGrpColor     := pnlColorPins
 
   ' Calculate clock-frequency-independent timing
   ' This ensures panel receives consistent ~20 MHz clock regardless of sysclk
@@ -355,18 +367,16 @@ PUB start(nID, nChainIdx) : startedCog | tmpVar, panelCt, tmpConstant, widthInPa
     debug("RG3: WARNING: sysclk too slow! Panel clock will be < ", udec_(TARGET_PANEL_HZ / HZ_PER_MHZ), " MHz")
     waitCyclesLow := 0
     waitCyclesHigh := 0
+    clocksPerColumn := BASE_LOOP_CYCLES
   else
     tmpConstant := tmpVar - BASE_LOOP_CYCLES   ' extra cycles to distribute
     waitCyclesLow := tmpConstant / HALF_DIVISOR ' data setup extension
     waitCyclesHigh := tmpConstant - waitCyclesLow  ' clock high extension
+    clocksPerColumn := tmpVar
   debug("RG3:  TIMING cycles/bit=", udec_(tmpVar), " waitLo=", udec_(waitCyclesLow), " waitHi=", udec_(waitCyclesHigh))
 
   tmpConstant := hub75Bffrs.colorDepth(chainIndex)
   debug("RG3:  CONFIG ColorDepth = ", udec_long_(tmpConstant))
-
-  ' initialize our max repetition count for initial frame of frameSet
-  maxCtPerFrame := (hub75Bffrs.pwmFrameCount(chainIndex) + 1) >> 1
-  debug("RG3:  CONFIG 1st bit ", udec_long(maxCtPerFrame))
 
   dvrConfig, eChipType := hub75Bffrs.getDriverFlags(chainIndex)
   debug("RG3:  CONFIG ", ubin_word(eChipType))
@@ -392,14 +402,13 @@ PUB start(nID, nChainIdx) : startedCog | tmpVar, panelCt, tmpConstant, widthInPa
   debug("  -- chain in panels (", udec_(panelCt), "), cols/pnl=(", udec_(maxPanelColumns), "), cols/chain (", udec_(maxChainColumns), ")")
 
   tmpConstant := MAX_COG_BUFFER_SIZE_IN_LONGS
-  debug("RG3:  BFFR CogBuffer[", udec_(tmpConstant), " longs]=0x", uhex_long_(@@CogBuffer))
+  debug("RG3:  BFFR CogBuffer[", udec_(tmpConstant), " longs]=", uhex_long_(@@CogBuffer))
 
   driverFlags := dvrConfig & DRIVER_FLAGS_MASK
   ' if following flags are set...
   modeOverlapDAT := (driverFlags & hwEnum.LAT_POSN_OVERLAP) <> 0 ? True : False
   modeLatchEnclosed := (driverFlags & hwEnum.LAT_STYLE_OFFSET) <> 0 ? False : True
   bInitPanel := (driverFlags & hwEnum.INIT_PANEL_REQUIRED) <> 0 ? True : False
-  modeSlowCLK := (driverFlags & hwEnum.CLK_WIDE_PULSE) <> 0 ? True : False
   ' post value of panel needing swap so we can do correct color fixes
   bSwapRB := (driverFlags & hwEnum.RB_SWAP) > 0 ? True : False
   ' post value of our need to alter our scan from 1/16, 1/32 to 1/8
@@ -410,7 +419,6 @@ PUB start(nID, nChainIdx) : startedCog | tmpVar, panelCt, tmpConstant, widthInPa
   debug("  -- ", ubin_byte(modeOverlapDAT))
   debug("  -- ", ubin_byte(modeLatchEnclosed))
   debug("  -- ", ubin_byte(bInitPanel))
-  debug("  -- ", ubin_byte(modeSlowCLK))
   debug("  -- ", ubin_byte(bSwapRB))
   debug("  -- ", ubin_byte(bScan_1_4))
 
@@ -423,7 +431,7 @@ PUB start(nID, nChainIdx) : startedCog | tmpVar, panelCt, tmpConstant, widthInPa
     elseif eChipType == hwEnum.CHIP_FM6126A
       resetPanelFM6126()
 
-  ' configure our driver
+  ' configure our driver: which port, and which half of it, holds this adapter's pins
   case hub75Bffrs.pinBase(chainIndex)
     PIN_GROUP_P0_P15:
       debug("- I/O P00 - P15")
@@ -438,130 +446,91 @@ PUB start(nID, nChainIdx) : startedCog | tmpVar, panelCt, tmpConstant, widthInPa
       bSetLowPins := TRUE
       modeUsePortA  := FALSE
 
+  ' the row-address bits within the port, and one row address as a step
   if bSetLowPins
     if hub75Bffrs.addressLines(chainIndex) == hwEnum.ADDR_ABCDE
-      maskAllPins := MASK_ALLPINS_LO16_ABCDE                  ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
       maskAddr    := MASK_ADDR_LO16_ABCDE                     ' pins at 00-15 A/B-pins
-      unusedAddr  := MASK_UNUSED_LO16_ABCDE                   ' no unused addr bits
-      addrValueMax := ADDR_VAL_MAX_LO16_ABCDE                 ' 31 but in upper 5-bits of byte
       rowCtrMax   := ROWS_ABCDE
     elseif hub75Bffrs.addressLines(chainIndex) == hwEnum.ADDR_ABCD
-      maskAllPins := MASK_ALLPINS_LO16_ABCD                   ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
       maskAddr    := MASK_ADDR_LO16_ABCD                      ' pins at 00-15 A/B-pins
-      unusedAddr  := MASK_UNUSED_LO16_ABCD                    ' E is unused addr bits
-      addrValueMax := ADDR_VAL_MAX_LO16_ABCD                  ' 15 but in upper 5-bits of byte
       rowCtrMax   := ROWS_ABCD
     else  '  == hwEnum.ADDR_ABC
-      maskAllPins := MASK_ALLPINS_LO16_ABC                    ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
       maskAddr    := MASK_ADDR_LO16_ABC                       ' pins at 00-15 A/B-pins
-      unusedAddr  := MASK_UNUSED_LO16_ABC                     ' E, D are unused addr bits
-      addrValueMax := ADDR_VAL_MAX_LO16_ABC                   ' 7 but in upper 5-bits of byte
       rowCtrMax   := ROWS_ABC
-    maskRgb12   := MASK_RGB12_LO16                              ' rgb2rgb1 now grounded to lsbit - pins at 00-15 A/B-pins
     addrValue1  := ADDR_VAL_ONE_LO16                            ' 1 but in upper 5-bits of byte
-    modeDatRotLeft := TRUE
-  elseif bSetMidPins
-    if hub75Bffrs.addressLines(chainIndex) == hwEnum.ADDR_ABCDE
-      maskAllPins := MASK_ALLPINS_MID16_ABCDE                 ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
-      maskAddr    := MASK_ADDR_MID16_ABCDE                    ' pins at 00-15 A/B-pins
-      unusedAddr  := MASK_UNUSED_MID16_ABCDE                  ' no unused addr bits
-      addrValueMax := ADDR_VAL_MAX_MID16_ABCDE                ' 31 but in upper 5-bits of byte
-      rowCtrMax   := ROWS_ABCDE
-    elseif hub75Bffrs.addressLines(chainIndex) == hwEnum.ADDR_ABCD
-      maskAllPins := MASK_ALLPINS_MID16_ABCD                  ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
-      maskAddr    := MASK_ADDR_MID16_ABCD                     ' pins at 00-15 A/B-pins
-      unusedAddr  := MASK_UNUSED_MID16_ABCD                   ' E is unused addr bits
-      addrValueMax := ADDR_VAL_MAX_MID16_ABCD                 ' 15 but in upper 5-bits of byte
-      rowCtrMax   := ROWS_ABCD
-    else  '  == hwEnum.ADDR_ABC
-      maskAllPins := MASK_ALLPINS_MID16_ABC                   ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
-      maskAddr    := MASK_ADDR_MID16_ABC                      ' pins at 00-15 A/B-pins
-      unusedAddr  := MASK_UNUSED_MID16_ABC                    ' E, D are unused addr bits
-      addrValueMax := ADDR_VAL_MAX_MID16_ABC                  ' 7 but in upper 5-bits of byte
-      rowCtrMax   := ROWS_ABC
-    maskRgb12   := MASK_RGB12_MID16                             ' rgb2rgb1 now grounded to lsbit - pins at 00-15 A/B-pins
-    addrValue1  := ADDR_VAL_ONE_LO16                            ' 1 but in upper 5-bits of byte
-    modeDatRotLeft := TRUE                    ' i've no IDEA but leaving it TRUE for now
   else
     if hub75Bffrs.addressLines(chainIndex) == hwEnum.ADDR_ABCDE
-      maskAllPins := MASK_ALLPINS_HI16_ABCDE                  ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
       maskAddr    := MASK_ADDR_HI16_ABCDE                     ' pins at 16-31 A/B-pins
-      unusedAddr  := MASK_UNUSED_HI16_ABCDE                   ' no unused addr bits
-      addrValueMax := ADDR_VAL_MAX_HI16_ABCDE                 ' 31 but in upper 5-bits of byte
       rowCtrMax   := ROWS_ABCDE
     elseif hub75Bffrs.addressLines(chainIndex) == hwEnum.ADDR_ABCD
-      maskAllPins := MASK_ALLPINS_HI16_ABCD                   ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
       maskAddr    := MASK_ADDR_HI16_ABCD                      ' pins at 16-31 A/B-pins
-      unusedAddr  := MASK_UNUSED_HI16_ABCD                    ' E is unused addr bits
-      addrValueMax := ADDR_VAL_MAX_HI16_ABCD                  ' 15 but in upper 5-bits of byte
       rowCtrMax   := ROWS_ABCD
     else  '  == hwEnum.ADDR_ABC
-      maskAllPins := MASK_ALLPINS_HI16_ABC                    ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
       maskAddr    := MASK_ADDR_HI16_ABC                       ' pins at 16-31 A/B-pins
-      unusedAddr  := MASK_UNUSED_HI16_ABC                     ' E, D are unused addr bits
-      addrValueMax := ADDR_VAL_MAX_HI16_ABC                   ' 7 but in upper 5-bits of byte
       rowCtrMax   := ROWS_ABC
-    maskRgb12   := MASK_RGB12_HI16                             ' rgb2rgb1 now grounded to lsbit - pins at 16-31 A/B-pins
     addrValue1  := ADDR_VAL_ONE_HI16                          ' 1 but in upper 5-bits of byte
-    modeDatRotLeft := FALSE
-  debug("RG3:  -- ", ubin_long(maskAllPins))
   debug("RG3:  --    ", ubin_long(maskAddr))
-  debug("RG3:  --    ", ubin_long(maskRgb12))
   debug("RG3:  -- ", sdec_long(bSetLowPins, modeUsePortA))
 
-  ' set width of one row (this is the entire chain, not the display width)
+  ' one row is what one row address shifts: the entire chain, not the display width
   colCtrMax := maxChainColumns
   if bScan_1_4
     colCtrMax := maxChainColumns * hub75Bffrs.SCAN_4_COLUMN_FACTOR    ' a SCAN_4 panel shifts twice its width per row address
-  colCtrMaxLngs := colCtrMax / BYTES_PER_LONG
-  ' PWM sub-pages, sized from the chain length: one PWM row is what one row address shifts
-  '  (colCtrMax column clocks); a sub-page holds whole rows only, and the sub-pages tile the frame
-  pwmRowSizeInLongs := ((colCtrMax * hub75Bffrs.BYTES_PER_COLUMN_CLOCK) + BYTES_PER_LONG - 1) / BYTES_PER_LONG
-  pwmRowsInFrame := hub75Bffrs.pwmFrameSizeInLongs(chainIndex) / pwmRowSizeInLongs
-  pwmRowsInCogBuffer := MAX_COG_BUFFER_SIZE_IN_LONGS / pwmRowSizeInLongs
-  repeat while pwmRowsInCogBuffer > MIN_PWM_ROWS_PER_SUBPAGE and (pwmRowsInFrame // pwmRowsInCogBuffer) <> 0
-    pwmRowsInCogBuffer--
-  pwmSubPageSizeInLongs := pwmRowsInCogBuffer * pwmRowSizeInLongs
-  pwmSubPageCount := pwmRowsInFrame / pwmRowsInCogBuffer
-  maxPwmSubPages      := pwmSubPageCount
-  maxPwmSubPgSzLongs  := pwmSubPageSizeInLongs
-  maxPwmSubPgSzLngsM1 := pwmSubPageSizeInLongs - 1
-  maxPwmSubPgSzBytes  := pwmSubPageSizeInLongs * BYTES_PER_LONG
-  ' set following in case we are driving an FM6126A panel
-  colCtrLatchCt := (modeOverlapDAT) ? colCtrMax - LATCH_OVERLAP_COLS : colCtrMax ' for the setup form of the driver we latch during last three columns
-  debug("RG3:  ", udec(rowCtrMax, colCtrMax, colCtrMaxLngs))
-  tmpConstant := MAX_COG_BUFFER_SIZE_IN_LONGS
-  tmpVar := hub75Bffrs.pwmFrameSizeInLongs(chainIndex)
-  debug("RG3:  MAX_PWM_FRAME_SIZE_IN_BYTES=", udec_(tmpVar*4), ", MAX_COG_BUFFER_SIZE_IN_BYTES=", udec_(tmpConstant*4))
-  tmpConstant := pwmSubPageCount
-  tmpVar := pwmSubPageSizeInLongs
-  debug("RG3:  MAX_SUBPAGE_SIZE_IN_LONGS=", udec_(tmpVar), ", MAX_PWM_SUBPAGES=", udec_(tmpConstant))
+  ' frame-set layout: plane-major (plane 0 = MSB), each plane rowCtrMax rows of rowSizeBytes
+  rowSizeBytes := colCtrMax * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
+  rowLongsLessOne := ((rowSizeBytes + BYTES_PER_LONG - 1) / BYTES_PER_LONG) - 1
+  planeSizeBytes := hub75Bffrs.pwmFrameSizeInBytes(chainIndex)
+  planeCount := pwmBufferCount
+  firstPulseWeight := 1 << (pwmBufferCount - 1)
+  debug("RG3:  ", udec(rowCtrMax, colCtrMax, rowSizeBytes, planeSizeBytes, planeCount))
+
+  ' the /OE unit T for the display's refresh target
+  shiftClocks := colCtrMax * clocksPerColumn
+  rowLoadClocks := rowLongsLessOne + 1 + ROW_LOAD_SETUP_CLOCKS
+  minOeClocks := oeMinimumClocks(eChipType)
+  targetHz := hub75Bffrs.targetRefreshHz(chainIndex)
+  oeUnitClocks, jValue, refreshX100, bTargetMet := chooseOeUnit(shiftClocks, rowLoadClocks, targetHz)
+  if oeUnitClocks > MAX_PULSE_BASE_CLOCKS
+    debug("HUB75: DISP", udec_(chainIndex), ": the /OE unit T = ", udec_(oeUnitClocks), " clocks is longer than the /OE smart pin's 16-bit period (", udec_(MAX_PULSE_BASE_CLOCKS), " clocks); startup stopped")
+    abort
+  if bTargetMet == FALSE
+    debug("HUB75: DISP", udec_(chainIndex), ": DISP", udec_(chainIndex), "_TARGET_REFRESH_HZ = ", udec_(targetHz), " Hz is out of reach for this display; running at ", udec_(refreshX100 / FIXED_POINT_SCALE), ".", udec_((refreshX100 // FIXED_POINT_SCALE) / FRACTION_DIVISOR), " Hz, its fastest (j = ", udec_(jValue), ")")
+  dutyX100 := dutyX100For(oeUnitClocks, modelRowClocks(oeUnitClocks, shiftClocks, rowLoadClocks))
+  tmpVar := muldiv64(oeUnitClocks, NS_PER_SECOND, clkfreq)
+  debug("RG3:  REFRESH S = ", udec_(shiftClocks), " clocks, T = ", udec_(oeUnitClocks), " clocks (", udec_(tmpVar), " ns), j = ", udec_(jValue), ", min /OE ", udec_(minOeClocks), " clocks, target ", udec_(targetHz), " Hz")
+  debug("RG3:  MODEL refresh ", udec_(refreshX100 / FIXED_POINT_SCALE), ".", udec_((refreshX100 // FIXED_POINT_SCALE) / FRACTION_DIVISOR), " Hz, lit ", udec_(dutyX100 / FIXED_POINT_SCALE), ".", udec_((dutyX100 // FIXED_POINT_SCALE) / FRACTION_DIVISOR), "% at brightness ", udec_(FULL_BRIGHTNESS))
+  ' the overlapped latch rises before the last LATCH_OVERLAP_COLS columns (a row is always wider)
+  columnsBeforeLatch := colCtrMax - LATCH_OVERLAP_COLS
+  if modeOverlapDAT
+    debug("RG3:  LATCH overlapped: high over the last ", udec_(LATCH_OVERLAP_COLS), " columns")
+  elseif modeLatchEnclosed
+    debug("RG3:  LATCH at end, enclosed")
+  else
+    debug("RG3:  LATCH at end, offset")
+
+  ' cog 0 lets go of every adapter pin BEFORE the refresh cog starts: each cog's DIR and OUT
+  ' are OR'd at the pin, and a pinclear after COGINIT could undo the cog's WRPIN of /OE
+  pinclear(pnlRowAddrPins)
+  pinclear(pnlColorPins)
+  pinclear(pnlControlPins)
 
   ' pass values to our driver
   ptrCommand := @dvrCommand
   ptrArgument := @dvrArgument
   ptrShowing := @dvrShowing
+  ptrBrightness := @brightnessScale
   dvrShowing := NO_FRAME_SET                                                    ' nothing taken yet
-  dvrCommand := CMD_DONE                                                        ' ensure we start here
+  dvrCommand := CMD_DONE                                                        ' nothing posted yet
 
   startedCog := cog := COGINIT(COGINIT_FREE_COG, @drive_matrix, @ptrCommand) + 1
   if startedCog == -1
     DEBUG("- Matrix: pasm cog start failed!")
     abort
-  ' repeat        ' do nothing, forever (lock us up) -- for TESTING ONLY
-
-  ' clear this COGs use of the pins
-  pinclear(pnlRowAddrPins)
-  pinclear(pnlColorPins)
-  pinclear(pnlControlPins)
 
 PUB stop()
-'' Stop the driver cog and release all HUB75 pins.
+'' Stop the driver cog and release all HUB75 pins, including the /OE smart pin (pinclear
+'' resets its mode).
 ''
-
-' FIXME: UNDONE issue command to driver to stop and release pins??
-'dvrCommand := CMD_STOP
-'repeat while (dvrCommand <> CMD_DONE)
 
   if cog
     COGSTOP(cog - 1)
@@ -572,10 +541,13 @@ PUB stop()
   pinclear(pnlControlPins)
 
 ' --------------------------------------------------------------------------------------------------
-PUB cmdFillScreenNoPWM(color3bit) | cValue, redBit, greenBit, blueBit
-'' Request that the driver fill the buffer with a 3-bit color value (no PWM).
+PUB fillByteForColor(color3bit) : fillByte | cValue, redBit, greenBit, blueBit
+'' Return the frame-set byte that shows a 3-bit color on both halves of the panel (RGB1 and
+'' RGB2), with this panel's red/blue swap applied. A frame set whose every byte is this value
+'' shows the color at full level.
 ''
-'' @param color3bit - 3-bit RGB color value to fill
+'' @param color3bit - 3-bit RGB color value (color.BASE_RED, BASE_GREEN, BASE_BLUE, or a mix)
+'' @returns fillByte - the byte for every column clock of every row of every plane
 
 ' Local Variables:
 ' @local cValue - clamped, swap-corrected 3-bit color value
@@ -590,46 +562,45 @@ PUB cmdFillScreenNoPWM(color3bit) | cValue, redBit, greenBit, blueBit
     greenBit := (cValue & color.BASE_GREEN) > 0 ? 1 : 0
     blueBit := (cValue & color.BASE_BLUE) > 0 ? 1 : 0
     cValue := (redBit << RED_BIT) | (greenBit << GREEN_BIT) | blueBit
-
-  dvrArgument := cValue                                 ' set color value of BLACK
-  dvrCommand := CMD_FILL_COLOR
-  repeat while (dvrCommand <> CMD_DONE)
-
-PUB cmdClearPanel()
-'' Request that the driver fill the buffer with 0's - black.
-''
-
-  cmdFillScreenNoPWM(BLACK)
-
-PUB cmdWriteBuffer(pBuffer)
-'' Request that the driver copy our buffer to its buffer and display it (no PWM).
-''
-'' @param pBuffer - pointer to the buffer to display
-
-  dvrArgument := pBuffer
-  dvrCommand := CMD_SHOW_BUFFER
-  repeat while (dvrCommand <> CMD_DONE)
+  fillByte := (cValue << COLOR_NIBBLE_SHIFT) | cValue
 
 PUB cmdWritePwmBuffer(pBuffer)
 '' Request that the driver display the given PWM frame set (returns immediately).
 ''
 '' @param pBuffer - pointer to the PWM frame set to display
 
-  'debug("- r3b:wrtPwmBuffer ")
   dvrArgument := pBuffer
   dvrCommand := CMD_SHOW_PWM_BUFFER
-  ' this will keep showing same PWM buffer until caller changes command!
-  ' so it just returns immediately; the driver takes the set at its next frame-set start and
-  ' then names it in dvrShowing (see showingFrameSet())
+  ' the driver keeps showing this set until another is posted; it takes the set at its next
+  ' frame start and then names it in dvrShowing (see showingFrameSet())
 
 PUB showingFrameSet() : pFrameSet
 '' Return the hub address of the PWM frame set the driver is showing: the set it took at its
-'' latest frame-set start, or NO_FRAME_SET before it has taken one. A posted set is taken when
+'' latest frame start, or NO_FRAME_SET before it has taken one. A posted set is taken when
 '' this equals the posted address.
 ''
 '' @returns pFrameSet - hub address of the PWM frame set on display, or NO_FRAME_SET
 
   pFrameSet := dvrShowing
+
+PUB setBrightness(newBrightness)
+'' Set the brightness scale b that every refresh cog reads once per frame. b scales the /OE
+'' period: a row is lit for P = T x b / 256 per pulse period, so b scales how long the panel is
+'' lit, not the colour values. 256 is no reduction; 0 is off (/OE never pulses). P is never
+'' shorter than the panel chip's minimum /OE pulse, so below that point every b but 0 gives
+'' the same floor brightness (on a display whose T is already at the minimum, that is every b
+'' but 0). Values outside 0-256 are clamped.
+''
+'' @param newBrightness - the desired brightness value [0-256]
+
+  brightnessScale := 0 #> newBrightness <# FULL_BRIGHTNESS
+
+PUB getBrightness() : nBrightness
+'' Return the brightness scale b the refresh cogs use.
+''
+'' @returns nBrightness - the brightness value [0-256]
+
+  nBrightness := brightnessScale
 
 PRI setupPins()
 ' Configure all HUB75 panel pins as outputs with default states.
@@ -752,31 +723,135 @@ bitIdx          LONG    0
 
   END
 
+PRI oeMinimumClocks(eChip) : minClocks | minNs
+' Return the chip's shortest /OE pulse in system clocks, rounded up at clkfreq. A chip with no
+' rating in the table uses MIN_OE_NS_UNRATED and says so.
+'
+' @param eChip - hwEnum.CHIP_* of the panels
+' @returns minClocks - shortest legal /OE pulse, in clocks
+
+' Local Variables:
+' @local minNs - the chip's shortest /OE pulse, in nanoseconds
+
+  case eChip
+    hwEnum.CHIP_FM6124:
+      minNs := MIN_OE_NS_FM6124
+    hwEnum.CHIP_FM6126A:
+      minNs := MIN_OE_NS_FM6126A
+    hwEnum.CHIP_ICN2038S:
+      minNs := MIN_OE_NS_ICN2038S
+    hwEnum.CHIP_ICN2037:
+      minNs := MIN_OE_NS_ICN2037
+    hwEnum.CHIP_MBI5124GP:
+      minNs := MIN_OE_NS_MBI5124GP
+    other:
+      minNs := MIN_OE_NS_UNRATED
+      debug("HUB75: DISP", udec_(chainIndex), ": this panel chip has no /OE rating in the driver's table; the shortest /OE pulse is set to ", udec_(MIN_OE_NS_UNRATED), " ns")
+  minClocks := muldiv64(clkfreq, minNs, NS_PER_SECOND)
+  ' round up: minClocks clocks must last at least minNs
+  if muldiv64(minClocks, NS_PER_SECOND, minNs) < clkfreq
+    minClocks++
+
+PRI chooseOeUnit(shiftClocks, loadClocks, targetHz) : oeUnit, jValue, refreshX100, bTargetMet | jIdx, candidateUnit, candidateRefresh
+' Choose the /OE unit T: the smallest j (the brightest) whose predicted refresh meets the
+' target, with T = S / 2^j clamped up to the chip's minimum. If none does, the largest j (the
+' colour depth: no plane is lit longer than one shift) and its refresh.
+'
+' @param shiftClocks - S: clocks to shift one row of one plane
+' @param loadClocks - estimated clocks to load one row
+' @param targetHz - the refresh target, Hz
+' @returns oeUnit - T, in clocks
+' @returns jValue - the j chosen
+' @returns refreshX100 - predicted refresh at T, Hz x100
+' @returns bTargetMet - TRUE if the target is met
+
+' Local Variables:
+' @local jIdx - the j being tried
+' @local candidateUnit - T for jIdx
+' @local candidateRefresh - predicted refresh for candidateUnit, Hz x100
+
+  bTargetMet := FALSE
+  jValue := planeCount
+  oeUnit := minOeClocks #> (shiftClocks >> planeCount)
+  refreshX100 := refreshX100For(modelRowClocks(oeUnit, shiftClocks, loadClocks))
+  repeat jIdx from 0 to planeCount
+    candidateUnit := minOeClocks #> (shiftClocks >> jIdx)
+    candidateRefresh := refreshX100For(modelRowClocks(candidateUnit, shiftClocks, loadClocks))
+    if candidateRefresh >= targetHz * FIXED_POINT_SCALE
+      oeUnit := candidateUnit
+      jValue := jIdx
+      refreshX100 := candidateRefresh
+      bTargetMet := TRUE
+      quit
+
+PRI modelRowClocks(oeUnit, shiftClocks, loadClocks) : rowClocks | pulseWeightNow
+' Return the model's clocks for one row address: every plane is loaded, shifted and latched
+' once and lit for 2^k x T, and the next plane loads and shifts while this one is lit, so each
+' plane's slot is the longer of its light and the next load + shift, plus the latch sequence.
+'
+' @param oeUnit - T in clocks
+' @param shiftClocks - S: clocks to shift one row of one plane
+' @param loadClocks - estimated clocks to load one row
+' @returns rowClocks - clocks per row address
+
+' Local Variables:
+' @local pulseWeightNow - 2^k for the plane being added
+
+  rowClocks := 0
+  pulseWeightNow := firstPulseWeight
+  repeat planeCount
+    rowClocks += ((pulseWeightNow * oeUnit) #> (loadClocks + shiftClocks)) + LATCH_SEQUENCE_CLOCKS
+    pulseWeightNow >>= 1
+
+PRI refreshX100For(rowClocks) : refreshX100
+' Return the frame rate for a given row cost.
+'
+' @param rowClocks - clocks per row address
+' @returns refreshX100 - frames per second x100
+
+  refreshX100 := muldiv64(clkfreq, FIXED_POINT_SCALE, rowClocks * rowCtrMax)
+
+PRI dutyX100For(oeUnit, rowClocks) : dutyX100
+' Return the share of time the panel is lit at full brightness: (2^N - 1) x T per row over
+' the row cost.
+'
+' @param oeUnit - T in clocks
+' @param rowClocks - clocks per row address
+' @returns dutyX100 - lit share, percent x100
+
+  dutyX100 := muldiv64(((firstPulseWeight << 1) - 1) * oeUnit, PERCENT_X100_SCALE, rowClocks)
+
 ' --------------------------------------------------------------------------------------------------
 '
 DAT     { driver assembly code }
 '-------+-----+---------+-------+---------------+-------+-----------------------+
                     ORG     0       ' COG code
 
-' DRAFT matrix driver - best speed
-'
+{ OE-weighted bit planes. One cog owns every adapter pin; /OE is its P_PULSE smart pin.
+
+    frame:  take the posted frame set, name it in dvrShowing, read brightness b
+    row:      for each row address r (0 .. rows-1)
+    plane:      for each plane k, MSB first (pulse weight 2^(N-1) .. 1)
+                  load plane k's row r into cogBuffer      (the previous plane may still be lit)
+                  then, in the chip's latch style (test_hub75_oe_bcm.spin2 refreshCog):
+                    at end:     shift every column; wait dark; row address; LATCH pulse;
+                                a settle gap when enclosed, none when offset
+                    overlapped: shift all but the last LATCH_OVERLAP_COLS; wait dark; LATCH high;
+                                shift the rest; LATCH low; row address
+                  WYPIN 2^k on /OE: lit for 2^k x P clocks, P = T x b / 256
+  "Wait dark" waits until the previous plane's pulse is over (IN high). The row address changes
+  only while /OE is off, and a latch never happens while it is on.
+}
 drive_matrix
                     debug("MTX: --Start--")
-                    stalli    ' disable interrupts
-                    mov     ijmp1, #isr1
-                    mov     ijmp2, #isr2
-                    mov     ijmp3, #isr3
-                    'allowi    ' enable interrupts
-                    rdlong  pCommmand, ptra[0]
-                    rdlong  pArgument, ptra[1]
-                    rdlong  pShowing, ptra[2]
+                    rdlong  pCommand, ptra[HUB_PTR_COMMAND]
+                    rdlong  pArgument, ptra[HUB_PTR_ARGUMENT]
+                    rdlong  pShowing, ptra[HUB_PTR_SHOWING]
+                    rdlong  pBrightness, ptra[HUB_PTR_BRIGHTNESS]
 
 #IFDEF HUB75_INSTRUMENT
                     ' LA INSTRUMENTATION
                     or      strobesEnabled, strobesEnabled  wz  ' Q: may this cog drive P08..P11?
-                    'wrpin   ##P_LOW_FLOAT, pinGrpLAXT ' set these to float LOW for better Analyzer capture RING
-                    'wrpin   ##P_LOW_10UA, pinGrpLAXT ' set these to float LOW for better Analyzer capture LESS RING
-                    'wrpin   ##P_LOW_100UA, pinGrpLAXT ' set these to float LOW for better Analyzer capture EVEN LESS RING
     if_nz           wrpin   ##P_LOW_1MA, pinGrpLAXT ' set these to P_LOW_1MA for best Analyzer capture no noise at 1.7v threshold
     if_nz           drvl    pinGrpLAXT
                     ' no: the adapter owns these pins, so each strobe instruction becomes a NOP
@@ -784,436 +859,226 @@ drive_matrix
     if_z            mov     strobeTakenB, #0
     if_z            mov     strobeFrameA, #0
     if_z            mov     strobeFrameB, #0
-    if_z            mov     strobeRowEndA, #0
-    if_z            mov     strobeRowEndB, #0
-    if_z            mov     strobeRowOvlpA, #0
-    if_z            mov     strobeRowOvlpB, #0
-    if_z            mov     strobeLatchEndA, #0
-    if_z            mov     strobeLatchEndB, #0
-    if_z            mov     strobeLatchOvlpA, #0
-    if_z            mov     strobeLatchOvlpB, #0
+    if_z            mov     strobeRowA, #0
+    if_z            mov     strobeRowB, #0
+    if_z            mov     strobeLatchA, #0
+    if_z            mov     strobeLatchB, #0
+    if_z            mov     strobeOvlpLatchA, #0
+    if_z            mov     strobeOvlpLatchB, #0
 #ENDIF
 
-                    ' condition address lines
-                    'wrpin   ##P_LOW_15K, maskAddr ' set low strength pulldown
-                    'wrpin   ##P_HIGH_15K, maskAddr ' set low strength pullup
-                    'wrpin   ##P_LOW_FLOAT, maskAddr ' set these to float LOW for better Analyzer capture
-                    wrpin   ##P_LOW_1MA, maskAddr ' set these to float LOW for better Analyzer capture
-                    fltl   maskAddr             ' reset any smart pin mode
-                    fltl   maskRgb12            ' reset any smart pin mode
-                    'wrpin   ##P_LOW_15K, maskRgb12 ' set low-strength pulldown
+                    ' latch at end, offset: no settle gap between LATCH falling and /OE going low,
+                    ' so the gap instruction becomes a NOP (all-zero encoding, p2kbPasm2Nop)
+                    or      modeLatchEnclosed, modeLatchEnclosed  wz
+    if_z            mov     enclosedSettleInst, #0
 
-                    ' init buffer display counters
-                    mov     pwmFrameCt, ##0
-                    mov     pwmSubPgCt, ##0
-                    mov     fillSubPgCt, ##0
-
-                    ' configure our output & dir instructions to use A or B set of pins
-                    '  (if modeUsePortA is FALSE...)
+                    ' point the colour and address writes at the adapter's port, and the colour
+                    ' write at the byte of the port that holds R1..B2
                     or      modeUsePortA, modeUsePortA  wz
-    if_nz           setd    dirInst1of2, #DIRA
-    if_nz           setd    dirInst2of2, #DIRA
-    if_nz           setd    outInst1of3, #OUTA
-    if_nz           setd    outInst2of3, #OUTA
-    if_nz           setd    outInst3of3, #OUTA
-    if_z            setd    dirInst1of2, #DIRB
-    if_z            setd    dirInst2of2, #DIRB
-    if_z            setd    outInst1of3, #OUTB
-    if_z            setd    outInst2of3, #OUTB
-    if_z            setd    outInst3of3, #OUTB
+    if_nz           setd    colorOutInst, #OUTA
+    if_nz           setd    addrOutInst, #OUTA
+    if_z            setd    colorOutInst, #OUTB
+    if_z            setd    addrOutInst, #OUTB
                     or      bSetLowPins, bSetLowPins  wz    ' Q: using low 16 bits?
-    if_nz           SETR    outInst2of3, #SETR_SETBYTE_BYTE1 ' setbyte #1   no, using high 16 bits
-    if_z            SETR    outInst2of3, #SETR_SETBYTE_BYTE3 ' setbyte #3   yes, using low 16 bits
-                    or      bSetMidPins, bSetMidPins  wz    ' Q: using middle 16 bits?
-    if_nz           SETR    outInst2of3, #SETR_SETBYTE_BYTE2 ' setbyte #2   yes, using middle 16 bits
+    if_nz           setr    colorOutInst, #SETR_SETBYTE_BYTE1 ' yes: R1..B2 are pins 8-13 of the port
+    if_z            setr    colorOutInst, #SETR_SETBYTE_BYTE3 ' no: R1..B2 are pins 24-29 of the port
 
-                    or      modeDatRotLeft, modeDatRotLeft   wz
-    if_nz           SETR    rotInstr1of2,#SETR_MAKE_ROR     'make into ROR instruction
-    if_z            SETR    rotInstr1of2,#SETR_MAKE_ROL_NOP 'make into ROL instruction
+                    ' address, colour, CLK and LATCH: plain outputs of this cog, all low
+                    drvl    pinGrpAddr
+                    drvl    pinGrpColor
+                    drvl    pinLedCLK
+                    drvl    pinLedLATCH
 
-                    or      modeOverlapDAT, modeOverlapDAT   wz
-    if_nz           SETR    jmpInstr1of1,#SETR_MAKE_ROL_NOP 'make into NOP instruction
-    if_nz           SETD    jmpInstr1of1,##SETD_NOP_ARG     'make into NOP instruction
+                    ' /OE: configure the P_PULSE smart pin DIRL -> WRPIN -> WXPIN -> DIRH
+                    ' (p2kbArchSmartPins); each WYPIN later starts one pulse. It idles blank.
+                    dirl    pinLedOE
+                    wrpin   ##OE_PIN_MODE, pinLedOE
+                    wxpin   oeUnitClocks, pinLedOE          ' X[15:0] = T, X[31:16] = 0: lit all of each period
+                    dirh    pinLedOE
+                    mov     pulseStarted, #0                ' no pulse yet: nothing to wait for
 
-'                    or      modeSlowCLK, modeSlowCLK   wz
-'    if_z            SETR    waitInst1of1,#%0000000_00  'make into NOP instruction
-'    if_z            SETD    waitInst1of1,##0           'make into NOP instruction
-
-' configure all pins
-dirInst1of2     OR                              DIRA, maskAllPins                         ' set all of our pins to OUTPUT!  for this COG
-
-                OR                              unusedAddr, unusedAddr                wc  ' Q: do we have any unused addr bits?
-dirInst2of2  if_c  OR                           DIRA, unusedAddr                          ' set all of our pins to OUTPUT!  for this COG
-
-                ' default to NOT using PWM
-                XOR                             pwmFrameCt, pwmFrameCt                    ' initial setup: NOT doing PWM
-
-                ' init row address
-                MOV                             row_addr, addrValueMax                    ' reset address to 31|15|7 - [A-E|D|C] addr: all ones
-                ' write address
-                CALL                            #emitAddr
-
-getCommand
-                ' new PWM support
-                CMP                             pwmSubPgCt, #0                        wz
-    if_nz       JMP                             #nextPwmSubpage
-                CMP                             fillSubPgCt, #0                       wz
-    if_nz       JMP                             #nextFill
-                CMP                             pwmFrameCt, #0                        wz
-    if_nz       JMP                             #nextPwmFrame
-                RDLONG                          nxtCommand, pCommmand
-                RDLONG                          nxtArgument, pArgument
-                CMP                             nxtCommand, #CMD_DONE                 wz
-    if_z        JMP                             #chksDone                                 ' redraw current buffer
-                CMP                             nxtCommand, priorCommand              wz
-    if_z        JMP                             #chkShow
-                ' process NEW command
-                'debug("* cmd=", udec_(nxtCommand), ", arg=", uhex_long_(nxtArgument))
-                MOV                             priorCommand, nxtCommand
-chkShow
-                CMP                             nxtCommand, #CMD_SHOW_BUFFER          wz
-    if_nz       JMP                             #chkShowPwm
-                CALL                            #cmdDsplyNoPwmFrame
-                ' debug(" - load done")
-                JMP                             #markCmdComplete                          ' redraw current buffer
-chkShowPwm
-                CMP                             nxtCommand, #CMD_SHOW_PWM_BUFFER      wz
-    if_nz       JMP                             #chkFill
-                CALL                            #cmdDsplyFrameSet
-                ' debug(" - PWM frame done")
-                JMP                             #getCommand                               ' check for next command (or same still there)
-chkFill
-                CMP                             nxtCommand, #CMD_FILL_COLOR           wz
-    if_nz       JMP                             #chksDone                                 ' redraw current buffer
-                CALL                            #cmdFillCogBfrWColor
-                WRLONG                          #CMD_DONE, pCommmand                      ' signal command completed
-                ' debug(" - fill done")
-                JMP                             #displayCogBffrFullFrame                  ' redraw current buffer
-'
-' cmdDsplyFrameSet(nxtArgument=hubAddressOfPWMFrameSet)
-'
-cmdDsplyFrameSet
-                ' this frame set is the one on display from here: name it for the converters, which
-                ' write only the set that is not named here
+frameStart
+                    ' a frame set is taken only here, at the start of a whole frame
+                    rdlong  nxtCommand, pCommand
+                    cmp     nxtCommand, #CMD_SHOW_PWM_BUFFER  wz
+    if_nz           jmp     #frameStart                     ' nothing posted yet: the panel stays blank
+                    rdlong  frameSetAddr, pArgument
 #IFDEF HUB75_INSTRUMENT
-                CMP                             nxtArgument, showingPrior             wz  ' Q: a newly posted set?
-strobeTakenA if_nz OUTNOT                       pinLAXT_08                                ' P08: posted set taken (dvrShowing changes)
-strobeTakenB if_nz OUTNOT                       pinLAXT_08
-                MOV                             showingPrior, nxtArgument
+                    cmp     frameSetAddr, showingPrior  wz  ' Q: a newly posted set?
+strobeTakenA if_nz  outnot  pinLAXT_08                      ' P08: posted set taken (dvrShowing changes)
+strobeTakenB if_nz  outnot  pinLAXT_08
+                    mov     showingPrior, frameSetAddr
 #ENDIF
-                WRLONG                          nxtArgument, pShowing                     ' dvrShowing := the set shown from this frame start
+                    ' this frame set is the one on display from here: name it for the converters,
+                    ' which write only the set that is not named here
+                    wrlong  frameSetAddr, pShowing
 #IFDEF HUB75_INSTRUMENT
-strobeFrameA    OUTNOT                          pinLAXT_09                                ' P09: frame start (a PWM frame set)
-strobeFrameB    OUTNOT                          pinLAXT_09
+strobeFrameA        outnot  pinLAXT_09                      ' P09: frame start
+strobeFrameB        outnot  pinLAXT_09
 #ENDIF
-                MOV                             pwmBffrStart, nxtArgument                 ' preserve our new start address
-                MOV                             ptra, pwmBffrStart                        ' ptra scans frameset until done (pwmBffrStart is used to reset to front of frame)
-                MOV                             pwmFrameStart, ptra                       ' capture 1st pwmFrame start addr (for redisplay)
-                '                    rdfast  #0,pwmBffrStart                    ' initialize our FIFO (#0 means no wrap!)
-                MOV                             pwmFrameSetCt, maxCtPerFrame              ' set initial count: 4 for 3 bit, 8 for 4 bit, 16 for 5bit, etc.
-                MOV                             pwmFrameCt, maxPwmBuffers                 ' set loop to PWM N frames then stop to see what to do next
-nextSamePwmFrame
-                    mov     pwmSameFrameCt, pwmFrameSetCt
-nextPwmFrame
-                CALL                            #display1PwmFrame                         ' load subpages of current pwmFrame into display buffer
-                SUB                             pwmSameFrameCt, #1                    wz  ' go show another of same subpage if not done
-    if_nz       MOV                             ptra, pwmFrameStart                       ' reset to start of same pwmFrame
-    if_nz       JMP                             #nextPwmFrame                             ' go display same pwmFrame again
-                ' start next pwmFrame
-                MOV                             pwmFrameStart, ptra                       ' capture NEXT pwmFrame start addr (for redisplay)
-                SHR                             pwmFrameSetCt, #1                         ' div our count by 2:  16->8->4->2->1
-                DJNZ                            pwmFrameCt, #nextSamePwmFrame             ' have another of the PWM N frames to show?
-                MOV                             nxtArgument, pwmBffrStart                 ' no point back to first of N PWM frame buffers
-                RET                                                                       ' loop again if no command, we'll do another PWM set
-'
-' display1PwmFrame(nxtArgument=hubAddressOfFrame)
-'
-display1PwmFrame
-                    ' PWM frames are broken in cogBuffer sized subpages
-                    ' iterate over subpages to complete the 1 pwm frame
-                    ' set addr to start
-                    mov     row_addr, addrValueMax      ' reset address to 31|15|7 [A-E|D|C addr all ones]
-                    ' interate over PWM Frame subpages
-                    mov     pwmSubPgCt, maxPwmSubPages    ' set loop to PWM N frames then stop to see what to do next
-showPwmSubpage
-                CALL                            #cmdDsplyNoPwmFrame                       ' load the current pwm frame subpage into display buffer
-                JMP                             #wrCogBuffer                              ' display subpage
+                    ' brightness, once per frame: P = T x b / 256, never below the chip's minimum
+                    rdlong  brightnessNow, pBrightness
+                    mov     pulsePeriod, oeUnitClocks
+                    mul     pulsePeriod, brightnessNow      ' 16 x 16 bits: T <= $FFFF, b <= 256 (p2kbPasm2Mul)
+                    shr     pulsePeriod, #BRIGHTNESS_SHIFT
+                    fge     pulsePeriod, minOeClocks        ' (p2kbPasm2Fge)
+                    ' X changes only between pulses; WXPIN also lowers IN (p2kbArchSmartPins), so
+                    ' afterwards no pulse is outstanding
+                    call    #waitPanelDark
+                    wxpin   pulsePeriod, pinLedOE
+                    mov     pulseStarted, #0
 
-' following called from dispatcher, above
-nextPwmSubpage
-                ADD                             nxtArgument, maxPwmSubPgSzLongs           ' point to next subpage of PWM frame
-                DJNZ                            pwmSubPgCt, #showPwmSubpage               ' have another of subpage of the PWM frame to show?
-                RET                                                                       ' loop again to see if we should do another PWM set
-'
-' display1PwmFrame(nxtArgument=hubAddressOfFrame)
-'
-displayCogBffrFullFrame
-                ' set addr to start
-                MOV                             row_addr, addrValueMax                    ' reset address to 31|15|7 [A-E|D|C addr all ones]
-                ' interate over non-PWM Frame subpages
-                MOV                             fillSubPgCt, maxPwmSubPages               ' set loop to PWM N frames then stop to see what to do next
-showFill
-                JMP                             #wrCogBuffer                              ' display subpage
-
-' following called from dispatcher, above
-nextFill
-                DJNZ                            fillSubPgCt, #showFill                    ' have another of subpage of the PWM frame to show?
-                RET                                                                       ' loop again to see if we should do another PWM set
-'
-' cmdDsplyNoPwmFrame(nxtArgument=hubAddressOfFrameSubPage)
-'
-cmdDsplyNoPwmFrame
-                ' copy HUB buffer (set earlier)
-                '  into MAX_SUBPAGE_SIZE_IN_LONGS cogBuffer
-                SETQ                            maxPwmSubPgSzLngsM1
-    _ret_       RDLONG                          cogBuffer, ptra++                         ' when done, return to caller
-'00
-' cmdFillCogBfrWColor(nxtArgument=colorvalue3bit)
-'
-cmdFillCogBfrWColor                                                                       ' fill COG buffer with desired 3-bit color
-                ' first, build our color...
-                AND                             nxtArgument, #WHITE
-                MOV                             fillLong, nxtArgument
-                SHL                             fillLong, #COLOR_NIBBLE_SHIFT
-                OR                              fillLong, nxtArgument                     ' completed one byte, do 3 more
-                MOV                             fillOffset, fillLong
-                SHL                             fillLong, #FILL_BYTE_SHIFT
-                OR                              fillLong, fillOffset                      ' 2 bytes
-                SHL                             fillLong, #FILL_BYTE_SHIFT
-                OR                              fillLong, fillOffset                      ' 3 bytes
-                SHL                             fillLong, #FILL_BYTE_SHIFT
-                OR                              fillLong, fillOffset                      ' 4 bytes
-                'debug("- (DBG) ", uhex_long(fillLong))
-                ' then fill the COG buffer with the new color
-                CALL                            #writeColorToBuffer
-                RET
-'
-' writeColorToBuffer(fillLong=fillValueID)
-'
-writeColorToBuffer                                                                        ' fill COG buffer with 'fillLong' value
-                MOV                             fillOffset, #0
-                MOV                             fillCount, ##MAX_COG_BUFFER_SIZE_IN_LONGS
-writeNextLong
-                ALTD                            fillOffset, #cogBuffer
-                MOV                             0-0, fillLong                             '  fill long with value
-                ADD                             fillOffset, #1
-                DJNZ                            fillCount, #writeNextLong
-                RET
-
-chksDone
-                CMP                             nxtCommand, #CMD_DONE                 wz
-    if_z        JMP                             #wrCogBuffer                              ' redraw current buffer
-' debug("--> *ERROR* Unknown cmd(", udec_(nxtCommand), ")   arg=", uhex_long_(nxtArgument))
-markCmdComplete
-                ' debug(" - unknown cmd done")
-                WRLONG                          #CMD_DONE, pCommmand                      ' signal command completed
-
-wrCogBuffer
-                ' -----------------------------------------------
-                ' here to dump cogBuffer out our hub75 connector
-                ' -----------------------------------------------
-                ' repeat the following to end of COG buffer
-                MOV                             row_ctr, rowCtrMax                        ' 32|16|8 -> 0 so we can use djnz
-                XOR                             reg_offset, reg_offset                    ' start of the line buffer (cogBuffer)
-                DRVL                            pinLedOE                                  ' enable output
-
-' following instru is modified by startup to #wrLatchAtEnd or #wrLineLatchOvlp
-' it either jumps or is a NOP when the driver is running
-jmpInstr1of1    JMP                             #wrLatchAtEnd
-
-' --------------------------------------------------------------------------------------------------
-'  the following routine is for panels that DO overlap latching with serial data bits
-'   (so far this is ONLY panels with FM6126A) (author's pink tagged panels)
-wrLineLatchOvlp
+                    mov     rowHubAddr, frameSetAddr
+                    mov     rowAddr, #0
+                    mov     rowsLeft, rowCtrMax
+rowLoop
 #IFDEF HUB75_INSTRUMENT
-strobeRowOvlpA  OUTNOT                          pinLAXT_10                                ' P10: row start
-strobeRowOvlpB  OUTNOT                          pinLAXT_10
+strobeRowA          outnot  pinLAXT_10                      ' P10: row start
+strobeRowB          outnot  pinLAXT_10
 #ENDIF
-                '   for bit 0 to 63
-                '     toggle clock (28MHz)
-                MOV                             col_lng_ctr, colCtrMaxLngs                ' this is physical display width wide!
-                ' this tracks when we need to toggle latch at right-edge of row
-                XOR                             col_addr, col_addr                        ' clear register (reg = 0)
-clkNextReg
-                ' in buffer: RGB1 is byte-bits[0-2], RGB2 is byte-bits[3-5]
-                MOV                             byt_ctr, #BYTES_PER_LONG                  ' 4 -> 0 so we can use djnz
-                ALTS                            reg_offset, #cogBuffer                    ' calc addr of source long and place in instru
-                MOV                             reg_value, 0-0                            ' get COG register with 4 bytes of rgb1rgb2 values
-rotInstr1of2    ROL                             reg_value, #BITS_PER_BYTE                 ' YEAH, i've no idea why! but fixes our byte ordering problem! (AUGH! this change from rol -> ror for some panels??!)
-clkNextByte
-                ' write our 6 color bits
-                SETQ                            maskRgb12                                 ' load Q bit w/ RGB[12] mask
-outInst1of3     MUXQ                            OUTA, reg_value                           ' write contents of LS-byte anded with mask to output pins
-noDbgOvly       ROR                             reg_value, #BITS_PER_BYTE                 ' shift next most significant into LS-byte position
+                    mov     planeHubAddr, rowHubAddr
+                    mov     pulseWeight, firstPulseWeight
+                    mov     planesLeft, planeCount
+planeLoop
+                    ' load this plane's row into cog RAM (p2kbPasm2SetqBlockOps: one long per
+                    ' clock). It touches no pin, so it runs while the previous plane is lit.
+                    setq    rowLongsLessOne
+                    rdlong  cogBuffer, planeHubAddr
+                    mov     byteOffset, #0
+                    tjnz    modeOverlapDAT, #overlapPlane   ' the chip's latch style (p2kbPasm2Tjnz)
 
-                ' time to begin latch?
-                CMP                             col_addr, colCtrLatchCt               wz  ' at last three columns?
-    if_z        DRVH                            pinLedOE                                  ' disable output
-    if_z        DRVH                            pinLedLATCH
-
-                ' toggle clock
-                DRVH                            pinLedCLK
-                NOP                                                                       ' move from 2.5nS to 7.5 nS @ 335Mhz clock
-                DRVL                            pinLedCLK
-
-                ' setup for next column
-                ADD                             col_addr, #1
-                DJNZ                            byt_ctr, #clkNextByte
-                ADD                             reg_offset, #1
-                DJNZ                            col_lng_ctr, #clkNextReg
-                ' LATCH DATA complete...
-                DRVL                            pinLedLATCH                               ' end latch data
+                    ' latch at end (ICN2037, ICN2038S, FM6124, MBI5124GP ...), prototype
+                    ' refreshCog "Latch at end": shift every column; once the previous plane is
+                    ' dark set the row address and pulse LATCH; enclosed leaves a settle gap
+                    ' before /OE goes low, offset lights at once
+                    mov     columnsToShift, colCtrMax       ' one row address: the whole chain (2x for SCAN_4)
+                    call    #shiftColumns
+                    waitx   #WAITX_EOBYTE_TICKS
+                    drvl    pinLedCLK                       ' end the last column's clock pulse
+                    call    #waitPanelDark
+                    call    #emitAddress
 #IFDEF HUB75_INSTRUMENT
-strobeLatchOvlpA OUTNOT                         pinLAXT_11                                ' P11: plane latch (row latched)
-strobeLatchOvlpB OUTNOT                         pinLAXT_11
-#ENDIF
-
-                ' write address AFTER
-                ADD                             row_addr, addrValue1                      ' incr address by 1
-                CALL                            #emitAddr
-
-                CMP                             row_ctr, #1                           wz
-    if_nz       DRVL                            pinLedOE                                  ' enable output if NOT at end of frame!
-                '
-                ' ---  inter-line gap  ---
-                '
-                SUB                             row_ctr, #1
-                CMP                             reg_offset, maxPwmSubPgSzLongs        wc
-    if_c        JMP                             #wrLineLatchOvlp
-                '
-                ' ---  inter-frame gap  ---
-                '
-                JMP                             #getCommand
-
-' --------------------------------------------------------------------------------------------------
-'  the following routine is for panels that DO NOT overlap latching with serial data bits
-'   (so far this is all panels BUT those using FM6126A)
-wrLatchAtEnd
-                MOV                             byteOffset, #0
-wrLineLatchAtEnd
-#IFDEF HUB75_INSTRUMENT
-strobeRowEndA   OUTNOT                          pinLAXT_10                                ' P10: row start
-strobeRowEndB   OUTNOT                          pinLAXT_10
-#ENDIF
-'   for each column in row:
-'     toggle clock (fixed ~20MHz, independent of sysclk)
-                ' this tracks when we need to toggle latch at right-edge of row
-'                    mov     col_lng_ctr, colCtrMaxLngs          ' this is physical display width wide!
-
-' in buffer: RGB1 is byte-bits[0-2], RGB2 is byte-bits[3-5]
-'                    ' the following instru is either a ROR or ROL as configured by setup code
-clkNONextByte
-                    ' Inner loop: 7 instructions = 14 base cycles (with WAITX D=0)
-                    ' + waitCyclesLow + waitCyclesHigh = cycles for target panel freq
-                    ' At 335 MHz -> 20 MHz: 16 cycles (waitLo=1, waitHi=1)
-                    rep     @eobytes, colCtrMax         ' this is physical row in px (or 2x if 1/8 scan panel)
-                    ' write our 6 color bits
-                    altgb   byteOffset, pCogBffrIncr    ' 2 cycles: setup byte fetch
-                    getbyte colorByte, 0-0, #0-0        ' 2 cycles: get color byte
-                    drvl    pinLedCLK                   ' 2 cycles: CLK low (prep for rising edge)
-outInst2of3         setbyte OUTA, colorByte, #OUT_RGB_BYTE_POS ' 2 cycles: output RGB data
-                    waitx   waitCyclesLow               ' 2+N cycles: data setup time
-                    drvh    pinLedCLK                   ' 2 cycles: CLK high (rising edge latches data)
-                    waitx   waitCyclesHigh              ' 2+M cycles: clock high time
-eobytes
-                    waitx   #WAITX_EOBYTE_TICKS         ' is this doing anything?
-                    drvl    pinLedCLK                   ' falling edge - reset clock after end of loop
-
-                    drvh    pinLedOE                    ' disable output (in prep for latch)
-                    ' write address
-                    add     row_addr, addrValue1        ' incr address by 1
-                    call    #emitAddr
-
-#IFDEF HUB75_INSTRUMENT
-strobeLatchEndA outnot  pinLAXT_11                          ' P11: plane latch (row about to latch)
-strobeLatchEndB outnot  pinLAXT_11
+strobeLatchA        outnot  pinLAXT_11                      ' P11: plane latch
+strobeLatchB        outnot  pinLAXT_11
 #ENDIF
                     drvh    pinLedLATCH
-                    waitx   #WAITX_LATCH_SETTLE_TICKS  ' 2 + 3 x clk  let LATCH settle
-                    ' LATCH DATA complete...
-                    or      modeLatchEnclosed, modeLatchEnclosed      wz
-    if_z            drvl    pinLedOE
-    if_z            drvl    pinLedLATCH                 ' end latch data
-'    if_z            waitx   #3  ' 2 + 3 x clk           ' let LATCH settle
-    if_nz           drvl    pinLedLATCH                 ' end latch data
-    if_nz           waitx   #WAITX_LATCH_SETTLE_TICKS  ' 2 + 3 x clk  let LATCH settle
-    if_nz           drvl    pinLedOE
-                    waitx   #WAITX_LATCH_SETTLE_TICKS  ' 2 + 3 x clk  let LATCH settle
-                    '
-                    ' ---  inter-line gap  ---
-                    '
-                    cmp      byteOffset, maxPwmSubPgSzBytes wc
-    if_c            jmp     #wrLineLatchAtEnd
-                    drvh    pinLedOE                    ' blank outputs before subframe gap
-                    '
-                    ' ---  inter-subframe gap  ---
-                    '
-                    jmp     #getCommand
+                    waitx   #WAITX_LATCH_SETTLE_TICKS
+                    drvl    pinLedLATCH
+enclosedSettleInst  waitx   #WAITX_LATCH_SETTLE_TICKS       ' enclosed only: a NOP for offset (patched at start)
+                    jmp     #lightPlane
+
+overlapPlane
+                    ' overlapped latch (FM6126A, GS6238S, DP5125D), prototype refreshCog
+                    ' overlapPlane: LATCH is high while the last LATCH_OVERLAP_COLS columns clock
+                    ' in. The previous plane must be dark before LATCH rises; the row address
+                    ' changes after the latch, as the old core did.
+                    mov     columnsToShift, columnsBeforeLatch
+                    call    #shiftColumns
+                    call    #waitPanelDark
+#IFDEF HUB75_INSTRUMENT
+strobeOvlpLatchA    outnot  pinLAXT_11                      ' P11: plane latch
+strobeOvlpLatchB    outnot  pinLAXT_11
+#ENDIF
+                    drvh    pinLedLATCH
+                    mov     columnsToShift, #LATCH_OVERLAP_COLS
+                    call    #shiftColumns
+                    waitx   #WAITX_EOBYTE_TICKS
+                    drvl    pinLedCLK                       ' end the last column's clock pulse
+                    drvl    pinLedLATCH
+                    call    #emitAddress
+
+lightPlane
+                    ' light the row for pulseWeight periods; IN rises when the pulse is over
+                    ' (p2kbArchSmartPin00100PulseCycleOutput). Brightness 0 never lights.
+                    tjz     brightnessNow, #planeDone
+                    wypin   pulseWeight, pinLedOE
+                    mov     pulseStarted, #1                ' a pulse is now outstanding
+planeDone
+                    add     planeHubAddr, planeSizeBytes
+                    shr     pulseWeight, #1                 ' next plane has half the weight
+                    djnz    planesLeft, #planeLoop
+
+                    add     rowHubAddr, rowSizeBytes
+                    add     rowAddr, addrValue1
+                    djnz    rowsLeft, #rowLoop
+                    jmp     #frameStart
 
 ' --------------------------------------------------------------------------------------------------
 ' subroutines
 '
-emitAddr
-                SETQ                            maskAddr                                  ' load Q with w/ Address[A-C|D|E] mask
-outInst3of3     MUXQ                            OUTA, row_addr                            ' but in upper 5-bits of ls byte of  31-0 depending upon pingroup
-                WAITX                           #WAITX_LATCH_SETTLE_TICKS                 ' 2 + 3 x clk  let ADDR settle
-                RET
+' shiftColumns: clock columnsToShift bytes of cogBuffer, from byteOffset on, out to R1..B2.
+' 7 instructions = 14 clocks + the two WAITX extensions (16 clocks per column at 335 MHz for a
+' ~20 MHz panel clock). CLK is left high; the caller ends the last pulse. columnsToShift is
+' never 0: a row is always wider than LATCH_OVERLAP_COLS columns.
+shiftColumns
+                    rep     @shiftEnd, columnsToShift
+                    altgb   byteOffset, pCogBffrIncr        ' next byte of cogBuffer, index advances
+                    getbyte colorByte, 0-0, #0-0
+                    drvl    pinLedCLK                       ' CLK low: prepare the rising edge
+colorOutInst        setbyte OUTA, colorByte, #OUT_RGB_BYTE_POS  ' port and byte set at start
+                    waitx   waitCyclesLow                   ' data setup
+                    drvh    pinLedCLK                       ' rising edge clocks the data in
+                    waitx   waitCyclesHigh                  ' clock high time
+shiftEnd
+                    ret
 
-' Dummy ISR routines in case we need them
-isr1
-                NOP
-                RETI1
-isr2
-                NOP
-                RETI2
-isr3
-                NOP
-                RETI3
+' emitAddress: put rowAddr on A..E and let it settle. Called only while the panel is dark.
+emitAddress
+                    setq    maskAddr
+addrOutInst         muxq    OUTA, rowAddr                   ' port set at start
+                    waitx   #WAITX_LATCH_SETTLE_TICKS       ' let the address settle
+                    ret
+
+' waitPanelDark: return once the outstanding light pulse has ended. TESTP reads the smart pin's
+' IN (p2kbPasm2Testp), which P_PULSE raises when Y reaches 0 and WXPIN/WYPIN lower
+' (p2kbArchSmartPins), so a second call before the next WYPIN returns at once.
+waitPanelDark
+                    cmp     pulseStarted, #0            wz
+    if_z            ret
+waitPanelDarkPoll
+                    testp   pinLedOE                    wc
+    if_nc           jmp     #waitPanelDarkPoll
+                    ret
 
 ' INITIALIZED data
 
 ' --------------------------------------------------------------------------------------------------
-'   The following variables are poulated from the initialization SPIN code before this driver starts
+'   The following variables are populated from the initialization SPIN code before this driver starts
 '
 ' Driver Config Values
-bSetLowPins             LONG                    FALSE                                     ' T/F where T means we are using high word of 32bits vs. low word
-bSetMidPins             LONG                    FALSE                                     ' T/F where T means we are using middle word of 32bits vs. low/high word
+bSetLowPins             LONG                    FALSE                                     ' T/F where T means R1..B2 are pins 8-13 of the port, F means pins 24-29
 modeUsePortA            LONG                    FALSE                                     ' T/F where T means we are using portA vs. portB
-modeOverlapDAT          LONG                    FALSE                                     ' T/F where T means LATCH_OVERLAPPED, F means LATCH_AFTER
-modeLatchEnclosed       LONG                    FALSE                                     ' T/F where T means LATCH_ENCLOSED, F means LATCH_OFFSET
-modeDatRotLeft          LONG                    FALSE                                     ' T/F where T means ROR, F means ROL
-modeSlowCLK             LONG                    FALSE                                     ' T/F where T means add waitx to slow clock, F means no use of waitx
+modeOverlapDAT          LONG                    FALSE                                     ' T/F where T means LATCH high over the last LATCH_OVERLAP_COLS columns
+modeLatchEnclosed       LONG                    FALSE                                     ' T/F where T means latch at end, enclosed; F means offset
 
 ' Clock-frequency-independent timing values (calculated at init)
 waitCyclesLow       long    0       ' extra cycles for CLK low phase (data setup)
 waitCyclesHigh      long    0       ' extra cycles for CLK high phase (clock pulse)
 
-maxCtPerFrame           LONG                    0                                         ' initial count for compiled bit-depth
-
-' the follwing are I/O pin masks and data values we use for our primary I/O
+' the row-address field and one row address as a step, within the port
 maskAddr                LONG                    MASK_ADDR_HI16_ABCD                       ' pins at 16-31 A/B-pins
-maskRgb12               LONG                    MASK_RGB12_HI16                           ' rgb2rgb1 now grounded to lsbit - pins at 16-31 A/B-pins
-maskAllPins             LONG                    MASK_ALLPINS_HI16_ABCD                    ' adds new E addr bit (off for now) - pins at 16-31 A/B-pins
-unusedAddr              LONG                    MASK_UNUSED_HI16_ABCD                     ' pins at 16-31 A/B-pins
 ' PINS A 00-15  USE $0000_0008
 ' PINS A 16-31  USE $0008_0000
 ' PINS B 32-47  USE $0000_0008
 ' PINS B 48-63  USE $0008_0000
 addrValue1              LONG                    ADDR_VAL_ONE_HI16                         ' 1 but in upper 5-bits of byte
-
-' PINS A 00-15  USE $0000_0078
-' PINS A 16-31  USE $0078_0000
-' PINS B 32-47  USE $0000_0078
-' PINS B 48-63  USE $0078_0000
-addrValueMax            LONG                    ADDR_VAL_MAX_HI16_ABCD                    ' 15 but in upper 5-bits of byte
 '
-rowCtrMax               LONG                    ROWS_ABCD                                 ' 16 of 8/16/32 rows total
-colCtrMax               LONG                    DFLT_COL_CTR_MAX                          ' 64 columns total
-colCtrMaxLngs           LONG                    DFLT_COL_CTR_MAX_LNGS                     ' 64 cols = 16 longs total
-colCtrLatchCt           LONG                    DFLT_COL_CTR_LATCH                        ' colCtrMax-3 columns total
+rowCtrMax               LONG                    ROWS_ABCD                                 ' row addresses per frame (8/16/32)
+colCtrMax               LONG                    DFLT_COL_CTR_MAX                          ' column clocks per row address
+columnsBeforeLatch      LONG                    DFLT_COL_CTR_MAX - LATCH_OVERLAP_COLS     ' overlapped latch: columns shifted before LATCH rises
 pCogBffrIncr            LONG                    cogBuffer + COGBFFR_AUTOINC_FLAG          ' pointer to CogBuffer with auto-increment flag set
 
-' need following new vars
+' frame-set geometry
+rowLongsLessOne         LONG                    0                                         ' SETQ count for one row
+rowSizeBytes            LONG                    0                                         ' hub bytes per row
+planeSizeBytes          LONG                    0                                         ' hub bytes per plane (one PWM frame)
+planeCount              LONG                    0                                         ' bit planes (the colour depth)
+firstPulseWeight        LONG                    0                                         ' 2^(planes-1): the MSB's pulse count
+
+' /OE timing
+oeUnitClocks            LONG                    0                                         ' T: the /OE unit at brightness 256
+minOeClocks             LONG                    0                                         ' the chip's shortest /OE pulse, in clocks
+
 #IFDEF HUB75_INSTRUMENT
 pinGrpLAXT              LONG                    0                                         ' MTX_LA_XT_P08_11 pinGroup
 pinLAXT_08              LONG                    0                                         ' MTX_LA_XT_P08 pin - posted set taken
@@ -1223,55 +1088,43 @@ pinLAXT_10              LONG                    0                               
 pinLAXT_11              LONG                    0                                         ' MTX_LA_XT_P11 pin - plane latch
 strobesEnabled          LONG                    FALSE                                     ' T/F where T means this cog may drive P08..P11
 #ENDIF
-pinLedOE                LONG                    0                                         ' MTX_LED_PIN_OE
+pinLedOE                LONG                    0                                         ' MTX_LED_PIN_OE (the P_PULSE smart pin)
 pinLedLATCH             LONG                    0                                         ' MTX_LED_PIN_LATCH
 pinLedCLK               LONG                    0                                         ' MTX_LED_PIN_CLK
-maxPwmBuffers           LONG                    0                                         ' pwmBufferCount
-maxPwmSubPages          LONG                    0                                         ' pwmSubPageCount
-maxPwmSubPgSzLongs      LONG                    0                                         ' pwmSubPageSizeInLongs
-maxPwmSubPgSzLngsM1     LONG                    0                                         ' pwmSubPageSizeInLongs - 1
-maxPwmSubPgSzBytes      LONG                    0                                         ' pwmSubPageSizeInLongs * 4
+pinGrpAddr              LONG                    0                                         ' A..E as a pin group
+pinGrpColor             LONG                    0                                         ' R1..B2 as a pin group
 
 ' --------------------------------------------------------------------------------------------------
 'line buffer of hub75Bffrs.LINE_BUFFER_BYTES bytes, each %00bgrbgr where byte is 00{rgb2}{rgb1}
 ALIGNL
 cogBuffer
-                        ' COG buffer for shipping subPages of PWM buffer out to panelSet
+                        ' one row of one plane, loaded from the frame set by SETQ+RDLONG
                         LONG                    0[MAX_COG_BUFFER_SIZE_IN_LONGS]           ' sized from hub75Bffrs.LINE_BUFFER_BYTES
 endCogBuffer
 
                 ' UNINITIALIZED data
                 '
                 ' basic driver variables
-                pCommmand                       RES     1
-                pArgument                       RES     1
-                pShowing                        RES     1
-                byteOffset                      RES     1
-                colorByte                       RES     1
-                priorCommand                    RES     1
-                nxtCommand                      RES     1
-                nxtArgument                     RES     1
-                pwmBffrStart                    RES     1
-                pwmFrameStart                   RES     1
-                pwmFrameCt                      RES     1
-                pwmFrameSetCt                   RES     1                                 ' initial count for each pwmFrame: 8->4->2->1->0
-                pwmSameFrameCt                  RES     1                                 ' current count this pwmFrame
-                pwmSubPgCt                      RES     1
-                fillSubPgCt                     RES     1
-
-                fillLong                        RES     1                                 ' value to write to each long
-                fillCount                       RES     1                                 ' remaining count of bytes to write
-                fillOffset                      RES     1                                 ' offset into buffer
-
-                reg_offset                      RES     1
-                reg_value                       RES     1
-                byt_ctr                         RES     1
+                pCommand                        RES     1                                 ' @dvrCommand
+                pArgument                       RES     1                                 ' @dvrArgument
+                pShowing                        RES     1                                 ' @dvrShowing
+                pBrightness                     RES     1                                 ' @brightnessScale
+                nxtCommand                      RES     1                                 ' the command read at a frame start
+                frameSetAddr                    RES     1                                 ' the frame set on display
+                brightnessNow                   RES     1                                 ' b for this frame
+                pulsePeriod                     RES     1                                 ' P = T x b / 256, at least minOeClocks
+                pulseStarted                    RES     1                                 ' nonzero while a pulse may be outstanding
 
                 ' variables
-                row_addr                        RES     1
-                row_ctr                         RES     1
-                col_addr                        RES     1
-                col_lng_ctr                     RES     1
+                rowHubAddr                      RES     1                                 ' plane 0's copy of this row
+                rowAddr                         RES     1                                 ' current row address, in port position
+                rowsLeft                        RES     1                                 ' row addresses left in this frame
+                planeHubAddr                    RES     1                                 ' this plane's copy of this row
+                pulseWeight                     RES     1                                 ' 2^k for the plane being shifted
+                planesLeft                      RES     1                                 ' planes left in this row
+                columnsToShift                  RES     1                                 ' REP count for shiftColumns
+                byteOffset                      RES     1                                 ' next byte of cogBuffer
+                colorByte                       RES     1                                 ' the byte being output
     '
 
                 FIT     COG_RAM_FIT_LIMIT

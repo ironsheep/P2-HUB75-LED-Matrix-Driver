@@ -31,11 +31,6 @@ CON ' ---- Color Scaling / Masks / Shifts ----
     GREEN_SHIFT             = 8             ' green channel bit position (== BITS_PER_CHANNEL)
     BITS_PER_CHANNEL        = 8             ' bits in a single color channel
 
-    ' brightness scaling
-    FULL_BRIGHTNESS         = 256           ' "no reduction" sentinel (DAT default 256)
-    BRIGHTNESS_SHIFT        = 8             ' divide-by-256
-    BRIGHTNESS_ROUND_BIAS   = 128           ' +half-divisor for round-to-nearest
-
     ' bit-width remap / gamma table
     SOURCE_COLOR_BITS       = 8             ' 8-bit input depth
     GAMMA_TABLE_MAX_IDX     = 255           ' 256-entry table last index
@@ -71,24 +66,6 @@ PUB init()
 
 ' this allows our color conversion routines to be faster as there is less runtime code
 
-PUB setBrightness(newBrightness)
-'' Set the global brightness value
-''  - where 256 is NO brightness adjustment
-''  - where 0 is OFF, 205 = 80%, etc.
-''
-'' @param newBrightness - the desired brightness value [0-255,256]
-
-  defaultBrightness := newBrightness
-
-PUB getBrightness() : brightness
-'' Return the global brightness value
-''
-'' @returns brightness - the current brightness value [0-255,256]
-''  - where 256 is NO brightness adjustment
-''  - where 0 is OFF, 205 = 80%, etc.
-
-  brightness := defaultBrightness
-
 PUB isGammaEnabled() : bIsEnabled
 '' Return T/F where T means gamma correction is compiled in.
 ''
@@ -112,16 +89,13 @@ PUB correctedSingleColor(nChainIdx, led, colorValue) : adjustedColor
 '' @param nChainIdx - zero-based index of the panel chain
 '' @param led - LED color channel identifier (LED_RED, LED_GREEN, or LED_BLUE)
 '' @param colorValue - raw color value for the channel (0-255)
-'' @returns adjustedColor - brightness-scaled, gamma-corrected, bit-width-adjusted color
+'' @returns adjustedColor - gamma-corrected, bit-width-adjusted color (brightness is not applied
+''  here: the refresh driver applies it to the /OE time)
 
     adjustedColor := colorValue
     if led < LED_RED or led > LED_BLUE
         abort
 
-    ' Apply brightness with proper rounding (add 128 before >>8 for round-to-nearest)
-    ' This ensures brightness=128 gives max color=128 (bit 7 set) instead of 127 (bit 7 clear)
-    ' which prevents Frame 0 (MSB frame) from being black at 50% brightness
-    adjustedColor := ((adjustedColor * defaultBrightness + BRIGHTNESS_ROUND_BIAS) >> BRIGHTNESS_SHIFT) & CHANNEL_MASK
     if bGammaEnable
         adjustedColor := byte[@gamma][adjustedColor]
     adjustedColor := colorAtDesiredBitWidth(nChainIdx, adjustedColor)
@@ -157,22 +131,6 @@ PUB gammaPeek(color) : adjustedColor | gammmaIndex, lowColor, highColor
         adjustedColor := gammmaIndex - 1
   else
     adjustedColor := color
-
-PUB gammaCorrectedSingleColor(led, colorValue) : adjustedColor
-'' Gamma-correct the color for a specific LED (R, G, or B).
-''
-'' @param led - LED color channel identifier (LED_RED, LED_GREEN, or LED_BLUE)
-'' @param colorValue - raw color value for the channel (0-255)
-'' @returns adjustedColor - brightness-scaled and gamma-corrected color value
-
-  if led < LED_RED or led > LED_BLUE
-    abort
-  ' Apply brightness with proper rounding (add 128 before >>8 for round-to-nearest)
-  ' This ensures brightness=128 gives max color=128 (bit 7 set) instead of 127 (bit 7 clear)
-  ' which prevents Frame 0 (MSB frame) from being black at 50% brightness
-  adjustedColor := ((colorValue * defaultBrightness + BRIGHTNESS_ROUND_BIAS) >> BRIGHTNESS_SHIFT) & CHANNEL_MASK
-  if bGammaEnable
-    adjustedColor := BYTE[@gamma][adjustedColor]
 
 PUB rgbColorFromDegrees(degrees) : rcbColor | offset60, fract60, red, green, blue
 '' Convert a hue angle (0-359 degrees) to a combined RGB color value.
@@ -306,8 +264,6 @@ DAT  ' tables, default values
 
     shiftLtValue        LONG    0       ' set by init()
     nbrPwmFrames        LONG    0       ' set by init()
-
-    defaultBrightness   WORD                    FULL_BRIGHTNESS  ' 256      ' 205 = 80%  [0-255,256]   where 256 is NO brightness adjustment
 
 ' Gamma curve (lookup table)
 
