@@ -53,7 +53,7 @@ The P2 HUB75 LED Matrix Driver is a multi-layered system designed to drive HUB75
 │                    PANEL MANAGEMENT LAYER                        │
 │  isp_hub75_panel.spin2 - Screen buffer to PWM conversion         │
 │  Converts 24-bit RGB to PWM frame sets                           │
-│  Manages double-buffering for smooth animation                   │
+│  Converts into the frame set not on display, then posts it       │
 └──────────────────────────┬──────────────────────────────────────┘
                            │
 ┌──────────────────────────▼──────────────────────────────────────┐
@@ -91,7 +91,7 @@ demo_hub75_*.spin2 (top-level)
 
 1. **Separation of Concerns**: Each layer handles a specific responsibility
 2. **Compile-Time Configuration**: Panel geometry and color depth resolved at compile time for efficiency
-3. **Double-Buffering**: Smooth animation through alternating PWM frame sets
+3. **Tear-free commit**: a commit converts into the PWM frame set that is not on display and the refresh cog switches to it at a frame start (see 2.3)
 4. **Dedicated COG Execution**: PASM2 driver runs in its own COG for deterministic timing
 5. **Multi-Adapter Support**: Up to 3 independent HUB75 adapters per P2
 6. **Configure by description**: you describe where each panel is and which way it points in one sentence per panel; the driver checks the sentences at startup and derives the grid and its lookup tables once, so drawing only looks things up
@@ -110,7 +110,7 @@ demo_hub75_*.spin2 (top-level)
 └──────────────────────────┬──────────────────────────────────────┘
                            │ Map to the panel's buffer slot (2.2)
                            │ Apply color correction
-                           │ (gamma, brightness)
+                           │ (gamma, depth mapping)
                            ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ SCREEN BUFFER (HUB RAM)                                         │
@@ -122,23 +122,24 @@ demo_hub75_*.spin2 (top-level)
                            │ Bit extraction + PWM mapping
                            ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│ PWM FRAME SETS (HUB RAM, Double-buffered)                       │
-│  Format: 4 bits/pixel (2 pixels per byte)                       │
-│  Frames: color_depth frames per set (3-bit=7, 8-bit=255)        │
+│ PWM FRAME SETS (HUB RAM, two per adapter)                       │
+│  Format: one byte per column clock (top and bottom pixel)       │
+│  Frames: color_depth frames per set, one per bit plane          │
 │  Size: (width × height / 2) × color_depth bytes                 │
 │  Example: 256×128 @ 8-bit = 131,072 bytes per set               │
 └──────────────────────────┬──────────────────────────────────────┘
                            │ cmdWritePwmBuffer() - async command
-                           │ PASM2 driver reads in chunks
+                           │ taken by the refresh cog at a frame start
                            ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ PASM2 DRIVER (Running continuously in dedicated COG)            │
 │                                                                  │
-│  1. Read PWM subpage from HUB into COG buffer (128 longs)       │
-│  2. Clock out pixels to panel row by row                        │
-│  3. Set row address, latch data, enable output                  │
-│  4. Repeat for all rows, all PWM frames                         │
-│  5. Loop back to display next frame set                         │
+│  1. At a frame start, take the posted set; read the brightness  │
+│  2. For each row address, for each bit plane (MSB first):       │
+│     load the plane's row from HUB into the COG buffer          │
+│  3. Clock out the row, set the row address, latch               │
+│  4. Pulse /OE for 2^k × L clocks (the plane's weight)           │
+│  5. Load and shift the next plane while this one is lit         │
 └──────────────────────────┬──────────────────────────────────────┘
                            │ HUB75 signals
                            ▼
@@ -147,7 +148,7 @@ demo_hub75_*.spin2 (top-level)
 │  - Shift registers receive 6 color bits (R1,G1,B1,R2,G2,B2)    │
 │  - Row decoder selects active row (A,B,C,D,E address lines)    │
 │  - Latch transfers shift register to LED drivers               │
-│  - OE (output enable) controls LED brightness                   │
+│  - OE (output enable) sets how long each plane is lit           │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -167,10 +168,7 @@ Every drawing path (text, scrolling, lines, boxes, circles, image placement, pan
    - panel position → buffer slot (slot = N-1-C for the panel at cable position C of N);
    - `offset = ((((slot × panelRows) + nativeRow) × panelColumns) + nativeColumn) × bytesPerColor`.
 
-4. **Color Correction** (`colorUtils.correctedSingleColor`):
-   - Apply brightness scaling, rounded to nearest: `value = (colorValue × brightness + 128) >> 8`
-   - Apply gamma correction (optional): `value = gammaTable[value]`
-   - Adjust to the color depth's bit width.
+4. **Color Correction** (`colorUtils.correctedSingleColor`): one read of the adapter's 256-entry color table, built at adapter start. The table holds, for each 8-bit input, the stored value: the gamma curve if gamma is enabled, then the mapping to the color depth's bit width. Brightness is not applied to the values: it is /OE time, set in the refresh core (see 5.1).
 
 5. **Buffer Write**:
    ```
@@ -185,13 +183,13 @@ Panel-centric calls take (panel position, panel coordinates) in the viewer's fra
 
 `commitScreenToPanelSet()` triggers conversion from screen buffer to PWM frames:
 
-1. **Select inactive PWM frameset** (double-buffer swap)
-2. **For each pixel in screen buffer**:
-   - Read 24-bit RGB value
-   - Extract each bit of each color channel
-   - Write corresponding bit to appropriate PWM frame
-3. **Issue command to PASM2 driver** to display new frameset
-4. **Return immediately** - driver continues displaying asynchronously
+1. **Wait for the previous post to be taken.** The refresh cog names the frame set it is showing in `dvrShowing` at each frame start. Before converting again, the commit waits until `dvrShowing` is the set it posted last (within one refresh), so the set it is about to write is never the set on display. The first commit after start has nothing to wait for.
+2. **Select the PWM frame set that is not on display** (the one `dvrShowing` does not name).
+3. **For each pixel pair in the screen buffer**: read the top and bottom pixel, spread each channel's bits across the bit planes, and write one byte per plane (the `MERGEB` converters; quarter-scan panels use their own conversion).
+4. **Post the converted set** to the PASM2 driver with `cmdWritePwmBuffer()`.
+5. **Return immediately** - the driver takes the set at its next frame start and continues displaying asynchronously, so the panels never show a half-converted image.
+
+`display.showFrameSet(pFrameSet)` posts a frame set the caller built, by the same rule. It accepts only one of the adapter's two sets (build into the one that is not on display) and refuses NULL and any other address with a message naming the call. The layout is in its doc comment: plane-major, most significant bit first, row-major, one byte per column clock.
 
 ---
 
@@ -199,71 +197,69 @@ Panel-centric calls take (panel position, panel coordinates) in the viewer's fra
 
 ### 3.1 Binary-Weighted Frame Technique
 
-The driver achieves variable brightness using **binary-weighted PWM frames**. Each bit of the color depth represents a power-of-2 display duration:
+The driver achieves variable brightness using **binary-weighted bit planes**: it is binary-coded (bit-angle) modulation with output-enable weighting. A frame set holds one frame (bit plane) for each bit of the color depth. Each plane is shifted into the panels **once** per row address and lit for a time proportional to its bit weight, the /OE unit T times 2^*k*:
 
 ```
-For 3-bit color depth (7 visible levels):
-  Frame 0 (MSB): Displayed 4× (2² times)
-  Frame 1:       Displayed 2× (2¹ times)  
-  Frame 2 (LSB): Displayed 1× (2⁰ times)
-  
-  Total cycle: 7 display periods per full PWM cycle
+For 3-bit color depth (7 levels):
+  Plane 0 (MSB): lit for 4 units (2²)
+  Plane 1:       lit for 2 units (2¹)
+  Plane 2 (LSB): lit for 1 unit  (2⁰)
 
-For 8-bit color depth (255 visible levels):
-  Frame 0 (MSB): Displayed 128× (2⁷ times)
-  Frame 1:       Displayed 64× (2⁶ times)
+For 8-bit color depth (255 levels):
+  Plane 0 (MSB): lit for 128 units (2⁷)
+  Plane 1:       lit for 64 units  (2⁶)
   ...
-  Frame 7 (LSB): Displayed 1× (2⁰ times)
-  
-  Total cycle: 255 display periods per full PWM cycle
+  Plane 7 (LSB): lit for 1 unit    (2⁰)
 ```
+
+The unit T is chosen at startup from the target refresh rate (`DISPx_TARGET_REFRESH_HZ`); [the Wiring Guide](WiringGuide.md#refresh-rate) gives the rule and the measured results.
 
 ### 3.2 PWM Frame Format
 
-Each PWM frame stores 4 bits per pixel (2 pixels per byte):
+Each plane of a frame set stores one byte per column clock, in the order the panel is shifted. The byte carries two pixels, the one in the top half of the panel and the one in the bottom half:
 
 ```
-Byte layout: [Pixel1: B1 G1 R1 x] [Pixel0: B0 G0 R0 x]
-             Upper nibble         Lower nibble
+Byte layout: %00 B2 G2 R2 B1 G1 R1
 
-Each nibble contains:
-  Bit 3: Blue (top half of panel)
-  Bit 2: Green (top half)
-  Bit 1: Red (top half)
-  Bit 0: Unused (or second row half in some modes)
+  Bits 0-2: red, green, blue of the first pixel (R1 G1 B1 pins)
+  Bits 3-5: red, green, blue of the second pixel (R2 G2 B2 pins)
+  Bits 6-7: unused
 ```
+
+The planes follow one another, plane 0 (the most significant bit) first, and within a plane the bytes are row-major.
 
 ### 3.3 Display Timing
 
 The PASM2 driver continuously cycles through:
 
 ```
-FOR each PWM frame (0 to color_depth-1):
-    repetitions = 2^(color_depth - 1 - frame_index)
-    
-    FOR repetitions times:
-        FOR each row address (0 to max_rows/2 - 1):
-            Clock out all pixels for this row
-            Set row address lines
-            Latch data to LED drivers
-            Enable output for calculated duration
+FOR each frame (take the posted frame set, read the brightness):
+    FOR each row address (0 to scan_rows - 1):
+        FOR each PWM plane k, most significant first:
+            Load the plane's row for this address from HUB
+              (while the previous plane may still be lit)
+            Shift the row out, latch it, set the row address
+              (the address changes only while /OE is off)
+            Pulse /OE for 2^k × L clocks, inside a slot of 2^k × T
         END FOR
     END FOR
 END FOR
 ```
 
+L is T × brightness / 256, never below the chip's shortest /OE pulse (see 5.1).
+
 ### 3.4 Color Depth Trade-offs
 
-| Depth | Colors | PWM Frames | Relative Speed | Bytes per pixel (buffers) |
-|-------|--------|------------|----------------|---------------------------|
-| 3-bit | 512 | 7 | Fastest | 6 |
-| 4-bit | 4,096 | 15 | Fast | 7 |
-| 5-bit | 32,768 | 31 | Medium | 8 |
-| 6-bit | 262,144 | 63 | Slow | 9 |
-| 7-bit | 2,097,152 | 127 | Slower | 10 |
-| 8-bit | 16,777,216 | 255 | Slowest | 11 |
+| Depth | Colors | Levels (2^N - 1) | Bytes per pixel (buffers) |
+|-------|--------|------------------|---------------------------|
+| 3-bit | 512 | 7 | 6 |
+| 4-bit | 4,096 | 15 | 7 |
+| 5-bit | 32,768 | 31 | 8 |
+| 6-bit | 262,144 | 63 | 9 |
+| 7-bit | 2,097,152 | 127 | 10 |
+| 8-bit | 16,777,216 | 255 | 11 |
 
-**Note**: the screen buffer always uses 3 bytes per pixel, at every depth. The rest of each pixel's buffer space is the two PWM frame sets (N/2 bytes per pixel each), which is why a pixel costs 3 + N bytes in all (see 4.2). How often the full color cycle repeats at each depth, measured on the author's rig, is in the [Driver Details](../THEOPS.md#notes-on-driver-internals).
+**Note**: the screen buffer always uses 3 bytes per pixel, at every depth. The rest of each pixel's buffer space is the two PWM frame sets (N/2 bytes per pixel each), which is why a pixel costs 3 + N bytes in all (see 4.2). The default depth is 8-bit. The refresh rate at each depth, measured on the author's rig, is in the [Wiring Guide](WiringGuide.md#refresh-rate).
 
 ---
 
@@ -277,15 +273,15 @@ END FOR
 - **Location**: HUB RAM
 - **Access**: Read/write by user code, read by panel manager
 
-#### PWM Frame Sets (×2 for double-buffering)
-- **Purpose**: Pre-computed PWM data for driver output
-- **Format**: 4 bits per pixel, one frame per color depth bit
+#### PWM Frame Sets (two per adapter)
+- **Purpose**: Pre-computed PWM data for driver output. One set is on display while a commit converts into the other, then they trade roles
+- **Format**: one byte per column clock (two pixels), one frame per color depth bit
 - **Location**: HUB RAM
-- **Access**: Written by panel manager, read by PASM2 driver
+- **Access**: Written by panel manager (never the set on display), read by PASM2 driver
 
 #### COG Buffer
 - **Purpose**: Working buffer for PASM2 driver
-- **Format**: 512 bytes (128 longs), `LINE_BUFFER_BYTES`; one sub-page of whole PWM rows
+- **Format**: 512 bytes (128 longs), `LINE_BUFFER_BYTES`; one row of one bit plane for the whole chain
 - **Location**: COG RAM (driver's dedicated COG)
 - **Access**: Internal to driver
 
@@ -307,7 +303,7 @@ PWM Frameset Size:
   = colorDepth × PWM_Frame_Size
 
 Total PWM Memory:
-  = 2 × PWM_Frameset_Size (double-buffered)
+  = 2 × PWM_Frameset_Size (one on display, one converted into)
 
 Total Memory Per Adapter:
   = Screen_Buffer + (2 × PWM_Frameset)
@@ -382,27 +378,26 @@ For a cube, `isp_hub75_cube.spin2` additionally holds the edge table: for each f
 
 ### 5.1 Refresh Rate
 
-The refresh core shows plane *k* of an *N*-bit frame set 2^(*N*-1-*k*) times, so one full color cycle is 2^*N* - 1 scans of the display, and each scan clocks out `rows × column clocks` columns. The refresh rate is how often the full color cycle repeats:
+The refresh core shows each bit plane once per row address and lights it for 2^*k* × L clocks of /OE inside a slot of 2^*k* × T clocks, where T is the /OE unit and L = T × brightness ÷ 256. The next plane is loaded and shifted while the current plane is lit, and the row address changes only while /OE is off. The refresh rate is how often every row address has been shown with every plane.
 
-> refresh (Hz) = clock rate ÷ (rows × column clocks × (2^*N* - 1))
+You set the rate you want with `DISPx_TARGET_REFRESH_HZ` (default 60). At startup the driver finds S, the clocks to shift one row of one plane, and picks the smallest *j* for which T = S ÷ 2^*j* (never below the chip's shortest /OE pulse) reaches the target. A smaller *j* means a longer T and a brighter picture; if no *j* reaches the target, the driver runs at its fastest rate and prints it. Brightness changes L and not T, so the refresh rate does not depend on it, and the image keeps its full color depth at any brightness; the lowest brightness is the chip's shortest /OE pulse.
 
-where *rows* is 8, 16 or 32 for 3, 4 or 5 address lines and *column clocks* is the number of panels along the cable × their columns (× 2 for the chips the driver flags `SCAN_4`). The panel clock is `clkfreq / 20_000_000` core cycles per column, 16 cycles at 335 MHz.
+The method, the full target rule, the clock, the measured rates by depth, the brightness floor and the commit and draw times are in the [Wiring Guide's refresh rate section](WiringGuide.md#refresh-rate). On the author's rig (four ICN2037 128x64 panels) the default target gives 71.0 Hz at 8-bit and 84.7 Hz at 5-bit.
 
-**Measured** on the author's rig (four ICN2037 128x64 panels, 512 column clocks, 1/32 scan), the full color-cycle rate was 177 Hz at 3-bit, 82 Hz at 4-bit, 40.1 Hz at 5-bit, 19.7 Hz at 6-bit, 9.6 Hz at 7-bit and 4.6 Hz at 8-bit, each a little below the formula's clock-time ceiling (182.6, 85.2, 41.2, 20.3, 10.1 and 5.0 Hz). Other panel types are calculated, not measured: see the [Wiring Guide's refresh tables](WiringGuide.md#refresh-rate), which also say what the rig looked like to the eye at each depth.
+The method is the binary-coded (bit-angle) modulation with output-enable weighting that is widely used for these panels.
 
 ### 5.2 Timing-Critical Operations
 
 #### Pixel Clocking (HIGHEST PRIORITY)
-- **Location**: `isp_hub75_rgb3bit.spin2`, the column-clocking loop
-- **Requirement**: 15-30 MHz clock rate depending on panel chip
+- **Location**: `isp_hub75_rgb3bit.spin2`, the column-clocking loop (`shiftColumns`)
+- **Requirement**: each half of the CLK pulse at least 20 ns, and the period no shorter than the chip's rated clock allows (30 MHz, or 25 MHz for the MBI5124GP); the ratings are in the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)
 - **Implementation**: Uses `rep` instruction for zero-overhead loop
-- **Timing**: ~25-50ns per pixel at 335 MHz P2 clock
+- **Timing**: on the author's rig, 15 system clocks per column at 335 MHz, with CLK high 23.9 ns
 
 #### HUB-to-COG Transfer (MEDIUM PRIORITY)
-- **Location**: `isp_hub75_rgb3bit.spin2`, the sub-page load
+- **Location**: `isp_hub75_rgb3bit.spin2`, the row load
 - **Method**: `setq` + `rdlong` bulk transfer with auto-increment
-- **Transfer Size**: up to 128 longs (512 bytes) per sub-page
-- **Timing**: ~1μs per transfer
+- **Transfer Size**: one row of one bit plane for the whole chain, up to 128 longs (512 bytes)
 
 #### Row Address Change (LOW PRIORITY)
 - **Location**: `emitAddr` routine
@@ -411,17 +406,19 @@ where *rows* is 8, 16 or 32 for 3, 4 or 5 address lines and *column clocks* is t
 
 ### 5.3 Performance Bottlenecks
 
-1. **PWM Frame Count** - More color depth = slower visible frame rate
+1. **Color depth and chain length** - Each plane is shifted once per row address, so more planes or more column clocks lengthen the row; a target the display cannot reach is run at the fastest rate it has
 2. **Panel Size** - Larger displays require more data transfer
 3. **HUB Memory Bandwidth** - Shared with other COGs
 
 ### 5.4 Current Optimizations
 
-1. **Subpage Buffering**: Splits large PWM frames into COG-sized chunks
+1. **Row-at-a-time loading**: one row of one plane is loaded into the COG buffer, and the next plane loads and shifts while the current one is lit
 2. **REP Instruction**: Zero-overhead pixel clocking loop
 3. **ALTGB/SETBYTE**: Efficient indexed memory access
 4. **Bit-Parallel Output**: 6 color bits output simultaneously
 5. **Panel-Specific Code Paths**: Separate loops for different latch timing
+6. **Color table and row runs**: correction is one table read, and lines, boxes, text rows, BMP rows and fills write a run of pixels per panel
+7. **`MERGEB` converters**: a pixel pair's bits are spread across the planes with `MERGEB`
 
 ---
 
@@ -456,7 +453,7 @@ DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
 DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 DISP0_MAX_PANEL_COLUMNS = 128
 DISP0_MAX_PANEL_ROWS = 64
-DISP0_COLOR_DEPTH = hwEnum.DEPTH_5BIT
+DISP0_COLOR_DEPTH = hwEnum.DEPTH_8BIT
 DISP0_ROTATION = hwEnum.ROT_NONE
 DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP         ' bottom-left
 DISP0_C1 = hwEnum.RIGHT_OF | hwEnum.C0 | hwEnum.ARROW_UP   ' bottom-right

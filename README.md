@@ -21,6 +21,9 @@ Oct 2026 (v4.0.0 - BREAKING: the panel-layout settings and the startup call chan
 - Identify routine labels every panel so you can check your sentences
 - A second or third HUB75 adapter no longer needs any driver file edited; one start call per adapter
 - Panel-count limits per panel type, with measured refresh rates for the author's rig
+- Refresh: each bit plane is shown once and lit by /OE time, to a target refresh rate you set with `DISPx_TARGET_REFRESH_HZ` (default 60 Hz). The author's four-panel rig refreshes at 71.0 Hz at 8-bit
+- 8-bit color is the default depth; brightness is /OE time, so the image keeps its full depth at any brightness
+- A commit never shows a half-converted image, and `display.showFrameSet()` shows a frame set you built yourself
 - Fixes: multi-panel quarter-scan conversion, more than 9 panels, each display shows its own image, 90/270 degree display rotation, text and panel calls on any wiring
 - Upgrading from v3.x? See the new [Update to v4.0 Checklist](Checklist-v3-v4.md)
 15 Jan 2024
@@ -98,6 +101,9 @@ What's working today with the current driver:
 - Basic color pixel placement at row, column (whole panel-set and Single-panel-of-set forms)
 - Basic drawing primitives (whole panel-set and Single-panel-of-set forms): panel-centric calls clip at the panel's edge; text and scrolling cross panel seams whole
 - Loading and displaying images from .bmp files, of any size, optionally turned by a content rotation (`placeBMP`). *The demonstration is built for 64x32 panels, any other will require code rework. This is here to demonstrate how it can be done.*
+- Refresh to a target rate, set per display with `DISPx_TARGET_REFRESH_HZ` (default 60 Hz): the driver lights each bit plane once, weighted by /OE time, and picks the brightest timing that reaches the target. Measured on the author's rig of four ICN2037 128x64 panels: 71.0 Hz at 8-bit, 84.7 Hz at 5-bit, 193.3 Hz at 3-bit. See [refresh rate](DOCs/WiringGuide.md#refresh-rate)
+- Brightness (`setBrightness`, 0 to 256) is /OE time: full color depth at any brightness, down to the chip's shortest /OE pulse
+- Tear-free commits: a commit converts into the PWM frame set that is not on display, and `display.showFrameSet()` shows a frame set you built yourself
 - Panel-count limits per panel type, calculated, plus measured refresh rates for the author's rig: see the [driver limits](DOCs/WiringGuide.md#driver-limits)
 
 **NOTE:** *With every update we post we also update the [ChangeLog](ChangeLog.md). It will have the most up-to-date driver code/feature status.*
@@ -166,7 +172,8 @@ Definition of the constants specified in the file **isp\_hub75_hwPanelConfig.spi
 | `DISPx_PANEL_ADDR_LINES` | {none} | The number of Address lines driving your panels (ADDR\_ABC, ADDR\_ABCD, or ADDR\_ABCDE) |
 | `DISPx_MAX_PANEL_COLUMNS` | {none} | The number of LEDs in each row of your panel ( # pixels-wide) |
 | `DISPx_MAX_PANEL_ROWS` | {none} | The number of LEDs in each column of your panel ( # pixels-high) |
-| `DISPx_COLOR_DEPTH` | {none} | The color depth you wish to display on your panels (compile-time selectable from 3-bit to 8-bit) |
+| `DISPx_COLOR_DEPTH` | `DEPTH_8BIT` | The color depth you wish to display on your panels (compile-time selectable from 3-bit to 8-bit; 8-bit is full 24-bit color) |
+| `DISPx_TARGET_REFRESH_HZ` | 60 | The refresh rate to aim for, in Hz. The driver picks the brightest panel timing that reaches it. A long chain at deep color may not reach it; the driver then runs at the fastest rate it can and prints that rate at startup. Lower it for more brightness on a large display. How it works and what it reaches: [refresh rate](DOCs/WiringGuide.md#refresh-rate) |
 | `DISPx_ROTATION` | ROT\_NONE | How the whole assembled display is **mounted** (physical): `ROT_NONE`, `ROT_RIGHT_90` (hung turned 90 degrees clockwise), `ROT_LEFT_90` (counter-clockwise) or `ROT_180` (upside down). The driver draws so content reads upright as mounted; at 90 and 270 degrees the display's width and height swap. Does not apply to a cube |
 | `DISPx_C0` ... `DISPx_C15` | `NO_PANEL` | The wiring sentences: one per cable position, each saying where that panel sits next to an earlier one and which way its arrow points. `DISPx_C0` is the panel the adapter plugs into, `FIRST_PANEL \| arrow`; unused positions are `NO_PANEL`. The grammar is in the [Wiring Guide](DOCs/WiringGuide.md#the-wiring-sentences) |
 | `DISPx_SHAPE` | `SHAPE_FLAT` | `SHAPE_FLAT` for an ordinary display, `SHAPE_CUBE` for six square panels wired as a cube net |
@@ -206,8 +213,8 @@ Now let's look at examples as would be specified in the panel configuration file
     DISP0_MAX_PANEL_ROWS = 32
 
     ' (3) describe the color depth you want to support [3-8] bits per LED
-    '    NOTE full 24bit color is hwEnum.DEPTH_8BIT
-    DISP0_COLOR_DEPTH = hwEnum.DEPTH_5BIT
+    '    NOTE the default, full 24bit color, is hwEnum.DEPTH_8BIT
+    DISP0_COLOR_DEPTH = hwEnum.DEPTH_8BIT
 
     ' (4) say how the whole display is mounted (physical)
     DISP0_ROTATION = hwEnum.ROT_NONE
@@ -243,8 +250,8 @@ Here's an example for **twin 64x32 panels**, which uses the third adapter's grou
     DISP2_MAX_PANEL_ROWS = 32
 
     ' (3) describe the color depth you want to support [3-8] bits per LED
-    '    NOTE full 24bit color is hwEnum.DEPTH_8BIT
-    DISP2_COLOR_DEPTH = hwEnum.DEPTH_6BIT
+    '    NOTE the default, full 24bit color, is hwEnum.DEPTH_8BIT
+    DISP2_COLOR_DEPTH = hwEnum.DEPTH_8BIT
 
     ' (4) say how the whole display is mounted (physical): hung upside down
     DISP2_ROTATION = hwEnum.ROT_180
@@ -282,8 +289,8 @@ Here's an example for **P2 P2 Cube: 6 - 64x64 panels** (the [Wiring Guide](DOCs/
     DISP0_MAX_PANEL_ROWS = 64
 
     ' (3) describe the color depth you want to support [3-8] bits per LED
-    '    NOTE full 24bit color is hwEnum.DEPTH_8BIT
-    DISP0_COLOR_DEPTH = hwEnum.DEPTH_5BIT
+    '    NOTE the default, full 24bit color, is hwEnum.DEPTH_8BIT
+    DISP0_COLOR_DEPTH = hwEnum.DEPTH_8BIT
 
     ' (4) a cube is mounted by its Top and Front faces, set below, so this is not used
     DISP0_ROTATION = hwEnum.ROT_NONE
@@ -389,9 +396,7 @@ But let's be more specific:
 | Reusable Driver | - | Ensure driver can be configured for (1) single panel size, (2) organization of Multi-panel chains, and (3) the various panel chip-sets which require different clocking styles (within practical limits: *all panels must use the same chip-set*) |
 | long-term | - | Can we drive multiple panel chains - we have 64 GPIO pins on the P2... we should easily be able to connect 3 HUB75 adapters. Can we drive them all at video frame rates?  What is our limitation here? |
 
-**NOTE:** Initial turn-on of the pasm2 driver code (1st draft reasonably performant code, not the fastest possible) shows that I'm getting a 1000fps rate with 3 bit color.  This will be derated by PWM especially as we get a much better PWM in place more usefully handling brightness control.
-
-Remember, this is without yet tuning the driver for best performance based on what the chip can do.  Based on the limits of the panel chipset, for the panels on this project, I should be able to drive the panel itself faster than I am in the 1st draft code.  So, there's room to get better here.
+**NOTE:** The measured refresh rates are in the [Wiring Guide](DOCs/WiringGuide.md#refresh-rate): on the four-panel rig (four ICN2037 128x64 panels, 512 column clocks), 193.3 Hz at 3-bit and 71.0 Hz at 8-bit with the default 60 Hz target. A commit takes 8.93 ms at 8-bit, and drawing a full-screen fill takes 114.0 ms.
 
 ----
 

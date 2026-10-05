@@ -24,7 +24,7 @@ The current driver stores all buffers in hub RAM:
 |--------|---------|---------|
 | Screen Buffer | W × H × 3 bytes | 24-bit RGB pixels |
 | PWM Frameset 1 | W × H × 0.5 × depth bytes | Binary-weighted PWM frames |
-| PWM Frameset 2 | W × H × 0.5 × depth bytes | Double-buffer for smooth updates |
+| PWM Frameset 2 | W × H × 0.5 × depth bytes | The set a commit converts into while the other is on display |
 
 ### Maximum Configurations (Hub RAM Only)
 
@@ -78,7 +78,7 @@ Store in PSRAM for instant access:
 
 ### 4. Triple/Quad Buffering
 
-Current: Double-buffered (2 PWM framesets)
+Current: two PWM framesets (a commit converts into the one not on display; `display.showFrameSet()` can post a set you built)
 With PSRAM:
 - Triple buffer for tear-free animation at high frame rates
 - Quad buffer for complex compositor effects
@@ -327,7 +327,7 @@ repeat while long[ptr][2]
 | Feature | Hub RAM Only | With 32MB PSRAM |
 |---------|--------------|-----------------|
 | Max display size | ~65K pixels | ~1M+ pixels |
-| Animation frames | 2 (double-buffer) | 100+ stored |
+| Animation frames | 2 PWM frame sets (one on display) | 100+ stored |
 | Pre-rendered assets | Limited | Extensive |
 | Instant scene switching | No | Yes |
 | Large font libraries | No | Yes |

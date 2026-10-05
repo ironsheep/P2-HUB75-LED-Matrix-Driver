@@ -367,9 +367,63 @@ Nothing in `isp_hub75_hwBufferAccess.spin2` or `isp_hub75_hwBuffers.spin2` is ed
 
 ---
 
-## Logic Analyzer Test Setup
+## Instrumentation Harness
 
-The author's logic analyzer configuration for debugging HUB75 signals.
+The refresh rate, the share of time the panels are lit, the shift clock, the commit time and the draw time are measured from the P2's own pins, with no logic analyzer leads. The harness is compiled only when a test top file defines `HUB75_INSTRUMENT` and exports it to every object (`#DEFINE HUB75_INSTRUMENT` and `#PRAGMA EXPORTDEF HUB75_INSTRUMENT`). Without the symbol, no strobe instruction, strobe pin setup or monitor code is compiled, so release builds carry none of it. It instruments one adapter at a time.
+
+| Top file | What it does |
+|---|---|
+| `test_hub75_rates.spin2` | Starts adapter 1 and the instrument, runs a fixed workload (flat fill, lines, text, BMP, each followed by a commit) and prints refresh, lit share, clock, draw time and commit time per phase. It then runs the frame-set handshake trace, the brightness steps (labelled on the panel), the tearing test with the take check, and the colour-table and row-run self-tests, each ending in PASS or FAIL |
+| `test_hub75_oe_bcm.spin2` | Stand-alone check of the output-enable-weighted method with test patterns, on its own monitors |
+| `test_hub75_converter.spin2` | Compares the screen-to-PWM converters byte for byte with a reference converter; needs no panels |
+
+The color depth is a compile-time setting, so one build of `test_hub75_rates.spin2` measures one depth. Build and run it from `driver/`:
+
+```
+pnut-ts -d -l -m test_hub75_rates.spin2
+pnut-term-ts -r test_hub75_rates.bin -p <port> --headless --end-marker --timeout 180
+```
+
+### Strobes
+
+With the symbol defined, the refresh cog marks its progress with one pulse on each of four P2 pins that are not part of the HUB75 connector. Only the refresh cog drives them.
+
+| Pin | Marks |
+|---|---|
+| P8 | posted set taken: the refresh cog took a newly posted PWM frame set |
+| P9 | frame start |
+| P10 | row start: the planes of one row address begin |
+| P11 | plane latch |
+
+### Monitor map
+
+`isp_hub75_instrument.spin2` starts one input-only smart pin beside each signal it watches. A monitor sits up to three pins from its signal and never drives a pin. For an adapter at P16:
+
+| Signal | Pin | Monitor | Measures |
+|---|---|---|---|
+| posted set taken | P8 | P5 | rises per 1 s window |
+| frame start | P9 | P6 | rises per 1 s window |
+| row start | P10 | P7 | rises per 1 s window |
+| plane latch | P11 | P12 | rises per 1 s window |
+| CLK | P16 | P13 | high clocks and periods over period-aligned windows |
+| /OE | P17 | P14 | clocks low (lit) per 1 s window |
+| LATCH | P18 | P15 | rises per 1 s window |
+
+Every pin is derived from the adapter's base pin. Each signal tries the pins around it nearest-below first and takes the first that is free; a signal with no free neighbour is reported as `not monitored: jumper needed`. Refresh is the LATCH count divided by the planes and row addresses of a frame; the lit share is the /OE low time over the window.
+
+An adapter at P0 owns P0-P13, which holds the strobe pins themselves, so there the strobes are not driven and no monitor starts. The test prints `RG3: instrument strobes P8-P11 are this adapter's own pins (base P0): strobes off` and `INSTR: monitors unavailable`, and reports only draw and commit times.
+
+### Checks the harness makes
+
+- **Handshake trace:** 100 commits back to back; each must convert into the frame set that is not on display. `HANDSHAKE PASS` or `FAIL`.
+- **Take check:** a cog catches every rise of P8 and reads the row-address pins A-E at that moment. A take at a frame boundary finds row address 31 (the frame's last), and the takes counted must equal the commits made. `TAKE CHECK PASS` or `FAIL`. This is the tear-free acceptance, because a camera cannot tell an unlit row from a black image.
+- **Resolution:** the CLK high time is measured directly; the low half is derived from the clock period, and resolves to about +/-0.5 system clock.
+
+The logic analyzer below remains for the shape of waveforms, which the harness does not show.
+
+## Logic Analyzer (waveform shape only)
+
+The author's logic analyzer configuration for looking at the shape of HUB75 signals.
 
 ### Channel Mapping (16-channel LA)
 
@@ -379,10 +433,10 @@ The author's logic analyzer configuration for debugging HUB75 signals.
 | 14 | P25 | G1 | Green data, upper half |
 | 13 | P27 | R2 | Red data, lower half |
 | 12 | P28 | G2 | Green data, lower half |
-| 11 | P11 | LA_NEW | Instrumentation: Start of NEW single PWM Frame |
-| 10 | P10 | LA_SAME | Instrumentation: Start of SAME PWM Frame (BCM repeat) |
-| 9 | P9 | LA_FRMSET | Instrumentation: Start of PWM FrameSet |
-| 8 | P8 | LA_CMD | Instrumentation: Start of NEW Command |
+| 11 | P11 | Plane latch | Instrumentation strobe (`HUB75_INSTRUMENT` builds) |
+| 10 | P10 | Row start | Instrumentation strobe |
+| 9 | P9 | Frame start | Instrumentation strobe |
+| 8 | P8 | Posted set taken | Instrumentation strobe |
 | 7 | P19 | A | Address bit 0 (LSB) |
 | 6 | P20 | B | Address bit 1 |
 | 5 | P21 | C | Address bit 2 |
@@ -395,14 +449,15 @@ The author's logic analyzer configuration for debugging HUB75 signals.
 ### Notes
 
 - Blue pins (B1, B2) are not monitored - R/G sufficient for color debugging
-- LA instrumentation pins (P8-P11) are directly on P2, not on HUB75 connector
+- The strobe pins (P8-P11) are directly on the P2, not on the HUB75 connector, and are driven only in a `HUB75_INSTRUMENT` build
 - HUB75 signals assume `BASE_PIN = 16` (P16-P31 adapter)
-- Expected CLK frequency: ~20 MHz (chip ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings))
-- Observed CLK during debugging: ~833 kHz (indicating timing issues)
+- On the four-panel ICN2037 rig the column clock is 15 system clocks per column at 335 MHz, with CLK high 23.9 ns (chip ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings))
 
 ### Pin Identification Test
 
 Use `test_hub75_pin_identify.spin2` to verify LA channel-to-pin mapping. This test outputs a 20-bit binary counter, with each bit assigned to a specific pin. Measure the frequency of each LA channel to identify which P2 pin it's connected to.
+
+The test labels P8-P11 `LA_CMD`, `LA_FRMSET`, `LA_SAME` and `LA_NEW`; they are the pins the refresh cog uses as the strobes listed under [Strobes](#strobes).
 
 **Test Configuration:** `BASE_PIN = 16`, `BASE_FREQ_HZ = 100_000`
 

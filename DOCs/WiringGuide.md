@@ -190,6 +190,15 @@ The fold is checked without any panels attached by `test_hub75_cube_fold.spin2`,
 
 How many panels one adapter can drive depends on the panel. The hard limit for every panel type is the **refresh line buffer**: the refresh core holds one row of the whole chain, 512 column clocks. The driver checks this at startup (message in the [catalogue](#startup-messages)). Hub RAM sets a separate limit that the compiler enforces.
 
+A display must pass all four limits, and the tightest decides:
+
+| Limit | What sets it | Where it binds |
+|---|---|---|
+| Refresh line buffer | One row of the whole chain, 512 column clocks | Per adapter |
+| Hub RAM | All three adapters' buffers share what is left of 512 KB | Across adapters |
+| Refresh rate | The chain's column clocks, row addresses and colour depth, against `DISPn_TARGET_REFRESH_HZ` ([Refresh rate](#refresh-rate)); a display that cannot reach the target runs at its fastest rate | Per adapter |
+| Pins and cogs | Each adapter takes a 16-pin group and one refresh cog | Board-wide |
+
 **Max panels per adapter = 512 / (panel columns x scan factor)**, never more than 16 (the number of cable positions). The scan factor is 2 for chips the driver flags as quarter-scan (`SCAN_4`: ICN2038S, MBI5124GP, DP5125D) and 1 for every other chip.
 
 | Panel type | Columns | Scan factor | 512 / (columns x factor) | **Max panels per adapter** | Status |
@@ -225,29 +234,84 @@ Maximum panels by RAM alone, one adapter, nothing on the others (calculated from
 
 On one adapter, RAM never sets the limit: the line buffer's cap above is lower in every cell. RAM binds when adapters share it, for example two adapters of 4 x 128x64 at 8-bit need 8 x 90,112 = 720,896 bytes, which does not fit.
 
+Worked examples (128x64 panels unless stated; calculated from the 451,564 bytes, except the first, which is the author's rig):
+
+| Configuration | Hub buffers (bytes) | Fits |
+|---|---|---|
+| 1 adapter x 4 panels, 8-bit | 4 x 8,192 x 11 = 360,448 | yes (runs on the rig) |
+| 2 adapters x 4 panels, 8-bit | 720,896 | no |
+| 2 adapters x 4 panels, 4-bit | 8 x 8,192 x 7 = 458,752 | no, 7,188 bytes over |
+| 2 adapters x 4 panels, 3-bit | 8 x 8,192 x 6 = 393,216 | yes |
+| Cube: 1 adapter x 6 panels of 64x64, 8-bit (384 of the 512 columns) | 6 x 4,096 x 11 = 270,336 | yes |
+
+One long chain or several shorter ones:
+
+- **One adapter, one long chain** is one large display with one image across all its panels, up to the 512-column line buffer. Its refresh falls as the chain lengthens, and it uses one refresh cog.
+- **Several adapters** drive one display each, and each refreshes its own shorter chain, so faster. The content is independent per display: one image does not span adapters. Every adapter uses one refresh cog, and the hub RAM they share must hold the sum of their buffers.
+
 ### Refresh rate
 
-One column clock takes 16 cycles at 335 MHz. A full colour cycle shows 2^N - 1 scans, so with rows = 8, 16 or 32 for 3, 4 or 5 address lines:
+This section is the one place that states how the refresh works and what it reaches. [Driver Details](../THEOPS.md#notes-on-driver-internals) and the [Theory of Operations](TheoryOfOperations.md#51-refresh-rate) describe the method briefly and link here.
 
-> refresh (Hz) = 335,000,000 / (16 x rows x column clocks x (2^N - 1))
+#### The method
 
-At the maximum panel count every panel type fills the 512-column line buffer, which gives these **calculated** upper bounds (clock time only; latch, blanking and hub-fetch time are left out). With fewer panels the rate rises in proportion:
+The refresh cog shows each bit plane **once** per row address. For each row address, and for each bit plane *k* from the most significant down, it loads the plane's row from hub RAM, shifts it into the panels, latches it, and lights the row by pulsing /OE for 2^*k* x L clocks inside a slot of 2^*k* x T clocks. The next plane is loaded and shifted while the current plane is lit, and the row address changes only while /OE is off.
 
-| Rows (address lines) | Panel types | 3-bit | 4-bit | 5-bit | 6-bit | 7-bit | 8-bit |
-|---|---|---|---|---|---|---|---|
-| 32 (ABCDE) | ICN2037, ICN2038S | 182.6 | 85.2 | 41.2 | 20.3 | 10.1 | 5.0 |
-| 16 (ABCD) | FM6126A, FM6124, GS6238S | 365.1 | 170.4 | 82.4 | 40.6 | 20.1 | 10.0 |
-| 8 (ABC) | MBI5124GP, DP5125D | 730.2 | 340.8 | 164.9 | 81.1 | 40.2 | 20.0 |
+T is the **/OE unit**. L equals T at full brightness (see [Brightness](#brightness)). One full colour cycle is every row address shown with every plane, and the refresh rate is how often it repeats.
 
-**Measured**, for one panel type only: four ICN2037 128x64 panels (512 column clocks, 1/32 scan), counting the full colour cycle on the P2:
+On the author's rig the column clock is 15 system clocks per column at 335 MHz. CLK stays high 23.9 ns at every depth; its low half is 7 clocks (20.9 ns), which the monitors resolve to about +/-0.5 clock. The driver holds each half of the pulse to at least 20 ns and the whole period to the chip's rated maximum clock (30 MHz; 25 MHz for the MBI5124GP; 20 MHz for a chip with no rating in the driver's table). The ratings are in the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings).
 
-| Depth | 3 | 4 | 5 | 6 | 7 | 8 |
-|---|---|---|---|---|---|---|
-| Measured (Hz) | 177 | 82 | 40.1 | 19.7 | 9.6 | 4.6 |
-| Calculated ceiling (Hz) | 182.6 | 85.2 | 41.2 | 20.3 | 10.1 | 5.0 |
-| Seen by eye | - | *"rock steady"* | *"less shimmer"* | *"shimmering but seems to be a side-to-side shifts"* | - | - |
+#### The target refresh rate
 
-The eye was judging a full-screen rainbow with white text. Visible flicker on this rig starts between 82 Hz (4-bit) and 40 Hz (5-bit). Refresh has not been measured for any other panel type.
+`DISPn_TARGET_REFRESH_HZ` (default 60) says how fast the display should refresh. At startup the driver takes S, the clocks to shift one row of one plane (the chain's column clocks x the clocks per column), and tries T = S / 2^*j* for *j* = 0, 1, 2, ... until the predicted refresh reaches the target. T never goes below the chip's shortest /OE pulse. The smallest *j* that meets the target gives the longest T, and so the brightest picture. *j* = 0 lights every plane for its whole slot.
+
+When no *j* reaches the target, the driver runs at the fastest rate the display has (the largest *j*, the colour depth) and prints the [notice](#startup-messages). On the author's rig at 8-bit, a target of 200 Hz printed `running at 165.7 Hz, its fastest (j = 8)` and the monitors measured 165.0 Hz.
+
+A build with DEBUG prints a `REFRESH` line at startup (S, T, *j*, the chip's shortest /OE pulse in clocks and the target) and a `MODEL` line (predicted refresh and lit share). Lower the target for more light on a large display.
+
+#### Measured refresh
+
+Measured on one rig only: four ICN2037 128x64 panels (512 column clocks, 1/32 scan) at the default 60 Hz target, 335 MHz. The monitors count LATCH and /OE on the P2's own pins. The lit share is the part of the time /OE holds the panels lit, at brightness 256.
+
+| Depth | Refresh (Hz) | Lit share | *j* chosen |
+|---|---|---|---|
+| 3-bit | 193.3 | 99.2% | 0 |
+| 4-bit | 90.5 | 99.6% | 0 |
+| 5-bit | 84.7 | 96.3% | 1 |
+| 6-bit | 79.6 | 91.9% | 2 |
+| 7-bit | 75.0 | 87.4% | 3 |
+| 8-bit | 71.0 | 83.0% | 4 |
+
+Each figure is within 0.2% of the rate and lit share the driver predicts at startup. The image is steady by eye at 5-bit to 8-bit on a full-screen colour demo; the author's words at each depth were *"steady"* (5-bit), *"steady"* (6-bit), *"no shimmering"* (7-bit) and *"colors all look steady"* (8-bit). A test build of the method showed visible flicker at 36.9 Hz and none at 65.9 Hz.
+
+Refresh has been measured for the ICN2037 128x64 rig only. The rate of any other panel type follows the same rule, but its figures are not in this table.
+
+#### Brightness
+
+`display.setBrightness(0 to 256)` scales L, the lit time inside each plane's slot, to T x b / 256. The colour values are not touched, so the image keeps its full depth at any brightness, and the row timing, and with it the refresh rate, does not change. 256 is no reduction and 0 is off (/OE never pulses).
+
+L never goes below the chip's shortest /OE pulse, so low settings give a floor brightness rather than less. On the four-panel ICN2037 rig at 8-bit the shortest pulse is 21 clocks (60 ns) and T is 480 clocks, so settings 1 to 11 all give the same light. Measured there:
+
+| Brightness | 256 | 128 | 1 | 0 |
+|---|---|---|---|---|
+| Lit share | 83.0% | 41.5% | 3.6% | 0.0% |
+| Of full | 100% | 50% | 4% | 0% |
+
+At every depth, 128 gave half of the lit share of 256 with the refresh rate unchanged. A shorter lit time means a lower average LED current; the supply draw at reduced brightness has not been measured. For sizing a supply, the author read these full-white figures from the supply while running the method's test build: 120 W for the four-panel rig (82.2% lit), and for single 64x32 panels 17.6 W (FM6126A), 39.93 W (MBI5124GP) and 14.27 W (FM6124).
+
+#### Commit and draw time
+
+Measured on the same four-panel rig (256x128 pixels), drawing a flat fill, fanned lines, lines of text or a full-screen BMP, then committing:
+
+| Step | 8-bit | 5-bit |
+|---|---|---|
+| Commit | 8.93 ms | 6.58 ms |
+| Draw: flat fill | 114.0 ms | 114.0 ms |
+| Draw: lines | 116.8 ms | 116.8 ms |
+| Draw: text | 300.9 ms | 300.9 ms |
+| Draw: BMP | 188.4 ms | 188.4 ms |
+
+Draw time does not depend on the colour depth. A commit converts the screen buffer into the PWM frame set that is not on display and posts it; the refresh cog switches to it at its next frame start, so the panels never show a half-converted image (see [Theory of Operations](TheoryOfOperations.md#23-screen-commit-operation)).
 
 ## Startup messages
 

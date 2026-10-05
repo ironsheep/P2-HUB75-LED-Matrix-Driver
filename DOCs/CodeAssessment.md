@@ -4,7 +4,7 @@
 **Date:** December 2024  
 **Author:** Generated from codebase analysis
 
-> **Point-in-time analysis of the v3.0.x code (December 2024).** It is kept as a record of that assessment and is not updated as the driver changes. Names it uses for the panel-layout settings (panels per row and column, wire order, per-panel rotation tables) and the methods it proposes were removed or replaced in 4.0.0, when panel layout became per-panel wiring sentences. For the current design see the [Wiring Guide](WiringGuide.md), [Driver Details](../THEOPS.md) and [Theory of Operations](TheoryOfOperations.md).
+> **Point-in-time analysis of the v3.0.x code (December 2024).** It is kept as a record of that assessment and is not updated as the driver changes. Names it uses for the panel-layout settings (panels per row and column, wire order, per-panel rotation tables) and the methods it proposes were removed or replaced in 4.0.0, when panel layout became per-panel wiring sentences. Its performance sections (the optimizations list, including "double-buffering", and the frame-rate estimates) describe that code: its second PWM frame set was never shown, the refresh repeated the heavier planes, and the sub-page loads and the 1,000 Hz estimates belong to that refresh core. The 4.0.0 refresh, commit and measured rates are in the [Wiring Guide's refresh rate section](WiringGuide.md#refresh-rate) and the [Theory of Operations](TheoryOfOperations.md#5-timing-and-performance). For the current design see the [Wiring Guide](WiringGuide.md), [Driver Details](../THEOPS.md) and [Theory of Operations](TheoryOfOperations.md).
 
 ---
 

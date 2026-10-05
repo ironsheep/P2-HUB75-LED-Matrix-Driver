@@ -125,51 +125,13 @@ Screen Buffer (24-bit RGB)
 
 **Current Characteristics:**
 - Color depth: compile-time configurable (3-8 bits per channel)
-- Double-buffered PWM frames (frame 1 displays while frame 2 is being built)
+- Two PWM frame sets: a commit converts into the set that is not on display and posts it, and the refresh cog switches to it at a frame start
 - Screen-to-PWM conversion runs in Spin2 with inline PASM2 for speed
 - Output driver runs in dedicated PASM2 COG for timing precision
 
 ### Refresh Rate Analysis
 
-#### Calculation Parameters (2x2 Panel Configuration)
-
-| Parameter | Value |
-|-----------|-------|
-| Display Resolution | 256 x 128 pixels |
-| Physical Chain | 512 columns (4 × 128) |
-| Scan Rate | 1/32 (32 address lines) |
-| Driver Chip | ICN2037 (rated 30 MHz; the driver clocks it at 20.94 MHz) |
-| Row Clock Time | 512 ÷ 20.94 MHz = **24.4 µs** |
-
-#### Refresh Rates by Color Depth (full color cycle)
-
-The driver shows plane *k* of an *N*-bit frame set 2^(*N*-1-*k*) times, so one **full color cycle** is 2^*N* - 1 scans of the display. The refresh rate is how often that cycle repeats. These numbers are for the rig above (four ICN2037 128x64 panels, 512 column clocks, 1/32 scan) and are **measured** on the P2:
-
-| Color Depth | Bits/Channel | Scans/Cycle | Full color-cycle rate (measured) | Colors |
-|-------------|--------------|-------------|----------------------------------|--------|
-| 3-bit | 3 | 7 | **177 Hz** | 512 |
-| 4-bit | 4 | 15 | **82 Hz** | 4,096 |
-| 5-bit | 5 | 31 | **40.1 Hz** | 32,768 |
-| 6-bit | 6 | 63 | **19.7 Hz** | 262,144 |
-| 7-bit | 7 | 127 | **9.6 Hz** | 2,097,152 |
-| 8-bit | 8 | 255 | **4.6 Hz** | 16,777,216 |
-
-**Notes:**
-- The driver repeats the heavier planes, which is why the rates fall by about half for each added bit of depth
-- On the rig, 4-bit looked rock steady, 5-bit showed less shimmer and 6-bit showed visible shimmer, and the flicker followed specific colors, not screen positions (see the Known Issues in the [Change Log](../ChangeLog.md))
-- Other panel types are calculated, not measured, in the [Wiring Guide's refresh tables](WiringGuide.md#refresh-rate)
-- Image and animation work should plan around these full-cycle rates, not around a fixed frame rate
-
-#### Formula
-
-```
-Full color cycle = 2^N - 1 scans
-Refresh Rate = Panel Clock ÷ (Scan Rows × Chain Columns × (2^N - 1))
-
-Example (8-bit, 256x128 display: 32 scan rows, 512 chain columns):
-Clocks per cycle = 32 × 512 × 255 = 4,177,920
-Panel clock = 335 MHz ÷ 16 = 20.94 MHz, so the ceiling is 5.0 Hz (measured: 4.6 Hz)
-```
+The refresh method (each bit plane shown once per row address and lit by /OE time), the target refresh rule, the measured rates by color depth, the brightness floor and the commit and draw times are in the [Wiring Guide's refresh rate section](WiringGuide.md#refresh-rate). Image and animation work should plan around the full-cycle refresh rates stated there, not around a fixed frame rate.
 
 ---
 
@@ -229,7 +191,7 @@ Typical values for 6500K white point:
 - Perceived brightness: 7.5 (between the two discrete levels)
 ```
 
-**Trade-offs**: Requires higher refresh rate to avoid visible flicker. At 200+ Hz, works well.
+**Trade-offs**: Requires a high refresh rate to avoid visible flicker; the measured rates are in the [Wiring Guide](WiringGuide.md#refresh-rate).
 
 #### 4. Scan-Line Brightness Uniformity
 
@@ -263,7 +225,7 @@ Typical values for 6500K white point:
 **Benefits**:
 - Reduced CPU load
 - More consistent timing
-- Potential for higher refresh rates
+- Potential to lift the 512-column line-buffer limit
 
 **Complexity**: Requires significant driver restructuring.
 
@@ -313,7 +275,7 @@ The driver supports multiple panel types with different characteristics:
 
 ### For Color Optimization
 
-1. Current system provides **16.7M colors** at 8-bit, with a measured full color-cycle rate of **4.6 Hz** on the rig; 4-bit (4,096 colors) runs at 82 Hz
+1. Current system provides **16.7M colors** at 8-bit, with a measured full color-cycle rate of **71.0 Hz** on the rig at the default 60 Hz target; 4-bit (4,096 colors) runs at 90.5 Hz
 2. Future: Add **gamma correction** for perceptually linear brightness
 3. Future: Add **white point calibration** for accurate color balance
 4. Future: Consider **temporal dithering** for enhanced low-depth color
@@ -323,10 +285,10 @@ The driver supports multiple panel types with different characteristics:
 | Metric | Value |
 |--------|-------|
 | P2 Clock | 335 MHz |
-| HUB75 Clock | 20.94 MHz (335 MHz ÷ 16; ICN2037 rated 30 MHz) |
+| HUB75 Clock | 15 system clocks per column at 335 MHz, CLK high 23.9 ns (ICN2037 rated 30 MHz) |
 | Display Size | 256 × 128 |
 | Color Depth | 8-bit (configurable 3-8) |
-| Refresh Rate | 4.6 Hz full color cycle @ 8-bit (measured; 177 Hz @ 3-bit, 82 Hz @ 4-bit) |
+| Refresh Rate | 71.0 Hz full color cycle @ 8-bit (measured, 60 Hz target; 193.3 Hz @ 3-bit, 90.5 Hz @ 4-bit) |
 | Color Palette | 16.7 million |
 | Driver Language | PASM2 (time-critical) + Spin2 (logic) |
 

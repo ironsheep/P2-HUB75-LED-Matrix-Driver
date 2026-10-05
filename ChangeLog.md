@@ -10,9 +10,9 @@ Check [Keep a Changelog](http://keepachangelog.com/) for reminders on how to str
 
 4.0.0 is still being built: this entry grows as later work lands, and gets its date when the version is tagged.
 
-### Wiring sentences, a cube layer, and one-call adapter startup
+### Wiring sentences, a cube layer, one-call adapter startup, and a target refresh rate
 
-Each panel is described by one sentence, each adapter starts with one call, and six panels can draw as one cube. To convert v3.x code, follow the [Update to v4.0 Checklist](Checklist-v3-v4.md).
+Each panel is described by one sentence, each adapter starts with one call, six panels can draw as one cube, and each display refreshes to a rate you set. To convert v3.x code, follow the [Update to v4.0 Checklist](Checklist-v3-v4.md).
 
 #### Breaking Changes
 
@@ -34,6 +34,9 @@ Each panel is described by one sentence, each adapter starts with one call, and 
 - **Driver limits**: the [Wiring Guide](DOCs/WiringGuide.md#driver-limits) gives the most panels one adapter can drive for each panel type, and the startup check reports a display over the limit.
 - `placeBMP(chain, file, rotation)` places an image of any size, turned by a content rotation (`ROT_NONE`, `ROT_RIGHT_90`, `ROT_LEFT_90` or `ROT_180`).
 - **Demo**: `demo_hub75_boundary.spin2` draws across panel seams and prints the time of one full draw.
+- `DISPx_TARGET_REFRESH_HZ` (default 60) sets the refresh rate to aim for. The driver picks the brightest panel timing that reaches it; a display that cannot reach it runs at its fastest rate and prints that rate at startup.
+- `display.showFrameSet(pFrameSet)` shows a PWM frame set you built. It accepts one of the adapter's two sets, and refuses NULL or any other address with a message naming the call.
+- **Measurement build**: a test top file that defines `HUB75_INSTRUMENT` reports refresh, lit share, clock, commit time and draw time from the P2's own pins (`test_hub75_rates.spin2`; `test_hub75_oe_bcm.spin2` and `test_hub75_converter.spin2` check the refresh method and the converters). Builds without the symbol carry none of it.
 
 #### Removed
 
@@ -47,17 +50,24 @@ Each panel is described by one sentence, each adapter starts with one call, and 
 - `ROT_RIGHT_90` and `ROT_LEFT_90` draw inside the display, and `maxDisplayColumns()`, `maxDisplayRows()` and `displaySizeInPixels()` report the size as mounted. Setting either rotation on a non-square display used to draw past its edge.
 - Text and scrolling that cross a vertical panel seam land whole on a display wired from the bottom-left in Z order. Their two halves had come out swapped.
 - Panel-centric calls land on the panel they name on that same layout: `fillPanel(0)` fills the top-left panel, and a panel-centric line stops at its panel's edge instead of spilling onto a neighbour.
+- `commitScreenToPanelSet()` converts into the PWM frame set that is not on display, so a commit never shows part of the new image with part of the old.
+- `releaseScroller(0)` releases the first scroller region; index 0 was ignored.
+- An adapter on pins P0-P15 no longer has its colour lines toggled by the timing marks on P8-P11. Adapters on P16-P31 or P32-P47 were unaffected. The marks now exist only in a `HUB75_INSTRUMENT` build.
 
 #### Changed
 
 - Buffers are sized by the number of panels in use, not by the display's bounding box. A display with a gap (an L shape) holds no memory for the gap.
+- **Refresh**: each bit plane is shown once per row address and lit by output-enable time in proportion to its bit weight, in place of repeating the heavier planes. Four ICN2037 128x64 panels refresh at 71.0 Hz at 8-bit and 84.7 Hz at 5-bit, from 4.86 and 40.01 Hz. Rates by depth are in the [Wiring Guide](DOCs/WiringGuide.md#refresh-rate).
+- **Default color depth is 8-bit** (`DISPx_COLOR_DEPTH = hwEnum.DEPTH_8BIT`), full 24-bit color. A configuration whose buffers exceed hub RAM at 8-bit fails to compile with `Program requirement exceeds 512KB hub RAM`; lower the depth.
+- `setBrightness()` sets how long the panels are lit, not the color values: the image keeps its full depth at any brightness and the refresh rate does not change. The lowest lit time is the chip's shortest /OE pulse, so on the four-panel rig at 8-bit settings 1 to 11 look the same; 0 is off.
+- The column clock is held to each chip's datasheet rating, with each half of the pulse at least 20 ns (15 system clocks per column at 335 MHz on the four-panel rig). Each chip's clock and /OE ratings are in the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings); a chip with no rating in the table is held to 20 MHz and 50 ns and says so at startup.
+- Commit and drawing are faster. On the four-panel rig at 8-bit, commit takes 8.93 ms (from 21.25) and drawing a flat fill, lines, text and a BMP takes 114.0, 116.8, 300.9 and 188.4 ms (from 635.4, 233.3, 1,103.0 and 304.2). Drawing time no longer depends on color depth.
 
 ### Known Issues v4.0.0
 
 - The cube is checked by a 163-case fold self-test that runs on the P2 with no panels attached (`test_hub75_cube_fold.spin2`). It has not yet run on six real panels.
 - Multiple quarter-scan panels (the green MBI5124GP panels), chains of more than nine panels, and two adapters cabled at once are checked by buffer-level tests on the P2, not yet on panels.
-- Only the ICN2037 128x64 panel type has been run with this release. The driver limits for every other type are calculated, and refresh has been measured only for that type (full color cycle: 177 Hz at 3-bit, 82 at 4-bit, 40.1 at 5-bit, 19.7 at 6-bit, 9.6 at 7-bit, 4.6 at 8-bit).
-- Colors whose light sits mostly in the top bit, near half brightness, shimmer at 5-bit and above on that rig; 4-bit was steady. Use 4-bit or less where a steady image matters.
+- Only the ICN2037 128x64 panel type has been run with this release. The driver limits for every other type are calculated, and refresh has been measured only for four of those panels at the default 60 Hz target (full color cycle: 193.3 Hz at 3-bit, 90.5 at 4-bit, 84.7 at 5-bit, 79.6 at 6-bit, 75.0 at 7-bit, 71.0 at 8-bit). The image was steady by eye at 5-bit to 8-bit.
 - The scan setting of the ICN2038S is disputed: the driver sets `SCAN_4` (four rows lit at once), while its five address lines suggest 1/32 scan. The panel-count limit for this chip follows the driver's setting.
 
 ## [3.0.3] 11 Jun 2026

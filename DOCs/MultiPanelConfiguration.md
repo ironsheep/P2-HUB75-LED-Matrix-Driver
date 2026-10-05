@@ -86,7 +86,7 @@ For a display of N panels of P pixels each (columns × rows) at D-bit color dept
 
 ```
 Screen Buffer = N × P × 3 bytes
-PWM Frameset = N × P × 0.5 × D bytes (×2 for double-buffer)
+PWM Frameset = N × P × 0.5 × D bytes (two sets: one on display, one converted into)
 Total = Screen + (2 × PWM Frameset) = N × P × (3 + D) bytes
 ```
 

@@ -40,6 +40,9 @@ Here are the reference programs you can study when learning to display to your p
 | demo\_hub75_boundary.spin2 | **TEST** Draws across panel seams and clips a panel-centric line at its panel's edge; prints the time of one full draw |
 | demo\_hub75_quadPanel.spin2, demo\_hub75_multi2x2panel.spin2 | Draw to a 2x2 display and to its individual panels |
 | test\_hub75\_cube\_fold.spin2 | **TEST** Cube fold self-test: runs with no panels attached and prints PASS or FAIL for each case |
+| test\_hub75\_rates.spin2 | **TEST** Runs a fixed workload on one adapter with the instrument and reports refresh, lit share, clock, commit and draw time; runs the frame-set handshake and take checks, the brightness steps, the colour-table and row-run self-tests |
+| test\_hub75\_converter.spin2 | **TEST** Compares the screen-to-PWM converters with a reference converter byte for byte, with no panels attached, and prints PASS or FAIL |
+| test\_hub75\_oe\_bcm.spin2 | **TEST** Stand-alone check of the output-enable-weighted refresh method on one adapter, with test patterns and monitors |
 
 
 **NOTE:** these demo's are built for 64x32 panels and 64x64 panels. You may need to modify them if your panel is a different geometry.
@@ -69,6 +72,7 @@ The driver itself is composed of the following files (with a few extras thrown i
 | isp\_hub75_scrollingText.spin2 | **Optional** - adds Scrolling Text |
 | isp\_hub75_7seg.spin2 | **Optional** - part of 7-segment demo - a digit |
 | isp\_hub75_segment.spin2 | **Optional** - part of 7-segment demo - a segment within a digit |
+| isp\_hub75\_instrument.spin2 | **Optional** - measurement: monitor smart pins on CLK, /OE, LATCH and the refresh cog's strobes, plus stopwatches. Compiled only with `HUB75_INSTRUMENT` defined (see [Author Test Configurations](DOCs/AuthorTestConfigurations.md)) |
 
 The structure of these files was chosen in order to (1) make it easier and less memory usage for part of the driver to access other parts and (2) make it easier for you to chose to compile the **optional** parts or not. 
 
@@ -164,18 +168,7 @@ In the above image you see panels describe in terms of rows and columns, and you
 
 Once you haave the driver source files added to your project you will first need to configure the driver by modifying the following values in the file **isp\_hub75_hwPanelConfig.spin2** for each HUB75 adapter that you will be activating in your project:
 
-| Name            | Default | Description |
-|-----------------|-------------|-------------|
-| `DISPx_ADAPTER_BASE_PIN` | PINS\_P16_P31 |  Identify which pin-group your HUB75 board is connected |
-| `DISPx_PANEL_DRIVER_CHIP` | CHIP_UNKNOWN | in most cases UNKNOWN will work. Some specialized panels need a specific driver chip (e.g., those using the FM6126A) |
-| `DISPx_PANEL_ADDR_LINES` | {none} | The number of Address lines driving your panels (ADDR\_ABC, ADDR\_ABCD, or ADDR\_ABCDE) See the table of [Chips Supported](https://github.com/ironsheep/P2-HUB75-LED-Matrix-Driver/README.md#chips-supported) for the suggested value for your panels|
-| `DISPx_MAX_PANEL_COLUMNS` | {none} | The number of LEDs in each row of your panel ( # pixels-wide) |
-| `DISPx_MAX_PANEL_ROWS` | {none} | The number of LEDs in each column of your panel ( # pixels-high) |
-| `DISPx_COLOR_DEPTH` | {none} | The color depth you wish to display on your panels (compile-time selectable from 3-bit to 8-bit) |
-| `DISPx_ROTATION` | ROT\_NONE | How the whole display is **mounted** (a [display rotation](#display-rotation)): `ROT_NONE`, `ROT_RIGHT_90` (hung turned 90 degrees clockwise), `ROT_LEFT_90` or `ROT_180`. The driver draws so content reads upright as mounted; at 90 and 270 degrees the reported display size has its width and height swapped. Flat displays only |
-| `DISPx_C0` ... `DISPx_C15` | `NO_PANEL` | The [wiring](#wiring) sentences, one per cable position. `DISPx_C0` is `FIRST_PANEL \| arrow`; each other panel in use is `direction \| neighbour \| arrow`; unused positions are `NO_PANEL`. Full grammar in the [Wiring Guide](DOCs/WiringGuide.md#the-wiring-sentences) |
-| `DISPx_SHAPE` | `SHAPE_FLAT` | `SHAPE_FLAT`, or `SHAPE_CUBE` for six square panels wired as a cube net |
-| `DISPx_CUBE_TOP`, `DISPx_CUBE_FRONT` | `NO_PANEL` | With `SHAPE_CUBE` only: the cable positions (`C0` ... `C5`) of the top and front faces; the [cube orientation](#cube-orientation) |
+The settings, their defaults and what each means are in the table of [Driver Constants used for configuration](README.md#driver-constants-used-for-configuration) in the README. That table is the one place the settings are listed. In it, `DISPx_C0` ... `DISPx_C15` are the [wiring](#wiring) sentences, `DISPx_ROTATION` is a [display rotation](#display-rotation), and `DISPx_CUBE_TOP` and `DISPx_CUBE_FRONT` set the [cube orientation](#cube-orientation).
 
 Not set by you, worked out at startup from the sentences: the number of panels (`DISPx_PANEL_COUNT`, counted at compile time from the `NO_PANEL` entries; it sizes the buffers), the display's size in pixels, its grid of panels, and each panel's place, buffer slot and rotation. The driver prints them as a picture of the grid; the [Wiring Guide](DOCs/WiringGuide.md#what-a-good-config-prints) explains it.
 
@@ -191,15 +184,9 @@ Here's a quick diagram you can use to gain a general understanding of how this d
 
 **Figure 2**: Flow of data within the driver.
 
-Basically, this image shows that the user code draws in 24-bit color values. As these are written to the screen buffer they are translated into PWM values. When the screen is committed (the image is transferred to the display) the screen image is split out into individual PWM buffers, one bit-plane frame for each bit of the color depth (together, a frame set). The refresh core shows plane *k* of an *N*-bit frame set 2^(*N*-1-*k*) times, so one full color cycle is 2^*N* - 1 scans of the display.
+Basically, this image shows that the user code draws in 24-bit color values. As these are written to the screen buffer they are translated into PWM values. When the screen is committed (the image is transferred to the display) the screen image is split out into individual PWM buffers, one bit-plane frame for each bit of the color depth (together, a frame set). The commit converts into whichever of the adapter's two frame sets is not on display and posts it; the refresh core takes the posted set at the start of its next frame, so the panels never show a half-converted image.
 
-How often that full color cycle repeats is the refresh rate. **Measured** on the author's rig (four ICN2037 128x64 panels, 512 column clocks per row, 1/32 scan), counting the full color cycle on the P2:
-
-| Color depth | 3-bit | 4-bit | 5-bit | 6-bit | 7-bit | 8-bit |
-|---|---|---|---|---|---|---|
-| Full color-cycle rate (Hz) | 177 | 82 | 40.1 | 19.7 | 9.6 | 4.6 |
-
-Other panel types are **calculated** (clock time only, an upper bound), not measured; they are in the [Wiring Guide's refresh tables](DOCs/WiringGuide.md#refresh-rate), together with how the rig's rate looked to the eye at each depth.
+The refresh core shows each bit plane once per row address and lights it for a time proportional to its bit weight, by pulsing the panel's output-enable (/OE) line for 2^*k* units. This is binary-coded (bit-angle) modulation with output-enable weighting, a widely used way to drive these panels. How often every row address has been shown with every plane is the refresh rate. You set the rate you want with `DISPx_TARGET_REFRESH_HZ` (default 60 Hz); the driver picks the brightest /OE unit that reaches it. The method, the target rule, the measured rates and the brightness floor are in the [Wiring Guide's refresh rate section](DOCs/WiringGuide.md#refresh-rate).
 
 The storage format is shown in the diagram at the various points of translation.
 
@@ -207,9 +194,9 @@ The PASM2 HUB75 driver derives its signal timing from the configured system cloc
 
 Another view we'll later be adding to this page is how we allocate and use memory for these buffers as our display sizes change (these sizes are what you configured before you compiled the driver.)  This is only now being decided as we begin to add the multi-panel support.
 
-To create our rich colors we change which LEDs are powered veriy rapidly (PWM). In the latest driver versions we've added a compile-time `COLOR_DEPTH` setting which let's you specify how rich the colors are to be for your display.
+To create our rich colors we change which LEDs are powered veriy rapidly (PWM). A compile-time `COLOR_DEPTH` setting specifies how rich the colors are to be for your display; the default is 8-bit (full 24-bit color).
 
-This allowed us to use a PWM Frame-set which consists of one plane for each bit in the color depth. This change-over allows us to use 1/4 of the RAM needed for 4 bit color depth than we used in the prior version.  The following digram shows the constituent frames being displayed with the MSBit being displayed for the longest period and the LSBit just being displayed once! The display counts (how many times each frame is shown is simply the power of 2 value. (e.g., in 3-bit the MSBit is shown 2^2 or 4 times, while the next bit is shown 2^1 or 2 times and the LSBit is shown 1 time.
+The PWM Frame-set consists of one plane for each bit in the color depth. The following digram shows the constituent frames being displayed with the MSBit being displayed for the longest period and the LSBit for the shortest. Each plane's lit time is its power-of-2 weight: in 3-bit the MSBit is lit 2^2 or 4 units, the next bit 2^1 or 2 units and the LSBit 1 unit.
 
 ![Displaying Bit Depths](images/BitDepths.png)
 
@@ -284,6 +271,6 @@ Iron Sheep Productions, LLC.
 
 ---
 
-Last Updated: 02 Oct 2026
+Last Updated: 05 Oct 2026
 
 [maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep.biz-blue.svg?style=for-the-badge
