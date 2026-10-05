@@ -221,7 +221,9 @@ depth; logs, method and Stephen's words in `DOCs/bench/RUN-NOTES.md` (visit C).
   correct". A target above reach (200 Hz at 8-bit) printed its catalogue message and ran
   at 165.0 Hz against 165.7 Hz predicted.
 - **§5 accepted.** CLK high 23.9 ns at every depth; the low half is 7 clocks (20.9 ns) on
-  paper, which this instrument resolves to about +/-0.5 clock.
+  paper, which this instrument resolves to about +/-0.5 clock. *(Corrected 2026-10-05, «#105»:
+  the 15-clock loop is high 7 clocks (20.9 ns) and low 8 (23.9 ns); the 23.9 ns reading is the
+  high half read long. Both halves are still >= 20 ns.)*
 - **Shimmer (§6):** steady at 5, 6, 7 and 8 bit by eye (Stephen's words per depth in
   RUN-NOTES). «#95» records the disposition.
 - **The commit and draw columns are the "before"** for §7-§9; visit E compares against them.
@@ -250,17 +252,16 @@ panel reaches it at the longest unit (T = S, j = 0), so it runs at its fastest r
 
 | Chip (latch, scan) | Depth | Refresh | Lit | Floor at b = 1 | CLK high | Commit | Take check | By eye |
 |---|---|---|---|---|---|---|---|---|
-| FM6126A (overlapped, 1/16) | 8 / 5 | 85.1 / 688.9 Hz | 99.6 / 97.9% | 1.4% (40 ns) | see note | 283 / 231 us | 1,825 / 13,893 all at row 15 | patterns correct at both |
+| FM6126A (overlapped, 1/16) | 8 / 5 | 85.1 / 688.9 Hz | 99.6 / 97.9% | 1.4% (40 ns) | 21.7 ns (after «#105») | 283 / 231 us | 1,825 / 13,893 all at row 15 | patterns correct at both |
 | MBI5124GP (at end, 1/8, SCAN_4) | 8 / 5 | 85.4 / 698.5 Hz | 99.8 / 99.2% | 0.8% (50 ns) | 24.0 ns | 284 / 233 us | 1,823 / 14,083 all at row 7 | patterns correct at both |
 | FM6124 (at end, 1/16) | 8 / 5 | 85.3 / 694.1 Hz | 99.7 / 98.6% | 1.1% (30 ns) | 24.2 ns | 283 / 231 us | 1,821 / 13,995 all at row 15 | patterns correct at both |
 
 - **§4 and §5 accepted on all three chips.** Handshake PASS on every run.
 - **FM6126A overlapped latch:** correct image with one shift per plane and its register init.
-  The CLK monitor reads a mean high of 1,407 ns because the overlapped path holds the last
-  pre-latch clock pulse high while the previous plane goes dark. That is harmless (data is
-  taken on the rising edge), but it hides the short pulses from a mean: the >= 20 ns high half
-  holds by construction (the same shift loop and clock as the quad's measured 23.9 ns), not
-  by this measurement.
+  The overlapped path held the last pre-latch clock pulse high while the previous plane went
+  dark, so the CLK monitor first read a mean high of 1,407 ns. «#105» ends that pulse before
+  the wait, as the latch-at-end path does: CLK high now reads 21.7 ns, refresh and lit share
+  unchanged.
 - **MBI5124GP:** correct on the 8-row quarter-scan path shifting while lit; the clock count
   (699,648 rises/s at 85.4 Hz = 128 x 8 x 8) confirms S uses the doubled column count. The
   new quarter-scan converter (SC-1) shows a correct image.

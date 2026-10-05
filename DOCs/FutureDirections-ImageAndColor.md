@@ -285,7 +285,7 @@ The driver supports multiple panel types with different characteristics:
 | Metric | Value |
 |--------|-------|
 | P2 Clock | 335 MHz |
-| HUB75 Clock | 15 system clocks per column at 335 MHz, CLK high 23.9 ns (ICN2037 rated 30 MHz) |
+| HUB75 Clock | 15 system clocks per column at 335 MHz, CLK high 20.9 ns and low 23.9 ns (ICN2037 rated 30 MHz) |
 | Display Size | 256 × 128 |
 | Color Depth | 8-bit (configurable 3-8) |
 | Refresh Rate | 71.0 Hz full color cycle @ 8-bit (measured, 60 Hz target; 193.3 Hz @ 3-bit, 90.5 Hz @ 4-bit) |

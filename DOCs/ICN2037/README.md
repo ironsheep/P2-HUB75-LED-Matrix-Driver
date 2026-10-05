@@ -217,7 +217,7 @@ P2 Pin → 74HCT244 (adapter) → HUB75 Cable → 74HC245 (panel) → ICN2037
 
 **Important**: The "30 MHz max" from the ICN2037 datasheet does NOT account for panel support chips, and the paths above suggest keeping to ≤20 MHz where panels carry 74HC245 buffers.
 
-**Measured**: four 128x64 ICN2037 panels in one chain (512 column clocks) are driven at 15 system clocks per column at 335 MHz, about 22 MHz, with CLK high 23.9 ns. Their images were correct and steady by eye at 5-bit to 8-bit, so the caution did not show on that chain. Chains of other panel types and lengths have not been measured.
+**Measured**: four 128x64 ICN2037 panels in one chain (512 column clocks) are driven at 15 system clocks per column at 335 MHz, about 22 MHz, with CLK high 20.9 ns and low 23.9 ns. Their images were correct and steady by eye at 5-bit to 8-bit, so the caution did not show on that chain. Chains of other panel types and lengths have not been measured.
 
 ---
 

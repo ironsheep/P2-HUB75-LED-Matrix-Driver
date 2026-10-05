@@ -260,7 +260,7 @@ The refresh cog shows each bit plane **once** per row address. For each row addr
 
 T is the **/OE unit**. L equals T at full brightness (see [Brightness](#brightness)). One full colour cycle is every row address shown with every plane, and the refresh rate is how often it repeats.
 
-On the author's rig the column clock is 15 system clocks per column at 335 MHz. CLK stays high 23.9 ns at every depth; its low half is 7 clocks (20.9 ns), which the monitors resolve to about +/-0.5 clock. The driver holds each half of the pulse to at least 20 ns and the whole period to the chip's rated maximum clock (30 MHz; 25 MHz for the MBI5124GP; 20 MHz for a chip with no rating in the driver's table). The ratings are in the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings).
+On the author's rig the column clock is 15 system clocks per column at 335 MHz. CLK is high for 7 of them (20.9 ns) and low for 8 (23.9 ns) at every depth. The monitors read the high half a little long, through the pin's input threshold: 23.9 ns on the four-panel rig, 21.7 to 24.2 ns on single FM6126A, MBI5124GP and FM6124 panels. The driver holds each half of the pulse to at least 20 ns and the whole period to the chip's rated maximum clock (30 MHz; 25 MHz for the MBI5124GP; 20 MHz for a chip with no rating in the driver's table). The ratings are in the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings).
 
 #### The target refresh rate
 

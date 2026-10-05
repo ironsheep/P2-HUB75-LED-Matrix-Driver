@@ -250,3 +250,23 @@ Each hand-back adds one dated entry with three parts: tree state (scoped to
 **Verdicts:** §4 and §5 accepted on the FM6126A, MBI5124GP and FM6124 at 8 and 5 bit. No chip needs shift-while-dark.
 
 **Steps completed:** visit D.
+
+### 2026-10-05 — Overlapped-latch clock pulse ended before the dark wait («#105»), single FM6126A
+
+**Tree:** `driver/*.spin2` at `8e2df8d` plus the «#105» change to `isp_hub75_rgb3bit.spin2` (overlapPlane: `waitx #WAITX_EOBYTE_TICKS` and `drvl pinLedCLK` after the first `shiftColumns`), committed with this entry; a temporary single-FM6126A `DISP0` config as at visit D, restored after the build (`git diff` empty for it).
+**Rig:** the pink FM6126A alone on P16, 335 MHz, `pnut-term-ts -r <bin> -p Parw7ukt --headless --end-marker --timeout 500`. Log `driver/logs/headless_261005-162211.log`.
+
+| 8-bit | Visit D (`-150541`) | Now |
+|---|---|---|
+| CLK high (monitor mean) | 1,407.5 ns | 21.7 ns |
+| Refresh / lit | 85.1 Hz / 99.6% | 85.1 Hz / 99.6% |
+| Clock rises | 697,856/s | 697,856/s |
+| Brightness 128 / 1 / 0 | 49.8 / 1.4 / 0.0% | 49.8 / 1.4 / 0.0% |
+| Handshake / take check | PASS / 1,825 of 1,825 | PASS / 1,817 of 1,817 at row 15 |
+
+- Colour table PASS, row runs PASS (156 cases; L layouts not run on one panel). Stephen: "all looks good visually".
+- **Clock halves (correction to visit C's note):** the driver's startup line reads `CLK high 7 low 8 clocks` at 15 clocks per column: high is DRVH, WAITX #1, SETBYTE = 7 clocks (20.9 ns), low is DRVL, ALTGB, GETBYTE, WAITX #0 = 8 clocks (23.9 ns). Visit C wrote "CLK high 23.9 ns; the low half is 7 clocks (20.9 ns) on paper", which swaps the halves (the 7-clock low half was the 16-clock loop's). The monitors read the high half long through the pin's input threshold, by about 0.3 clock on the FM6126A (21.7 ns) and about 1 clock on the quad, MBI5124GP and FM6124 (23.9-24.2 ns); a true 8-clock high half could not read 21.7 ns. Both halves are >= 20 ns, so no acceptance changes. The reader docs now state 7 and 8 clocks.
+
+**Verdict:** the overlapped path ends every clock pulse before waiting, like the latch-at-end path; image, refresh and lit share unchanged.
+
+**Steps completed:** «#105».

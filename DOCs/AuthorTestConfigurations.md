@@ -458,7 +458,7 @@ The author's logic analyzer configuration for looking at the shape of HUB75 sign
 - Blue pins (B1, B2) are not monitored - R/G sufficient for color debugging
 - The strobe pins (P8-P11) are directly on the P2, not on the HUB75 connector, and are driven only in a `HUB75_INSTRUMENT` build
 - HUB75 signals assume `BASE_PIN = 16` (P16-P31 adapter)
-- On the four-panel ICN2037 rig the column clock is 15 system clocks per column at 335 MHz, with CLK high 23.9 ns (chip ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings))
+- On the four-panel ICN2037 rig the column clock is 15 system clocks per column at 335 MHz, with CLK high 7 clocks (20.9 ns) and low 8 (23.9 ns) (chip ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings))
 
 ### Pin Identification Test
 

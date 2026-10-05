@@ -1038,6 +1038,8 @@ overlapPlane
                     ' changes after the latch, as the old core did.
                     mov     columnsToShift, columnsBeforeLatch
                     call    #shiftColumns
+                    waitx   #WAITX_EOBYTE_TICKS
+                    drvl    pinLedCLK                       ' end the clock pulse before the wait, so it is not held high through it
                     call    #waitPanelDark
 #IFDEF HUB75_INSTRUMENT
 strobeOvlpLatchA    outnot  pinLAXT_11                      ' P11: plane latch

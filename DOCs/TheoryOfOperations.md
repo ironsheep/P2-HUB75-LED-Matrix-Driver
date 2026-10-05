@@ -392,7 +392,7 @@ The method is the binary-coded (bit-angle) modulation with output-enable weighti
 - **Location**: `isp_hub75_rgb3bit.spin2`, the column-clocking loop (`shiftColumns`)
 - **Requirement**: each half of the CLK pulse at least 20 ns, and the period no shorter than the chip's rated clock allows (30 MHz, or 25 MHz for the MBI5124GP); the ratings are in the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)
 - **Implementation**: Uses `rep` instruction for zero-overhead loop
-- **Timing**: on the author's rig, 15 system clocks per column at 335 MHz, with CLK high 23.9 ns
+- **Timing**: on the author's rig, 15 system clocks per column at 335 MHz, with CLK high 7 clocks (20.9 ns) and low 8 (23.9 ns)
 
 #### HUB-to-COG Transfer (MEDIUM PRIORITY)
 - **Location**: `isp_hub75_rgb3bit.spin2`, the row load
