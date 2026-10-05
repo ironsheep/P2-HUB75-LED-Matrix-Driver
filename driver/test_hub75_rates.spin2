@@ -36,7 +36,8 @@
 
    Then the brightness steps (full, half, the chip-minimum floor, off), each labelled on the
    panel with its step, its brightness and the lit share measured relative to full, so a viewer
-   can judge the dimming by eye; then the tearing test (white and black alternating at the
+   can judge the dimming by eye (on a display too narrow for a label line, the steps run
+   unlabelled and the log says so); then the tearing test (white and black alternating at the
    fastest commit rate). The plan section 1 test patterns run first, right after start, so a
    viewer sees them at once: drawn through the display API and held PATTERN_HOLD_SECONDS each
    (grey ramp, RGB bands, solid red, green, blue and white, one-pixel checkerboard). The
@@ -54,7 +55,8 @@
 
    Next, still before anything is drawn for viewing, the row-run self-test (FRAME-RATE plan section 9).
    It lays the adapter's panels out three ways (its own wiring, an L three cells wide, an L three cells
-   tall), each at all four display rotations and with all four arrows, through the instrument-only
+   tall; the two Ls only on an adapter of exactly four panels, and the log says when they are not
+   run), each at all four display rotations and with all four arrows, through the instrument-only
    hub75Bffrs.testRelayout(); the build's panel configuration is not changed. On each layout it first
    compares screenUtils.pixelAddressAtRC() with oldPixelAddress(), a copy of the per-pixel address rule
    as it stood before row runs, at the display's edges, cell edges and a lattice inside. Then, for each
@@ -547,7 +549,7 @@ PRI gammaLabel(bGamma) : pLabel
   else
     pLabel := string("off")
 
-PRI runRowRunTest() | startMs, layoutIdx, rotationIdx, arrowIdx, caseIdx, nCaseMismatches, firstOffset, nCaptured, bWindowed, nOracleMismatches, nOracleCompared, nMismatches, nFailedCases, nCases, nRefused, pLayout, pRotation, pArrow, pCase, lastCaseIdx, pNote
+PRI runRowRunTest() | startMs, layoutIdx, rotationIdx, arrowIdx, caseIdx, nCaseMismatches, firstOffset, nCaptured, bWindowed, nOracleMismatches, nOracleCompared, nMismatches, nFailedCases, nCases, nRefused, nSkipped, pLayout, pRotation, pArrow, pCase, lastCaseIdx, pNote
 ' Compare every run primitive with the pixel-by-pixel path it replaces, byte for byte, on three
 ' layouts x four display rotations x four arrows (the cases after FULL_SET_CASES on one arrow per
 ' layout and rotation), and compare the address rule with the old one on each. The adapter's own
@@ -573,13 +575,14 @@ PRI runRowRunTest() | startMs, layoutIdx, rotationIdx, arrowIdx, caseIdx, nCaseM
 ' @local nFailedCases - cases and layouts that failed
 ' @local nCases - cases compared
 ' @local nRefused - layouts testRelayout() refused
+' @local nSkipped - layouts not run because the adapter has a different number of panels than they need
 ' @local pLayout - printable name of the layout
 ' @local pRotation - printable name of the rotation
 ' @local pArrow - printable name of the arrow
 ' @local pCase - printable name of the case
 
   startMs := getms()
-  nMismatches := nFailedCases := nCases := nRefused := 0
+  nMismatches := nFailedCases := nCases := nRefused := nSkipped := 0
   debug("RATES: ---- ROW RUN self-test ----")
 #IFDEF HUB75_CORRUPT_ROW_RUN
   debug("RATES: HUB75_CORRUPT_ROW_RUN is defined: the run step is one byte short, so every run case must FAIL (the address-rule lines do not use it)")
@@ -594,7 +597,12 @@ PRI runRowRunTest() | startMs, layoutIdx, rotationIdx, arrowIdx, caseIdx, nCaseM
       repeat arrowIdx from 0 to ARROW_COUNT - 1
         pArrow := arrowLabel(arrowIdx)
         buildTestSentences(layoutIdx, LONG[@testArrows][arrowIdx])
-        if hub75Bffrs.testRelayout(chainIndex, @testSentences, LONG[@testRotations][rotationIdx]) <> hub75Bffrs.RELAYOUT_DONE
+        if layoutIdx <> LAYOUT_OWN and hub75Bffrs.maxPanels(chainIndex) <> L_LAYOUT_PANELS
+          ' an L is drawn with exactly L_LAYOUT_PANELS panels, and a relayout keeps the adapter's count
+          if rotationIdx == 0 and arrowIdx == 0
+            debug("RATES: row run ", zstr_(pLayout), ": not run, it needs ", udec_(L_LAYOUT_PANELS), " panels and this adapter has ", udec_(hub75Bffrs.maxPanels(chainIndex)))
+          nSkipped++
+        elseif hub75Bffrs.testRelayout(chainIndex, @testSentences, LONG[@testRotations][rotationIdx]) <> hub75Bffrs.RELAYOUT_DONE
           debug("RATES: row run ", zstr_(pLayout), " ", zstr_(pRotation), " arrow ", zstr_(pArrow), ": FAIL, layout refused (message above)")
           nRefused++
         else
@@ -632,7 +640,7 @@ PRI runRowRunTest() | startMs, layoutIdx, rotationIdx, arrowIdx, caseIdx, nCaseM
   pixels.setPerPixelReference(FALSE)
   display.clearScreenBuffer()
   if nFailedCases == 0 and nRefused == 0
-    debug("RATES: ROW RUN PASS: ", udec_(nCases), " cases identical byte for byte, address rule equal on every layout, in ", udec_((getms() - startMs) / MS_PER_SECOND), " s")
+    debug("RATES: ROW RUN PASS: ", udec_(nCases), " cases identical byte for byte, address rule equal on every layout run, ", udec_(nSkipped), " layouts not run (panel count), in ", udec_((getms() - startMs) / MS_PER_SECOND), " s")
   else
     debug("RATES: ROW RUN FAIL: ", udec_(nFailedCases), " failed, ", udec_(nRefused), " layouts refused, ", udec_(nMismatches), " differing bytes and points, ", udec_(nCases), " cases run")
 
@@ -1265,11 +1273,12 @@ PRI runHandshakeTrace() | commitIdx, nCommitsBefore, nCommitsAfter, nWaited, nBa
   else
     debug("RATES: HANDSHAKE FAIL: ", udec_(nProblems), " problem(s) in ", udec_(TRACE_COMMITS), " commits")
 
-PRI runBrightnessSteps() | stepIdx, windowIdx, brightness, fullLitX100, relativePercent
+PRI runBrightnessSteps() | stepIdx, windowIdx, brightness, fullLitX100, relativePercent, bLabels
 ' Measure the lit share at each brightness step while the last committed image is shown, then
 ' restore full brightness. Brightness is /OE time, so the lit share follows it down to the
 ' chip-minimum floor, and 0 must read 0%. Each step is labelled on the panel: its number and
 ' brightness at once, and after window LABEL_WINDOW the lit share relative to the full step's.
+' A display too narrow for a label line (LABEL_LINE_CHARS characters) gets no labels.
 '
 
 ' Local Variables:
@@ -1278,13 +1287,18 @@ PRI runBrightnessSteps() | stepIdx, windowIdx, brightness, fullLitX100, relative
 ' @local brightness - brightness value of this step
 ' @local fullLitX100 - lit share of the full-brightness step's window LABEL_WINDOW, percent x100
 ' @local relativePercent - this step's lit share as a whole percent of the full step's
+' @local bLabels - TRUE when a label line fits across the display
 
   fullLitX100 := 0
   display.setTextFont(display.TEXT_FONT_5x7)
+  bLabels := display.numberTextColumns() >= LABEL_LINE_CHARS
+  if bLabels == FALSE
+    debug("RATES: brightness labels off: the display holds ", udec_(display.numberTextColumns()), " text columns and a label needs ", udec_(LABEL_LINE_CHARS))
   repeat stepIdx from 0 to BRIGHTNESS_STEP_COUNT - 1
     brightness := LONG[@brightnessSteps][stepIdx]
     display.setBrightness(brightness)
-    showStepLabel(stepIdx + 1, brightness)
+    if bLabels == TRUE
+      showStepLabel(stepIdx + 1, brightness)
     relativePercent := 0
     debug("RATES: brightness ", udec_(brightness), " now showing")
     repeat windowIdx from 1 to BRIGHTNESS_SAMPLE_SECONDS
@@ -1294,7 +1308,8 @@ PRI runBrightnessSteps() | stepIdx, windowIdx, brightness, fullLitX100, relative
           fullLitX100 := instrument.litShareX100()
         if fullLitX100 > 0
           relativePercent := muldiv64(instrument.litShareX100(), PERCENT_SCALE, fullLitX100)
-        showLitLabel(relativePercent)
+        if bLabels == TRUE
+          showLitLabel(relativePercent)
     debug("RATES: brightness ", udec_(brightness), ": refresh ", udec_(instrument.refreshRateX100() / FIXED_POINT_SCALE), ".", udec_((instrument.refreshRateX100() // FIXED_POINT_SCALE) / FRACTION_DIVISOR), " Hz, lit ", udec_(instrument.litShareX100() / FIXED_POINT_SCALE), ".", udec_((instrument.litShareX100() // FIXED_POINT_SCALE) / FRACTION_DIVISOR), "%, label ", udec_(relativePercent), "% of full")
   display.setBrightness(FULL_BRIGHTNESS)
 

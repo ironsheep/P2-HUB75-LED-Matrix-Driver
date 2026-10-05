@@ -241,6 +241,33 @@ depth; logs, method and Stephen's words in `DOCs/bench/RUN-NOTES.md` (visit C).
 - *What it does not admit:* no change to the driver; the white/black flip stays in the test
   as the load the take check runs under.
 
+### Visit D results (2026-10-05, single 64x32 panels on the P16 adapter)
+
+Measured on `620d1c1` (plus, after the first run, the rates-test change in RUN-NOTES) with a
+temporary single-panel `DISP0` config per chip (restored after);
+logs, method and Stephen's words in `DOCs/bench/RUN-NOTES.md` (visit D). Target 60 Hz; each
+panel reaches it at the longest unit (T = S, j = 0), so it runs at its fastest rate.
+
+| Chip (latch, scan) | Depth | Refresh | Lit | Floor at b = 1 | CLK high | Commit | Take check | By eye |
+|---|---|---|---|---|---|---|---|---|
+| FM6126A (overlapped, 1/16) | 8 / 5 | 85.1 / 688.9 Hz | 99.6 / 97.9% | 1.4% (40 ns) | see note | 283 / 231 us | 1,825 / 13,893 all at row 15 | patterns correct at both |
+| MBI5124GP (at end, 1/8, SCAN_4) | 8 / 5 | 85.4 / 698.5 Hz | 99.8 / 99.2% | 0.8% (50 ns) | 24.0 ns | 284 / 233 us | 1,823 / 14,083 all at row 7 | patterns correct at both |
+| FM6124 (at end, 1/16) | 8 / 5 | 85.3 / 694.1 Hz | 99.7 / 98.6% | 1.1% (30 ns) | 24.2 ns | 283 / 231 us | 1,821 / 13,995 all at row 15 | patterns correct at both |
+
+- **§4 and §5 accepted on all three chips.** Handshake PASS on every run.
+- **FM6126A overlapped latch:** correct image with one shift per plane and its register init.
+  The CLK monitor reads a mean high of 1,407 ns because the overlapped path holds the last
+  pre-latch clock pulse high while the previous plane goes dark. That is harmless (data is
+  taken on the rising edge), but it hides the short pulses from a mean: the >= 20 ns high half
+  holds by construction (the same shift loop and clock as the quad's measured 23.9 ns), not
+  by this measurement.
+- **MBI5124GP:** correct on the 8-row quarter-scan path shifting while lit; the clock count
+  (699,648 rises/s at 85.4 Hz = 128 x 8 x 8) confirms S uses the doubled column count. The
+  new quarter-scan converter (SC-1) shows a correct image.
+- **FM6124:** the brightness-1 step reads 1.1% lit, the 11-clock floor; unclamped it would be
+  about 0.4% (an 11 ns pulse, below the chip's 30 ns).
+- No chip needed shift-while-dark, so the named unknown closes without a scope change.
+
 ### Visit E results (2026-10-05, quad rig, after §7-§9)
 
 Measured on `780421a`; logs, method and Stephen's words in `DOCs/bench/RUN-NOTES.md`
@@ -256,7 +283,8 @@ Measured on `780421a`; logs, method and Stephen's words in `DOCs/bench/RUN-NOTES
 
 - **§7 accepted on equivalence:** the converter test passes 216 of 216 on HEAD; its fail limb
   was shown in «#98». **Commit misses its prediction:** 6.58 ms at 5-bit against about 5 ms
-  (calculated), about 30% over. The cause is not yet explained; it is on the punch list.
+  (calculated), about 30% over. Explained and fixed afterwards by SC-1 («#104»): 4.09 /
+  3.26 ms at 8 / 5-bit.
 - **§8 accepted:** the colour table equals the old function on all 3,840 entries; draw time
   no longer depends on colour depth.
 - **§9 accepted:** row runs are byte-equal to the per-pixel path in 468 cases (three layouts,

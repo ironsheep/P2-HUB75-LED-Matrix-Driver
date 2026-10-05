@@ -134,6 +134,8 @@ Each hand-back adds one dated entry with three parts: tree state (scoped to
 
 **Verdicts:** §3 accepted (handshake PASS; take check PASS with its negative limb shown failing). §4 accepted (refresh and lit share within 0.2% of the model at every depth; target j as predicted; brightness linear, floor and 0 correct; unreachable target reported and run at the fastest rate). §5 accepted (CLK high 23.9 ns at every depth; the low half is 7 clocks, 20.9 ns, on paper, resolved by this instrument to about +/-0.5 clock). Shimmer steady at 5-8 bit, for «#95».
 
+**§1 patterns on the quad (added 2026-10-04, run `driver/logs/headless_261004-204525.log`, «#97»):** the seven patterns shown at start; asked whether the grey ramp was even and the checkerboard's dark pixels stayed dark, Stephen: "even and stayed dark". This closes the §1 pattern limb visit C did not run.
+
 **Steps completed:** visit C.
 
 ### 2026-10-05 — FRAME-RATE visit E, quad rig (`test_hub75_converter.spin2`, `test_hub75_rates.spin2`)
@@ -217,3 +219,34 @@ Each hand-back adds one dated entry with three parts: tree state (scoped to
 **Verdict:** SC-1 met. Commit is 2.2x faster than visit E at 8-bit (2.0x at 5-bit) and 5.2x faster than visit C at 8-bit, and it is under §7's "about 5 ms" at both depths.
 
 **Steps completed:** «#104».
+
+### 2026-10-05 — FRAME-RATE visit D, single 64x32 panels (`test_hub75_rates.spin2`)
+
+**Tree:** `driver/*.spin2` at `620d1c1`, plus a temporary `isp_hub75_hwPanelConfig.spin2` edit per chip: DISP0 = one 64x32 panel (`CHIP_FM6126A` / `CHIP_MBI5124GP` / `CHIP_FM6124`, `ADDR_ABCD` / `ADDR_ABC` / `ADDR_ABCD`), `C0 = FIRST_PANEL | ARROW_UP`, C1-C3 `NO_PANEL`; one build per chip and depth (`DISP0_COLOR_DEPTH` 8, then 5). Restored after the last run (`git diff` empty for the config). After the first run, two changes to `test_hub75_rates.spin2` (below) were in every later build.
+**Rig:** each panel alone on the P16 adapter, 335 MHz, `pnut-term-ts -r <bin> -p Parw7ukt --headless --end-marker --timeout 500`. The pink panel is the FM6126A, the green the MBI5124GP (1/8 scan), the orange the FM6124.
+
+| Chip | Depth | Log | Refresh | Lit | b = 128 / 1 / 0 | CLK high | Commit | Handshake | Take check |
+|---|---|---|---|---|---|---|---|---|---|
+| FM6126A | 8 | `headless_261005-150541` | 85.1 Hz | 99.6% | 49.8 / 1.4 / 0.0% | 1,407.5 ns (mean; see below) | 283 us | PASS | 1,825 of 1,825 at row 15 |
+| FM6126A | 5 | `-151115`, viewed in `-152428` | 688.9 Hz | 97.9% | 48.9 / 1.4 / 0.0% | 258.0 ns (mean) | 231 us | PASS | 13,893 of 13,893 at row 15 |
+| MBI5124GP | 8 | `-152803` | 85.4 Hz | 99.8% | 49.9 / 0.8 / 0.0% | 24.0 ns | 284 us | PASS | 1,823 of 1,823 at row 7 |
+| MBI5124GP | 5 | `-153107` | 698.5 Hz | 99.2% | 49.6 / 0.8 / 0.0% | 24.0 ns | 233 us | PASS | 14,083 of 14,083 at row 7 |
+| FM6124 | 8 | `-153437` | 85.3 Hz | 99.7% | 49.8 / 1.1 / 0.0% | 24.2 ns | 283 us | PASS | 1,821 of 1,821 at row 15 |
+| FM6124 | 5 | `-153742` | 694.1 Hz | 98.6% | 49.3 / 1.1 / 0.0% | 24.2 ns | 231 us | PASS | 13,995 of 13,995 at row 15 |
+
+- Startup lines: FM6126A and FM6124 S = T = 960 clocks (j = 0); MBI5124GP S = T = 1,920 clocks (128 column clocks per row address). Minimum /OE 14 / 17 / 11 clocks (40 / 50 / 30 ns ratings).
+- Colour table PASS and row runs PASS (own wiring, 156 cases) on every run.
+- **FM6126A clock:** the overlapped latch path holds the last clock pulse before the latch high while the previous plane goes dark, so the monitor's mean high time (1,407.5 ns at 8-bit) includes one long pulse per plane per row. It cannot show the short pulses; the >= 20 ns high half holds by construction (the same shift loop and clock as the quad, 23.9 ns at visit C), not by this run. A long high half is within the chip's rules; data is taken on the rising edge.
+- **MBI5124GP quarter scan:** 699,648 clock rises/s at 85.4 Hz = 128 x 8 row addresses x 8 planes, so S uses the doubled column count.
+- **FM6124 floor:** brightness 1 reads 1.1% lit, the 11-clock floor (11/960); unclamped it would be about 3.75 clocks (11 ns, 0.4%).
+- **By eye (Stephen):** FM6126A 8-bit: "all patterns look correct"; 5-bit (rerun to view): "all patterns good". MBI5124GP 8-bit: "all patterns good"; 5-bit: "5-bit all good". FM6124 8-bit: "looks good"; 5-bit: "all good".
+- **Tearing test by eye:** at 8-bit the flashing is visible (about 43 white/black cycles/s); at 5-bit it alternates about 345 times/s and looks solid grey (Stephen: "too fast for tearing view, just solid grey"). On the MBI5124GP at 8-bit, Stephen: "tearing this time shows four rows but line between black/white is angular this time". The four bands are the rows a 1/8-scan address lights together (m, m + 8, m + 16, m + 24). Every frame-set take was at row address 7 (take check), so no switch landed mid-frame; Stephen, on the video: "spans 2, sometimes 3 rows - white full rows, partial white rows top of three more pixles mid less and bottom of three even less... all partial rows start with white on left edge then we have full black rows". That is the phone camera's rolling shutter, which records the panel's columns a little apart in time, crossing the panel's scan (about 1.5 ms per row address at 8-bit): each row caught mid-switch shows white from the left edge to the column the camera read as it switched, and lower rows switch later. It is not a mid-frame switch; every take was at row address 7.
+
+**Rates-test changes made during the visit** (Stephen, on the first run: "the bitmap with single panel doesn't have room for additional text, should likely disable when won't fit on display"):
+- The brightness-step labels are drawn only when a label line (24 characters) fits across the display; otherwise the log says `brightness labels off: the display holds 10 text columns and a label needs 24`.
+- The row-run test's two L layouts need exactly 4 panels; on another panel count they are reported `not run` instead of being counted as refused FAILs (the first FM6126A run printed `ROW RUN FAIL: 0 failed, 32 layouts refused`, all from this).
+- On the quad (4 panels, about 42 text columns in the 5x7 font) both changes fall through to the code that passed there at 13:25 today (`-132532`: 468 row-run cases, labels shown), so no separate quad run was made; the next quad run shows it.
+
+**Verdicts:** §4 and §5 accepted on the FM6126A, MBI5124GP and FM6124 at 8 and 5 bit. No chip needs shift-while-dark.
+
+**Steps completed:** visit D.
