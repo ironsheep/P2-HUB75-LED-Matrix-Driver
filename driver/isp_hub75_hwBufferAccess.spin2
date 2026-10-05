@@ -63,6 +63,10 @@ CON ' ---- Driver Limits ----
     ' panels the screen-to-PWM converter is built to handle on one adapter
     CONVERTER_MAX_PANELS    = 16
 
+    ' columns the screen-to-PWM converter converts together (one long of plane bytes per
+    ' plane); a panel's width must be a multiple of it, and startup checks that
+    CONVERTER_COLUMN_GROUP  = 4
+
     ' the refresh core's line buffer (cogBuffer in isp_hub75_rgb3bit.spin2), in bytes.
     ' The refresh core sizes its buffer from this value. It shifts one byte per
     ' column clock, so one row along the cable must fit in this buffer.
@@ -1306,11 +1310,12 @@ PRI checkWordCount(nChainIdx, cablePos, fieldBits, pNoneText, pManyText) : mista
         mistakeCount++
 
 PRI checkPanelLimit(nChainIdx, panelCount) : mistakeCount | panelCols, columnFactor, panelLimit, driverFlags
-' Report a display with more panels than the driver limit for its panel type.
+' Report a display with more panels than the driver limit for its panel type, or with panels
+' the converter cannot take (a width that is not a multiple of CONVERTER_COLUMN_GROUP).
 '
 ' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 ' @param panelCount - number of cable positions in use (not NO_PANEL)
-' @returns mistakeCount - number of wiring problems reported (0 or 1)
+' @returns mistakeCount - number of wiring problems reported (0, 1 or 2)
 
 ' Local Variables:
 ' @local panelCols - pixel columns per individual panel
@@ -1327,6 +1332,9 @@ PRI checkPanelLimit(nChainIdx, panelCount) : mistakeCount | panelCols, columnFac
     panelLimit := (LINE_BUFFER_MAX_COLUMNS / (panelCols * columnFactor)) <# CONVERTER_MAX_PANELS
     if panelCount > panelLimit
         debug("HUB75: DISP", udec_(nChainIdx), ": ", udec_(panelCount), " panels exceed the driver limit of ", udec_(panelLimit), " for panels ", udec_(panelCols), " columns wide; one row along the cable would be ", udec_(panelCount * panelCols * columnFactor), " columns, and the refresh line buffer holds ", udec_(LINE_BUFFER_MAX_COLUMNS))
+        mistakeCount++
+    if panelCols // CONVERTER_COLUMN_GROUP <> 0
+        debug("HUB75: DISP", udec_(nChainIdx), ": panels ", udec_(panelCols), " columns wide (DISP", udec_(nChainIdx), "_MAX_PANEL_COLUMNS) are not supported; the width must be a multiple of ", udec_(CONVERTER_COLUMN_GROUP))
         mistakeCount++
 
 PRI checkShape(nChainIdx, panelCount) : mistakeCount | eShape, panelRows, panelCols, topCount, topCable, frontCount, frontCable

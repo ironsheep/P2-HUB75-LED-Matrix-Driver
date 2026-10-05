@@ -198,6 +198,7 @@ A display must pass all four limits, and the tightest decides:
 | Hub RAM | All three adapters' buffers share what is left of 512 KB | Across adapters |
 | Refresh rate | The chain's column clocks, row addresses and colour depth, against `DISPn_TARGET_REFRESH_HZ` ([Refresh rate](#refresh-rate)); a display that cannot reach the target runs at its fastest rate | Per adapter |
 | Pins and cogs | Each adapter takes a 16-pin group and one refresh cog | Board-wide |
+| Panel width | `DISPn_MAX_PANEL_COLUMNS` must be a multiple of 4 (every common panel is: 32, 64, 80, 128); startup stops with a message otherwise | Per adapter |
 
 **Max panels per adapter = 512 / (panel columns x scan factor)**, never more than 16 (the number of cable positions). The scan factor is 2 for chips the driver flags as quarter-scan (`SCAN_4`: ICN2038S, MBI5124GP, DP5125D) and 1 for every other chip.
 
@@ -305,7 +306,7 @@ Measured on the same four-panel rig (256x128 pixels), drawing a flat fill, fanne
 
 | Step | 8-bit | 5-bit |
 |---|---|---|
-| Commit | 8.93 ms | 6.58 ms |
+| Commit | 4.09 ms | 3.26 ms |
 | Draw: flat fill | 114.0 ms | 114.0 ms |
 | Draw: lines | 116.8 ms | 116.8 ms |
 | Draw: text | 300.9 ms | 300.9 ms |

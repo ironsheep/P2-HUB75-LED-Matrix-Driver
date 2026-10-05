@@ -4,7 +4,7 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 
 ## Active
 
-### Commit takes 6.58 ms at 5-bit, not the predicted 5 ms (finding, measured, cause found 2026-10-05)
+### [x] Commit takes 6.58 ms at 5-bit, not the predicted 5 ms (finding, measured, fixed 2026-10-05)
 
 - **Found:** 2026-10-05 at visit E «#101» (`DOCs/bench/RUN-NOTES.md`, visit E; `driver/logs/headless_261005-002129.log`).
 - **What:** after the MERGEB converter rewrite («#98»), commit on the quad rig measures 6.58 ms at 5-bit and 8.93 ms at 8-bit (from 14.20 and 21.25 ms). The plan's §7 predicted about 5 ms at 5-bit; that figure was calculated in the study (F10), not measured. The new converter is byte-equal to the old one (216 of 216 cases), so this is speed only.
@@ -12,6 +12,14 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 - **Cause (2026-10-05, measured; `DOCs/bench/RUN-NOTES.md`, "Commit shortfall explained"):** commit is the conversion (a scratch timing of `convertHalfScan()` alone gives 6,558 / 8,906 us at 5 / 8 bit on the rig geometry). Each extra plane costs exactly 16 clocks per pixel pair. The plane stride is a multiple of 32 bytes, so all of a column's plane bytes are in one hub slice; a plane step is 9 clocks (three instructions and a `WRBYTE`), one more than the 8-clock rotation, so each write waits a whole rotation. A control geometry with the stride off the slice runs the same code at 9 clocks per plane. Every supported geometry has a slice-aligned stride.
 - **Fix direction (not designed or agreed):** get a plane's hub write down to one per 8 clocks or fewer. One way: build each plane's bytes for four columns in a register (two `ROLNIB`s per plane per column, no pointer step) and write one long per plane per four columns; estimated (not measured) about 4.1 ms at 5-bit and 5.0 ms at 8-bit on the rig. Any change must pass `test_hub75_converter` (216 cases) and its fail limb.
 - **Bears on:** how fast animation can commit frames; the documentation's commit figures («#102» states the measured ones).
+- **Resolved by «#104» (2026-10-05, measured):** the converter batches four columns into one long per plane and block-reads the pixels; commit on the rig is 4.09 ms at 8-bit and 3.26 ms at 5-bit (`DOCs/bench/RUN-NOTES.md`, "Converter slice stall removed"). Sweep this item at closeout.
+
+### Brightness floor: settings 1-11 look the same on the quad rig (behaviour, measured; disposition: punch list, Stephen 2026-10-05)
+
+- **Found:** 2026-10-04 at visit C «#94» (`DOCs/bench/RUN-NOTES.md`, visit C: brightness 1 gave 3.6% lit, the chip-minimum floor).
+- **What:** the refresh core floors the lit unit L (`L = T x b / 256`) at the chip's minimum /OE pulse once per frame (`driver/isp_hub75_rgb3bit.spin2`, the `fge litUnitClocks, minOeClocks` at frame start), and every plane scales from L. On the quad at 8-bit (ICN2037, 60 ns) that floor is about 4% of full brightness, so settings 1-11 give the same light. This is the designed behaviour, and `setBrightness` documents it.
+- **Option on record:** floor each plane separately (lit = max(2^k x L, minimum /OE)), two instructions per plane outside the shift. Brightness would keep falling to about 0.4% at setting 1 (calculated); the cost is that the darkest colours' low bits are over-weighted at the lowest settings.
+- **Bears on:** use of the very bright panels in dark rooms.
 
 ### ICN2038S scan setting contradicts its address lines (finding, not yet explained)
 

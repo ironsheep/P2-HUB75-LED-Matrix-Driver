@@ -91,8 +91,40 @@ CON ' ---- MERGEB converter (convertRowPairs) ----
     NO_SLOT_GAP_BYTES           = 0
     FIRST_SCAN_ROW_BYTES        = 0
 
-' instructions in one unrolled plane step (SUB, GETNIB, ROLNIB, WRBYTE)
-    PLANE_STEP_LONGS            = 4
+' the screen buffer's pixel: red, green, blue packed in 3 bytes (the driver's only format)
+    PACKED_PIXEL_BYTES          = 3
+
+' columns are converted in groups of hub75Bffrs.CONVERTER_COLUMN_GROUP (4): their plane bytes
+' fill one long per plane, so each plane gets one WRLONG per group. The plane stride is a
+' multiple of 32 bytes, so all of a column's plane writes fall in one hub slice; one write per
+' plane per byte waited a whole rotation each (p2kbArchHub). Startup checks that the panel
+' width is a multiple of the group (hwBufferAccess checkPanelLimit()).
+    COLUMN_GROUP_SHIFT          = ENCOD hub75Bffrs.CONVERTER_COLUMN_GROUP
+    GROUP_SCREEN_BYTES          = hub75Bffrs.CONVERTER_COLUMN_GROUP * PACKED_PIXEL_BYTES
+    GROUP_SCREEN_LONGS          = GROUP_SCREEN_BYTES / BYTES_PER_LONG
+
+' four packed pixels p0..p3 in the three longs of a group (byte 0 first):
+'   long 0: p0 R, p0 G, p0 B, p1 R      long 1: p1 G, p1 B, p2 R, p2 G      long 2: p2 B, p3 R, p3 G, p3 B
+    P1_RED_BYTE_IDX             = 3                     ' in long 0
+    P1_GREEN_BLUE_WORD_IDX      = 0                     ' in long 1
+    P2_RED_GREEN_WORD_IDX       = 1                     ' in long 1
+    P2_BLUE_BYTE_IDX            = 0                     ' in long 2
+
+' a plane's long builds column 0 into byte 3 (ROLNIB shifts left); this MOVBYTS order puts
+' column 0 in byte 0, the first frame byte
+    GROUP_BYTES_REVERSED        = %%0123
+
+' instructions in one unrolled step, as SKIPF patterns count them (p2kbPasm2InstructionSkipping):
+'  MERGE_STEP_INSTRUCTIONS - a colour bit's two ROLNIBs for one column
+'  WRITE_STEP_INSTRUCTIONS - a plane's SUB, MOVBYTS, WRLONG for one group
+'  PREP_INSTRUCTIONS       - a column's two channel-order MOVBYTS and five merge preparations
+'                            (keep equal to the instructions between a column's SKIPF and its
+'                            first ROLNIB)
+'  SWAP_SKIP_BITS          - the column pattern's bits for the two MOVBYTS (skipped when no swap)
+    MERGE_STEP_INSTRUCTIONS     = 2
+    WRITE_STEP_INSTRUCTIONS     = 3
+    PREP_INSTRUCTIONS           = 7
+    SWAP_SKIP_BITS              = %11
 
 ' colour bit n of a channel byte: after MERGEB it is nibble n of the merged long
 '  COLOR_BIT_0 (least significant) .. COLOR_BIT_7 (most significant, plane 0)
@@ -117,7 +149,6 @@ VAR ' driver instance variables
     LONG    nDisplayRows
     LONG    nDisplayColumns
     LONG    nColorDepth
-    LONG    nBytesPerColor
     LONG    nPwmFrameSizeInBytes
     LONG    nPwmFrameSizeInLongs
 #ifdef DBG_PWM
@@ -152,7 +183,6 @@ PUB start(nID, nChainIdx) : startedCog
 
   chainIndex := nChainIdx
   instanceID := nID
-  nBytesPerColor := hub75Bffrs.bytesPerColor(chainIndex)
   nColorDepth := hub75Bffrs.colorDepth(chainIndex)
   nPwmFrameSizeInBytes := hub75Bffrs.pwmFrameSizeInBytes(chainIndex)
   pPwmFrame1 := hub75Bffrs.pwmFrame1BufferAddress(chainIndex)
@@ -291,10 +321,10 @@ PUB convertScreen2PWM_14(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet
 ' @local pPwmFrameSet - pointer to the PWM frame set that is not on display (converted into, then posted)
 
   pPwmFrameSet := frameSetToConvertInto()
-  convertQuarterScan(p24bitScreen, pPwmFrameSet, nPanelCount, nPanelColumns, nPanelRows, nColorDepth, nBytesPerColor, bSwapRB, bSwapGB)
+  convertQuarterScan(p24bitScreen, pPwmFrameSet, nPanelCount, nPanelColumns, nPanelRows, nColorDepth, bSwapRB, bSwapGB)
   postConvertedSet(pPwmFrameSet)
 
-PUB convertQuarterScan(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, pixelBytes, bSwapRB, bSwapGB) | lineBytes
+PUB convertQuarterScan(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, bSwapRB, bSwapGB) | lineBytes
 '' Convert a 24-bit screen buffer into a PWM frame set for panels that light four rows at once
 '' (1/8 scan on a 64x32 panel, chip flag SCAN_4), using inline PASM (convertRowPairs()). It
 '' writes only the buffers it is given and posts nothing: the commit (convertScreen2PWM_14())
@@ -312,7 +342,6 @@ PUB convertQuarterScan(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, 
 '' @param panelCols - pixel columns per panel
 '' @param panelRows - pixel rows per panel
 '' @param planeCnt - bit planes in the frame set: the colour depth (hwEnum.DEPTH_3BIT .. DEPTH_8BIT)
-'' @param pixelBytes - bytes per pixel in the screen buffer (red, green, blue at +0, +1, +2)
 '' @param bSwapRB - TRUE to swap red and blue channels
 '' @param bSwapGB - TRUE to swap green and blue channels
 
@@ -320,8 +349,8 @@ PUB convertQuarterScan(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, 
 ' @local lineBytes - frame bytes in one line of one panel (the other line of a slot's pair is the gap)
 
   lineBytes := panelCols * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
-  convertRowPairs(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, pixelBytes, channelOrder(bSwapRB, bSwapGB), ...
-                  lineBytes, hub75Bffrs.SCAN_4_COLUMN_FACTOR * panelCnt * lineBytes, (panelRows / QUARTER_DIVISOR) * panelCols * pixelBytes)
+  convertRowPairs(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, channelOrder(bSwapRB, bSwapGB), ...
+                  lineBytes, hub75Bffrs.SCAN_4_COLUMN_FACTOR * panelCnt * lineBytes, (panelRows / QUARTER_DIVISOR) * panelCols * PACKED_PIXEL_BYTES)
 
 ' -----------------------------------------------------------------------------
 
@@ -337,7 +366,7 @@ PUB convertScreen2PWM(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet
 ' @local pPwmFrameSet - pointer to the PWM frame set that is not on display (converted into, then posted)
 
   pPwmFrameSet := frameSetToConvertInto()
-  convertHalfScan(p24bitScreen, pPwmFrameSet, nPanelCount, nPanelColumns, nPanelRows, nColorDepth, nBytesPerColor, bSwapRB, bSwapGB)
+  convertHalfScan(p24bitScreen, pPwmFrameSet, nPanelCount, nPanelColumns, nPanelRows, nColorDepth, bSwapRB, bSwapGB)
 
 #ifdef DBG_PWM
   ' Debug code for Frame 0 MSB issue investigation (enable with -D DBG_PWM)
@@ -352,7 +381,7 @@ PUB convertScreen2PWM(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet
 
   postConvertedSet(pPwmFrameSet)
 
-PUB convertHalfScan(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, pixelBytes, bSwapRB, bSwapGB)
+PUB convertHalfScan(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, bSwapRB, bSwapGB)
 '' Convert a 24-bit screen buffer into a PWM frame set for panels that light two rows at once
 '' (1/16 and 1/32 scan), using inline PASM (convertRowPairs()). It writes only the buffers it
 '' is given and posts nothing: the commit (convertScreen2PWM()) calls it, and so does the
@@ -371,11 +400,10 @@ PUB convertHalfScan(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, pla
 '' @param panelCols - pixel columns per panel
 '' @param panelRows - pixel rows per panel
 '' @param planeCnt - bit planes in the frame set: the colour depth (hwEnum.DEPTH_3BIT .. DEPTH_8BIT)
-'' @param pixelBytes - bytes per pixel in the screen buffer (red, green, blue at +0, +1, +2)
 '' @param bSwapRB - TRUE to swap red and blue channels
 '' @param bSwapGB - TRUE to swap green and blue channels
 
-  convertRowPairs(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, pixelBytes, channelOrder(bSwapRB, bSwapGB), ...
+  convertRowPairs(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, channelOrder(bSwapRB, bSwapGB), ...
                   NO_SLOT_GAP_BYTES, panelCnt * panelCols * hub75Bffrs.BYTES_PER_COLUMN_CLOCK, FIRST_SCAN_ROW_BYTES)
 
 ' -----------------------------------------------------------------------------
@@ -456,7 +484,7 @@ PRI emptyRgb2(pFrameBuffer) : isEmpty | byteIdx
       quit
 #endif
 
-PRI convertRowPairs(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, pixelBytes, swapOrder, slotGapBytes, rowStepBytes, lineZeroRowBytes) | rowBytes, halfPanelBytes, panelSkipBytes, frameBytes, columnStep
+PRI convertRowPairs(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, swapOrder, slotGapBytes, rowStepBytes, lineZeroRowBytes) | rowBytes, halfPanelBytes, panelSkipBytes, frameBytes, groupStep
 ' The MERGEB converter both scans share (convertHalfScan(), convertQuarterScan()). It pairs each
 ' top-half row m of every panel with row m + half a panel (RGB1 with RGB2), reads the screen
 ' buffer slot by slot, and writes one plane byte per column clock into each plane of the frame
@@ -466,13 +494,12 @@ PRI convertRowPairs(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, pla
 '   row at lineZeroRowBytes starts frame line 0, and the rows before it start slotGapBytes in;
 '   along a row, each slot's line follows the last one after a gap of slotGapBytes.
 '
-' @param p24bitScreen - pointer to 24-bit screen buffer
-' @param pFrameSet - hub address of the PWM frame set to write
+' @param p24bitScreen - pointer to 24-bit screen buffer (packed 3-byte pixels, long aligned)
+' @param pFrameSet - hub address of the PWM frame set to write (long aligned)
 ' @param panelCnt - panels on the adapter (buffer slots)
-' @param panelCols - pixel columns per panel
+' @param panelCols - pixel columns per panel (a multiple of hub75Bffrs.CONVERTER_COLUMN_GROUP)
 ' @param panelRows - pixel rows per panel
 ' @param planeCnt - bit planes in the frame set: the colour depth (hwEnum.DEPTH_3BIT .. DEPTH_8BIT)
-' @param pixelBytes - bytes per pixel in the screen buffer (red, green, blue at +0, +1, +2)
 ' @param swapOrder - MOVBYTS byte order that applies the channel swaps (channelOrder())
 ' @param slotGapBytes - frame bytes between one slot's line and the next slot's line in a row
 ' @param rowStepBytes - frame bytes from one top-half row's line to the next row's line
@@ -483,31 +510,38 @@ PRI convertRowPairs(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, pla
 ' @local halfPanelBytes - bytes from a top-half (RGB1) row to its bottom-half (RGB2) row
 ' @local panelSkipBytes - bytes from the end of a row in one slot to the same row in the next slot
 ' @local frameBytes - bytes in one PWM frame (one bit plane)
-' @local columnStep - frame-set step from the plane 0 byte of a column to the last plane's byte of the next column
+' @local groupStep - frame-set step from a group's plane 0 long to the last plane's long of the next group
 
 ' NOTE: 16 longs total avail to inline pasm: params + return + local
-'  --> 16/16 used
+'  --> 15/16 used
 
-  rowBytes        := panelCols * pixelBytes
+  rowBytes        := panelCols * PACKED_PIXEL_BYTES
   halfPanelBytes  := (panelRows / HALF_DIVISOR) * rowBytes
   panelSkipBytes  := (panelRows - 1) * rowBytes
   frameBytes      := (panelRows / HALF_DIVISOR) * panelCnt * panelCols * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
-  columnStep      := planeCnt * frameBytes + hub75Bffrs.BYTES_PER_COLUMN_CLOCK
+  groupStep       := planeCnt * frameBytes + hub75Bffrs.CONVERTER_COLUMN_GROUP * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
 
-  { Per pixel pair (P2KB p2kbPasm2Rdlong, p2kbPasm2Movbyts, p2kbPasm2Setbyte, p2kbPasm2Mergeb,
-    p2kbPasm2Getnib, p2kbPasm2Rolnib):
+  { Per group of four columns (P2KB p2kbPasm2Rdlong, p2kbPasm2Setq, p2kbPasm2Movbyts,
+    p2kbPasm2Setbyte, p2kbPasm2Mergeb, p2kbPasm2Rolnib, p2kbPasm2Rolbyte, p2kbPasm2Rolword,
+    p2kbPasm2Skipf, p2kbPasm2InstructionSkipping):
+    One SETQ block read each brings the group's four top-half and four bottom-half pixels into
+    three longs. Each column's pair is unpacked into one long per pixel, then:
       top    long, bytes 0..3:  R-pin  G-pin  B-pin  bottom R-pin   (after MOVBYTS and SETBYTE)
       bottom long, bytes 0..3:  bottom G-pin  bottom B-pin  0  0    (after SHR and ZEROX)
     MERGEB makes nibble n of each long hold bit n of its four bytes, byte 3 in the nibble's
     top bit, so for colour bit n:
       top nibble    = {Rb, Bt, Gt, Rt}      bottom nibble = {0, 0, Bb, Gb}
-    GETNIB the bottom nibble, ROLNIB the top nibble in below it, and the low byte is the plane
-    byte: Rt, Gt, Bt, Rb, Gb, Bb in bits 0..5 (RGB1_RED_BIT .. RGB2_BLUE_BIT).
-    The plane steps are unrolled from colour bit 0 up to bit 7 (plane 0). Each step first steps
-    the frame pointer back one frame, so the pointer starts a column just past the last plane
-    and ends it on plane 0; the column starts at the step of the least significant bit kept.
-    Frame pointers below (pPlanesEnd, pLineStart, pPlaneByte) are all "just past the last
-    plane" pointers: the plane steps take them back to the planes.
+    ROLNIB the bottom nibble, then the top nibble, into colour bit n's long, and its low byte is
+    the column's plane byte: Rt, Gt, Bt, Rb, Gb, Bb in bits 0..5 (RGB1_RED_BIT .. RGB2_BLUE_BIT).
+    After four columns each colour bit's long holds the group's four plane bytes, column 0 in
+    byte 3; MOVBYTS reverses them and one WRLONG writes the plane's long.
+    The steps are unrolled for all eight colour bits. One SKIPF per column steps over the merge
+    steps of the colour bits below the depth (and the two channel-order MOVBYTS when there is no
+    swap), and one per group over their write steps, at no cost in clocks. The write steps go
+    from colour bit 0 up to bit 7 (plane 0), each first stepping the frame pointer back one
+    frame, so the pointer starts a group just past the last plane and ends it on plane 0. Frame
+    pointers below (pPlanesEnd, pLineStart, pPlaneLong) are all "just past the last plane"
+    pointers: the write steps take them back to the planes.
   }
     ORG
                     jmp     #startRowPairs
@@ -515,28 +549,61 @@ PRI convertRowPairs(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, pla
 ' registers (copied into the cog with the code)
 topPixel            LONG    0                               ' top-half pixel, then its merged colour bits
 bottomPixel         LONG    0                               ' bottom-half pixel, then its merged colour bits
-pTopPixel           LONG    0                               ' screen address of the top-half pixel
-pBottomPixel        LONG    0                               ' screen address of the bottom-half pixel
+topGroup0           LONG    0                               ' the group's four top-half pixels (three longs, one block read)
+topGroup1           LONG    0
+topGroup2           LONG    0
+bottomGroup0        LONG    0                               ' the group's four bottom-half pixels (three longs, one block read)
+bottomGroup1        LONG    0
+bottomGroup2        LONG    0
+planesOfBit0        LONG    0                               ' colour bit n's plane bytes for the group's columns (bit 7 is plane 0)
+planesOfBit1        LONG    0
+planesOfBit2        LONG    0
+planesOfBit3        LONG    0
+planesOfBit4        LONG    0
+planesOfBit5        LONG    0
+planesOfBit6        LONG    0
+planesOfBit7        LONG    0
+pTopPixel           LONG    0                               ' screen address of the group's top-half pixels
+pBottomPixel        LONG    0                               ' screen address of the group's bottom-half pixels
 pRowStart           LONG    0                               ' screen address of this top-half row in slot 0
 pRowsEnd            LONG    0                               ' screen address of the first bottom-half row in slot 0
 pLineZeroRow        LONG    0                               ' screen address of the row whose line is frame line 0
 pPlanesEnd          LONG    0                               ' frame-set address just past the last plane
-pLineStart          LONG    0                               ' frame byte of this row's slot-0 line, past the last plane
-pPlaneByte          LONG    0                               ' frame-set address of the plane byte being written
-planeBits           LONG    0                               ' one plane byte: RGB1 in bits 0-2, RGB2 in bits 3-5
-planeEntry          LONG    0                               ' cog address of the plane step of the least significant bit kept
+pLineStart          LONG    0                               ' frame long of this row's slot-0 line, past the last plane
+pPlaneLong          LONG    0                               ' frame-set address of the plane long being written
+columnSkip          LONG    0                               ' SKIPF pattern of a column: swap MOVBYTS, then the merge steps
+writeSkip           LONG    0                               ' SKIPF pattern of a group's write steps
+bitsBelowDepth      LONG    0                               ' colour bits below the depth: their steps are skipped
+skipCount           LONG    0                               ' working value while the patterns are built
 panelCtr            LONG    0                               ' slots left in this row
-columnCtr           LONG    0                               ' columns left in this slot
+groupCtr            LONG    0                               ' column groups left in this slot
 
 startRowPairs
-                    ' skip the plane steps of the colour bits below the colour depth
-                    mov     planeEntry, #BITS_PER_BYTE
-                    sub     planeEntry, planeCnt
-                    mul     planeEntry, #PLANE_STEP_LONGS
-                    add     planeEntry, #planeOfBit0
+                    ' write pattern: skip the write steps of the colour bits below the depth,
+                    ' which come first
+                    mov     bitsBelowDepth, #BITS_PER_BYTE
+                    sub     bitsBelowDepth, planeCnt
+                    mov     skipCount, bitsBelowDepth
+                    mul     skipCount, #WRITE_STEP_INSTRUCTIONS
+                    mov     writeSkip, #1
+                    shl     writeSkip, skipCount
+                    sub     writeSkip, #1                           ' skipCount ones (none at 8-bit)
+                    ' column pattern: the merge steps run from colour bit 7 down, so the bits
+                    ' below the depth are the last ones; the prep instructions come before them
+                    mov     skipCount, bitsBelowDepth
+                    mul     skipCount, #MERGE_STEP_INSTRUCTIONS
+                    mov     columnSkip, #1
+                    shl     columnSkip, skipCount
+                    sub     columnSkip, #1
+                    mov     skipCount, planeCnt
+                    mul     skipCount, #MERGE_STEP_INSTRUCTIONS
+                    add     skipCount, #PREP_INSTRUCTIONS
+                    shl     columnSkip, skipCount
+                    cmp     swapOrder, #CHANNELS_AS_IS      wz
+        if_z        or      columnSkip, #SWAP_SKIP_BITS
                     mov     pPlanesEnd, pFrameSet
-                    add     pPlanesEnd, columnStep
-                    sub     pPlanesEnd, #hub75Bffrs.BYTES_PER_COLUMN_CLOCK
+                    add     pPlanesEnd, groupStep
+                    sub     pPlanesEnd, #hub75Bffrs.CONVERTER_COLUMN_GROUP * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
                     mov     pLineStart, pPlanesEnd                  ' rows before the line-zero row start one gap in
                     add     pLineStart, slotGapBytes
                     mov     pRowStart, p24bitScreen
@@ -547,64 +614,166 @@ startRowPairs
 nextPairRow
                     cmp     pRowStart, pLineZeroRow         wz
         if_z        mov     pLineStart, pPlanesEnd                  ' this row's line is frame line 0
-                    mov     pPlaneByte, pLineStart
+                    mov     pPlaneLong, pLineStart
                     mov     pTopPixel, pRowStart
                     mov     pBottomPixel, pRowStart
                     add     pBottomPixel, halfPanelBytes
                     mov     panelCtr, panelCnt
 nextPairPanel
-                    mov     columnCtr, panelCols
-nextPairColumn
-                    rdlong  topPixel, pTopPixel                     ' bytes 0-2: R, G, B (byte 3: the next pixel's R)
-                    rdlong  bottomPixel, pBottomPixel
-                    movbyts topPixel, swapOrder                     ' bytes 0-2: what the R, G, B pins show
+                    mov     groupCtr, panelCols
+                    shr     groupCtr, #COLUMN_GROUP_SHIFT
+nextPairGroup
+                    setq    #GROUP_SCREEN_LONGS - 1
+                    rdlong  topGroup0, pTopPixel
+                    setq    #GROUP_SCREEN_LONGS - 1
+                    rdlong  bottomGroup0, pBottomPixel
+                    ' column 0
+                    mov     topPixel, topGroup0                 ' pixel 0: bytes 0-2
+                    mov     bottomPixel, bottomGroup0           ' pixel 0: bytes 0-2
+                    skipf   columnSkip
+                    movbyts topPixel, swapOrder                 ' bytes 0-2: what the R, G, B pins show
                     movbyts bottomPixel, swapOrder
-                    setbyte topPixel, bottomPixel, #TOP_SPARE_BYTE_IDX  ' byte 3: the bottom pixel's R-pin byte
-                    shr     bottomPixel, #BITS_PER_BYTE             ' bytes 0-1: the bottom G-pin and B-pin bytes
-                    zerox   bottomPixel, #BOTTOM_GB_MSBIT           ' bytes 2-3: zero
-                    mergeb  topPixel                                ' nibble n: bit n of {Rb, Bt, Gt, Rt}
-                    mergeb  bottomPixel                             ' nibble n: bit n of {0, 0, Bb, Gb}
-                    jmp     planeEntry
-planeOfBit0
-                    sub     pPlaneByte, frameBytes
-                    getnib  planeBits, bottomPixel, #COLOR_BIT_0
-                    rolnib  planeBits, topPixel, #COLOR_BIT_0
-                    wrbyte  planeBits, pPlaneByte
-                    sub     pPlaneByte, frameBytes
-                    getnib  planeBits, bottomPixel, #COLOR_BIT_1
-                    rolnib  planeBits, topPixel, #COLOR_BIT_1
-                    wrbyte  planeBits, pPlaneByte
-                    sub     pPlaneByte, frameBytes
-                    getnib  planeBits, bottomPixel, #COLOR_BIT_2
-                    rolnib  planeBits, topPixel, #COLOR_BIT_2
-                    wrbyte  planeBits, pPlaneByte
-                    sub     pPlaneByte, frameBytes
-                    getnib  planeBits, bottomPixel, #COLOR_BIT_3
-                    rolnib  planeBits, topPixel, #COLOR_BIT_3
-                    wrbyte  planeBits, pPlaneByte
-                    sub     pPlaneByte, frameBytes
-                    getnib  planeBits, bottomPixel, #COLOR_BIT_4
-                    rolnib  planeBits, topPixel, #COLOR_BIT_4
-                    wrbyte  planeBits, pPlaneByte
-                    sub     pPlaneByte, frameBytes
-                    getnib  planeBits, bottomPixel, #COLOR_BIT_5
-                    rolnib  planeBits, topPixel, #COLOR_BIT_5
-                    wrbyte  planeBits, pPlaneByte
-                    sub     pPlaneByte, frameBytes
-                    getnib  planeBits, bottomPixel, #COLOR_BIT_6
-                    rolnib  planeBits, topPixel, #COLOR_BIT_6
-                    wrbyte  planeBits, pPlaneByte
-                    sub     pPlaneByte, frameBytes                  ' plane 0: the most significant bit
-                    getnib  planeBits, bottomPixel, #COLOR_BIT_7
-                    rolnib  planeBits, topPixel, #COLOR_BIT_7
-                    wrbyte  planeBits, pPlaneByte
-                    ' next column: next pixel of this slot, next byte along the line
-                    add     pPlaneByte, columnStep
-                    add     pTopPixel, pixelBytes
-                    add     pBottomPixel, pixelBytes
-                    djnz    columnCtr, #nextPairColumn
+                    setbyte topPixel, bottomPixel, #TOP_SPARE_BYTE_IDX ' byte 3: the bottom pixel's R-pin byte
+                    shr     bottomPixel, #BITS_PER_BYTE         ' bytes 0-1: the bottom G-pin and B-pin bytes
+                    zerox   bottomPixel, #BOTTOM_GB_MSBIT       ' bytes 2-3: zero
+                    mergeb  topPixel                            ' nibble n: bit n of {Rb, Bt, Gt, Rt}
+                    mergeb  bottomPixel                         ' nibble n: bit n of {0, 0, Bb, Gb}
+                    rolnib  planesOfBit7, bottomPixel, #COLOR_BIT_7
+                    rolnib  planesOfBit7, topPixel, #COLOR_BIT_7
+                    rolnib  planesOfBit6, bottomPixel, #COLOR_BIT_6
+                    rolnib  planesOfBit6, topPixel, #COLOR_BIT_6
+                    rolnib  planesOfBit5, bottomPixel, #COLOR_BIT_5
+                    rolnib  planesOfBit5, topPixel, #COLOR_BIT_5
+                    rolnib  planesOfBit4, bottomPixel, #COLOR_BIT_4
+                    rolnib  planesOfBit4, topPixel, #COLOR_BIT_4
+                    rolnib  planesOfBit3, bottomPixel, #COLOR_BIT_3
+                    rolnib  planesOfBit3, topPixel, #COLOR_BIT_3
+                    rolnib  planesOfBit2, bottomPixel, #COLOR_BIT_2
+                    rolnib  planesOfBit2, topPixel, #COLOR_BIT_2
+                    rolnib  planesOfBit1, bottomPixel, #COLOR_BIT_1
+                    rolnib  planesOfBit1, topPixel, #COLOR_BIT_1
+                    rolnib  planesOfBit0, bottomPixel, #COLOR_BIT_0
+                    rolnib  planesOfBit0, topPixel, #COLOR_BIT_0
+                    ' column 1
+                    getword topPixel, topGroup1, #P1_GREEN_BLUE_WORD_IDX
+                    rolbyte topPixel, topGroup0, #P1_RED_BYTE_IDX ' pixel 1: R, G, B in bytes 0-2
+                    getword bottomPixel, bottomGroup1, #P1_GREEN_BLUE_WORD_IDX
+                    rolbyte bottomPixel, bottomGroup0, #P1_RED_BYTE_IDX ' pixel 1: R, G, B in bytes 0-2
+                    skipf   columnSkip
+                    movbyts topPixel, swapOrder                 ' bytes 0-2: what the R, G, B pins show
+                    movbyts bottomPixel, swapOrder
+                    setbyte topPixel, bottomPixel, #TOP_SPARE_BYTE_IDX ' byte 3: the bottom pixel's R-pin byte
+                    shr     bottomPixel, #BITS_PER_BYTE         ' bytes 0-1: the bottom G-pin and B-pin bytes
+                    zerox   bottomPixel, #BOTTOM_GB_MSBIT       ' bytes 2-3: zero
+                    mergeb  topPixel                            ' nibble n: bit n of {Rb, Bt, Gt, Rt}
+                    mergeb  bottomPixel                         ' nibble n: bit n of {0, 0, Bb, Gb}
+                    rolnib  planesOfBit7, bottomPixel, #COLOR_BIT_7
+                    rolnib  planesOfBit7, topPixel, #COLOR_BIT_7
+                    rolnib  planesOfBit6, bottomPixel, #COLOR_BIT_6
+                    rolnib  planesOfBit6, topPixel, #COLOR_BIT_6
+                    rolnib  planesOfBit5, bottomPixel, #COLOR_BIT_5
+                    rolnib  planesOfBit5, topPixel, #COLOR_BIT_5
+                    rolnib  planesOfBit4, bottomPixel, #COLOR_BIT_4
+                    rolnib  planesOfBit4, topPixel, #COLOR_BIT_4
+                    rolnib  planesOfBit3, bottomPixel, #COLOR_BIT_3
+                    rolnib  planesOfBit3, topPixel, #COLOR_BIT_3
+                    rolnib  planesOfBit2, bottomPixel, #COLOR_BIT_2
+                    rolnib  planesOfBit2, topPixel, #COLOR_BIT_2
+                    rolnib  planesOfBit1, bottomPixel, #COLOR_BIT_1
+                    rolnib  planesOfBit1, topPixel, #COLOR_BIT_1
+                    rolnib  planesOfBit0, bottomPixel, #COLOR_BIT_0
+                    rolnib  planesOfBit0, topPixel, #COLOR_BIT_0
+                    ' column 2
+                    getbyte topPixel, topGroup2, #P2_BLUE_BYTE_IDX
+                    rolword topPixel, topGroup1, #P2_RED_GREEN_WORD_IDX ' pixel 2: R, G, B in bytes 0-2
+                    getbyte bottomPixel, bottomGroup2, #P2_BLUE_BYTE_IDX
+                    rolword bottomPixel, bottomGroup1, #P2_RED_GREEN_WORD_IDX ' pixel 2: R, G, B in bytes 0-2
+                    skipf   columnSkip
+                    movbyts topPixel, swapOrder                 ' bytes 0-2: what the R, G, B pins show
+                    movbyts bottomPixel, swapOrder
+                    setbyte topPixel, bottomPixel, #TOP_SPARE_BYTE_IDX ' byte 3: the bottom pixel's R-pin byte
+                    shr     bottomPixel, #BITS_PER_BYTE         ' bytes 0-1: the bottom G-pin and B-pin bytes
+                    zerox   bottomPixel, #BOTTOM_GB_MSBIT       ' bytes 2-3: zero
+                    mergeb  topPixel                            ' nibble n: bit n of {Rb, Bt, Gt, Rt}
+                    mergeb  bottomPixel                         ' nibble n: bit n of {0, 0, Bb, Gb}
+                    rolnib  planesOfBit7, bottomPixel, #COLOR_BIT_7
+                    rolnib  planesOfBit7, topPixel, #COLOR_BIT_7
+                    rolnib  planesOfBit6, bottomPixel, #COLOR_BIT_6
+                    rolnib  planesOfBit6, topPixel, #COLOR_BIT_6
+                    rolnib  planesOfBit5, bottomPixel, #COLOR_BIT_5
+                    rolnib  planesOfBit5, topPixel, #COLOR_BIT_5
+                    rolnib  planesOfBit4, bottomPixel, #COLOR_BIT_4
+                    rolnib  planesOfBit4, topPixel, #COLOR_BIT_4
+                    rolnib  planesOfBit3, bottomPixel, #COLOR_BIT_3
+                    rolnib  planesOfBit3, topPixel, #COLOR_BIT_3
+                    rolnib  planesOfBit2, bottomPixel, #COLOR_BIT_2
+                    rolnib  planesOfBit2, topPixel, #COLOR_BIT_2
+                    rolnib  planesOfBit1, bottomPixel, #COLOR_BIT_1
+                    rolnib  planesOfBit1, topPixel, #COLOR_BIT_1
+                    rolnib  planesOfBit0, bottomPixel, #COLOR_BIT_0
+                    rolnib  planesOfBit0, topPixel, #COLOR_BIT_0
+                    ' column 3
+                    mov     topPixel, topGroup2
+                    shr     topPixel, #BITS_PER_BYTE            ' pixel 3: R, G, B in bytes 0-2
+                    mov     bottomPixel, bottomGroup2
+                    shr     bottomPixel, #BITS_PER_BYTE         ' pixel 3: R, G, B in bytes 0-2
+                    skipf   columnSkip
+                    movbyts topPixel, swapOrder                 ' bytes 0-2: what the R, G, B pins show
+                    movbyts bottomPixel, swapOrder
+                    setbyte topPixel, bottomPixel, #TOP_SPARE_BYTE_IDX ' byte 3: the bottom pixel's R-pin byte
+                    shr     bottomPixel, #BITS_PER_BYTE         ' bytes 0-1: the bottom G-pin and B-pin bytes
+                    zerox   bottomPixel, #BOTTOM_GB_MSBIT       ' bytes 2-3: zero
+                    mergeb  topPixel                            ' nibble n: bit n of {Rb, Bt, Gt, Rt}
+                    mergeb  bottomPixel                         ' nibble n: bit n of {0, 0, Bb, Gb}
+                    rolnib  planesOfBit7, bottomPixel, #COLOR_BIT_7
+                    rolnib  planesOfBit7, topPixel, #COLOR_BIT_7
+                    rolnib  planesOfBit6, bottomPixel, #COLOR_BIT_6
+                    rolnib  planesOfBit6, topPixel, #COLOR_BIT_6
+                    rolnib  planesOfBit5, bottomPixel, #COLOR_BIT_5
+                    rolnib  planesOfBit5, topPixel, #COLOR_BIT_5
+                    rolnib  planesOfBit4, bottomPixel, #COLOR_BIT_4
+                    rolnib  planesOfBit4, topPixel, #COLOR_BIT_4
+                    rolnib  planesOfBit3, bottomPixel, #COLOR_BIT_3
+                    rolnib  planesOfBit3, topPixel, #COLOR_BIT_3
+                    rolnib  planesOfBit2, bottomPixel, #COLOR_BIT_2
+                    rolnib  planesOfBit2, topPixel, #COLOR_BIT_2
+                    rolnib  planesOfBit1, bottomPixel, #COLOR_BIT_1
+                    rolnib  planesOfBit1, topPixel, #COLOR_BIT_1
+                    rolnib  planesOfBit0, bottomPixel, #COLOR_BIT_0
+                    rolnib  planesOfBit0, topPixel, #COLOR_BIT_0
+                    ' write the group's plane longs, colour bit 0 first
+                    add     pTopPixel, #GROUP_SCREEN_BYTES
+                    add     pBottomPixel, #GROUP_SCREEN_BYTES
+                    skipf   writeSkip
+                    sub     pPlaneLong, frameBytes
+                    movbyts planesOfBit0, #GROUP_BYTES_REVERSED
+                    wrlong  planesOfBit0, pPlaneLong
+                    sub     pPlaneLong, frameBytes
+                    movbyts planesOfBit1, #GROUP_BYTES_REVERSED
+                    wrlong  planesOfBit1, pPlaneLong
+                    sub     pPlaneLong, frameBytes
+                    movbyts planesOfBit2, #GROUP_BYTES_REVERSED
+                    wrlong  planesOfBit2, pPlaneLong
+                    sub     pPlaneLong, frameBytes
+                    movbyts planesOfBit3, #GROUP_BYTES_REVERSED
+                    wrlong  planesOfBit3, pPlaneLong
+                    sub     pPlaneLong, frameBytes
+                    movbyts planesOfBit4, #GROUP_BYTES_REVERSED
+                    wrlong  planesOfBit4, pPlaneLong
+                    sub     pPlaneLong, frameBytes
+                    movbyts planesOfBit5, #GROUP_BYTES_REVERSED
+                    wrlong  planesOfBit5, pPlaneLong
+                    sub     pPlaneLong, frameBytes
+                    movbyts planesOfBit6, #GROUP_BYTES_REVERSED
+                    wrlong  planesOfBit6, pPlaneLong
+                    sub     pPlaneLong, frameBytes
+                    movbyts planesOfBit7, #GROUP_BYTES_REVERSED
+                    wrlong  planesOfBit7, pPlaneLong            ' plane 0: the most significant bit
+                    ' next group: the next four pixels of this slot, the next long along the line
+                    add     pPlaneLong, groupStep
+                    djnz    groupCtr, #nextPairGroup
                     ' the same row of the next slot, and that slot's line
-                    add     pPlaneByte, slotGapBytes
+                    add     pPlaneLong, slotGapBytes
                     add     pTopPixel, panelSkipBytes
                     add     pBottomPixel, panelSkipBytes
                     djnz    panelCtr, #nextPairPanel

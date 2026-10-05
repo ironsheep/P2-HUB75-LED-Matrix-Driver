@@ -61,7 +61,8 @@ Each panel is described by one sentence, each adapter starts with one call, six 
 - **Default color depth is 8-bit** (`DISPx_COLOR_DEPTH = hwEnum.DEPTH_8BIT`), full 24-bit color. A configuration whose buffers exceed hub RAM at 8-bit fails to compile with `Program requirement exceeds 512KB hub RAM`; lower the depth.
 - `setBrightness()` sets how long the panels are lit, not the color values: the image keeps its full depth at any brightness and the refresh rate does not change. The lowest lit time is the chip's shortest /OE pulse, so on the four-panel rig at 8-bit settings 1 to 11 look the same; 0 is off.
 - The column clock is held to each chip's datasheet rating, with each half of the pulse at least 20 ns (15 system clocks per column at 335 MHz on the four-panel rig). Each chip's clock and /OE ratings are in the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings); a chip with no rating in the table is held to 20 MHz and 50 ns and says so at startup.
-- Commit and drawing are faster. On the four-panel rig at 8-bit, commit takes 8.93 ms (from 21.25) and drawing a flat fill, lines, text and a BMP takes 114.0, 116.8, 300.9 and 188.4 ms (from 635.4, 233.3, 1,103.0 and 304.2). Drawing time no longer depends on color depth.
+- Commit and drawing are faster. On the four-panel rig at 8-bit, commit takes 4.09 ms (from 21.25) and drawing a flat fill, lines, text and a BMP takes 114.0, 116.8, 300.9 and 188.4 ms (from 635.4, 233.3, 1,103.0 and 304.2). Drawing time no longer depends on color depth.
+- Panels must be a multiple of 4 columns wide (`DISPx_MAX_PANEL_COLUMNS`); every common panel width is. Any other width stops startup with a message naming the setting.
 
 ### Known Issues v4.0.0
 

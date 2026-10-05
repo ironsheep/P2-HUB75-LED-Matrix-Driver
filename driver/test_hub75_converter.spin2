@@ -59,15 +59,12 @@ CON ' test buffers
 
     BYTES_PER_LONG          = 4
 
-    ' red, green, blue at +0, +1, +2: the screen-buffer pixel both converters read
-    PIXEL_BYTES             = 3
-
     ' the largest geometry in the tables below (1x128x64, 4x64x32, 16x32x16)
     MAX_CASE_PIXELS         = 8192
 
-    ' the converters RDLONG each pixel, so the last pixel's read runs past it
+    ' the reference converters RDLONG each pixel, so the last pixel's read runs past it
     RDLONG_OVERRUN_BYTES    = 4
-    SCREEN_LONGS            = (MAX_CASE_PIXELS * PIXEL_BYTES + RDLONG_OVERRUN_BYTES) / BYTES_PER_LONG
+    SCREEN_LONGS            = (MAX_CASE_PIXELS * panel.PACKED_PIXEL_BYTES + RDLONG_OVERRUN_BYTES) / BYTES_PER_LONG
 
     ' one frame holds one byte per column clock, and each byte carries two pixels
     MAX_FRAME_BYTES         = MAX_CASE_PIXELS / panel.HALF_DIVISOR * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
@@ -166,7 +163,9 @@ bottomPinBits
 
 DAT ' ---- buffers ----
 
-' guardBefore must sit directly before newFrameSet: one fill and one check span both
+' guardBefore must sit directly before newFrameSet: one fill and one check span both. Every
+' buffer here is a whole number of longs, so both frame sets are long aligned, as the driver's
+' converters (which write longs) require.
 screenBuffer    LONG    0[SCREEN_LONGS]                           ' the image every case converts
 refFrameSet     BYTE    0[MAX_SET_BYTES]                          ' the reference's frame set
 guardBefore     BYTE    0[GUARD_BYTES]                            ' must stay NEW_FILL: just before the set under test
@@ -316,17 +315,17 @@ PRI convertWith(eSource, pGeometry, planeCnt, swapMode, pFrameSet) | bSwapRB, bS
     SCAN_HALF:
       case eSource
         SRC_OLD:
-          referenceHalfScan(@screenBuffer, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, PIXEL_BYTES, bSwapRB, bSwapGB)
+          referenceHalfScan(@screenBuffer, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, panel.PACKED_PIXEL_BYTES, bSwapRB, bSwapGB)
         SRC_NEW:
-          panel.convertHalfScan(@screenBuffer, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, PIXEL_BYTES, bSwapRB, bSwapGB)
+          panel.convertHalfScan(@screenBuffer, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, bSwapRB, bSwapGB)
         SRC_EXPECTED:
           buildExpected(@screenBuffer, pFrameSet, SCAN_HALF, panelCnt, panelCols, panelRows, planeCnt, swapMode)
     SCAN_QUARTER:
       case eSource
         SRC_OLD:
-          referenceQuarterScan(@screenBuffer, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, PIXEL_BYTES, bSwapRB, bSwapGB)
+          referenceQuarterScan(@screenBuffer, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, panel.PACKED_PIXEL_BYTES, bSwapRB, bSwapGB)
         SRC_NEW:
-          panel.convertQuarterScan(@screenBuffer, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, PIXEL_BYTES, bSwapRB, bSwapGB)
+          panel.convertQuarterScan(@screenBuffer, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, bSwapRB, bSwapGB)
         SRC_EXPECTED:
           buildExpected(@screenBuffer, pFrameSet, SCAN_QUARTER, panelCnt, panelCols, panelRows, planeCnt, swapMode)
     ' any scan kind not handled writes nothing, so its case fails
@@ -440,7 +439,7 @@ PRI buildExpected(pScreen, pFrameSet, eScan, panelCnt, panelCols, panelRows, pla
 
   halfRows := panelRows / panel.HALF_DIVISOR
   frameBytes := halfRows * panelCnt * panelCols * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
-  rowBytes := panelCols * PIXEL_BYTES
+  rowBytes := panelCols * panel.PACKED_PIXEL_BYTES
   repeat scanRow from 0 to halfRows - 1
     repeat slot from 0 to panelCnt - 1
       pTop := pScreen + ((slot * panelRows) + scanRow) * rowBytes
@@ -457,8 +456,8 @@ PRI buildExpected(pScreen, pFrameSet, eScan, panelCnt, panelCols, panelRows, pla
             if (BYTE[pBottom][srcIdx] & bitMask) <> 0
               planeByte |= BYTE[@bottomPinBits][pinIdx]
           BYTE[pFrameSet][plane * frameBytes + byteIdx] := planeByte
-        pTop += PIXEL_BYTES
-        pBottom += PIXEL_BYTES
+        pTop += panel.PACKED_PIXEL_BYTES
+        pBottom += panel.PACKED_PIXEL_BYTES
         byteIdx += hub75Bffrs.BYTES_PER_COLUMN_CLOCK
 
 PRI lineOffsetOf(eScan, scanRow, slot, panelCnt, panelCols, panelRows) : byteIdx | quarterRows, lineIdx

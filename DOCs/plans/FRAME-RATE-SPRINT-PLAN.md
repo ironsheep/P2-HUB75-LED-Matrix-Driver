@@ -39,6 +39,35 @@ F19-F21).
 
    Details are in `DOCs/bench/RUN-NOTES.md`.
 
+## Agreed scope changes
+
+**SC-1 (Stephen, 2026-10-05: "yes, fix now"). Fix the converter's hub-slice
+stall, under §7.**
+- **What changed:** §7's commit target is pursued past visit E. Visit E measured
+  6.58 ms at 5-bit against about 5 ms. The cause was then measured: every plane
+  write of a column hits one hub slice and waits a full rotation, 16 clocks per
+  plane where 9 is possible (`DOCs/bench/RUN-NOTES.md`, "Commit shortfall
+  explained").
+- **Why:** it is the §7 deliverable, the cause is proven, and every check runs on
+  the quad rig without the bench supply.
+- **What it touches:** `convertRowPairs()` in `driver/isp_hub75_panel.spin2` (both
+  scans); the scratch timing harness; RUN-NOTES; «#102»'s commit figures
+  (WiringGuide, ChangeLog) once measured.
+- **How the method is chosen:** Stephen asked whether the search for faster
+  methods was exhausted. Three single-cog candidates are built and timed on the
+  rig geometry, and the fastest that passes `test_hub75_converter` (216 cases and
+  its fail limb) is kept: (1) four columns batched in registers, one `WRLONG` per
+  plane; (2) as 1, plus block reads of the screen rows; (3) as 2, plus block
+  writes of the planes from cog RAM.
+- **Result («#104», 2026-10-05):** candidate 4 kept (the three plus a fourth that
+  moves the channel-order MOVBYTS under the same SKIPF); commit 4.09 ms at 8-bit and
+  3.26 ms at 5-bit on the rig, refresh unchanged, 216/216 equivalence with the fail
+  limb failing. New startup rule: panel width a multiple of 4. Details: RUN-NOTES,
+  "Converter slice stall removed".
+- **What it does not admit:** a converter cog (F11) and pre-converted frames
+  (F16) stay out; the brightness floor is a punch-list item (Stephen,
+  2026-10-05: "let's do C").
+
 ## Goal, and what done means
 
 **Goal:** every supported panel at the best display rate it can reach. Refresh

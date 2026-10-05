@@ -178,3 +178,42 @@ Each hand-back adds one dated entry with three parts: tree state (scoped to
 - Every supported geometry has a stride that is a multiple of 32 (half a panel's rows x chain columns, with columns a multiple of 32), so every display pays this.
 
 **Steps completed:** none of a visit; this answers the punch-list item "Commit takes 6.58 ms at 5-bit".
+
+### 2026-10-05 — Converter slice stall removed («#104», FRAME-RATE SC-1), quad rig
+
+**Tree:** `driver/*.spin2` at `65320a9` plus the uncommitted «#104» converter (`convertRowPairs()` in `isp_hub75_panel.spin2`), committed with this entry. Temporary `DISP0_COLOR_DEPTH = DEPTH_5BIT` for the 5-bit run and `DISP0_MAX_PANEL_COLUMNS = 126` for the width-check limb, each restored after its build (`git diff` empty).
+**Rig:** quad rig, 2 x 2 of 128x64 ICN2037 on P16-P31, 335 MHz, `-p Parw7ukt`.
+
+**Candidates** (scratch harness: each candidate timed with `GETCT`, best of 3, and compared byte for byte with the driver's converter at depths 3-8 on 4x128x64 with and without the R/B swap, 9x32x16, and quarter-scan 3x64x32; generator and harness kept as `driver/logs/scratch-cand_gen.py.txt` and `scratch-cand_mkharness.py.txt`; logs `driver/logs/scratch-cand_headless_261005-125329.log`, `-125428`, `-125555`, `-125825`). Rig geometry, converter alone:
+
+| Method | 5-bit | 8-bit | Each extra plane, per column |
+|---|---|---|---|
+| Visit E converter (one `WRBYTE` per plane per column) | 6,560 us | 8,908 us | 16 clocks |
+| 1: four columns batched in registers, one `WRLONG` per plane per four columns | 4,262 us | 5,289 us | 6 clocks |
+| 2: as 1, plus a `SETQ` block read of each four pixels | 3,700 us | 4,580 us | 6 clocks |
+| 3: as 2, columns unrolled under `SKIPF` (no call or jump per column) | 3,235 us | 4,067 us | about 5 clocks |
+| 4: as 3, channel-order `MOVBYTS` under the same `SKIPF` (skipped with no swap) | 3,138 us (3,235 with a swap) | 3,969 us (4,067 with a swap) | about 5 clocks |
+
+- Every case of every candidate was byte-equal to the driver's converter (`CT: TOTAL cases with a difference: 0` in `-125825`; the earlier logs list `diff 0` per case).
+- Block writes of the planes (the plan's third candidate) were not built: after candidate 2 the plane writes cost 2 clocks per plane per column (the 6-clock slope less the two 2-clock `ROLNIB`s), which bounds their whole saving at about 4%.
+- **Kept: candidate 4**, the fastest that passed.
+
+**Equivalence** (`test_hub75_converter`, after the review cleanups): `CONVERTER TEST: 216 cases, 216 PASS, 0 FAIL` (`driver/logs/headless_261005-132139.log`). Fail limb (`HUB75_CORRUPT_CONVERTER`, temporary copy of the test): `216 cases, 24 PASS, 192 FAIL`, every new-converter case failing as in «#98» (`-132216`).
+
+**Width check** (startup now requires panel columns to be a multiple of 4): with 126 columns, `HUB75: DISP0: panels 126 columns wide (DISP0_MAX_PANEL_COLUMNS) are not supported; the width must be a multiple of 4`, then startup stopped (`-132339`). With 128 columns the rates runs below start normally.
+
+**Rates** (`test_hub75_rates`, the rig's config, which uses a channel swap; 8-bit `driver/logs/headless_261005-132532.log`, 5-bit `-133027`):
+
+| Item | Visit E 8-bit | Now 8-bit | Visit E 5-bit | Now 5-bit |
+|---|---|---|---|---|
+| Commit | 8.93 ms | 4.09 ms | 6.58 ms | 3.26 ms |
+| Refresh / lit | 71.0 Hz / 83.0% | 71.0 Hz / 83.0% | 84.7 Hz / 96.3% | 84.7 Hz / 96.3% |
+
+- Self-tests at both depths: colour table PASS (3,840 entries), row runs PASS (468 cases), handshake PASS, take check 1,541 of 1,541 (8-bit) and 1,815 of 1,815 (5-bit).
+- Draw times are within 1.2% of visit E's (fill 114.9, lines 115.4, text 301.8, BMP 186.7 ms at both depths); the draw code did not change.
+
+**Logging note:** in every headless run, pnut-term-ts cuts off the line that arrives just before `END_SESSION` (the converter test's verdict line, the rates test's take-check line, this harness's last case line; visit C and E logs show the same). Every verdict above is read from the count line before it, which arrives whole.
+
+**Verdict:** SC-1 met. Commit is 2.2x faster than visit E at 8-bit (2.0x at 5-bit) and 5.2x faster than visit C at 8-bit, and it is under §7's "about 5 ms" at both depths.
+
+**Steps completed:** «#104».
