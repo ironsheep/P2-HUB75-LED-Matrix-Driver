@@ -52,6 +52,25 @@
    colorUtils.fillColorTable() writes one wrong entry into every table it builds, so every case must
    report FAIL.
 
+   Next, still before anything is drawn for viewing, the row-run self-test (FRAME-RATE plan section 9).
+   It lays the adapter's panels out three ways (its own wiring, an L three cells wide, an L three cells
+   tall), each at all four display rotations and with all four arrows, through the instrument-only
+   hub75Bffrs.testRelayout(); the build's panel configuration is not changed. On each layout it first
+   compares screenUtils.pixelAddressAtRC() with oldPixelAddress(), a copy of the per-pixel address rule
+   as it stood before row runs, at the display's edges, cell edges and a lattice inside. Then, for each
+   case, it draws the case pixel by pixel (screenUtils.setPerPixelReference(TRUE)) on a background
+   fill, records every long that differs from the background, draws the case again by runs on the
+   same background, and compares the whole screen buffer byte for byte. A drawing that changes more
+   longs than the record holds is compared in windows: drawn again for each window, the window
+   copied whole. Line, column and box cases run on every layout; text, scrolling, fills, the BMP and
+   the 7-segment segments run on one arrow per layout and rotation (12 layouts). Each case prints
+   PASS, or FAIL with the bytes that differ and the first differing offset; ROW RUN PASS/FAIL. The
+   adapter's own layout and font are put back and the screen buffer cleared. Falsification: build with
+   pnut-ts -D HUB75_CORRUPT_ROW_RUN  and screenUtils' run step is one byte short, so every run case
+   must report FAIL (the address-rule lines do not use the step and still PASS); build with
+   pnut-ts -D HUB75_CORRUPT_PIXEL_ADDRESS  and pixelAddressAtRC() answers one pixel early, so every
+   address-rule line must report FAIL.
+
    With the adapter at base P0 the instrument reports its monitors unavailable (the strobes would
    be that adapter's colour lines) and this program prints only draw and commit times.
 }
@@ -160,6 +179,151 @@ CON ' ---- Colour table self-test ----
     GAMMA_CASE_ON           = 1
     GAMMA_CASE_COUNT        = 2
 
+CON ' ---- Row-run self-test ----
+
+    ' Layouts the panels are laid out in for the test:
+    '  LAYOUT_OWN        - the adapter's own wiring (DISP0_C0 .. C15), with every arrow replaced
+    '  LAYOUT_WIDE_L     - an L three cells wide: C0 C1 C2 along the top, C3 below C0
+    '  LAYOUT_TALL_L     - an L three cells tall: C0 C1 C2 down the left, C3 right of C0
+    '  TEST_LAYOUT_COUNT - number of layouts
+    #0, LAYOUT_OWN, LAYOUT_WIDE_L, LAYOUT_TALL_L, TEST_LAYOUT_COUNT
+
+    ' Panels in each L layout (the adapter must have this many for those layouts to apply)
+    L_LAYOUT_PANELS         = 4
+
+    ' Entries in testRotations and in testArrows
+    ROTATION_COUNT          = 4
+    ARROW_COUNT             = 4
+
+    ' Cases, in the order run. The first FULL_SET_CASES run on every layout; the rest run on one
+    ' arrow per layout and rotation (isReducedLayout()):
+    '  ROW_CASE_LINES         - lines inside one cell, across two and three cells, the whole width
+    '                           right to left, and one pixel; in the top, second and last cell rows
+    '  ROW_CASE_OFF_DISPLAY   - lines that start, end or lie off the display (held to its edges)
+    '  ROW_CASE_PANEL_CLIP    - panel-centric lines clipped by each panel's edges
+    '  ROW_CASE_COLUMNS       - vertical lines, as ROW_CASE_LINES with the axes exchanged
+    '  ROW_CASE_COLUMN_OFF    - vertical lines that start, end or lie off the display
+    '  ROW_CASE_COLUMN_CLIP   - panel-centric vertical lines clipped by each panel's edges
+    '  ROW_CASE_BOXES         - filled boxes narrow and tall (column runs) and wide (row runs),
+    '                           an outline, a one-pixel box, and panel boxes clipped by their panel
+    '  ROW_CASE_TEXT_5X7      - text in the 5x7 font, top line and the last line's end
+    '  ROW_CASE_TEXT_DITHERED - the same in the dithered 5x7 font
+    '  ROW_CASE_TEXT_8X8      - the same in the 8x8 font
+    '  ROW_CASE_SCROLL_LEFT   - text scrolling left, 5x7, the region partly below the display
+    '  ROW_CASE_SCROLL_RIGHT  - text scrolling right, dithered, the region partly past the right edge
+    '  ROW_CASE_SCROLL_UP     - text scrolling up, 5x7, across a cell boundary
+    '  ROW_CASE_SCROLL_DOWN   - text scrolling down, dithered, the region partly below the display
+    '  ROW_CASE_FILL_PANEL    - one whole panel filled (display.fillPanel())
+    '  ROW_CASE_FILL_AREA     - layout rectangles across cells and off the layout (fillLayoutArea())
+    '  ROW_CASE_BMP           - the BMP placed with a content rotation
+    '  ROW_CASE_SEGMENTS      - every 7-segment orientation, and one running off the bottom right
+    '  ROW_CASE_COUNT         - number of cases
+    #0, ROW_CASE_LINES, ROW_CASE_OFF_DISPLAY, ROW_CASE_PANEL_CLIP, ROW_CASE_COLUMNS, ROW_CASE_COLUMN_OFF, ...
+    ROW_CASE_COLUMN_CLIP, ROW_CASE_BOXES, ROW_CASE_TEXT_5X7, ROW_CASE_TEXT_DITHERED, ROW_CASE_TEXT_8X8, ...
+    ROW_CASE_SCROLL_LEFT, ROW_CASE_SCROLL_RIGHT, ROW_CASE_SCROLL_UP, ROW_CASE_SCROLL_DOWN, ...
+    ROW_CASE_FILL_PANEL, ROW_CASE_FILL_AREA, ROW_CASE_BMP, ROW_CASE_SEGMENTS, ROW_CASE_COUNT
+
+    ' Cases run on every layout: those before the first text case
+    FULL_SET_CASES          = ROW_CASE_TEXT_5X7
+
+    ' Bands the line and column cases draw in:
+    '  LINE_BAND_TOP    - from the first row (column)
+    '  LINE_BAND_SECOND - from the first row (column) of the second cell
+    '  LINE_BAND_LAST   - from the first row (column) of the last cell
+    '  LINE_BAND_COUNT  - number of bands
+    #0, LINE_BAND_TOP, LINE_BAND_SECOND, LINE_BAND_LAST, LINE_BAND_COUNT
+
+    ' Lines within each band, as offsets from its first row (column); every offset is inside the
+    ' shortest cell
+    BAND_OFST_ONE_CELL      = 0
+    BAND_OFST_TWO_CELLS     = 2
+    BAND_OFST_FULL          = 4
+    BAND_OFST_THREE_CELLS   = 6
+    BAND_OFST_ONE_PIXEL     = 8
+
+    ' Lines of the off-display cases, and of the clip cases within each panel, as rows (columns)
+    OFF_LINE_START_BEFORE   = 1
+    OFF_LINE_END_AFTER      = 3
+    OFF_LINE_ALL_BEFORE     = 5
+    CLIP_LINE_BOTH          = 1
+    CLIP_LINE_AFTER         = 3
+    CLIP_LINE_BEFORE        = 5
+    LINE_BEFORE_PANEL       = -1
+
+    ' Line geometry: a one-cell line stays RUN_INSET in from the cell's edges; a two-cell line
+    ' reaches RUN_BOUNDARY_REACH either side of a cell boundary; a three-cell line runs from the
+    ' middle of the first cell (CELL_HALVES) to the middle of the third (THREE_CELLS); lines off
+    ' the display reach OFF_DISTANCE beyond an edge
+    RUN_INSET               = 1
+    RUN_BOUNDARY_REACH      = 3
+    CELL_HALVES             = 2
+    THREE_CELLS             = 3
+    OFF_DISTANCE            = 10
+
+    ' Boxes: the narrow box is BOX_NARROW_COLUMNS wide, BOX_INSET from the display's top and
+    ' bottom; the wide box is BOX_WIDE_ROWS tall, BOX_INSET from its left and right; the outline is
+    ' BOX_OUTLINE_INSET in from every edge; the one-pixel box sits at BOX_DOT_POSITION
+    BOX_INSET               = 2
+    BOX_NARROW_COLUMNS      = 3
+    BOX_WIDE_ROWS           = 4
+    BOX_OUTLINE_INSET       = 5
+    BOX_DOT_POSITION        = 9
+
+    ' Text: runText starts on the first line; the last line's text starts TEXT_TAIL_CHARS before its end
+    FIRST_TEXT_LINE         = 0
+    TEXT_TAIL_CHARS         = 3
+
+    ' A box's inset, or a rectangle's reach, applies on both of its sides
+    BOTH_SIDES              = 2
+
+    ' Scrolling: the window is SCROLL_WINDOW_CHARS wide (the text is one character longer, so the
+    ' scroll ends after one character's width); the buffers are compared after
+    ' SCROLL_COMPARE_STEPS steps, then the scroll is run to its end (at most SCROLL_FINISH_STEPS
+    ' steps) so the scroller is free again. A region partly off the display starts
+    ' SCROLL_EDGE_OVERLAP rows (columns) before the edge.
+    SCROLL_WINDOW_CHARS     = 3
+    SCROLL_COMPARE_STEPS    = 2
+    SCROLL_FINISH_STEPS     = 64
+    SCROLL_EDGE_OVERLAP     = 3
+    SCROLL_CELL_REACH       = 8
+    PANEL_P0                = 0                             ' the first panel in reading order, as mounted
+
+    ' The fill-area rectangles: rows and columns past each edge, and their sizes
+    FILL_EDGE_REACH         = 2
+    FILL_RECT_ROWS          = 6
+    FILL_RECT_REACH         = 7
+    FILL_CORNER_ROWS        = 8
+    FILL_CORNER_COLUMNS     = 20
+    FILL_STRIP_ROWS         = 3
+
+    ' Segments: placed SEGMENT_REACH before a cell's corner, SEGMENT_SPACING apart; the last one
+    ' SEGMENT_EDGE_ROWS above the bottom and SEGMENT_EDGE_COLUMNS before the right edge
+    SEGMENT_REACH           = 4
+    SEGMENT_SPACING         = 4
+    SEGMENT_EDGE_ROWS       = 2
+    SEGMENT_EDGE_COLUMNS    = 3
+
+    ' The drawings' color: every channel non-zero and unlike the background byte
+    RUN_TEST_COLOR          = $FF_80_40
+
+    ' Comparison: the screen buffer is filled with BACKGROUND_BYTE before each drawing. The longs of
+    ' the pixel-by-pixel drawing that differ from it are recorded in captureArea, index and value,
+    ' up to CAPTURE_LONGS of them; a drawing that changes more is compared in windows of
+    ' CAPTURE_AREA_LONGS longs, each copied whole into captureArea.
+    BACKGROUND_BYTE         = $5A
+    BACKGROUND_LONG         = $5A_5A_5A_5A
+    CAPTURE_AREA_LONGS      = 8192
+    CAPTURE_LONGS           = CAPTURE_AREA_LONGS / 2
+    BITS_PER_BYTE           = 8
+    BYTE_MASK               = $FF
+    NO_OFFSET               = -1                            ' first differing offset when none differ
+
+    ' Address-rule comparison points: one pixel beyond each display edge, every cell edge, and a
+    ' lattice of every ORACLE_ROW_STEP-th row and ORACLE_COLUMN_STEP-th column
+    ORACLE_EDGE_REACH       = 1
+    ORACLE_ROW_STEP         = 5
+    ORACLE_COLUMN_STEP      = 7
+
 CON ' ---- Brightness step labels ----
 
     ' Text lines of the label, above the BMP: the step line, and the measured-lit line under it
@@ -193,6 +357,9 @@ OBJ
     colorUtils  : "isp_hub75_colorUtils"                    ' color table under test
     matrix      : "isp_hub75_rgb3bit"                       ' constants only: flag mask, long size
     instrument  : "isp_hub75_instrument"                    ' monitors and stopwatches
+    pixels      : "isp_hub75_screenUtils"                   ' row runs under test, and the address rule
+    user        : "isp_hub75_hwPanelConfig"                 ' the adapter's own wiring sentences
+    segment     : "isp_hub75_segment"                       ' 7-segment lines under test
 
 DAT ' ---- Test State (singleton) ----
 
@@ -215,6 +382,23 @@ DAT ' ---- Test State (singleton) ----
     traceShownAtPost LONG   0[TRACE_COMMITS]                ' frame set on display when that conversion was done
     traceShownNow   LONG    0[TRACE_COMMITS]                ' frame set on display when the commit returned
 
+    ' the row-run self-test (see runRowRunTest())
+    testRotations   LONG    hwEnum.ROT_NONE, hwEnum.ROT_RIGHT_90, hwEnum.ROT_180, hwEnum.ROT_LEFT_90
+    testArrows      LONG    hwEnum.ARROW_UP, hwEnum.ARROW_RIGHT, hwEnum.ARROW_DOWN, hwEnum.ARROW_LEFT
+    ownSentences    LONG    user.DISP0_C0, user.DISP0_C1, user.DISP0_C2, user.DISP0_C3
+                    LONG    user.DISP0_C4, user.DISP0_C5, user.DISP0_C6, user.DISP0_C7
+                    LONG    user.DISP0_C8, user.DISP0_C9, user.DISP0_C10, user.DISP0_C11
+                    LONG    user.DISP0_C12, user.DISP0_C13, user.DISP0_C14, user.DISP0_C15
+    wideLSentences  LONG    hwEnum.FIRST_PANEL, hwEnum.RIGHT_OF | hwEnum.C0, hwEnum.RIGHT_OF | hwEnum.C1, hwEnum.BELOW | hwEnum.C0
+    tallLSentences  LONG    hwEnum.FIRST_PANEL, hwEnum.BELOW | hwEnum.C0, hwEnum.BELOW | hwEnum.C1, hwEnum.RIGHT_OF | hwEnum.C0
+    testSentences   LONG    0[hub75Bffrs.MAX_CABLE_POSITIONS]   ' the sentences of the layout under test
+    ' the reference drawing: CAPTURE_LONGS long indices then their values, or one window of the buffer
+    captureArea     LONG    0[CAPTURE_AREA_LONGS]
+    runText         BYTE    "RUN 0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz", 0
+    tailText        BYTE    "END", 0
+    scrollText      BYTE    "AB12", 0                       ' SCROLL_WINDOW_CHARS + 1 characters
+    emptyNote       BYTE    0                               ' no note after a case line
+
 PUB main() : ok | nCommitsBefore, bTakeCheck
 '' Start adapter 1 and the instrument, run every phase of the workload, report, and end the session.
 ''
@@ -234,6 +418,7 @@ PUB main() : ok | nCommitsBefore, bTakeCheck
     colorDepth := hub75Bffrs.colorDepth(chainIndex)
     debug("RATES: colour depth ", udec_(colorDepth), " bits, adapter base P", udec_(hub75Bffrs.pinBase(chainIndex)))
     runColourTableTest()
+    runRowRunTest()
     instrument.start(hub75Bffrs.pinBase(chainIndex), latchesPerRefresh())
     nCommitsBefore := commitsPosted()
     bTakeCheck := instrument.startTakeCheck(rowsPerRefresh() - 1)
@@ -361,6 +546,663 @@ PRI gammaLabel(bGamma) : pLabel
     pLabel := string("on")
   else
     pLabel := string("off")
+
+PRI runRowRunTest() | startMs, layoutIdx, rotationIdx, arrowIdx, caseIdx, nCaseMismatches, firstOffset, nCaptured, bWindowed, nOracleMismatches, nOracleCompared, nMismatches, nFailedCases, nCases, nRefused, pLayout, pRotation, pArrow, pCase, lastCaseIdx, pNote
+' Compare every run primitive with the pixel-by-pixel path it replaces, byte for byte, on three
+' layouts x four display rotations x four arrows (the cases after FULL_SET_CASES on one arrow per
+' layout and rotation), and compare the address rule with the old one on each. The adapter's own
+' layout, font and cursor are put back and the screen buffer cleared afterwards. ROW RUN PASS only
+' if no case and no address differ, no case drew nothing, and no layout was refused.
+'
+
+' Local Variables:
+' @local startMs - millisecond count (getms()) when the test began
+' @local layoutIdx - LAYOUT_* under test
+' @local rotationIdx - entry of testRotations under test
+' @local arrowIdx - entry of testArrows under test
+' @local caseIdx - ROW_CASE_* being compared
+' @local nCaseMismatches - bytes that differ in the case just compared
+' @local firstOffset - first differing byte offset in the case just compared, or NO_OFFSET
+' @local nCaptured - longs the reference drawing changed in the case just compared
+' @local bWindowed - TRUE when the case was compared in windows (it changed more than CAPTURE_LONGS longs)
+' @local lastCaseIdx - last case run on the layout under test
+' @local pNote - printable note saying whether the case was compared in windows
+' @local nOracleMismatches - address-rule points that differ on the layout just compared
+' @local nOracleCompared - address-rule points compared on the layout just compared
+' @local nMismatches - differing bytes and address points in all cases
+' @local nFailedCases - cases and layouts that failed
+' @local nCases - cases compared
+' @local nRefused - layouts testRelayout() refused
+' @local pLayout - printable name of the layout
+' @local pRotation - printable name of the rotation
+' @local pArrow - printable name of the arrow
+' @local pCase - printable name of the case
+
+  startMs := getms()
+  nMismatches := nFailedCases := nCases := nRefused := 0
+  debug("RATES: ---- ROW RUN self-test ----")
+#IFDEF HUB75_CORRUPT_ROW_RUN
+  debug("RATES: HUB75_CORRUPT_ROW_RUN is defined: the run step is one byte short, so every run case must FAIL (the address-rule lines do not use it)")
+#ENDIF
+#IFDEF HUB75_CORRUPT_PIXEL_ADDRESS
+  debug("RATES: HUB75_CORRUPT_PIXEL_ADDRESS is defined: pixelAddressAtRC() answers one pixel early, so every address-rule line must FAIL")
+#ENDIF
+  repeat layoutIdx from 0 to TEST_LAYOUT_COUNT - 1
+    pLayout := layoutLabel(layoutIdx)
+    repeat rotationIdx from 0 to ROTATION_COUNT - 1
+      pRotation := rotationLabel(rotationIdx)
+      repeat arrowIdx from 0 to ARROW_COUNT - 1
+        pArrow := arrowLabel(arrowIdx)
+        buildTestSentences(layoutIdx, LONG[@testArrows][arrowIdx])
+        if hub75Bffrs.testRelayout(chainIndex, @testSentences, LONG[@testRotations][rotationIdx]) <> hub75Bffrs.RELAYOUT_DONE
+          debug("RATES: row run ", zstr_(pLayout), " ", zstr_(pRotation), " arrow ", zstr_(pArrow), ": FAIL, layout refused (message above)")
+          nRefused++
+        else
+          display.refreshGeometry()
+          nOracleMismatches, nOracleCompared := compareAddressRule()
+          if nOracleMismatches == 0
+            debug("RATES: row run ", zstr_(pLayout), " ", zstr_(pRotation), " arrow ", zstr_(pArrow), " address rule: PASS, ", udec_(nOracleCompared), " points equal the old rule")
+          else
+            debug("RATES: row run ", zstr_(pLayout), " ", zstr_(pRotation), " arrow ", zstr_(pArrow), " address rule: FAIL, ", udec_(nOracleMismatches), " of ", udec_(nOracleCompared), " points differ from the old rule")
+            nMismatches += nOracleMismatches
+            nFailedCases++
+          lastCaseIdx := FULL_SET_CASES - 1
+          if isReducedLayout(layoutIdx, rotationIdx, arrowIdx) == TRUE
+            lastCaseIdx := ROW_CASE_COUNT - 1
+          repeat caseIdx from 0 to lastCaseIdx
+            pCase := rowCaseLabel(caseIdx)
+            nCaseMismatches, firstOffset, nCaptured, bWindowed := runRowRunCase(caseIdx, layoutIdx + rotationIdx)
+            pNote := windowedNote(bWindowed)
+            nCases++
+            if nCaptured == 0
+              debug("RATES: row run ", zstr_(pLayout), " ", zstr_(pRotation), " arrow ", zstr_(pArrow), " ", zstr_(pCase), ": FAIL, the reference drew nothing, so nothing was compared")
+              nFailedCases++
+            elseif nCaseMismatches == 0
+              debug("RATES: row run ", zstr_(pLayout), " ", zstr_(pRotation), " arrow ", zstr_(pArrow), " ", zstr_(pCase), ": PASS, ", udec_(nCaptured), " longs drawn, buffer identical", zstr_(pNote))
+            else
+              debug("RATES: row run ", zstr_(pLayout), " ", zstr_(pRotation), " arrow ", zstr_(pArrow), " ", zstr_(pCase), ": FAIL, ", udec_(nCaseMismatches), " bytes differ, first at byte offset ", udec_(firstOffset), " (", udec_(nCaptured), " longs drawn)", zstr_(pNote))
+              nMismatches += nCaseMismatches
+              nFailedCases++
+
+  ' the adapter's own layout, font and cursor back, drawing by runs again, and nothing left in the buffer
+  hub75Bffrs.testRestoreLayout(chainIndex)
+  display.refreshGeometry()
+  display.setTextFont(display.TEXT_FONT_DEFAULT)
+  display.homeCursor()
+  pixels.setPerPixelReference(FALSE)
+  display.clearScreenBuffer()
+  if nFailedCases == 0 and nRefused == 0
+    debug("RATES: ROW RUN PASS: ", udec_(nCases), " cases identical byte for byte, address rule equal on every layout, in ", udec_((getms() - startMs) / MS_PER_SECOND), " s")
+  else
+    debug("RATES: ROW RUN FAIL: ", udec_(nFailedCases), " failed, ", udec_(nRefused), " layouts refused, ", udec_(nMismatches), " differing bytes and points, ", udec_(nCases), " cases run")
+
+PRI buildTestSentences(layoutIdx, arrowWord) | cablePos, sentence
+' Fill testSentences with one layout's wiring sentences, every panel's arrow replaced by arrowWord.
+'
+' @param layoutIdx - LAYOUT_* to build
+' @param arrowWord - hwEnum.ARROW_* every panel is given
+
+' Local Variables:
+' @local cablePos - cable position being filled
+' @local sentence - the sentence at that cable position
+
+  repeat cablePos from 0 to hub75Bffrs.MAX_CABLE_POSITIONS - 1
+    sentence := hwEnum.NO_PANEL
+    case layoutIdx
+      LAYOUT_OWN:
+        sentence := LONG[@ownSentences][cablePos]
+      LAYOUT_WIDE_L:
+        if cablePos < L_LAYOUT_PANELS
+          sentence := LONG[@wideLSentences][cablePos]
+      other:
+        if cablePos < L_LAYOUT_PANELS
+          sentence := LONG[@tallLSentences][cablePos]
+    if sentence <> hwEnum.NO_PANEL
+      sentence := (sentence & !hwEnum.ARROW_MASK) | arrowWord
+    LONG[@testSentences][cablePos] := sentence
+
+PRI isReducedLayout(layoutIdx, rotationIdx, arrowIdx) : bReduced
+' Return TRUE for the one arrow per layout and rotation on which the cases after FULL_SET_CASES
+' run: the arrow steps with the rotation, so each layout meets all four arrows and all four rotations.
+'
+' @param layoutIdx - LAYOUT_* under test
+' @param rotationIdx - entry of testRotations under test
+' @param arrowIdx - entry of testArrows under test
+' @returns bReduced - TRUE to run every case on this layout
+
+  bReduced := arrowIdx == (layoutIdx + rotationIdx) // ARROW_COUNT
+
+PRI runRowRunCase(caseIdx, caseVariant) : nMismatches, firstOffset, nCaptured, bWindowed
+' Draw one case pixel by pixel on the background and record it, then draw it by runs on the
+' background and compare the whole screen buffer with the record, byte for byte. A case that
+' changes more than CAPTURE_LONGS longs is compared in windows instead (compareWindowed()).
+'
+' @param caseIdx - ROW_CASE_* to compare
+' @param caseVariant - a number that varies from layout to layout (the panel filled, the BMP's turn)
+' @returns nMismatches - bytes of the screen buffer that differ
+' @returns firstOffset - byte offset of the first that differs, or NO_OFFSET
+' @returns nCaptured - longs the pixel-by-pixel drawing changed
+' @returns bWindowed - TRUE when the case was compared in windows
+
+  pixels.setPerPixelReference(TRUE)
+  fillBackground()
+  drawRowRunCase(caseIdx, caseVariant)
+  nCaptured, bWindowed := captureScreen()
+  finishRowRunCase(caseIdx)
+  if bWindowed == FALSE
+    pixels.setPerPixelReference(FALSE)
+    fillBackground()
+    drawRowRunCase(caseIdx, caseVariant)
+    nMismatches, firstOffset := compareScreen(nCaptured)
+    finishRowRunCase(caseIdx)
+  else
+    nMismatches, firstOffset := compareWindowed(caseIdx, caseVariant)
+
+PRI compareWindowed(caseIdx, caseVariant) : nMismatches, firstOffset | pScreen, nLongs, windowStart, windowFirst, windowEnd, longIdx, expectedLong
+' Compare a case window by window: draw it pixel by pixel, copy CAPTURE_AREA_LONGS longs from
+' the first long at or after the window's start that differs from the background, draw it by
+' runs, and compare every byte from the window's start to the copy's end (before the copy, the
+' background). Repeat from the copy's end until the whole buffer is compared.
+'
+' @param caseIdx - ROW_CASE_* to compare
+' @param caseVariant - a number that varies from layout to layout (see runRowRunCase())
+' @returns nMismatches - bytes of the screen buffer that differ
+' @returns firstOffset - byte offset of the first that differs, or NO_OFFSET
+
+' Local Variables:
+' @local pScreen - hub address of the screen buffer
+' @local nLongs - longs in the screen buffer
+' @local windowStart - first long of the window
+' @local windowFirst - first long of the window that the pixel-by-pixel drawing changed
+' @local windowEnd - long after the window's copy
+' @local longIdx - long being compared
+' @local expectedLong - the value the long must hold
+
+  nMismatches := 0
+  firstOffset := NO_OFFSET
+  pScreen := hub75Bffrs.displayBufferAddress(chainIndex)
+  nLongs := hub75Bffrs.displaySizeInLongs(chainIndex)
+  windowStart := 0
+  repeat while windowStart < nLongs
+    pixels.setPerPixelReference(TRUE)
+    fillBackground()
+    drawRowRunCase(caseIdx, caseVariant)
+    windowFirst := windowStart
+    repeat while windowFirst < nLongs
+      if LONG[pScreen][windowFirst] <> BACKGROUND_LONG
+        quit
+      windowFirst++
+    windowEnd := (windowFirst + CAPTURE_AREA_LONGS) <# nLongs
+    longmove(@captureArea, pScreen + (windowFirst * matrix.BYTES_PER_LONG), windowEnd - windowFirst)
+    finishRowRunCase(caseIdx)
+    pixels.setPerPixelReference(FALSE)
+    fillBackground()
+    drawRowRunCase(caseIdx, caseVariant)
+    repeat longIdx from windowStart to windowEnd - 1
+      expectedLong := BACKGROUND_LONG
+      if longIdx >= windowFirst
+        expectedLong := LONG[@captureArea][longIdx - windowFirst]
+      nMismatches, firstOffset := countByteDiffs(longIdx, LONG[pScreen][longIdx], expectedLong, nMismatches, firstOffset)
+    finishRowRunCase(caseIdx)
+    windowStart := windowEnd
+
+PRI drawRowRunCase(caseIdx, caseVariant) | displayRows, displayColumns, cellRows, cellColumns, bandIdx, bandStart, panelIdx, layoutRows, layoutColumns, layoutCellRows, layoutCellColumns, orientation, panelRow, panelColumn
+' Draw one case through the drawing API. Which path draws it (pixel by pixel or runs) is chosen
+' by screenUtils.setPerPixelReference().
+'
+' @param caseIdx - ROW_CASE_* to draw
+' @param caseVariant - a number that varies from layout to layout (see runRowRunCase())
+
+' Local Variables:
+' @local displayRows - display height in pixels, as mounted
+' @local displayColumns - display width in pixels, as mounted
+' @local cellRows - pixel rows of one panel as the viewer sees it
+' @local cellColumns - pixel columns of one panel as the viewer sees it
+' @local bandIdx - band being drawn (line and column cases)
+' @local bandStart - first row (column) of that band
+' @local panelIdx - panel position being drawn on (clip and box cases)
+' @local layoutRows - display height as laid out (fill-area case)
+' @local layoutColumns - display width as laid out
+' @local layoutCellRows - one cell's height as laid out
+' @local layoutCellColumns - one cell's width as laid out
+' @local orientation - 7-segment orientation being placed
+' @local panelRow - display row of a panel's top-left pixel (scroll cases)
+' @local panelColumn - display column of a panel's top-left pixel (scroll cases)
+
+  displayRows, displayColumns := hub75Bffrs.displaySizeInPixels(chainIndex)
+  cellRows, cellColumns := hub75Bffrs.cellSizeInPixels(chainIndex)
+  case caseIdx
+    ROW_CASE_LINES:
+      repeat bandIdx from 0 to LINE_BAND_COUNT - 1
+        bandStart := lineBandStart(bandIdx, displayRows, cellRows)
+        display.drawLineOfColor(bandStart + BAND_OFST_ONE_CELL, RUN_INSET, bandStart + BAND_OFST_ONE_CELL, cellColumns - 1 - RUN_INSET, RUN_TEST_COLOR)
+        display.drawLineOfColor(bandStart + BAND_OFST_TWO_CELLS, cellColumns - RUN_BOUNDARY_REACH, bandStart + BAND_OFST_TWO_CELLS, cellColumns + RUN_BOUNDARY_REACH, RUN_TEST_COLOR)
+        display.drawLineOfColor(bandStart + BAND_OFST_FULL, displayColumns - 1, bandStart + BAND_OFST_FULL, FIRST_COLUMN, RUN_TEST_COLOR)
+        if displayColumns >= cellColumns * THREE_CELLS
+          display.drawLineOfColor(bandStart + BAND_OFST_THREE_CELLS, cellColumns / CELL_HALVES, bandStart + BAND_OFST_THREE_CELLS, (cellColumns * (THREE_CELLS - 1)) + (cellColumns / CELL_HALVES), RUN_TEST_COLOR)
+        display.drawLineOfColor(bandStart + BAND_OFST_ONE_PIXEL, cellColumns - 1, bandStart + BAND_OFST_ONE_PIXEL, cellColumns - 1, RUN_TEST_COLOR)
+      display.drawLineOfColor(displayRows - 1, FIRST_COLUMN, displayRows - 1, displayColumns - 1, RUN_TEST_COLOR)
+    ROW_CASE_OFF_DISPLAY:
+      display.drawLineOfColor(OFF_LINE_START_BEFORE, -OFF_DISTANCE, OFF_LINE_START_BEFORE, cellColumns + RUN_BOUNDARY_REACH, RUN_TEST_COLOR)
+      display.drawLineOfColor(OFF_LINE_END_AFTER, displayColumns - OFF_DISTANCE, OFF_LINE_END_AFTER, displayColumns + OFF_DISTANCE, RUN_TEST_COLOR)
+      display.drawLineOfColor(OFF_LINE_ALL_BEFORE, -OFF_DISTANCE, OFF_LINE_ALL_BEFORE, FIRST_COLUMN - 1, RUN_TEST_COLOR)
+      display.drawLineOfColor(-OFF_DISTANCE, RUN_INSET, -OFF_DISTANCE, cellColumns, RUN_TEST_COLOR)
+      display.drawLineOfColor(displayRows + OFF_DISTANCE, displayColumns - OFF_DISTANCE, displayRows + OFF_DISTANCE, displayColumns + OFF_DISTANCE, RUN_TEST_COLOR)
+    ROW_CASE_PANEL_CLIP:
+      repeat panelIdx from 0 to hub75Bffrs.maxPanels(chainIndex) - 1
+        display.drawPanelLineOfColor(panelIdx, CLIP_LINE_BOTH, -OFF_DISTANCE, CLIP_LINE_BOTH, cellColumns - 1 + OFF_DISTANCE, RUN_TEST_COLOR)
+        display.drawPanelLineOfColor(panelIdx, CLIP_LINE_AFTER, cellColumns - OFF_DISTANCE, CLIP_LINE_AFTER, cellColumns + OFF_DISTANCE, RUN_TEST_COLOR)
+        display.drawPanelLineOfColor(panelIdx, CLIP_LINE_BEFORE, -OFF_DISTANCE, CLIP_LINE_BEFORE, OFF_DISTANCE, RUN_TEST_COLOR)
+        display.drawPanelLineOfColor(panelIdx, LINE_BEFORE_PANEL, FIRST_COLUMN, LINE_BEFORE_PANEL, cellColumns - 1, RUN_TEST_COLOR)
+        display.drawPanelLineOfColor(panelIdx, cellRows, FIRST_COLUMN, cellRows, cellColumns - 1, RUN_TEST_COLOR)
+        display.drawPanelLineOfColor(panelIdx, cellRows - 1, OFF_DISTANCE, cellRows - 1, FIRST_COLUMN, RUN_TEST_COLOR)
+    ROW_CASE_COLUMNS:
+      repeat bandIdx from 0 to LINE_BAND_COUNT - 1
+        bandStart := lineBandStart(bandIdx, displayColumns, cellColumns)
+        display.drawLineOfColor(RUN_INSET, bandStart + BAND_OFST_ONE_CELL, cellRows - 1 - RUN_INSET, bandStart + BAND_OFST_ONE_CELL, RUN_TEST_COLOR)
+        display.drawLineOfColor(cellRows - RUN_BOUNDARY_REACH, bandStart + BAND_OFST_TWO_CELLS, cellRows + RUN_BOUNDARY_REACH, bandStart + BAND_OFST_TWO_CELLS, RUN_TEST_COLOR)
+        display.drawLineOfColor(displayRows - 1, bandStart + BAND_OFST_FULL, FIRST_ROW, bandStart + BAND_OFST_FULL, RUN_TEST_COLOR)
+        if displayRows >= cellRows * THREE_CELLS
+          display.drawLineOfColor(cellRows / CELL_HALVES, bandStart + BAND_OFST_THREE_CELLS, (cellRows * (THREE_CELLS - 1)) + (cellRows / CELL_HALVES), bandStart + BAND_OFST_THREE_CELLS, RUN_TEST_COLOR)
+        display.drawLineOfColor(cellRows - 1, bandStart + BAND_OFST_ONE_PIXEL, cellRows - 1, bandStart + BAND_OFST_ONE_PIXEL, RUN_TEST_COLOR)
+      display.drawLineOfColor(FIRST_ROW, displayColumns - 1, displayRows - 1, displayColumns - 1, RUN_TEST_COLOR)
+    ROW_CASE_COLUMN_OFF:
+      display.drawLineOfColor(-OFF_DISTANCE, OFF_LINE_START_BEFORE, cellRows + RUN_BOUNDARY_REACH, OFF_LINE_START_BEFORE, RUN_TEST_COLOR)
+      display.drawLineOfColor(displayRows - OFF_DISTANCE, OFF_LINE_END_AFTER, displayRows + OFF_DISTANCE, OFF_LINE_END_AFTER, RUN_TEST_COLOR)
+      display.drawLineOfColor(-OFF_DISTANCE, OFF_LINE_ALL_BEFORE, FIRST_ROW - 1, OFF_LINE_ALL_BEFORE, RUN_TEST_COLOR)
+      display.drawLineOfColor(RUN_INSET, -OFF_DISTANCE, cellRows, -OFF_DISTANCE, RUN_TEST_COLOR)
+      display.drawLineOfColor(displayRows - OFF_DISTANCE, displayColumns + OFF_DISTANCE, displayRows + OFF_DISTANCE, displayColumns + OFF_DISTANCE, RUN_TEST_COLOR)
+    ROW_CASE_COLUMN_CLIP:
+      repeat panelIdx from 0 to hub75Bffrs.maxPanels(chainIndex) - 1
+        display.drawPanelLineOfColor(panelIdx, -OFF_DISTANCE, CLIP_LINE_BOTH, cellRows - 1 + OFF_DISTANCE, CLIP_LINE_BOTH, RUN_TEST_COLOR)
+        display.drawPanelLineOfColor(panelIdx, cellRows - OFF_DISTANCE, CLIP_LINE_AFTER, cellRows + OFF_DISTANCE, CLIP_LINE_AFTER, RUN_TEST_COLOR)
+        display.drawPanelLineOfColor(panelIdx, -OFF_DISTANCE, CLIP_LINE_BEFORE, OFF_DISTANCE, CLIP_LINE_BEFORE, RUN_TEST_COLOR)
+        display.drawPanelLineOfColor(panelIdx, FIRST_ROW, LINE_BEFORE_PANEL, cellRows - 1, LINE_BEFORE_PANEL, RUN_TEST_COLOR)
+        display.drawPanelLineOfColor(panelIdx, FIRST_ROW, cellColumns, cellRows - 1, cellColumns, RUN_TEST_COLOR)
+        display.drawPanelLineOfColor(panelIdx, OFF_DISTANCE, cellColumns - 1, FIRST_ROW, cellColumns - 1, RUN_TEST_COLOR)
+    ROW_CASE_BOXES:
+      display.drawBoxOfColor(BOX_INSET, cellColumns - 1, BOX_NARROW_COLUMNS, displayRows - (BOX_INSET * BOTH_SIDES), TRUE, RUN_TEST_COLOR)
+      display.drawBoxOfColor(cellRows - 1, BOX_INSET, displayColumns - (BOX_INSET * BOTH_SIDES), BOX_WIDE_ROWS, TRUE, RUN_TEST_COLOR)
+      display.drawBoxOfColor(BOX_OUTLINE_INSET, BOX_OUTLINE_INSET, displayColumns - (BOX_OUTLINE_INSET * BOTH_SIDES), displayRows - (BOX_OUTLINE_INSET * BOTH_SIDES), FALSE, RUN_TEST_COLOR)
+      display.drawBoxOfColor(BOX_DOT_POSITION, BOX_DOT_POSITION, ONE_PIXEL, ONE_PIXEL, TRUE, RUN_TEST_COLOR)
+      repeat panelIdx from 0 to hub75Bffrs.maxPanels(chainIndex) - 1
+        display.drawPanelBoxOfColor(panelIdx, -RUN_BOUNDARY_REACH, cellColumns - OFF_DISTANCE, BOX_NARROW_COLUMNS, OFF_DISTANCE, TRUE, RUN_TEST_COLOR)
+        display.drawPanelBoxOfColor(panelIdx, cellRows - BOX_WIDE_ROWS, -RUN_BOUNDARY_REACH, OFF_DISTANCE, OFF_DISTANCE, TRUE, RUN_TEST_COLOR)
+        display.drawPanelBoxOfColor(panelIdx, BOX_INSET, -OFF_DISTANCE, cellColumns, cellRows, FALSE, RUN_TEST_COLOR)
+    ROW_CASE_TEXT_5X7, ROW_CASE_TEXT_DITHERED, ROW_CASE_TEXT_8X8:
+      display.setTextFont(rowCaseFont(caseIdx))
+      display.setColoredTextAtLnCol(FIRST_TEXT_LINE, FIRST_TEXT_COLUMN, @runText, RUN_TEST_COLOR)
+      display.setColoredTextAtLnCol(display.numberTextLines() - 1, display.numberTextColumns() - TEXT_TAIL_CHARS, @tailText, RUN_TEST_COLOR)
+    ROW_CASE_SCROLL_LEFT, ROW_CASE_SCROLL_RIGHT, ROW_CASE_SCROLL_UP, ROW_CASE_SCROLL_DOWN:
+      ' each region is placed on a panel that every layout has, so it always draws something:
+      ' the last panel in reading order is in the bottom cell row, P0 is the first panel, and
+      ' edgePanelRow() finds a panel in the rightmost cell column
+      display.setTextFont(rowCaseFont(caseIdx))
+      _, panelColumn := hub75Bffrs.offsetToPanel(chainIndex, hub75Bffrs.maxPanels(chainIndex) - 1)    ' its row is the bottom cell row
+      case caseIdx
+        ROW_CASE_SCROLL_LEFT:
+          display.scrollTextAtRCOfColor(displayRows - SCROLL_EDGE_OVERLAP, panelColumn + cellColumns - SCROLL_CELL_REACH, SCROLL_WINDOW_CHARS, @scrollText, display.DIR_TO_LEFT, RUN_TEST_COLOR)
+        ROW_CASE_SCROLL_RIGHT:
+          display.scrollTextAtRCOfColor(edgePanelRow(displayColumns, cellColumns) + cellRows - SCROLL_EDGE_OVERLAP, displayColumns - SCROLL_CELL_REACH, SCROLL_WINDOW_CHARS, @scrollText, display.DIR_TO_RIGHT, RUN_TEST_COLOR)
+        ROW_CASE_SCROLL_UP:
+          panelRow, panelColumn := hub75Bffrs.offsetToPanel(chainIndex, PANEL_P0)
+          display.scrollTextAtRCOfColor(panelRow + cellRows - SCROLL_EDGE_OVERLAP, panelColumn + cellColumns - SCROLL_CELL_REACH, SCROLL_WINDOW_CHARS, @scrollText, display.DIR_UP, RUN_TEST_COLOR)
+        other:
+          display.scrollTextAtRCOfColor(displayRows - SCROLL_EDGE_OVERLAP, panelColumn + RUN_INSET, SCROLL_WINDOW_CHARS, @scrollText, display.DIR_DOWN, RUN_TEST_COLOR)
+      repeat SCROLL_COMPARE_STEPS
+        display.animateScroll()
+    ROW_CASE_FILL_PANEL:
+      display.fillPanel(caseVariant // hub75Bffrs.maxPanels(chainIndex), RUN_TEST_COLOR)
+    ROW_CASE_FILL_AREA:
+      layoutRows, layoutColumns, _ := hub75Bffrs.layoutSizeAndRotation(chainIndex)     ' the rotation is not needed
+      layoutCellRows, layoutCellColumns := hub75Bffrs.layoutCellSizeInPixels(chainIndex)
+      pixels.fillLayoutArea(chainIndex, -FILL_EDGE_REACH, layoutCellColumns - FILL_RECT_REACH, FILL_RECT_ROWS, layoutCellColumns + (FILL_RECT_REACH * BOTH_SIDES), RUN_TEST_COLOR)
+      pixels.fillLayoutArea(chainIndex, layoutRows - FILL_EDGE_REACH, layoutColumns - FILL_RECT_REACH, FILL_CORNER_ROWS, FILL_CORNER_COLUMNS, RUN_TEST_COLOR)
+      pixels.fillLayoutArea(chainIndex, layoutCellRows + FILL_EDGE_REACH, layoutCellColumns / CELL_HALVES, FILL_STRIP_ROWS, layoutCellColumns * (THREE_CELLS - 1), RUN_TEST_COLOR)
+    ROW_CASE_BMP:
+      bmpHandler.placeBMP(chainIndex, @bmpFile, LONG[@testRotations][caseVariant // ROTATION_COUNT])
+    other:
+      repeat orientation from segment.SEG_LEFT_E to segment.SEG_BOTTOM
+        segment.placeSegment(chainIndex, cellRows - SEGMENT_REACH, cellColumns - SEGMENT_REACH + ((orientation - segment.SEG_LEFT_E) * SEGMENT_SPACING), orientation, segment.STATE_ON, RUN_TEST_COLOR)
+      segment.placeSegment(chainIndex, displayRows - SEGMENT_EDGE_ROWS, displayColumns - SEGMENT_EDGE_COLUMNS, segment.SEG_TOP, segment.STATE_ON, RUN_TEST_COLOR)
+
+PRI edgePanelRow(displayColumns, cellColumns) : panelRow | panelIdx, rowOffset, columnOffset
+' Return the display row of the top-left pixel of the first panel (in reading order) whose cell is
+' in the rightmost cell column; every layout has one, since the display is its panels' bounding box.
+'
+' @param displayColumns - display width in pixels, as mounted
+' @param cellColumns - pixel columns of one panel as the viewer sees it
+' @returns panelRow - that panel's top row, as mounted
+
+' Local Variables:
+' @local panelIdx - panel position being looked at
+' @local rowOffset - its top row
+' @local columnOffset - its left column
+
+  panelRow := FIRST_ROW
+  repeat panelIdx from 0 to hub75Bffrs.maxPanels(chainIndex) - 1
+    rowOffset, columnOffset := hub75Bffrs.offsetToPanel(chainIndex, panelIdx)
+    if columnOffset + cellColumns == displayColumns
+      panelRow := rowOffset
+      quit
+
+PRI finishRowRunCase(caseIdx)
+' Finish a case after its comparison: a scrolling case is run to its end, so its scroller is free
+' for the next. Other cases need nothing.
+'
+' @param caseIdx - ROW_CASE_* just compared
+
+  if caseIdx >= ROW_CASE_SCROLL_LEFT and caseIdx <= ROW_CASE_SCROLL_DOWN
+    repeat SCROLL_FINISH_STEPS
+      if display.isScrollingComplete() == TRUE
+        quit
+      display.animateScroll()
+
+PRI rowCaseFont(caseIdx) : eFont
+' Return the font a text or scrolling case draws in.
+'
+' @param caseIdx - ROW_CASE_* value
+' @returns eFont - display.TEXT_FONT_* value
+
+  case caseIdx
+    ROW_CASE_TEXT_DITHERED, ROW_CASE_SCROLL_RIGHT, ROW_CASE_SCROLL_DOWN:
+      eFont := display.TEXT_FONT_5X7_DITH
+    ROW_CASE_TEXT_8X8:
+      eFont := display.TEXT_FONT_8X8A
+    other:
+      eFont := display.TEXT_FONT_5X7
+
+PRI windowedNote(bWindowed) : pNote
+' Return the note a case line ends with: whether the case was compared in windows.
+'
+' @param bWindowed - TRUE when the case was compared in windows
+' @returns pNote - zero-terminated note
+
+  pNote := @emptyNote
+  if bWindowed == TRUE
+    pNote := string(" (compared in windows)")
+
+PRI lineBandStart(bandIdx, displaySize, cellSize) : bandStart
+' Return the first row (column) of one band of the line (column) cases: the first cell, the
+' second cell, and the last cell (the last two are the same on a display two cells across).
+'
+' @param bandIdx - LINE_BAND_* value
+' @param displaySize - display height (width) in pixels, as mounted
+' @param cellSize - pixel rows (columns) of one panel as the viewer sees it
+' @returns bandStart - the band's first row (column)
+
+  case bandIdx
+    LINE_BAND_TOP:
+      bandStart := FIRST_ROW
+    LINE_BAND_SECOND:
+      bandStart := cellSize
+    other:
+      bandStart := displaySize - cellSize
+
+PRI fillBackground() | pScreen
+' Fill the whole screen buffer with BACKGROUND_BYTE, so a write of any value, black included, shows.
+'
+
+' Local Variables:
+' @local pScreen - hub address of the screen buffer
+
+  pScreen := hub75Bffrs.displayBufferAddress(chainIndex)
+  longfill(pScreen, BACKGROUND_LONG, hub75Bffrs.displaySizeInLongs(chainIndex))
+
+PRI captureScreen() : nCaptured, bOverflow | pScreen, nLongs, longIdx, screenLong
+' Record every long of the screen buffer that differs from the background, in order, up to
+' CAPTURE_LONGS of them: their indices in the first half of captureArea, their values in the second.
+'
+' @returns nCaptured - longs that differ from the background (all of them, recorded or not)
+' @returns bOverflow - TRUE when more than CAPTURE_LONGS differ (the case is then compared in windows)
+
+' Local Variables:
+' @local pScreen - hub address of the screen buffer
+' @local nLongs - longs in the screen buffer
+' @local longIdx - long being read
+' @local screenLong - its value
+
+  nCaptured := 0
+  bOverflow := FALSE
+  pScreen := hub75Bffrs.displayBufferAddress(chainIndex)
+  nLongs := hub75Bffrs.displaySizeInLongs(chainIndex)
+  repeat longIdx from 0 to nLongs - 1
+    screenLong := LONG[pScreen][longIdx]
+    if screenLong <> BACKGROUND_LONG
+      if nCaptured < CAPTURE_LONGS
+        LONG[@captureArea][nCaptured] := longIdx
+        LONG[@captureArea][CAPTURE_LONGS + nCaptured] := screenLong
+      else
+        bOverflow := TRUE
+      nCaptured++
+
+PRI compareScreen(nRecorded) : nMismatches, firstOffset | pScreen, nLongs, longIdx, recordIdx, expectedLong
+' Compare every byte of the screen buffer with the recorded drawing: a recorded long must hold its
+' recorded value, every other long the background.
+'
+' @param nRecorded - longs recorded by captureScreen() (at most CAPTURE_LONGS)
+' @returns nMismatches - bytes that differ
+' @returns firstOffset - byte offset of the first that differs, or NO_OFFSET
+
+' Local Variables:
+' @local pScreen - hub address of the screen buffer
+' @local nLongs - longs in the screen buffer
+' @local longIdx - long being compared
+' @local recordIdx - next recorded long
+' @local expectedLong - the value the long must hold
+
+  nMismatches := 0
+  firstOffset := NO_OFFSET
+  recordIdx := 0
+  pScreen := hub75Bffrs.displayBufferAddress(chainIndex)
+  nLongs := hub75Bffrs.displaySizeInLongs(chainIndex)
+  repeat longIdx from 0 to nLongs - 1
+    expectedLong := BACKGROUND_LONG
+    if recordIdx < nRecorded
+      if LONG[@captureArea][recordIdx] == longIdx
+        expectedLong := LONG[@captureArea][CAPTURE_LONGS + recordIdx]
+        recordIdx++
+    nMismatches, firstOffset := countByteDiffs(longIdx, LONG[pScreen][longIdx], expectedLong, nMismatches, firstOffset)
+
+PRI countByteDiffs(longIdx, screenLong, expectedLong, nMismatchesSoFar, firstOffsetSoFar) : nMismatches, firstOffset | byteIdx
+' Add the bytes of one screen-buffer long that differ from the value it must hold to the counts.
+'
+' @param longIdx - index of the long in the screen buffer
+' @param screenLong - the value it holds
+' @param expectedLong - the value it must hold
+' @param nMismatchesSoFar - bytes found different before this long
+' @param firstOffsetSoFar - byte offset of the first found different before this long, or NO_OFFSET
+' @returns nMismatches - bytes found different, this long included
+' @returns firstOffset - byte offset of the first found different, or NO_OFFSET
+
+' Local Variables:
+' @local byteIdx - byte of the long being compared
+
+  nMismatches := nMismatchesSoFar
+  firstOffset := firstOffsetSoFar
+  if screenLong <> expectedLong
+    repeat byteIdx from 0 to matrix.BYTES_PER_LONG - 1
+      if (((screenLong ^ expectedLong) >> (byteIdx * BITS_PER_BYTE)) & BYTE_MASK) <> 0
+        if firstOffset == NO_OFFSET
+          firstOffset := (longIdx * matrix.BYTES_PER_LONG) + byteIdx
+        nMismatches++
+
+PRI compareAddressRule() : nMismatches, nCompared | displayRows, displayColumns, cellRows, cellColumns, rowIdx, columnIdx, pRule, pOld
+' Compare screenUtils.pixelAddressAtRC() with oldPixelAddress() on the layout in place, at one
+' pixel beyond each display edge, at every cell edge and on a lattice inside. The first difference
+' is printed; all are counted.
+'
+' @returns nMismatches - points whose addresses differ
+' @returns nCompared - points compared
+
+' Local Variables:
+' @local displayRows - display height in pixels, as mounted
+' @local displayColumns - display width in pixels, as mounted
+' @local cellRows - pixel rows of one panel as the viewer sees it
+' @local cellColumns - pixel columns of one panel as the viewer sees it
+' @local rowIdx - display row being compared
+' @local columnIdx - display column being compared
+' @local pRule - the address pixelAddressAtRC() gives
+' @local pOld - the address oldPixelAddress() gives
+
+  nMismatches := nCompared := 0
+  displayRows, displayColumns := hub75Bffrs.displaySizeInPixels(chainIndex)
+  cellRows, cellColumns := hub75Bffrs.cellSizeInPixels(chainIndex)
+  repeat rowIdx from -ORACLE_EDGE_REACH to displayRows - 1 + ORACLE_EDGE_REACH
+    if isRulePoint(rowIdx, displayRows, cellRows, ORACLE_ROW_STEP) == TRUE
+      repeat columnIdx from -ORACLE_EDGE_REACH to displayColumns - 1 + ORACLE_EDGE_REACH
+        if isRulePoint(columnIdx, displayColumns, cellColumns, ORACLE_COLUMN_STEP) == TRUE
+          pRule := pixels.pixelAddressAtRC(chainIndex, rowIdx, columnIdx)
+          pOld := oldPixelAddress(rowIdx, columnIdx)
+          nCompared++
+          if pRule <> pOld
+            if nMismatches == 0
+              debug("RATES: row run address MISMATCH first at row ", sdec_(rowIdx), " column ", sdec_(columnIdx), ": rule ", uhex_long_(pRule), ", old ", uhex_long_(pOld))
+            nMismatches++
+
+PRI isRulePoint(coordIdx, displaySize, cellSize, latticeStep) : bPoint
+' Return TRUE when a row (or column) is one the address-rule comparison visits: at or beyond a
+' display edge, the first or last of a cell, or on the lattice.
+'
+' @param coordIdx - row or column
+' @param displaySize - display height (or width) in pixels, as mounted
+' @param cellSize - cell height (or width) in pixels, as mounted
+' @param latticeStep - lattice spacing along this axis
+' @returns bPoint - TRUE to compare at this row (or column)
+
+  bPoint := coordIdx <= 0 or coordIdx >= displaySize - 1 or (coordIdx // latticeStep) == 0 or (coordIdx // cellSize) == 0 or (coordIdx // cellSize) == cellSize - 1
+
+PRI oldPixelAddress(row, column) : pPixel | layoutRows, layoutColumns, eRotation, mountedRows, mountedColumns, mountedRow, mountedColumn, layoutRow, layoutColumn
+' Reference copy of the per-pixel address rule as it stood before row runs (the address part of
+' isp_hub75_screenUtils drawPixelAtRCwithRGB() at commit 11b4ab9): held to the mounted size,
+' display rotation undone, then hub75Bffrs.displayPixelAddress(). It is frozen here so the
+' self-test can show the extracted rule, pixelAddressAtRC(), is unchanged; the driver never calls it.
+'
+' @param row - pixel row on the display, as mounted
+' @param column - pixel column on the display, as mounted
+' @returns pPixel - hub address of the pixel's red byte, or hub75Bffrs.NO_PIXEL
+
+' Local Variables:
+' @local layoutRows - total display rows as the panels are laid out (rotation not applied)
+' @local layoutColumns - total display columns as the panels are laid out
+' @local eRotation - the display rotation: how the display is mounted
+' @local mountedRows - total display rows, as mounted
+' @local mountedColumns - total display columns, as mounted
+' @local mountedRow - pixel row held to the mounted size
+' @local mountedColumn - pixel column held to the mounted size
+' @local layoutRow - pixel row on the display as its panels are laid out
+' @local layoutColumn - pixel column on the display as its panels are laid out
+
+  layoutRows, layoutColumns, eRotation := hub75Bffrs.layoutSizeAndRotation(chainIndex)
+  mountedRows, mountedColumns := layoutRows, layoutColumns
+  if (eRotation == hub75Bffrs.ROT_LEFT_90) OR (eRotation == hub75Bffrs.ROT_RIGHT_90)
+    mountedRows, mountedColumns := layoutColumns, layoutRows
+  mountedRow := 0 #> row <# mountedRows - 1
+  mountedColumn := 0 #> column <# mountedColumns - 1
+  case eRotation
+    hub75Bffrs.ROT_RIGHT_90:
+      layoutRow := (layoutRows - 1) - mountedColumn
+      layoutColumn := mountedRow
+    hub75Bffrs.ROT_LEFT_90:
+      layoutRow := mountedColumn
+      layoutColumn := (layoutColumns - 1) - mountedRow
+    hub75Bffrs.ROT_180:
+      layoutRow := (layoutRows - 1) - mountedRow
+      layoutColumn := (layoutColumns - 1) - mountedColumn
+    other:
+      layoutRow := mountedRow
+      layoutColumn := mountedColumn
+  pPixel := hub75Bffrs.displayPixelAddress(chainIndex, layoutRow, layoutColumn)
+
+PRI layoutLabel(layoutIdx) : pLabel
+' Return the printable name of a test layout.
+'
+' @param layoutIdx - LAYOUT_* value
+' @returns pLabel - zero-terminated name
+
+  case layoutIdx
+    LAYOUT_OWN:
+      pLabel := string("own wiring")
+    LAYOUT_WIDE_L:
+      pLabel := string("wide L")
+    other:
+      pLabel := string("tall L")
+
+PRI rotationLabel(rotationIdx) : pLabel
+' Return the printable name of an entry of testRotations.
+'
+' @param rotationIdx - entry of testRotations
+' @returns pLabel - zero-terminated name
+
+  case LONG[@testRotations][rotationIdx]
+    hwEnum.ROT_NONE:
+      pLabel := string("ROT_NONE")
+    hwEnum.ROT_RIGHT_90:
+      pLabel := string("ROT_RIGHT_90")
+    hwEnum.ROT_180:
+      pLabel := string("ROT_180")
+    other:
+      pLabel := string("ROT_LEFT_90")
+
+PRI arrowLabel(arrowIdx) : pLabel
+' Return the printable name of an entry of testArrows.
+'
+' @param arrowIdx - entry of testArrows
+' @returns pLabel - zero-terminated name
+
+  case LONG[@testArrows][arrowIdx]
+    hwEnum.ARROW_UP:
+      pLabel := string("up")
+    hwEnum.ARROW_RIGHT:
+      pLabel := string("right")
+    hwEnum.ARROW_DOWN:
+      pLabel := string("down")
+    other:
+      pLabel := string("left")
+
+PRI rowCaseLabel(caseIdx) : pLabel
+' Return the printable name of a row-run case.
+'
+' @param caseIdx - ROW_CASE_* value
+' @returns pLabel - zero-terminated name
+
+  case caseIdx
+    ROW_CASE_LINES:
+      pLabel := string("lines in 1, 2 and 3 cells")
+    ROW_CASE_OFF_DISPLAY:
+      pLabel := string("lines off the display")
+    ROW_CASE_PANEL_CLIP:
+      pLabel := string("panel-clipped lines")
+    ROW_CASE_COLUMNS:
+      pLabel := string("columns in 1, 2 and 3 cells")
+    ROW_CASE_COLUMN_OFF:
+      pLabel := string("columns off the display")
+    ROW_CASE_COLUMN_CLIP:
+      pLabel := string("panel-clipped columns")
+    ROW_CASE_BOXES:
+      pLabel := string("boxes")
+    ROW_CASE_TEXT_5X7:
+      pLabel := string("text 5x7")
+    ROW_CASE_TEXT_DITHERED:
+      pLabel := string("text dithered 5x7")
+    ROW_CASE_TEXT_8X8:
+      pLabel := string("text 8x8")
+    ROW_CASE_SCROLL_LEFT:
+      pLabel := string("scroll left 5x7")
+    ROW_CASE_SCROLL_RIGHT:
+      pLabel := string("scroll right dithered")
+    ROW_CASE_SCROLL_UP:
+      pLabel := string("scroll up 5x7")
+    ROW_CASE_SCROLL_DOWN:
+      pLabel := string("scroll down dithered")
+    ROW_CASE_FILL_PANEL:
+      pLabel := string("fill one panel")
+    ROW_CASE_FILL_AREA:
+      pLabel := string("fill layout rectangles")
+    ROW_CASE_BMP:
+      pLabel := string("BMP")
+    other:
+      pLabel := string("7-segment segments")
 
 PRI runWorkload() | phaseIdx
 ' Run each phase once: draw it, commit it, and measure the panel while it is shown.

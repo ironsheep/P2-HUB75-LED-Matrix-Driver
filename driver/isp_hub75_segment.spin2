@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 5 Nov 2022
+''   Updated.... 04 Oct 2026
 ''
 '' =================================================================================================
 
@@ -382,8 +382,10 @@ PRI updateMiddleSegment(newState) | pixInset, rowIndex
     other:
       DEBUG("STATE(mid) not yet implemented (", udec_(newstate), ")")
 
-PRI drawLine(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column
-' Draw a horizontal or vertical line between two points with the given color.
+PRI drawLine(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column, bRun
+' Draw a horizontal or vertical line between two points with the given color: one run
+' (screenUtils fillRowRun() or fillColumnRun()), or pixel by pixel while the instrument build's
+' self-test draws its reference. The color is taken as it stands (cRainbow is not special here).
 '
 ' @param fmRow - starting row of the line
 ' @param fmColumn - starting column of the line
@@ -393,20 +395,31 @@ PRI drawLine(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column
 '
 ' @local row - current row being drawn
 ' @local column - current column being drawn
+' @local bRun - TRUE to draw the line as one run
 
   'debug("seg:drwLn fmRC=(", udec_(fmRow), ",", udec_(fmColumn), "), toRC=(", udec_(toRow), ",", udec_(toColumn), "), RGB=(", uhex_long(rgbColor), ")")
   fmRow :=  0 #> fmRow <# maxRows - 1
   fmColumn :=  0 #> fmColumn <# maxColumns - 1
   toRow :=  0 #> toRow <# maxRows - 1
   toColumn :=  0 #> toColumn <# maxColumns - 1
+  bRun := TRUE
+#IFDEF HUB75_INSTRUMENT
+  bRun := pixels.isPerPixelReference() == FALSE
+#ENDIF
   if fmRow == toRow
     ' draw Horizontal Line
-    repeat column from fmColumn to toColumn
-      pixels.drawPixelAtRCwithRGB(chainIndex, fmRow, column, colorUtils.rgbForCValue(rgbColor))
+    if bRun == TRUE
+      pixels.fillRowRun(chainIndex, fmRow, fmColumn <# toColumn, abs(toColumn - fmColumn) + 1, pixels.packedColorOf(chainIndex, rgbColor))
+    else
+      repeat column from fmColumn to toColumn
+        pixels.drawPixelAtRCwithRGB(chainIndex, fmRow, column, colorUtils.rgbForCValue(rgbColor))
   elseif fmColumn == toColumn
     ' draw Vertical Line
-    repeat row from fmRow to toRow
-      pixels.drawPixelAtRCwithRGB(chainIndex, row, fmColumn, colorUtils.rgbForCValue(rgbColor))
+    if bRun == TRUE
+      pixels.fillColumnRun(chainIndex, fmColumn, fmRow <# toRow, abs(toRow - fmRow) + 1, pixels.packedColorOf(chainIndex, rgbColor))
+    else
+      repeat row from fmRow to toRow
+        pixels.drawPixelAtRCwithRGB(chainIndex, row, fmColumn, colorUtils.rgbForCValue(rgbColor))
   else
     debug("DIAG lines not implemented !")
     abort

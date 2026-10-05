@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Dec 2020
-''   Updated.... 2 Oct 2026
+''   Updated.... 04 Oct 2026
 ''
 ''  This object adds .bmp file loading support: an image of any size is placed on the display,
 ''  centred, optionally turned by a content rotation (see placeBMP).
@@ -44,6 +44,9 @@ CON ' .bmp file-format protocol constants
     BMP_BYTES_PER_PIXEL     = 3           ' bytes per 24-bit pixel
     BMP_ROW_ALIGN_BYTES     = 4           ' each pixel row of the file is padded to this multiple
 
+    ' most display pixels gathered into one row run before it is written (a LONG each, on the stack)
+    BMP_RUN_PIXELS          = 64
+
 OBJ ' Objects Used by this Object
 
     hub75Bffrs  :   "isp_hub75_hwBufferAccess"
@@ -77,8 +80,8 @@ PUB placeBMP(nChainIdx, pBmpFile, eContentRotation) : bPlaced
 '' from the original. The turn is about the display centre. Every display pixel (as mounted) takes
 '' the image pixel the inverse rotation gives it, when that lies inside the image; a display pixel
 '' the image does not cover is left as it is, and a part of the image that falls off the display
-'' is not painted: nothing is cropped and relocated. Pixels are drawn through
-'' pixels.drawPixelAtRCwithRGB(), so display mounting and the buffer mapping apply. Drawing is
+'' is not painted: nothing is cropped and relocated. Pixels are drawn as row runs through
+'' pixels.copyRowRun(), so display mounting and the buffer mapping apply. Drawing is
 '' not committed: call commitScreenToPanelSet() afterwards.
 '' An invalid rotation value, or a file that is not an uncompressed 24-bit .bmp, draws nothing,
 '' returns FALSE and reports a debug message (in DEBUG builds).
@@ -108,8 +111,12 @@ PRI isValidContentRotation(eContentRotation) : bIsValid
     other:
       bIsValid := FALSE
 
-PRI loadBitmap(pBitmapFile, eContentRotation) : bLoaded | nImageWidth, nImageHeight, bTopDown, nRowStride, nDisplayRow, nDisplayColumn, nRowOffset2, nColumnOffset2, nSourceX2, nSourceY2, nImageColumn, nImageRow, nFileRow, pPixel
-' Place a validated 24-bit .bmp image on the display pixel by pixel, turned by eContentRotation.
+PRI loadBitmap(pBitmapFile, eContentRotation) : bLoaded | nImageWidth, nImageHeight, bTopDown, nRowStride, nDisplayRow, nDisplayColumn, nRowOffset2, nColumnOffset2, nSourceX2, nSourceY2, nImageColumn, nImageRow, nFileRow, pPixel, bRun, nRunPixels, runFirstColumn, runColors[BMP_RUN_PIXELS]
+' Place a validated 24-bit .bmp image on the display, turned by eContentRotation. Each display
+' pixel the image covers takes its source pixel's color; on a display row those pixels are written
+' as row runs of up to BMP_RUN_PIXELS pixels, each pixel with its own corrected color (screenUtils
+' copyRowRun(): one start address and step per cell, not one address per pixel). While the
+' instrument build's self-test draws its reference, each pixel goes through drawPixelAtRCwithRGB().
 ' Positions are held in half-pixel units measured from the display centre (and from the image
 ' centre), so the image is centred whatever the parity of its size and the display's.
 '
@@ -131,6 +138,10 @@ PRI loadBitmap(pBitmapFile, eContentRotation) : bLoaded | nImageWidth, nImageHei
 ' @local nImageRow - row of the source pixel in the image (0 at its top)
 ' @local nFileRow - row of the source pixel as the file stores it
 ' @local pPixel - address of the source pixel's bytes within the file image
+' @local bRun - TRUE to write the image as row runs, FALSE pixel by pixel
+' @local nRunPixels - pixels gathered for the row run being built
+' @local runFirstColumn - display column of that run's first pixel
+' @local runColors - that run's packed corrected colors, one LONG per pixel
 
   ' save address of 24bit file image for use by called routines
   pBitmapFileInMemory := pBitmapFile
@@ -141,9 +152,15 @@ PRI loadBitmap(pBitmapFile, eContentRotation) : bLoaded | nImageWidth, nImageHei
     nImageHeight := abs(biHeight)
     bTopDown := (biHeight < 0)
     nRowStride := (((nImageWidth * BMP_BYTES_PER_PIXEL) + (BMP_ROW_ALIGN_BYTES - 1)) / BMP_ROW_ALIGN_BYTES) * BMP_ROW_ALIGN_BYTES
+    bRun := TRUE
+#IFDEF HUB75_INSTRUMENT
+    bRun := pixels.isPerPixelReference() == FALSE
+#ENDIF
+    runFirstColumn := 0
 
     repeat maxRowPixels with nDisplayRow
       nRowOffset2 := (2 * nDisplayRow) - (maxRowPixels - 1)
+      nRunPixels := 0
       repeat maxColPixels with nDisplayColumn
         nColumnOffset2 := (2 * nDisplayColumn) - (maxColPixels - 1)
         ' inverse rotation: where in the image does this display pixel come from?
@@ -171,7 +188,21 @@ PRI loadBitmap(pBitmapFile, eContentRotation) : bLoaded | nImageWidth, nImageHei
             nFileRow := (nImageHeight - 1) - nImageRow         ' bottom-up file: first stored row is the image bottom
           pPixel := @BYTE[pBitmapFileInMemory][bfOffBits] + (nFileRow * nRowStride) + (nImageColumn * BMP_BYTES_PER_PIXEL)
           ' our internal .bmp file BYTE order is BGR!
-          pixels.drawPixelAtRCwithRGB(chainIndex, nDisplayRow, nDisplayColumn, BYTE[pPixel][BMP_RED_OFST], BYTE[pPixel][BMP_GREEN_OFST], BYTE[pPixel][BMP_BLUE_OFST])
+          if bRun == TRUE
+            if nRunPixels == 0
+              runFirstColumn := nDisplayColumn
+            runColors[nRunPixels++] := pixels.packedCorrectedRgb(chainIndex, BYTE[pPixel][BMP_RED_OFST], BYTE[pPixel][BMP_GREEN_OFST], BYTE[pPixel][BMP_BLUE_OFST])
+            if nRunPixels == BMP_RUN_PIXELS
+              pixels.copyRowRun(chainIndex, nDisplayRow, runFirstColumn, nRunPixels, @runColors)
+              nRunPixels := 0
+          else
+            pixels.drawPixelAtRCwithRGB(chainIndex, nDisplayRow, nDisplayColumn, BYTE[pPixel][BMP_RED_OFST], BYTE[pPixel][BMP_GREEN_OFST], BYTE[pPixel][BMP_BLUE_OFST])
+        elseif nRunPixels > 0
+          ' a pixel the image does not cover ends the run (the run's pixels are next to each other)
+          pixels.copyRowRun(chainIndex, nDisplayRow, runFirstColumn, nRunPixels, @runColors)
+          nRunPixels := 0
+      if nRunPixels > 0
+        pixels.copyRowRun(chainIndex, nDisplayRow, runFirstColumn, nRunPixels, @runColors)
 
 PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader
 ' Parse and validate the .BMP file header, returning TRUE if the file is a supported format. The

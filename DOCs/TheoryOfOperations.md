@@ -153,7 +153,7 @@ demo_hub75_*.spin2 (top-level)
 
 ### 2.2 Pixel Write Operation
 
-Every drawing path (text, scrolling, lines, boxes, circles, image placement, panel-centric calls and face-centric calls) ends in one pixel write, `drawPixelAtRCwithRGB(chainIdx, row, col, red, green, blue)`, so every path gets the same mapping. `row` and `col` are **display coordinates as the display is mounted**, with (0, 0) at the top-left (see the [glossary](../THEOPS.md#glossary)). The panels' buffer is stored panel by panel (in buffer-slot order), not as one raster, so the write maps each pixel to its place in it:
+Every drawing path (text, scrolling, lines, boxes, circles, image placement, panel-centric calls and face-centric calls) finds where a pixel goes through one rule, `pixelAddressAtRC(chainIdx, row, col)`, so every path gets the same mapping. A single pixel is written by `drawPixelAtRCwithRGB(chainIdx, row, col, red, green, blue)`. A straight run of pixels (a line, a box row or column, a glyph row, a BMP row, a fill) is written by the run primitives `fillRowRun`, `fillColumnRun` and `copyRowRun`: they split the run where it crosses from one panel to the next and, for each panel, take the start address and the step between pixels from the same rule, so a run lands exactly where its pixels would one by one. `row` and `col` are **display coordinates as the display is mounted**, with (0, 0) at the top-left (see the [glossary](../THEOPS.md#glossary)). The panels' buffer is stored panel by panel (in buffer-slot order), not as one raster, so the write maps each pixel to its place in it:
 
 1. **Hold to the mounted size.** The size the accessors report is the size as mounted: width and height swap when `DISPn_ROTATION` is 90 or 270 degrees.
 

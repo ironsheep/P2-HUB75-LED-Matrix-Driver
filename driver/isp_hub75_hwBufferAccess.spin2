@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Nov 2022
-''   Updated.... 02 Oct 2026
+''   Updated.... 04 Oct 2026
 ''
 '' =================================================================================================
 '
@@ -370,6 +370,22 @@ PUB cellSizeInPixels(nChainIdx) : nCellRows, nCellColumns | layoutIdx
   layoutIdx := validChainIndex(nChainIdx)
   nCellRows := mountedCellRows[layoutIdx]
   nCellColumns := mountedCellColumns[layoutIdx]
+
+PUB layoutCellSizeInPixels(nChainIdx) : nCellRows, nCellColumns | layoutIdx
+'' Return the size of one cell of the display's grid as its panels are laid out (display rotation
+'' not applied), in pixels: the cell size displayPixelAddress() coordinates are split by. It is the
+'' panel's own size, with rows and columns exchanged when the panels are turned sideways.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @returns nCellRows - pixel rows of one cell, as laid out
+'' @returns nCellColumns - pixel columns of one cell, as laid out
+
+' Local Variables:
+' @local layoutIdx - the chain index, checked against the adapters that exist
+
+  layoutIdx := validChainIndex(nChainIdx)
+  nCellRows := layoutCellRows[layoutIdx]
+  nCellColumns := layoutCellColumns[layoutIdx]
 
 PUB colorDepth(nChainIdx) : nDepthInBits | pEntry
 '' Return the number of bits for a color (red, green, or blue) [3-8 bits] for the specified HUB75 adapter.
@@ -876,6 +892,91 @@ PUB dbgMemDump(pMessage, pBytes, lenBytes) | bytBffr, colIdx, rowIdx, maxCol, ma
     waitus(DUMP_ROW_DELAY_US)                           ' 50 too short, 70 less issue, 75 better,
   waitms(DUMP_END_DELAY_MS)
 #endif
+
+#IFDEF HUB75_INSTRUMENT
+CON ' ---- Test relayout results (instrument build only) ----
+    {Spin2_Doc_CON}
+
+    ' testRelayout() results:
+    '  RELAYOUT_DONE    - the layout tables now describe the sentences and rotation given
+    '  RELAYOUT_REFUSED - not applied (a message says why); the adapter's own layout is in place
+    RELAYOUT_DONE           = 0
+    RELAYOUT_REFUSED        = -1
+
+DAT ' ---- Test relayout save area (instrument build only) ----
+
+    savedSentences      LONG    0[MAX_CABLE_POSITIONS]          ' the adapter's own wiring sentences
+    savedRotation       LONG    0                               ' the adapter's own display rotation
+    savedChainIdx       LONG    NOT_INITIALIZED                 ' adapter whose layout is replaced, or NOT_INITIALIZED
+
+PUB testRelayout(nChainIdx, pSentences, eDisplayRotation) : status | layoutIdx, tableBase, pEntry, mistakeCount, panelCount
+'' Instrument build only: give one flat display other wiring sentences and another display
+'' rotation, in hub RAM, and derive its layout tables from them by the startup derivation, so a
+'' self-test can draw on layouts this build's isp_hub75_hwPanelConfig.spin2 does not describe.
+'' The sentences must name as many panels as the adapter has (its buffers are sized for that
+'' count). testRestoreLayout() puts the adapter's own layout back. Nothing is shown: this changes
+'' only where drawing writes into the screen buffer.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @param pSentences - hub address of MAX_CABLE_POSITIONS LONGs: the wiring sentences C0 .. C15 to use
+'' @param eDisplayRotation - the display rotation to use (ROT_NONE, ROT_LEFT_90, ROT_RIGHT_90 or ROT_180)
+'' @returns status - RELAYOUT_DONE, or RELAYOUT_REFUSED (the adapter's own layout is then in place)
+
+' Local Variables:
+' @local layoutIdx - the chain index, checked against the adapters that exist
+' @local tableBase - first entry of this adapter in the per-position tables
+' @local pEntry - pointer to the chain descriptor table entry
+' @local mistakeCount - number of wiring problems found in the sentences given
+' @local panelCount - number of cable positions in use in the sentences given
+
+  status := RELAYOUT_REFUSED
+  layoutIdx := validChainIndex(nChainIdx)
+  tableBase := layoutIdx * MAX_CABLE_POSITIONS
+  pEntry := @@LONG[@screenTable][layoutIdx]
+  if cubeSetting(layoutIdx, CUBE_SHAPE_OFST) == hwEnum.SHAPE_CUBE
+    debug("HUB75: testRelayout() refused: DISP", udec_(layoutIdx), " is a cube")
+  elseif savedChainIdx <> NOT_INITIALIZED and savedChainIdx <> layoutIdx
+    debug("HUB75: testRelayout() refused: DISP", udec_(savedChainIdx), " is relaid out; restore it first")
+  else
+    if savedChainIdx == NOT_INITIALIZED
+      longmove(@savedSentences, @wiringSentences[tableBase], MAX_CABLE_POSITIONS)
+      savedRotation := LONG[pEntry][ENTR_ROTATION_OFST]
+      savedChainIdx := layoutIdx
+    longmove(@wiringSentences[tableBase], pSentences, MAX_CABLE_POSITIONS)
+    LONG[pEntry][ENTR_ROTATION_OFST] := eDisplayRotation
+    mistakeCount, panelCount := checkSentences(layoutIdx)
+    if mistakeCount == 0 and panelCount == layoutPanelCount[layoutIdx]
+      if placePanels(layoutIdx, panelCount) == 0
+        buildLayoutTables(layoutIdx, panelCount)
+        status := RELAYOUT_DONE
+    if status <> RELAYOUT_DONE
+      debug("HUB75: testRelayout() refused: ", udec_(mistakeCount), " wiring problem(s), ", udec_(panelCount), " panels for an adapter of ", udec_(layoutPanelCount[layoutIdx]))
+      testRestoreLayout(layoutIdx)
+
+PUB testRestoreLayout(nChainIdx) | layoutIdx, tableBase, pEntry, panelCount
+'' Instrument build only: put back the wiring sentences and display rotation that testRelayout()
+'' replaced, and derive the layout tables from them again, as at startup. Does nothing when the
+'' adapter's layout was not replaced.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+
+' Local Variables:
+' @local layoutIdx - the chain index, checked against the adapters that exist
+' @local tableBase - first entry of this adapter in the per-position tables
+' @local pEntry - pointer to the chain descriptor table entry
+' @local panelCount - number of cable positions in use (unchanged by testRelayout())
+
+  layoutIdx := validChainIndex(nChainIdx)
+  if savedChainIdx == layoutIdx
+    tableBase := layoutIdx * MAX_CABLE_POSITIONS
+    pEntry := @@LONG[@screenTable][layoutIdx]
+    longmove(@wiringSentences[tableBase], @savedSentences, MAX_CABLE_POSITIONS)
+    LONG[pEntry][ENTR_ROTATION_OFST] := savedRotation
+    panelCount := layoutPanelCount[layoutIdx]
+    placePanels(layoutIdx, panelCount)                  ' the adapter's own sentences passed this at startup
+    buildLayoutTables(layoutIdx, panelCount)
+    savedChainIdx := NOT_INITIALIZED
+#ENDIF
 
 PRI ptrTableEntry(nChainIdx) : pEntry
 ' Return the hub address of the chain descriptor table entry for the given index.
@@ -1497,7 +1598,7 @@ PRI buildMountedTables(nChainIdx, panelCount) | eRotation, gridRows, gridCols, m
     bytefill(@mountedCellToPosition[cellBase], NO_POSITION, MAX_GRID_CELLS)
 
     ' first turn each panel's cell as the display is mounted, and mark it with its layout position;
-    ' this is the cell form of the pixel rule in isp_hub75_screenUtils.drawPixelAtRCwithRGB
+    ' this is the cell form of the pixel rule in isp_hub75_screenUtils.pixelAddressAtRC
     repeat posn from 0 to panelCount - 1
         cellRow := positionToCellRow[tableBase + posn]
         cellCol := positionToCellCol[tableBase + posn]
