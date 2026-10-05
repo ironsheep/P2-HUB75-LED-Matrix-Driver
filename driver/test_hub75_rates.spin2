@@ -43,6 +43,15 @@
    frame-set take check runs from the first pattern to the end of the tearing test: every take must find the frame's last row address on the address pins (a
    frame boundary), and the takes counted must equal the commits made. TAKE CHECK PASS/FAIL.
 
+   Right after start, before anything is drawn, the colour-table self-test (FRAME-RATE plan section 8)
+   runs: for every depth 3 to 8, gamma off and on, it builds the table into a scratch table with
+   colorUtils.fillColorTable() and compares all 256 entries with referenceStored(), a copy of the old
+   per-pixel function; then it compares the adapter's live table, read through correctedSingleColor()
+   for red, green and blue, at the gamma setting it was built with. Every mismatch is printed;
+   COLOUR TABLE PASS/FAIL. Falsification: build with  pnut-ts -D HUB75_CORRUPT_COLOUR_TABLE  and
+   colorUtils.fillColorTable() writes one wrong entry into every table it builds, so every case must
+   report FAIL.
+
    With the adapter at base P0 the instrument reports its monitors unavailable (the strobes would
    be that adapter's colour lines) and this program prints only draw and commit times.
 }
@@ -140,6 +149,17 @@ CON ' ---- Test patterns (plan section 1), judged by eye ----
     ' Width or height of a one-pixel box
     ONE_PIXEL               = 1
 
+CON ' ---- Colour table self-test ----
+
+    ' Depths compared (the scratch tables cover every depth whatever the build's depth)
+    TABLE_DEPTH_FIRST       = hwEnum.DEPTH_3BIT
+    TABLE_DEPTH_LAST        = hwEnum.DEPTH_8BIT
+
+    ' Gamma cases, in order: off, on
+    GAMMA_CASE_OFF          = 0
+    GAMMA_CASE_ON           = 1
+    GAMMA_CASE_COUNT        = 2
+
 CON ' ---- Brightness step labels ----
 
     ' Text lines of the label, above the BMP: the step line, and the measured-lit line under it
@@ -170,6 +190,7 @@ OBJ
     display     : "isp_hub75_display"
     bmpHandler  : "isp_hub75_display_bmp"
     hwEnum      : "isp_hub75_hwEnums"                       ' chip flags
+    colorUtils  : "isp_hub75_colorUtils"                    ' color table under test
     matrix      : "isp_hub75_rgb3bit"                       ' constants only: flag mask, long size
     instrument  : "isp_hub75_instrument"                    ' monitors and stopwatches
 
@@ -182,6 +203,7 @@ DAT ' ---- Test State (singleton) ----
 
     chainIndex      LONG    0                               ' descriptor index of adapter 1
     colorDepth      LONG    0                               ' bit planes per colour
+    scratchTable    BYTE    0[LEVEL_COUNT]                  ' colour table built for one depth, to compare
     drawMicros      LONG    0                               ' draw time of the phase just run, microseconds
     commitMicros    LONG    0                               ' commit time of the phase just run, microseconds
 
@@ -211,6 +233,7 @@ PUB main() : ok | nCommitsBefore, bTakeCheck
     chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
     colorDepth := hub75Bffrs.colorDepth(chainIndex)
     debug("RATES: colour depth ", udec_(colorDepth), " bits, adapter base P", udec_(hub75Bffrs.pinBase(chainIndex)))
+    runColourTableTest()
     instrument.start(hub75Bffrs.pinBase(chainIndex), latchesPerRefresh())
     nCommitsBefore := commitsPosted()
     bTakeCheck := instrument.startTakeCheck(rowsPerRefresh() - 1)
@@ -224,6 +247,120 @@ PUB main() : ok | nCommitsBefore, bTakeCheck
       reportTakeCheck(nCommitsBefore)
     instrument.stop()
   debug("END_SESSION")
+
+PRI runColourTableTest() | depthIdx, gammaCase, bGamma, ledIdx, nCaseMismatches, nMismatches, nCompared
+' Compare the colour table with the old per-pixel function for every input 0-255: a scratch table
+' for each depth 3-8 with gamma off and on, then the adapter's live table (all three channels) at
+' the gamma setting it was built with. Every mismatch is printed. COLOUR TABLE PASS only if there
+' were none.
+'
+
+' Local Variables:
+' @local depthIdx - depth being compared
+' @local gammaCase - GAMMA_CASE_* being compared
+' @local bGamma - TRUE for the gamma-on case
+' @local ledIdx - colour channel being read from the live table
+' @local nCaseMismatches - mismatches in the case just compared
+' @local nMismatches - mismatches in all cases
+' @local nCompared - entries compared in all cases
+
+  nMismatches := 0
+  nCompared := 0
+  debug("RATES: ---- COLOUR TABLE self-test ----")
+#IFDEF HUB75_CORRUPT_COLOUR_TABLE
+  debug("RATES: HUB75_CORRUPT_COLOUR_TABLE is defined: colorUtils writes one wrong entry into every table, so every case must FAIL")
+#ENDIF
+  repeat depthIdx from TABLE_DEPTH_FIRST to TABLE_DEPTH_LAST
+    repeat gammaCase from GAMMA_CASE_OFF to GAMMA_CASE_COUNT - 1
+      bGamma := (gammaCase == GAMMA_CASE_ON)
+      colorUtils.fillColorTable(@scratchTable, depthIdx, bGamma)
+      nCaseMismatches := compareTable(depthIdx, bGamma, FALSE, colorUtils.LED_RED)
+      debug("RATES: colour table scratch depth ", udec_(depthIdx), " gamma ", zstr_(gammaLabel(bGamma)), ": ", udec_(nCaseMismatches), " mismatches of ", udec_(LEVEL_COUNT))
+      nMismatches += nCaseMismatches
+      nCompared += LEVEL_COUNT
+
+  bGamma := colorUtils.isGammaEnabled()
+  repeat ledIdx from colorUtils.LED_RED to colorUtils.LED_BLUE
+    nCaseMismatches := compareTable(colorDepth, bGamma, TRUE, ledIdx)
+    debug("RATES: colour table live depth ", udec_(colorDepth), " gamma ", zstr_(gammaLabel(bGamma)), " channel ", udec_(ledIdx), ": ", udec_(nCaseMismatches), " mismatches of ", udec_(LEVEL_COUNT))
+    nMismatches += nCaseMismatches
+    nCompared += LEVEL_COUNT
+
+  if nMismatches == 0
+    debug("RATES: COLOUR TABLE PASS: ", udec_(nCompared), " entries compared with the old function, none differ")
+  else
+    debug("RATES: COLOUR TABLE FAIL: ", udec_(nMismatches), " of ", udec_(nCompared), " entries differ from the old function")
+
+PRI compareTable(nDepthInBits, bGamma, bLive, led) : nMismatches | levelIdx, storedByte, expectedByte
+' Compare one table with referenceStored() for every input 0-255, printing each mismatch: the
+' scratch table, or (bLive) the adapter's table as correctedSingleColor() reads it for led.
+'
+' @param nDepthInBits - depth the table was built for
+' @param bGamma - TRUE if the table was built with gamma
+' @param bLive - TRUE to read the adapter's table, FALSE to read the scratch table
+' @param led - colour channel read from the live table
+' @returns nMismatches - entries that differ from the old function
+
+' Local Variables:
+' @local levelIdx - 8-bit input being compared
+' @local storedByte - the table's stored byte for the input
+' @local expectedByte - the old function's output for the input
+
+  nMismatches := 0
+  repeat levelIdx from 0 to LEVEL_MAX
+    if bLive
+      storedByte := colorUtils.correctedSingleColor(chainIndex, led, levelIdx)
+    else
+      storedByte := BYTE[@scratchTable][levelIdx]
+    expectedByte := referenceStored(nDepthInBits, bGamma, levelIdx)
+    if storedByte <> expectedByte
+      debug("RATES: colour table MISMATCH depth ", udec_(nDepthInBits), " gamma ", zstr_(gammaLabel(bGamma)), " input ", udec_(levelIdx), ": stored ", udec_(storedByte), ", old function ", udec_(expectedByte))
+      nMismatches++
+
+PRI referenceStored(nDepthInBits, bGamma, levelIdx) : storedByte | nPwmFrames, pGamma
+' Reference copy of the old per-pixel function (colorUtils correctedSingleColor() with brightness
+' 256, then colorAtDesiredBitWidth()): optional gamma, then (v * frames) / 255 << (8 - depth),
+' with the frame count from hub75Bffrs' PWM_FRAMES_nBIT constants as the old code took it.
+'
+' @param nDepthInBits - color depth in bits per channel (3-8)
+' @param bGamma - TRUE to apply the gamma curve first
+' @param levelIdx - 8-bit input
+' @returns storedByte - the byte the old code stored
+
+' Local Variables:
+' @local nPwmFrames - PWM frames of the depth
+' @local pGamma - the gamma curve table
+
+  pGamma, _, _ := colorUtils.gammaPtrs()
+  storedByte := levelIdx
+  if bGamma
+    storedByte := BYTE[pGamma][storedByte]
+  case nDepthInBits
+    hwEnum.DEPTH_3BIT:
+      nPwmFrames := hub75Bffrs.PWM_FRAMES_3BIT
+    hwEnum.DEPTH_4BIT:
+      nPwmFrames := hub75Bffrs.PWM_FRAMES_4BIT
+    hwEnum.DEPTH_5BIT:
+      nPwmFrames := hub75Bffrs.PWM_FRAMES_5BIT
+    hwEnum.DEPTH_6BIT:
+      nPwmFrames := hub75Bffrs.PWM_FRAMES_6BIT
+    hwEnum.DEPTH_7BIT:
+      nPwmFrames := hub75Bffrs.PWM_FRAMES_7BIT
+    other:
+      nPwmFrames := hub75Bffrs.PWM_FRAMES_8BIT
+  storedByte := (storedByte * nPwmFrames) / colorUtils.MAX_COLOR_VALUE
+  storedByte <<= colorUtils.SOURCE_COLOR_BITS - nDepthInBits
+
+PRI gammaLabel(bGamma) : pLabel
+' Return the printable name of a gamma case.
+'
+' @param bGamma - TRUE for gamma on
+' @returns pLabel - zero-terminated name
+
+  if bGamma
+    pLabel := string("on")
+  else
+    pLabel := string("off")
 
 PRI runWorkload() | phaseIdx
 ' Run each phase once: draw it, commit it, and measure the panel while it is shown.

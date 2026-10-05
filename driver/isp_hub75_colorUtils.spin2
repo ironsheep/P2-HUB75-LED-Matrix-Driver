@@ -34,6 +34,12 @@ CON ' ---- Color Scaling / Masks / Shifts ----
     ' bit-width remap / gamma table
     SOURCE_COLOR_BITS       = 8             ' 8-bit input depth
     GAMMA_TABLE_MAX_IDX     = 255           ' 256-entry table last index
+    COLOR_LEVELS            = MAX_COLOR_VALUE + 1   ' entries in one adapter's color table (one per 8-bit input)
+
+    ' Test hook only (compiled with -D HUB75_CORRUPT_COLOUR_TABLE): fillColorTable() flips this
+    ' bit of this level's entry, so the color-table self-test can be shown to fail
+    CORRUPT_LEVEL           = 128
+    CORRUPT_XOR_BITS        = 1
 
     ' HSV hue-wheel math
     DEGREES_PER_CIRCLE      = 360
@@ -56,6 +62,12 @@ DAT  ' driver controls for testing
 
     bGammaEnable    BYTE    FALSE
 
+DAT  ' ---- Per-adapter color tables ----
+
+    ' One table per adapter (indexed by chain index): maps an 8-bit input to the byte stored in the
+    ' screen buffer (gamma if enabled, then the depth mapping). R, G and B share the curve.
+    colorTable      BYTE    0[hub75Bffrs.ADAPTER_COUNT * COLOR_LEVELS]
+
 PUB null()
 '' This is not a top level object
 ''
@@ -73,18 +85,45 @@ PUB isGammaEnabled() : bIsEnabled
 
   bIsEnabled := bGammaEnable
 
-PUB correctedColor(nChainIdx, color) : adjustedColor
-'' Correct a color using generic gamma
+PUB buildColorTable(nChainIdx) | nDepthInBits
+'' Build one adapter's color table from its color depth and the gamma setting. The display
+'' object calls this at adapter start, after configureAdapter(). Aborts on a chain index
+'' that names no adapter.
 ''
 '' @param nChainIdx - zero-based index of the panel chain
-'' @param color - raw 8-bit color value to correct
-'' @returns adjustedColor - bit-width-adjusted color value
 
-    adjustedColor := color
-    adjustedColor := colorAtDesiredBitWidth(nChainIdx, adjustedColor)
+' Local Variables:
+' @local nDepthInBits - color depth of the adapter in bits per channel
+
+  nDepthInBits := hub75Bffrs.colorDepth(nChainIdx)       ' aborts on a bad chain index
+  fillColorTable(@colorTable + (nChainIdx * COLOR_LEVELS), nDepthInBits, bGammaEnable)
+
+PUB fillColorTable(pTable, nDepthInBits, bGamma) | levelIdx, nPwmFrames, gammaLevel
+'' Fill a COLOR_LEVELS-byte table with the stored value for every 8-bit input: gamma if
+'' bGamma, then (level * frames) / 255 shifted into the upper nDepthInBits bits. The one
+'' place the mapping is written; buildColorTable() uses it, and so may a test, with any depth.
+''
+'' @param pTable - address of the COLOR_LEVELS bytes to fill
+'' @param nDepthInBits - color depth in bits per channel (3-8)
+'' @param bGamma - TRUE to apply the gamma curve first
+
+' Local Variables:
+' @local levelIdx - 8-bit input being mapped
+' @local nPwmFrames - PWM frames of the depth: full-scale value of the depth, 2^depth - 1
+' @local gammaLevel - the input after the optional gamma curve
+
+  nPwmFrames := (1 << nDepthInBits) - 1
+  repeat levelIdx from 0 to MAX_COLOR_VALUE
+    gammaLevel := levelIdx
+    if bGamma
+      gammaLevel := BYTE[@gamma][levelIdx]
+    BYTE[pTable][levelIdx] := ((gammaLevel * nPwmFrames) / MAX_COLOR_VALUE) << (SOURCE_COLOR_BITS - nDepthInBits)
+#IFDEF HUB75_CORRUPT_COLOUR_TABLE
+  BYTE[pTable][CORRUPT_LEVEL] ^= CORRUPT_XOR_BITS                ' test hook: one wrong entry
+#ENDIF
 
 PUB correctedSingleColor(nChainIdx, led, colorValue) : adjustedColor
-'' Correct the color for a specific LED (R, G, or B)
+'' Correct the color for a specific LED (R, G, or B): one read of the adapter's color table
 ''
 '' @param nChainIdx - zero-based index of the panel chain
 '' @param led - LED color channel identifier (LED_RED, LED_GREEN, or LED_BLUE)
@@ -92,13 +131,10 @@ PUB correctedSingleColor(nChainIdx, led, colorValue) : adjustedColor
 '' @returns adjustedColor - gamma-corrected, bit-width-adjusted color (brightness is not applied
 ''  here: the refresh driver applies it to the /OE time)
 
-    adjustedColor := colorValue
-    if led < LED_RED or led > LED_BLUE
+    if led < LED_RED or led > LED_BLUE or nChainIdx +>= hub75Bffrs.ADAPTER_COUNT
         abort
 
-    if bGammaEnable
-        adjustedColor := byte[@gamma][adjustedColor]
-    adjustedColor := colorAtDesiredBitWidth(nChainIdx, adjustedColor)
+    adjustedColor := BYTE[@colorTable][(nChainIdx * COLOR_LEVELS) + (colorValue & CHANNEL_MASK)]
 
 PUB gammaPeek(color) : adjustedColor | gammmaIndex, lowColor, highColor
 '' Return index of nearest matching value in gamma table.
@@ -226,44 +262,7 @@ PUB gammaPtrs(): pGammaRed, pGammaGreen, pGammaBlue
   pGammaGreen := @gamma
   pGammaBlue := @gamma
 
-PUB colorAtDesiredBitWidth(nChainIdx, hex8bit) : pwmBits
-'' CALCULATE: proper duty cycle for intensity of 0-255
-''
-'' @param nChainIdx - zero-based index of the panel chain
-'' @param hex8bit - 8-bit intensity value (0-255)
-'' @returns pwmBits - duty-cycle value mapped into the compiled color depth
-
-    shiftLtValue := SOURCE_COLOR_BITS - hub75Bffrs.colorDepth(nChainIdx)
-    nbrPwmFrames := hub75Bffrs.pwmFrameCount(nChainIdx)
-    'debug("- color CFG: ", udec_long(shiftLtValue), udec_long(nbrPwmFrames))
-    '
-    '  (map 8-bit color depth to {compiled}-bit color depth)
-    '  map 0-255 to compiled color depth 0-7,15,31,63,127,255
-    '
-    '  REF: https://www.arduino.cc/reference/en/language/functions/math/map
-    '
-    '  Re-maps a number from one range to another. That is, a value of fromLow would get mapped to toLow,
-    '   a value of fromHigh to toHigh, values in-between to values in-between, etc.
-    '
-    '    y = map(x, 1, 50, 50, 1);
-    '
-    '  PRI map(inValue,  inMin,  inMax,  outMin,  outMax) : outValue
-    '  outValue := (inValue - inMin) * (outMax - outMin) / (inMax - inMin) + outMin
-    '  outValue := (inValue - 0) * (outMax - 0) / (inMax - 0) + 0
-    '  outValue := inValue * outMax / inMax
-    '
-    '               shiftLtValue           5,         4,         3,        2,         1,         0
-    '  map(hex8bit, 0, 255, 0, 7)    7=3-bit,  15=4-bit,  31=5-bit, 63=6-bit, 127=7-bit, 255=8-bit
-    '  outValue := (hex8bit - 0) * (7 - 0) / (255 - 0) + 0
-    '  outValue := hex8bit * 7 / 255
-
-    pwmBits := (hex8bit * nbrPwmFrames) / MAX_COLOR_VALUE   ' map our value
-    pwmBits <<= shiftLtValue                    ' shift value into our upper COLOR_DEPTH bits
-
 DAT  ' tables, default values
-
-    shiftLtValue        LONG    0       ' set by init()
-    nbrPwmFrames        LONG    0       ' set by init()
 
 ' Gamma curve (lookup table)
 

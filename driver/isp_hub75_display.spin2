@@ -201,6 +201,7 @@ PUB startWithId(nId, eHub75Adapter) : workerCog | scrollerIndex, dvrConfig, eChi
 ' @local eChipType - chip type enumeration value
 
   chainIndex := hub75Bffrs.configureAdapter(eHub75Adapter)   ' settings, wiring check, buffer pointers
+  colorUtils.buildColorTable(chainIndex)                 ' this adapter's color table, from its depth and the gamma setting
   instanceID := nId
   bytefill(@padBuffer, 0, MAX_PAD_BUFFER_BYTES)
 
