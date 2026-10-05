@@ -135,3 +135,30 @@ Each hand-back adds one dated entry with three parts: tree state (scoped to
 **Verdicts:** §3 accepted (handshake PASS; take check PASS with its negative limb shown failing). §4 accepted (refresh and lit share within 0.2% of the model at every depth; target j as predicted; brightness linear, floor and 0 correct; unreachable target reported and run at the fastest rate). §5 accepted (CLK high 23.9 ns at every depth; the low half is 7 clocks, 20.9 ns, on paper, resolved by this instrument to about +/-0.5 clock). Shimmer steady at 5-8 bit, for «#95».
 
 **Steps completed:** visit C.
+
+### 2026-10-05 — FRAME-RATE visit E, quad rig (`test_hub75_converter.spin2`, `test_hub75_rates.spin2`)
+
+**Tree:** `driver/*.spin2` at `780421a` («#98» converters, «#99» colour table, «#100» row runs), plus a temporary `DISP0_COLOR_DEPTH = DEPTH_5BIT` edit for the 5-bit run, restored after it (`git diff` empty).
+**Rig:** quad rig, 2 x 2 of 128x64 ICN2037 on P16-P31, 335 MHz. Loads: `pnut-term-ts -r <bin> -p Parw7ukt --headless --end-marker --timeout 500`.
+
+**Converter equivalence** (`driver/logs/headless_261005-001919.log`): `CONVERTER TEST: 216 cases, 216 PASS, 0 FAIL`. Its fail limb was shown in «#98»: with one output bit corrupted, all 192 new-converter cases fail (`-261004-215319`).
+
+**Commit and draw times against visit C** (8-bit `driver/logs/headless_261004-235552.log`, same code as `780421a`; 5-bit `-261005-002129`):
+
+| Item | Visit C 8-bit | Now 8-bit | Speedup | Visit C 5-bit | Now 5-bit | Speedup | Predicted |
+|---|---|---|---|---|---|---|---|
+| Commit | 21.25 ms | 8.93 ms | 2.4x | 14.20 ms | 6.58 ms | 2.2x | about 5 ms at 5-bit (calculated) |
+| Draw fill | 635.4 ms | 114.0 ms | 5.6x | 635.4 ms | 114.0 ms | 5.6x | — |
+| Draw lines | 233.3 ms | 116.8 ms | 2.0x | 229.9 ms | 116.8 ms | 2.0x | — |
+| Draw text | 1,103.0 ms | 300.9 ms | 3.7x | 1,087.1 ms | 300.9 ms | 3.6x | — |
+| Draw BMP | 304.2 ms | 188.4 ms | 1.6x | 301.7 ms | 188.4 ms | 1.6x | — |
+
+- Draw time no longer depends on colour depth: the colour table («#99») replaced the per-pixel depth arithmetic.
+- Self-tests in the same runs, at both depths: `COLOUR TABLE PASS: 3_840 entries compared with the old function, none differ`; `ROW RUN PASS: 468 cases identical byte for byte, address rule equal on every layout, in 107 s`; handshake PASS; take check 1,541 of 1,541 (8-bit) and 1,815 of 1,815 (5-bit). Their fail limbs were shown in their own tasks: colour table «#99» (`-261004-221156`, 15 of 15 cases fail), row runs «#100» (`-261005-000046`, 468 fail; `-261005-000459`, 48 address-rule checks fail).
+- Refresh and lit share unchanged from visit C: 71.0 Hz / 83.0% at 8-bit, 84.7 Hz / 96.3% at 5-bit.
+
+**By eye** (`demo_hub75_quadPanel` `-261005-002615`, `demo_hub75_text` `-002725`, `demo_hub75_boundary` `-002905`): Stephen: "all three demos look good".
+
+**Verdicts:** §7 accepted on equivalence; commit is 2.2x faster at 5-bit but misses the calculated "about 5 ms" by about 30% (6.58 ms); the shortfall is not explained yet and is on the punch list. §8 accepted (table equal to the old function; draw no longer scales with depth). §9 accepted (row runs byte-equal; draw 1.6x-5.6x faster). Demos correct by eye.
+
+**Steps completed:** visit E.

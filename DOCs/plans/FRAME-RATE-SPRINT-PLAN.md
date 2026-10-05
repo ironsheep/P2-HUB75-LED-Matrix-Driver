@@ -212,6 +212,29 @@ depth; logs, method and Stephen's words in `DOCs/bench/RUN-NOTES.md` (visit C).
 - *What it does not admit:* no change to the driver; the white/black flip stays in the test
   as the load the take check runs under.
 
+### Visit E results (2026-10-05, quad rig, after §7-§9)
+
+Measured on `780421a`; logs, method and Stephen's words in `DOCs/bench/RUN-NOTES.md`
+(visit E). "Before" is visit C.
+
+| Item | 8-bit before / after | 5-bit before / after | Prediction |
+|---|---|---|---|
+| Commit | 21.25 / 8.93 ms (2.4x) | 14.20 / 6.58 ms (2.2x) | about 5 ms at 5-bit |
+| Draw fill | 635.4 / 114.0 ms (5.6x) | 635.4 / 114.0 ms (5.6x) | — |
+| Draw lines | 233.3 / 116.8 ms (2.0x) | 229.9 / 116.8 ms (2.0x) | — |
+| Draw text | 1,103.0 / 300.9 ms (3.7x) | 1,087.1 / 300.9 ms (3.6x) | — |
+| Draw BMP | 304.2 / 188.4 ms (1.6x) | 301.7 / 188.4 ms (1.6x) | — |
+
+- **§7 accepted on equivalence:** the converter test passes 216 of 216 on HEAD; its fail limb
+  was shown in «#98». **Commit misses its prediction:** 6.58 ms at 5-bit against about 5 ms
+  (calculated), about 30% over. The cause is not yet explained; it is on the punch list.
+- **§8 accepted:** the colour table equals the old function on all 3,840 entries; draw time
+  no longer depends on colour depth.
+- **§9 accepted:** row runs are byte-equal to the per-pixel path in 468 cases (three layouts,
+  four rotations, four arrows); draw is 1.6x to 5.6x faster.
+- **By eye:** `demo_hub75_quadPanel`, `demo_hub75_text` and `demo_hub75_boundary` — Stephen:
+  "all three demos look good".
+
 ## 1. Prototype: prove the OE-weighted method on panels (planning phase)
 
 **Why:** §4 rewrites the shared refresh core. Two premises are unproven on panels:
@@ -792,3 +815,5 @@ in planning (visit A), and §11 is the visit tasks.
 - 2026-10-03 — tasks «#88»-«#102» generated; cross-reference table added.
 - 2026-10-04 — visit C completed; results table added. §3's tearing acceptance changed
   from an observation to the pin take check (agreed with Stephen).
+- 2026-10-05 — visit E completed; results table added. §7's commit time misses its
+  prediction (6.58 ms against about 5 ms at 5-bit); recorded on the punch list.

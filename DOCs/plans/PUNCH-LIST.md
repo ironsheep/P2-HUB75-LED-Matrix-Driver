@@ -4,6 +4,13 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 
 ## Active
 
+### Commit takes 6.58 ms at 5-bit, not the predicted 5 ms (finding, measured, cause not explained)
+
+- **Found:** 2026-10-05 at visit E «#101» (`DOCs/bench/RUN-NOTES.md`, visit E; `driver/logs/headless_261005-002129.log`).
+- **What:** after the MERGEB converter rewrite («#98»), commit on the quad rig measures 6.58 ms at 5-bit and 8.93 ms at 8-bit (from 14.20 and 21.25 ms). The plan's §7 predicted about 5 ms at 5-bit; that figure was calculated in the study (F10), not measured. The new converter is byte-equal to the old one (216 of 216 cases), so this is speed only.
+- **Not known:** where the extra 1.6 ms goes: hub-RAM read and write timing in the per-pixel loop, the per-row and per-plane overhead, or the handshake wait inside commit (the time includes waiting for the refresh cog to take the previous set). No part of commit has been timed separately.
+- **Bears on:** how fast animation can commit frames; the documentation's commit figures («#102» states the measured ones).
+
 ### ICN2038S scan setting contradicts its address lines (finding, not yet explained)
 
 - **Found:** 2026-10-01, while writing the THEOPS glossary's scan entry («#68»).
