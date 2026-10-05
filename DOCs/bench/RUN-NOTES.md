@@ -162,3 +162,19 @@ Each hand-back adds one dated entry with three parts: tree state (scoped to
 **Verdicts:** §7 accepted on equivalence; commit is 2.2x faster at 5-bit but misses the calculated "about 5 ms" by about 30% (6.58 ms); the shortfall is not explained yet and is on the punch list. §8 accepted (table equal to the old function; draw no longer scales with depth). §9 accepted (row runs byte-equal; draw 1.6x-5.6x faster). Demos correct by eye.
 
 **Steps completed:** visit E.
+
+### 2026-10-05 — Commit shortfall explained: converter timing on the quad rig's P2 (scratch program, no panels driven)
+
+**Tree:** `driver/*.spin2` at `24ffeeb`, copied to a scratch folder with DISP0 set to no panels (so no buffers are reserved and no pins are driven); the tree was not edited. The scratch program times `isp_hub75_panel.convertHalfScan()` with `GETCT` (best of 4) at depths 3-8 on two geometries. Source kept as `driver/logs/scratch-convtime_scratch_commit_timing.spin2.txt`; log `driver/logs/scratch-convtime_headless_261005-123702.log`.
+**Rig:** the quad rig's P2, `-p Parw7ukt`, 335 MHz.
+
+| Geometry | Plane stride | 3-bit | 5-bit | 8-bit | Each extra plane |
+|---|---|---|---|---|---|
+| 4 x 128 x 64 (the quad rig) | 16,384 B (a multiple of 32) | 4,993 us | 6,558 us | 8,906 us | 16.0 clocks per pixel pair |
+| 4 x 129 x 62 (control) | 15,996 B (not a multiple of 32) | 4,171 us | 5,031 us | 6,320 us | 9.0 clocks per pixel pair |
+
+- The rig geometry reproduces visit E's commit times (6.58 ms at 5-bit, 8.93 ms at 8-bit) to within 0.3%, so commit is the conversion; the handshake and Spin2 overhead are about 20 us.
+- **Cause:** every plane byte of one column lies in the same hub slice, because the plane stride is a multiple of 32 bytes (8 slices x 4 bytes, slice = address bits [4:2]; p2kbArchHub). A plane step is three instructions (6 clocks) and a `WRBYTE` (3 clocks at best), 9 clocks, one more than the 8-clock hub rotation, so each write waits a whole extra rotation: 16 clocks. With the stride moved off the slice (control row), the same code takes the 9-clock minimum. The study's "about 5 ms" (F10) assumed about 8 clocks per plane and did not model the slice.
+- Every supported geometry has a stride that is a multiple of 32 (half a panel's rows x chain columns, with columns a multiple of 32), so every display pays this.
+
+**Steps completed:** none of a visit; this answers the punch-list item "Commit takes 6.58 ms at 5-bit".
