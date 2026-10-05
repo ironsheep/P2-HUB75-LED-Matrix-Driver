@@ -552,7 +552,10 @@ the punch list's per-plane hoists.
     `MUL`.
 - **Quarter-scan** iterates physical row m with m + half-panel, the half-scan
   pairing: no `RDBYTE`, no branch.
-- **Both-swap remap fixed** by the byte-reorder design.
+- **Both-swap remap fixed** by the byte-reorder design. Meaning (decided at «#98»,
+  2026-10-04): red/blue swap first, then green/blue on the result, so the R pin
+  carries blue, G red and B green. That is the order the old code applied them; no
+  chip sets both today.
 
 **Verification (visit E):**
 - **Equivalence:** a new test top file, `driver/test_hub75_converter.spin2`,
@@ -564,6 +567,14 @@ the punch list's per-plane hoists.
 - **Normal:** commit time measured before and after on the rig.
 - **Error:** none applies. The converter has no error inputs beyond what
   `start()` rejects.
+
+**Equivalence result (2026-10-04, «#98», on the P2 with no panels):** 216 of 216 cases
+PASS (`driver/logs/headless_261004-215656.log`): new against old, byte for byte, for
+every case except both-swap; both-swap against the hand-built set, which itself agrees
+with the old converter in all 24 cross-checks. With one output bit corrupted
+(`-D HUB75_CORRUPT_CONVERTER`) all 192 new-converter cases FAIL (`-215319`). The
+harness's geometries are capped at 8,192 pixels so its buffers fit beside the driver's:
+half-scan 1x128x64, 4x64x32, 9x32x16, 10x32x16, 16x32x16; quarter-scan 1/2/3 x 64x32.
 
 ## 8. Colour table and brightness out of the values (F12, F24 colour side)
 

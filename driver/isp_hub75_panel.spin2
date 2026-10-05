@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 5 Nov 2022
+''   Updated.... 04 Oct 2026
 ''
 ''  This object provides 24bit screen buffer to PWM buffers support
 '' =================================================================================================
@@ -64,6 +64,39 @@ CON ' Magic-number vocabulary (per SPIN2-AUTHORING-GUIDE.md 5.7)
 ' "Pwm0 " dump-label byte positions (frame index char, RGB2-present flag)
     MSG_PWM_INDEX_POS       = 3
     MSG_PWM_FLAG_POS        = 4
+
+CON ' ---- MERGEB converter (convertRowPairs) ----
+
+' MOVBYTS byte orders that put a pixel's channel bytes where the panel's R, G and B pins take
+' them (bytes 0, 1, 2); byte 3 stays in place. Each base-4 digit names the source byte of one
+' result byte, result byte 3 first:
+'  CHANNELS_AS_IS           - R, G, B unchanged
+'  CHANNELS_SWAP_RB         - R pin shows blue, B pin shows red
+'  CHANNELS_SWAP_GB         - G pin shows blue, B pin shows green
+'  CHANNELS_SWAP_RB_THEN_GB - both swaps, red/blue first: R pin blue, G pin red, B pin green
+    CHANNELS_AS_IS              = %%3210
+    CHANNELS_SWAP_RB            = %%3012
+    CHANNELS_SWAP_GB            = %%3120
+    CHANNELS_SWAP_RB_THEN_GB    = %%3102
+
+' byte of the top pixel's long that carries the bottom pixel's R-pin byte into the MERGEB
+' (it held the next pixel's red)
+    TOP_SPARE_BYTE_IDX          = 3
+
+' highest bit of the bottom pixel's G-pin and B-pin bytes once they sit in bytes 0-1
+    BOTTOM_GB_MSBIT             = 15
+
+' frame walk of the half-scan: its slots' lines follow one another with no gap, and its first
+' top-half row (screen offset 0) has frame line 0
+    NO_SLOT_GAP_BYTES           = 0
+    FIRST_SCAN_ROW_BYTES        = 0
+
+' instructions in one unrolled plane step (SUB, GETNIB, ROLNIB, WRBYTE)
+    PLANE_STEP_LONGS            = 4
+
+' colour bit n of a channel byte: after MERGEB it is nibble n of the merged long
+'  COLOR_BIT_0 (least significant) .. COLOR_BIT_7 (most significant, plane 0)
+    #0, COLOR_BIT_0, COLOR_BIT_1, COLOR_BIT_2, COLOR_BIT_3, COLOR_BIT_4, COLOR_BIT_5, COLOR_BIT_6, COLOR_BIT_7
 
 OBJ ' Objects Needed
 
@@ -245,11 +278,10 @@ PUB commitTotals() : nCommits, nWaited, nBad, pFirstShown
   pFirstShown := pTraceFirstShown
 #ENDIF
 
-PUB convertScreen2PWM_14(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet, pPwmFrame, lOne4thLineCt, lOneHalfLineCt, lThree4thsLineCt, lPhyRows, lPanelCols, lPanelCount, lPanelSkipBytes, lPwmAddrRowBytes, lDisplayBytesPerColor, lMaxPwmBuffers, lPwmFrameSizeInBytes
-'' Load a 24-bit-color image into PWM frame buffers for 1/8 scan panels (4 scan-lines at a time) using inline PASM.
-'' The screen buffer holds the panels one after another, in buffer-slot order (row-major within
-'' each panel). Each row address shifts two panel lines from every panel along the cable, slot 0
-'' first, so the converter reads one panel row at a time, slot by slot, like the 1/2-scan converter.
+PUB convertScreen2PWM_14(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet
+'' Load a 24-bit-color image into PWM frame buffers for 1/8 scan panels (4 scan-lines at a time):
+'' convert it into the PWM frame set that is not on display (see convertQuarterScan()), then post
+'' that set.
 ''
 '' @param p24bitScreen - pointer to 24-bit screen buffer
 '' @param bSwapRB - TRUE to swap red and blue channels
@@ -257,300 +289,45 @@ PUB convertScreen2PWM_14(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet, pPwmFra
 
 ' Local Variables:
 ' @local pPwmFrameSet - pointer to the PWM frame set that is not on display (converted into, then posted)
-' @local pPwmFrame - pointer to current PWM frame
-' @local lOne4thLineCt - one quarter of the panel row count
-' @local lOneHalfLineCt - one half of the panel row count
-' @local lThree4thsLineCt - three quarters of the panel row count
-' @local lPhyRows - pixel rows per panel
-' @local lPanelCols - pixel columns per panel
-' @local lPanelCount - panels on this adapter (buffer slots)
-' @local lPanelSkipBytes - bytes from the end of a row in one slot to the same row in the next slot
-' @local lPwmAddrRowBytes - PWM bytes the refresh core shifts per row address (two lines of every panel)
-' @local lDisplayBytesPerColor - bytes per color in the display buffer
-' @local lMaxPwmBuffers - number of PWM buffers (color depth)
-' @local lPwmFrameSizeInBytes - size of one PWM frame in bytes
 
-' NOTE: 16 longs total avail to inline pasm: params + return + local
-'  --> 16/16 used
-  ' scan memory, write PWM bytes twice, sigh...
-  'debug("- PNL:cs2pwm(): scn ", uhex_long(p24bitScreen), uhex_long(bSwapRB), uhex_long(bSwapGB))
-
-  ' -------------------------------------------------------------------------
-  ' NOTES for panel P4-1921-8S-V2.0 - 1/8 scan
-  '  two full 64px lines are emmitted for wach row, or 128px per each of 8 rows
-  '  the top 16 rows are fed by RGB1, while the bottom 16 rows are fed by RGB2
-  '
-  '  64px lines do NOT span multiple rows! This means we can do a simple row-
-  '  number translation when mapping our PWM buffers to how the panel will display
-  '  the pixel values.
-  '
-  '  The mapping is as follows:
-  '    ----- TOP ------                    ----- BOTTOM -----
-  '  Row 0 is placed in PWM bffr Row 1    Row 16 into pwm Row 17
-  '     ------------                          ------------
-  '      0   ->   1                           16   ->   17
-  '      1   ->   3                           17   ->   19
-  '      2   ->   5                           18   ->   21
-  '      3   ->   7                           19   ->   23
-  '      4   ->   9                           20   ->   25
-  '      5   ->  11                           21   ->   27
-  '      6   ->  13                           22   ->   29
-  '      7   ->  15                           23   ->   31
-  '     ------------                          ------------
-  '      8   ->   0                           24   ->   16
-  '      9   ->   2                           25   ->   18
-  '     10   ->   4                           26   ->   20
-  '     11   ->   6                           27   ->   22
-  '     12   ->   8                           28   ->   24
-  '     13   ->  10                           29   ->   26
-  '     14   ->  12                           30   ->   28
-  '     15   ->  14                           31   ->   30
-  ' -------------------------------------------------------------------------
-  ' this routine does not prestore all the transformed bytes
-  '  instead it scans each pixel at RC of the screen size
-  '  it then places either RGB1 into the each pwm frames' buffer
-  '   or if we are addressing the BOTTOM then it reads RGB1 value
-  '   from the pwm frames' buffer and or's in the RGB2 values
-  '
-  '  THIS means that each screen buffer BYTE is read once while each
-  '    PWM buffer BYTE is written twice.
-  '  Anyway, the math to calculate the target pixel BYTE in the pwm buffer
-  '   is:
-  ' -------------------------------------------------------------------------
-  '  The targetRow math of:
-  '    rows  0 -  7: targetRow = (row * 2) + 1
-  '    rows  8 - 15: targetRow = (row - 8) * 2
-  '    rows 16 - 24: targetRow = ((row - 16) * 2) + 17
-  '    rows 24 - 31: targetRow = (row - 24) * 2) + 16
-  ' -------------------------------------------------------------------------
-
-  ' init ptrs/variables
-  pPwmFrameSet            := frameSetToConvertInto()
-  lPhyRows                := nPanelRows
-  lPanelCols              := nPanelColumns
-  lPanelCount             := nPanelCount
-  lOne4thLineCt           := lPhyRows / QUARTER_DIVISOR
-  lOneHalfLineCt          := lPhyRows / HALF_DIVISOR
-  lThree4thsLineCt        := (lPhyRows / QUARTER_DIVISOR) * 3
-  lPanelSkipBytes         := (nPanelRows - 1) * nPanelColumns * nBytesPerColor
-  lPwmAddrRowBytes        := hub75Bffrs.SCAN_4_COLUMN_FACTOR * nPanelCount * nPanelColumns * hub75Bffrs.BYTES_PER_COLUMN_CLOCK ' as the refresh core sizes one row address
-  lDisplayBytesPerColor   := nBytesPerColor
-  lMaxPwmBuffers          := nColorDepth
-  lPwmFrameSizeInBytes    := nPwmFrameSizeInBytes
-
-    ORG
-                JMP         #startS8
-
-' the following initialized values are simply copied into PASM area before routine is run
-nPhysLineIdx        LONG    0
-nPhysLineCtr        LONG    0
-nPanelCtr           LONG    0
-nColumnCtr          LONG    0
-nTargLineIdx        LONG    0
-nPwmRGB12ByteIdx    LONG    0
-bIsBottomHalf       LONG    0
-nRGBColorOfst       LONG    0
-maskQtrRowsModulus  LONG    0
-pRGBPixAddr         LONG    0
-redBitRGB1Value     LONG    RGB1_RED_BIT
-greenBitRGB1Value   LONG    RGB1_GREEN_BIT
-blueBitRGB1Value    LONG    RGB1_BLUE_BIT
-redBitRGB2Value     LONG    RGB2_RED_BIT
-greenBitRGB2Value   LONG    RGB2_GREEN_BIT
-blueBitRGB2Value    LONG    RGB2_BLUE_BIT
-maskOnlyRGB1bits    LONG    MASK_RGB1
-maskOnlyRGB2bits    LONG    MASK_RGB2
-maskRGB1nRGB2bits   LONG    MASK_RGB12
-redPwmBits          LONG    0
-greenPwmBits        LONG    0
-bluePwmBits         LONG    0
-colorValue24bit     LONG    0
-pwmBitCtr           LONG    0
-currPwmBffrIdx      LONG    0
-currMaskBitIdx      LONG    0
-bitsBGR             LONG    0
-pPwmFrameByte       LONG    0
-currPwmBits         LONG    0
-allOnes             LONG    ALL_ONES
-
-startS8
-                ' init variables
-                MOV         redBitRGB1Value, #RGB1_RED_BIT
-                MOV         greenBitRGB1Value, #RGB1_GREEN_BIT
-                MOV         blueBitRGB1Value, #RGB1_BLUE_BIT
-                MOV         redBitRGB2Value, #RGB2_RED_BIT
-                MOV         greenBitRGB2Value, #RGB2_GREEN_BIT
-                MOV         blueBitRGB2Value, #RGB2_BLUE_BIT
-                ' setup for red/blue flip if needed
-                OR          bSwapRB, bSwapRB                wz      ' T/F where: T=nz, F=z
-    ' T/nz = is Swapped
-    if_nz       MOV         redBitRGB1Value, #RGB1_BLUE_BIT         ' red1 gets blue
-    if_nz       MOV         blueBitRGB1Value, #RGB1_RED_BIT         ' blue1 gets red
-    if_nz       MOV         redBitRGB2Value, #RGB2_BLUE_BIT         ' red2 gets blue
-    if_nz       MOV         blueBitRGB2Value, #RGB2_RED_BIT         ' blue2 gets red
-                ' setup for blue/green flip if needed
-                OR          bSwapGB, bSwapGB                wz      ' T/F where: T=nz, F=z
-    ' T/nz = is Swapped
-    if_nz       MOV         greenBitRGB1Value, #RGB1_BLUE_BIT       ' green1 gets blue
-    if_nz       MOV         blueBitRGB1Value, #RGB1_GREEN_BIT       ' blue1 gets green
-    if_nz       MOV         greenBitRGB2Value, #RGB2_BLUE_BIT       ' green2 gets blue
-    if_nz       MOV         blueBitRGB2Value, #RGB2_GREEN_BIT       ' blue2 gets green
-for8SScreen
-                ' for all pixels of the screen buffer
-                'repeat nPhysLineIdx from 0 to screen.MAX_PHYSICAL_ROWS - 1             ' [0-31]
-                XOR         nPhysLineIdx, nPhysLineIdx
-                MOV         nPhysLineCtr, lPhyRows
-next8SLine
-                ' calc nPwmRGB12ByteIdx: offset into PWM buffer
-                MOV         nTargLineIdx, nPhysLineIdx              ' start with phys row number
-                '  if low-half rows of panelSet...
-                CMP         nPhysLineIdx, lOneHalfLineCt    wc
-    if_nc       JMP         #bottom8SRows
-top8SRows                                                           ' determine calcs to use for top half of panel - Rows [0-15]
-                ' if nPhysLineIdx < lOne4thLineCt...
-                CMP         nPhysLineIdx, lOne4thLineCt     wc
-    ' CY=1: nTargLineIdx := (nPhysLineIdx * 2) + 1 - rows  [0-7]
-    if_c        SHL         nTargLineIdx, #1                        ' mult by 2
-    if_c        ADD         nTargLineIdx, #1                        ' add 1
-    ' CY=0: nTargLineIdx := (nPhysLineIdx - lOne4thLineCt) * 2 - Rows [8-15]
-    if_nc       SUB         nTargLineIdx, lOne4thLineCt             ' subtract 8
-    if_nc       SHL         nTargLineIdx, #1                        ' mult by 2
-                JMP         #targ8SCalcsDone
-bottom8SRows                                                        ' determine calcs to use for bottom half of panel - Rows [16-31]
-                ' if nPhysLineIdx < lThree4thsLineCt
-                CMP         nPhysLineIdx, lThree4thsLineCt  wc
-    ' CY=1: nTargLineIdx := ((nPhysLineIdx - lOneHalfLineCt) * 2) + lOneHalfLineCt + 1 - Rows [16-23]
-    if_c        SUB         nTargLineIdx, lOneHalfLineCt            ' minus lOneHalfLineCt
-    if_c        SHL         nTargLineIdx, #1                        ' mult by 2
-    if_c        ADD         nTargLineIdx, lOneHalfLineCt            ' add lOneHalfLineCt
-    if_c        ADD         nTargLineIdx, #1                        ' add 1
-    ' CY=0: nTargLineIdx := ((nPhysLineIdx - lThree4thsLineCt) + lOneHalfLineCt) * 2 - Rows  [24-31]
-    if_nc       SUB         nTargLineIdx, lThree4thsLineCt          ' minus lThree4thsLineCt
-    if_nc       SHL         nTargLineIdx, #1                        ' mult by 2
-    if_nc       ADD         nTargLineIdx, lOneHalfLineCt            ' add lOneHalfLineCt
-targ8SCalcsDone
-                ' bIsBottomHalf := (nTargLineIdx > lOneHalfLineCt - 1) ? TRUE : FALSE
-                CMP         nTargLineIdx, lOneHalfLineCt    wc
-    if_nc       MOV         bIsBottomHalf, allOnes                  ' TRUE if row 16-31
-    if_c        XOR         bIsBottomHalf, bIsBottomHalf            ' FALSE if row 0-15
-                ' a bottom (RGB2) line shares its bytes with the top (RGB1) line half a panel above
-    if_nc       SUB         nTargLineIdx, lOneHalfLineCt            ' target line within its half
-                ' nPwmRGB12ByteIdx := (nTargLineIdx / 2) * lPwmAddrRowBytes + (nTargLineIdx odd ? lPanelCols : 0)
-                '  (slot 0's bytes for this line; each row address holds two lines of every slot, slot 0 first)
-                MOV         nPwmRGB12ByteIdx, nTargLineIdx
-                SHR         nPwmRGB12ByteIdx, #1                    ' row address of this line
-                MUL         nPwmRGB12ByteIdx, lPwmAddrRowBytes
-                TESTB       nTargLineIdx, #0                wc      ' odd line: 2nd line of the pair
-    if_c        ADD         nPwmRGB12ByteIdx, lPanelCols
-                ' calc nRGBColorOfst: offset of this row in slot 0 of the screen buffer
-                'nRGBColorOfst := (nPhysLineIdx * lPanelCols) * screen.DISPLAY_BYTES_PER_COLOR
-                MOV         nRGBColorOfst, nPhysLineIdx
-                MUL         nRGBColorOfst, lPanelCols
-                MUL         nRGBColorOfst, lDisplayBytesPerColor
-                ' pRGBPixAddr := @BYTE[p24bitScreen][nRGBColorOfst]    ' add in offset to 24-bit color
-                MOV         pRGBPixAddr, p24bitScreen
-                ADD         pRGBPixAddr, nRGBColorOfst
-                ' repeat for each slot (panel along the cable), slot 0 first
-                MOV         nPanelCtr, lPanelCount
-next8SPanel
-                ' repeat nColumnIdx from 0 to lPanelCols - 1
-                MOV         nColumnCtr, lPanelCols
-next8SColumn
-                ' locate and load color for scanline
-                RDLONG      colorValue24bit, pRGBPixAddr
-                ' red := BYTE[pRGBPixAddr][0]
-                GETBYTE     redPwmBits, colorValue24bit, #RED_BYTE_IDX
-                ' green := BYTE[pRGBPixAddr][1]
-                GETBYTE     greenPwmBits, colorValue24bit, #GREEN_BYTE_IDX
-                ' blue := BYTE[pRGBPixAddr][2]
-                GETBYTE     bluePwmBits, colorValue24bit, #BLUE_BYTE_IDX
-
-                ' write color information to our PWM buffers
-                ' expand PWM-Bit-width bits into N pwm frames of 3-bit pixels two pixels/BYTE
-
-                ' for ea. bit do...
-                ' repeat currPwmBffrIdx from 0 to screen.MAX_PWM_BUFFERS - 1 (there's PWM_BUFFER for ea. bit in color depth)
-                XOR         currPwmBffrIdx, currPwmBffrIdx          ' start with buffer[0] of [0-MAX_PWM_BUFFERS - 1]
-                ' NOTE: PWM def'n bits are org'd at MSBit and are COLOR_DEPTH in width (3-8 bits depth)
-                MOV         currMaskBitIdx, #MSBIT_OF_BYTE         ' start bitmask is always msBit of BYTE
-                MOV         pwmBitCtr, lMaxPwmBuffers               ' MAX PWM FRAME bits to scan in LONG
-
-next8SPwmFrame
-                ' calculate pointer to frame for this bit #
-                '   nFrameOffset := frameIdx * nPwmFrameSizeInLongs ' 256 longs in each frame
-                '   pPwmFrame := @LONG[pPwmFrameSet][nFrameOffset]
-                MOV         pPwmFrame, currPwmBffrIdx
-                MUL         pPwmFrame, lPwmFrameSizeInBytes
-                ADD         pPwmFrame, pPwmFrameSet
-                ' calc address of BYTE in pwm frame for this nPwmRGB12ByteIdx
-                MOV         pPwmFrameByte, nPwmRGB12ByteIdx         ' get base addr
-                ADD         pPwmFrameByte, pPwmFrame                ' add offset
-                ' build top RGB1 or bottom RGB2 bits to be stored in pwm BYTE
-                ' if not bIsBottomHalf
-                OR          bIsBottomHalf, bIsBottomHalf    wz      ' T/F where: T=nz, F=z
-    if_nz       JMP         #bottom8SHalf
-top8SHalf
-                ' bitsBGR := 0
-                XOR         bitsBGR, bitsBGR                        ' clear all bits
-                ' set our RGB1 bits
-                '     bitsBGR |= (rPwm & currBitMask) > 0 ? 1 : 0
-                '     bitsBGR |= (gPwm & currBitMask) > 0 ? 2 : 0
-                '     bitsBGR |= (bPwm & currBitMask) > 0 ? 4 : 0
-                TESTB       redPwmBits, currMaskBitIdx      wc
-    if_c        OR          bitsBGR, redBitRGB1Value
-                TESTB       greenPwmBits, currMaskBitIdx    wc
-    if_c        OR          bitsBGR, greenBitRGB1Value
-                TESTB       bluePwmBits, currMaskBitIdx     wc
-    if_c        OR          bitsBGR, blueBitRGB1Value
-                JMP         #write8SPwmByte
-bottom8SHalf
-                '    bitsBGR := BYTE[pPwmFrame][nPwmRGB12ByteIdx]
-                RDBYTE      bitsBGR, pPwmFrameByte                  ' load current value
-                ' NOTE: see if there's a write w/mask so we don't have to read...
-                ' not needed        and     bitsBGR, maskOnlyRGB1bits   ' clear all bits except RGB1 value
-                ' set our RGB2 bits
-                '    bitsBGR |= (rPwm & currBitMask) > 0 ? 8 : 0
-                '    bitsBGR |= (gPwm & currBitMask) > 0 ? $10 : 0
-                '    bitsBGR |= (bPwm & currBitMask) > 0 ? $20 : 0
-                TESTB       redPwmBits, currMaskBitIdx      wc
-    if_c        OR          bitsBGR, redBitRGB2Value
-                TESTB       greenPwmBits, currMaskBitIdx    wc
-    if_c        OR          bitsBGR, greenBitRGB2Value
-                TESTB       bluePwmBits, currMaskBitIdx     wc
-    if_c        OR          bitsBGR, blueBitRGB2Value
-write8SPwmByte
-                ' write RGB1, RGB2 value to BYTE
-                'BYTE[pPwmFrame][nPwmRGB12ByteIdx] := bitsBGR
-                'or      bitsBGR, #$3F
-                WRBYTE      bitsBGR, pPwmFrameByte                  ' load current value
-                ' this one done, if not all 8 bits done, go do next
-                ADD         currPwmBffrIdx, #1
-                SUB         currMaskBitIdx, #1
-                DJNZ        pwmBitCtr, #next8SPwmFrame
-
-                ' count this column, go do next column if not yet done
-                ADD         pRGBPixAddr, lDisplayBytesPerColor
-                ADD         nPwmRGB12ByteIdx, #1
-                DJNZ        nColumnCtr, #next8SColumn
-                ' same row of the next slot; skip the other line of this slot's pair
-                ADD         pRGBPixAddr, lPanelSkipBytes
-                ADD         nPwmRGB12ByteIdx, lPanelCols
-                DJNZ        nPanelCtr, #next8SPanel
-                ' count this row, go do next row if not yet done
-                ADD         nPhysLineIdx, #1
-                DJNZ        nPhysLineCtr, #next8SLine
-doneS8
-    END
-
+  pPwmFrameSet := frameSetToConvertInto()
+  convertQuarterScan(p24bitScreen, pPwmFrameSet, nPanelCount, nPanelColumns, nPanelRows, nColorDepth, nBytesPerColor, bSwapRB, bSwapGB)
   postConvertedSet(pPwmFrameSet)
+
+PUB convertQuarterScan(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, pixelBytes, bSwapRB, bSwapGB) | lineBytes
+'' Convert a 24-bit screen buffer into a PWM frame set for panels that light four rows at once
+'' (1/8 scan on a 64x32 panel, chip flag SCAN_4), using inline PASM (convertRowPairs()). It
+'' writes only the buffers it is given and posts nothing: the commit (convertScreen2PWM_14())
+'' calls it, and so does the converter test (test_hub75_converter.spin2).
+''
+'' Row m of the top half and row m + half a panel share a plane byte (RGB1 and RGB2), as in
+'' convertHalfScan(). Each row address shifts two lines of every panel along the cable, slot 0
+'' first: the line of the first quarter's row m is the second line of address m, and the line
+'' of the second quarter's row q + m (q = a quarter of the panel rows) is the first line of
+'' address m. The plane bytes are as convertHalfScan() describes.
+''
+'' @param p24bitScreen - pointer to 24-bit screen buffer
+'' @param pFrameSet - hub address of the PWM frame set to write
+'' @param panelCnt - panels on the adapter (buffer slots)
+'' @param panelCols - pixel columns per panel
+'' @param panelRows - pixel rows per panel
+'' @param planeCnt - bit planes in the frame set: the colour depth (hwEnum.DEPTH_3BIT .. DEPTH_8BIT)
+'' @param pixelBytes - bytes per pixel in the screen buffer (red, green, blue at +0, +1, +2)
+'' @param bSwapRB - TRUE to swap red and blue channels
+'' @param bSwapGB - TRUE to swap green and blue channels
+
+' Local Variables:
+' @local lineBytes - frame bytes in one line of one panel (the other line of a slot's pair is the gap)
+
+  lineBytes := panelCols * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
+  convertRowPairs(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, pixelBytes, channelOrder(bSwapRB, bSwapGB), ...
+                  lineBytes, hub75Bffrs.SCAN_4_COLUMN_FACTOR * panelCnt * lineBytes, (panelRows / QUARTER_DIVISOR) * panelCols * pixelBytes)
 
 ' -----------------------------------------------------------------------------
 
-PUB convertScreen2PWM(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet, lPanelCount, lPanelCols, lHalfPanelRows, lPanelRowBytes, lHalfPanelBytes, lPanelSkipBytes, lDisplayBytesPerColor, lPwmFrameSizeInBytes, lMaxPwmBuffers
-'' Load a 24-bit image into PWM frame buffers at 16s, 32s (2 scan-lines at a time) using inline PASM.
-'' The screen buffer holds the panels one after another, in buffer-slot order (row-major within
-'' each panel). One row along the cable is the same scan row of every slot, slot 0 first, so the
-'' converter walks the slots in that order and every panel up to the driver limit is converted.
+PUB convertScreen2PWM(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet
+'' Load a 24-bit image into PWM frame buffers at 16s, 32s (2 scan-lines at a time): convert it
+'' into the PWM frame set that is not on display (see convertHalfScan()), then post that set.
 ''
 '' @param p24bitScreen - pointer to 24-bit screen buffer
 '' @param bSwapRB - TRUE to swap red and blue channels
@@ -558,171 +335,9 @@ PUB convertScreen2PWM(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet, lPanelCoun
 
 ' Local Variables:
 ' @local pPwmFrameSet - pointer to the PWM frame set that is not on display (converted into, then posted)
-' @local lPanelCount - panels on this adapter (buffer slots)
-' @local lPanelCols - columns per panel
-' @local lHalfPanelRows - half panel height for RGB1/RGB2 split
-' @local lPanelRowBytes - bytes in one row of one panel in the screen buffer
-' @local lHalfPanelBytes - bytes from a top-half (RGB1) row to its bottom-half (RGB2) row
-' @local lPanelSkipBytes - bytes from the end of a row in one slot to the same row in the next slot
-' @local lDisplayBytesPerColor - bytes per color in the display buffer
-' @local lPwmFrameSizeInBytes - size of one PWM frame in bytes
-' @local lMaxPwmBuffers - number of PWM buffers (color depth)
 
-' NOTE: 16 longs total avail to inline pasm: params + return + local
-'  --> 13/16 used
-
-
-  ' Get PWM buffer and setup parameters
-  pPwmFrameSet            := frameSetToConvertInto()
-  lPanelCount             := nPanelCount              ' Panels on this adapter (e.g., 4)
-  lPanelCols              := nPanelColumns            ' Columns per panel (e.g., 128)
-  lHalfPanelRows          := nPanelRows / HALF_DIVISOR    ' Half panel height for RGB1/RGB2 split (e.g., 32)
-  lPanelRowBytes          := nPanelColumns * nBytesPerColor
-  lHalfPanelBytes         := lHalfPanelRows * lPanelRowBytes
-  lPanelSkipBytes         := (nPanelRows - 1) * lPanelRowBytes
-  lPwmFrameSizeInBytes    := nPwmFrameSizeInBytes
-  lMaxPwmBuffers          := nColorDepth
-  lDisplayBytesPerColor   := nBytesPerColor
-
-  ' Fill PWM_FRAMES from 24-bit-screen
-  ' Screen buffer is in buffer-slot order:
-  '   slot 0: bytes 0 to (nPanelRows * lPanelRowBytes - 1)
-  '   slot 1: bytes (nPanelRows * lPanelRowBytes) to (2 * nPanelRows * lPanelRowBytes - 1)
-  '   etc.
-  ' Each scan row is read slot by slot, so no column needs dividing to find its panel.
-    ORG
-                JMP         #start16s
-
-' Initialized values copied into PASM area
-redBitTopValue      LONG    RGB1_RED_BIT
-greenBitTopValue    LONG    RGB1_GREEN_BIT
-blueBitTopValue     LONG    RGB1_BLUE_BIT
-redBitBotValue      LONG    RGB2_RED_BIT
-greenBitBotValue    LONG    RGB2_GREEN_BIT
-blueBitBotValue     LONG    RGB2_BLUE_BIT
-redPwmBitsTop       LONG    0
-greenPwmBitsTop     LONG    0
-bluePwmBitsTop      LONG    0
-redPwmBitsBot       LONG    0
-greenPwmBitsBot     LONG    0
-bluePwmBitsBot      LONG    0
-pPwmFrameByt        LONG    0
-pTopPixelAddr       LONG    0
-pBotPixelAddr       LONG    0
-colorValue24bit     LONG    0
-bitCount            LONG    0
-currMaskBitIdx      LONG    0
-currPwmBffrIdx      LONG    0
-panelBGR            LONG    0
-pwmByteIndex        LONG    0
-' Loop control
-scanRowCtr          LONG    0
-scanRow             LONG    0
-panelCtr            LONG    0
-localColCtr         LONG    0
-
-start16s
-                    ' Initialize color bit values
-                    mov     redBitTopValue, #RGB1_RED_BIT
-                    mov     greenBitTopValue, #RGB1_GREEN_BIT
-                    mov     blueBitTopValue, #RGB1_BLUE_BIT
-                    mov     redBitBotValue, #RGB2_RED_BIT
-                    mov     greenBitBotValue, #RGB2_GREEN_BIT
-                    mov     blueBitBotValue, #RGB2_BLUE_BIT
-                    ' Setup for red/blue swap if needed
-                    or      bSwapRB, bSwapRB   wz
-    if_nz           mov     redBitTopValue, #RGB1_BLUE_BIT
-    if_nz           mov     blueBitTopValue, #RGB1_RED_BIT
-    if_nz           mov     redBitBotValue, #RGB2_BLUE_BIT
-    if_nz           mov     blueBitBotValue, #RGB2_RED_BIT
-                    ' Setup for green/blue swap if needed
-                    or      bSwapGB, bSwapGB   wz
-    if_nz           mov     greenBitTopValue, #RGB1_BLUE_BIT
-    if_nz           mov     blueBitTopValue, #RGB1_GREEN_BIT
-    if_nz           mov     greenBitBotValue, #RGB2_BLUE_BIT
-    if_nz           mov     blueBitBotValue, #RGB2_GREEN_BIT
-
-                    ' Initialize PWM byte index
-                    xor     pwmByteIndex, pwmByteIndex
-                    ' Outer loop: scan rows 0 to halfPanelRows-1 (e.g., 0-31)
-                    xor     scanRow, scanRow
-                    mov     scanRowCtr, lHalfPanelRows
-nextScanRow
-                    ' this scan row in slot 0: top pixel (RGB1) and bottom pixel (RGB2)
-                    ' pTopPixelAddr = p24bitScreen + scanRow * panelRowBytes
-                    ' pBotPixelAddr = pTopPixelAddr + halfPanelRows * panelRowBytes
-                    mov     pTopPixelAddr, scanRow
-                    mul     pTopPixelAddr, lPanelRowBytes
-                    add     pTopPixelAddr, p24bitScreen
-                    mov     pBotPixelAddr, pTopPixelAddr
-                    add     pBotPixelAddr, lHalfPanelBytes
-                    ' Middle loop: slots 0 to panelCount-1, in cable order (slot 0 first)
-                    mov     panelCtr, lPanelCount
-nextPanel
-                    ' Inner loop: columns 0 to panelCols-1 of this slot (e.g., 0-127)
-                    mov     localColCtr, lPanelCols
-nextLocalCol
-                    ' Load top pixel color (RGB1)
-                    rdlong  colorValue24bit, pTopPixelAddr
-                    getbyte redPwmBitsTop, colorValue24bit, #RED_BYTE_IDX
-                    getbyte greenPwmBitsTop, colorValue24bit, #GREEN_BYTE_IDX
-                    getbyte bluePwmBitsTop, colorValue24bit, #BLUE_BYTE_IDX
-
-                    ' Load bottom pixel color (RGB2)
-                    rdlong  colorValue24bit, pBotPixelAddr
-                    getbyte redPwmBitsBot, colorValue24bit, #RED_BYTE_IDX
-                    getbyte greenPwmBitsBot, colorValue24bit, #GREEN_BYTE_IDX
-                    getbyte bluePwmBitsBot, colorValue24bit, #BLUE_BYTE_IDX
-
-                    ' Write to PWM buffers for each bit plane
-                    xor     currPwmBffrIdx, currPwmBffrIdx
-                    mov     bitCount, lMaxPwmBuffers
-                    mov     currMaskBitIdx, #MSBIT_OF_BYTE
-nextBit
-                    ' Calculate PWM frame byte address
-                    mov     pPwmFrameByt, currPwmBffrIdx
-                    mul     pPwmFrameByt, lPwmFrameSizeInBytes
-                    add     pPwmFrameByt, pPwmFrameSet
-                    add     pPwmFrameByt, pwmByteIndex
-
-                    ' Build RGB1 and RGB2 bits
-                    xor     panelBGR, panelBGR
-                    testb   redPwmBitsTop, currMaskBitIdx     wc
-        if_c        or      panelBGR, redBitTopValue
-                    testb   greenPwmBitsTop, currMaskBitIdx   wc
-        if_c        or      panelBGR, greenBitTopValue
-                    testb   bluePwmBitsTop, currMaskBitIdx    wc
-        if_c        or      panelBGR, blueBitTopValue
-                    testb   redPwmBitsBot, currMaskBitIdx     wc
-        if_c        or      panelBGR, redBitBotValue
-                    testb   greenPwmBitsBot, currMaskBitIdx   wc
-        if_c        or      panelBGR, greenBitBotValue
-                    testb   bluePwmBitsBot, currMaskBitIdx    wc
-        if_c        or      panelBGR, blueBitBotValue
-
-                    ' Write PWM byte
-                    wrbyte  panelBGR, pPwmFrameByt
-                    ' Next bit plane
-                    add     currPwmBffrIdx, #1
-                    sub     currMaskBitIdx, #1
-                    djnz    bitCount, #nextBit
-
-                    ' Advance to next column: next pixel of this slot, next PWM byte along the cable
-                    add     pTopPixelAddr, lDisplayBytesPerColor
-                    add     pBotPixelAddr, lDisplayBytesPerColor
-                    add     pwmByteIndex, #1
-                    djnz    localColCtr, #nextLocalCol
-
-                    ' Advance to the same scan row of the next slot
-                    add     pTopPixelAddr, lPanelSkipBytes
-                    add     pBotPixelAddr, lPanelSkipBytes
-                    djnz    panelCtr, #nextPanel
-
-                    ' Advance to next scan row
-                    add     scanRow, #1
-                    djnz    scanRowCtr, #nextScanRow
-done16s
-    END
+  pPwmFrameSet := frameSetToConvertInto()
+  convertHalfScan(p24bitScreen, pPwmFrameSet, nPanelCount, nPanelColumns, nPanelRows, nColorDepth, nBytesPerColor, bSwapRB, bSwapGB)
 
 #ifdef DBG_PWM
   ' Debug code for Frame 0 MSB issue investigation (enable with -D DBG_PWM)
@@ -736,6 +351,32 @@ done16s
 #endif
 
   postConvertedSet(pPwmFrameSet)
+
+PUB convertHalfScan(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, pixelBytes, bSwapRB, bSwapGB)
+'' Convert a 24-bit screen buffer into a PWM frame set for panels that light two rows at once
+'' (1/16 and 1/32 scan), using inline PASM (convertRowPairs()). It writes only the buffers it
+'' is given and posts nothing: the commit (convertScreen2PWM()) calls it, and so does the
+'' converter test (test_hub75_converter.spin2), which runs it on buffers of its own with no
+'' panels attached.
+''
+'' The screen buffer holds the panels one after another, in buffer-slot order (row-major within
+'' each panel). One row along the cable is the same scan row of every slot, slot 0 first, and
+'' the scan rows follow one another in the frame. The frame set is planeCnt frames of one byte
+'' per column clock, plane 0 first (the most significant colour bit); each byte carries the
+'' top-half pixel (RGB1) in bits 0-2 and the pixel half a panel below it (RGB2) in bits 3-5.
+''
+'' @param p24bitScreen - pointer to 24-bit screen buffer
+'' @param pFrameSet - hub address of the PWM frame set to write
+'' @param panelCnt - panels on the adapter (buffer slots)
+'' @param panelCols - pixel columns per panel
+'' @param panelRows - pixel rows per panel
+'' @param planeCnt - bit planes in the frame set: the colour depth (hwEnum.DEPTH_3BIT .. DEPTH_8BIT)
+'' @param pixelBytes - bytes per pixel in the screen buffer (red, green, blue at +0, +1, +2)
+'' @param bSwapRB - TRUE to swap red and blue channels
+'' @param bSwapGB - TRUE to swap green and blue channels
+
+  convertRowPairs(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, pixelBytes, channelOrder(bSwapRB, bSwapGB), ...
+                  NO_SLOT_GAP_BYTES, panelCnt * panelCols * hub75Bffrs.BYTES_PER_COLUMN_CLOCK, FIRST_SCAN_ROW_BYTES)
 
 ' -----------------------------------------------------------------------------
 
@@ -814,6 +455,188 @@ PRI emptyRgb2(pFrameBuffer) : isEmpty | byteIdx
       isEmpty := FALSE
       quit
 #endif
+
+PRI convertRowPairs(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, pixelBytes, swapOrder, slotGapBytes, rowStepBytes, lineZeroRowBytes) | rowBytes, halfPanelBytes, panelSkipBytes, frameBytes, columnStep
+' The MERGEB converter both scans share (convertHalfScan(), convertQuarterScan()). It pairs each
+' top-half row m of every panel with row m + half a panel (RGB1 with RGB2), reads the screen
+' buffer slot by slot, and writes one plane byte per column clock into each plane of the frame
+' set. Only where each row's line lands in the frame differs between the scans, and the three
+' frame-walk parameters give it:
+'   a row's line starts slotGapBytes past where the row before it started (rowStepBytes), the
+'   row at lineZeroRowBytes starts frame line 0, and the rows before it start slotGapBytes in;
+'   along a row, each slot's line follows the last one after a gap of slotGapBytes.
+'
+' @param p24bitScreen - pointer to 24-bit screen buffer
+' @param pFrameSet - hub address of the PWM frame set to write
+' @param panelCnt - panels on the adapter (buffer slots)
+' @param panelCols - pixel columns per panel
+' @param panelRows - pixel rows per panel
+' @param planeCnt - bit planes in the frame set: the colour depth (hwEnum.DEPTH_3BIT .. DEPTH_8BIT)
+' @param pixelBytes - bytes per pixel in the screen buffer (red, green, blue at +0, +1, +2)
+' @param swapOrder - MOVBYTS byte order that applies the channel swaps (channelOrder())
+' @param slotGapBytes - frame bytes between one slot's line and the next slot's line in a row
+' @param rowStepBytes - frame bytes from one top-half row's line to the next row's line
+' @param lineZeroRowBytes - screen offset of the top-half row whose line is frame line 0 (slot 0)
+
+' Local Variables:
+' @local rowBytes - bytes in one row of one panel in the screen buffer
+' @local halfPanelBytes - bytes from a top-half (RGB1) row to its bottom-half (RGB2) row
+' @local panelSkipBytes - bytes from the end of a row in one slot to the same row in the next slot
+' @local frameBytes - bytes in one PWM frame (one bit plane)
+' @local columnStep - frame-set step from the plane 0 byte of a column to the last plane's byte of the next column
+
+' NOTE: 16 longs total avail to inline pasm: params + return + local
+'  --> 16/16 used
+
+  rowBytes        := panelCols * pixelBytes
+  halfPanelBytes  := (panelRows / HALF_DIVISOR) * rowBytes
+  panelSkipBytes  := (panelRows - 1) * rowBytes
+  frameBytes      := (panelRows / HALF_DIVISOR) * panelCnt * panelCols * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
+  columnStep      := planeCnt * frameBytes + hub75Bffrs.BYTES_PER_COLUMN_CLOCK
+
+  { Per pixel pair (P2KB p2kbPasm2Rdlong, p2kbPasm2Movbyts, p2kbPasm2Setbyte, p2kbPasm2Mergeb,
+    p2kbPasm2Getnib, p2kbPasm2Rolnib):
+      top    long, bytes 0..3:  R-pin  G-pin  B-pin  bottom R-pin   (after MOVBYTS and SETBYTE)
+      bottom long, bytes 0..3:  bottom G-pin  bottom B-pin  0  0    (after SHR and ZEROX)
+    MERGEB makes nibble n of each long hold bit n of its four bytes, byte 3 in the nibble's
+    top bit, so for colour bit n:
+      top nibble    = {Rb, Bt, Gt, Rt}      bottom nibble = {0, 0, Bb, Gb}
+    GETNIB the bottom nibble, ROLNIB the top nibble in below it, and the low byte is the plane
+    byte: Rt, Gt, Bt, Rb, Gb, Bb in bits 0..5 (RGB1_RED_BIT .. RGB2_BLUE_BIT).
+    The plane steps are unrolled from colour bit 0 up to bit 7 (plane 0). Each step first steps
+    the frame pointer back one frame, so the pointer starts a column just past the last plane
+    and ends it on plane 0; the column starts at the step of the least significant bit kept.
+    Frame pointers below (pPlanesEnd, pLineStart, pPlaneByte) are all "just past the last
+    plane" pointers: the plane steps take them back to the planes.
+  }
+    ORG
+                    jmp     #startRowPairs
+
+' registers (copied into the cog with the code)
+topPixel            LONG    0                               ' top-half pixel, then its merged colour bits
+bottomPixel         LONG    0                               ' bottom-half pixel, then its merged colour bits
+pTopPixel           LONG    0                               ' screen address of the top-half pixel
+pBottomPixel        LONG    0                               ' screen address of the bottom-half pixel
+pRowStart           LONG    0                               ' screen address of this top-half row in slot 0
+pRowsEnd            LONG    0                               ' screen address of the first bottom-half row in slot 0
+pLineZeroRow        LONG    0                               ' screen address of the row whose line is frame line 0
+pPlanesEnd          LONG    0                               ' frame-set address just past the last plane
+pLineStart          LONG    0                               ' frame byte of this row's slot-0 line, past the last plane
+pPlaneByte          LONG    0                               ' frame-set address of the plane byte being written
+planeBits           LONG    0                               ' one plane byte: RGB1 in bits 0-2, RGB2 in bits 3-5
+planeEntry          LONG    0                               ' cog address of the plane step of the least significant bit kept
+panelCtr            LONG    0                               ' slots left in this row
+columnCtr           LONG    0                               ' columns left in this slot
+
+startRowPairs
+                    ' skip the plane steps of the colour bits below the colour depth
+                    mov     planeEntry, #BITS_PER_BYTE
+                    sub     planeEntry, planeCnt
+                    mul     planeEntry, #PLANE_STEP_LONGS
+                    add     planeEntry, #planeOfBit0
+                    mov     pPlanesEnd, pFrameSet
+                    add     pPlanesEnd, columnStep
+                    sub     pPlanesEnd, #hub75Bffrs.BYTES_PER_COLUMN_CLOCK
+                    mov     pLineStart, pPlanesEnd                  ' rows before the line-zero row start one gap in
+                    add     pLineStart, slotGapBytes
+                    mov     pRowStart, p24bitScreen
+                    mov     pLineZeroRow, p24bitScreen
+                    add     pLineZeroRow, lineZeroRowBytes
+                    mov     pRowsEnd, p24bitScreen
+                    add     pRowsEnd, halfPanelBytes
+nextPairRow
+                    cmp     pRowStart, pLineZeroRow         wz
+        if_z        mov     pLineStart, pPlanesEnd                  ' this row's line is frame line 0
+                    mov     pPlaneByte, pLineStart
+                    mov     pTopPixel, pRowStart
+                    mov     pBottomPixel, pRowStart
+                    add     pBottomPixel, halfPanelBytes
+                    mov     panelCtr, panelCnt
+nextPairPanel
+                    mov     columnCtr, panelCols
+nextPairColumn
+                    rdlong  topPixel, pTopPixel                     ' bytes 0-2: R, G, B (byte 3: the next pixel's R)
+                    rdlong  bottomPixel, pBottomPixel
+                    movbyts topPixel, swapOrder                     ' bytes 0-2: what the R, G, B pins show
+                    movbyts bottomPixel, swapOrder
+                    setbyte topPixel, bottomPixel, #TOP_SPARE_BYTE_IDX  ' byte 3: the bottom pixel's R-pin byte
+                    shr     bottomPixel, #BITS_PER_BYTE             ' bytes 0-1: the bottom G-pin and B-pin bytes
+                    zerox   bottomPixel, #BOTTOM_GB_MSBIT           ' bytes 2-3: zero
+                    mergeb  topPixel                                ' nibble n: bit n of {Rb, Bt, Gt, Rt}
+                    mergeb  bottomPixel                             ' nibble n: bit n of {0, 0, Bb, Gb}
+                    jmp     planeEntry
+planeOfBit0
+                    sub     pPlaneByte, frameBytes
+                    getnib  planeBits, bottomPixel, #COLOR_BIT_0
+                    rolnib  planeBits, topPixel, #COLOR_BIT_0
+                    wrbyte  planeBits, pPlaneByte
+                    sub     pPlaneByte, frameBytes
+                    getnib  planeBits, bottomPixel, #COLOR_BIT_1
+                    rolnib  planeBits, topPixel, #COLOR_BIT_1
+                    wrbyte  planeBits, pPlaneByte
+                    sub     pPlaneByte, frameBytes
+                    getnib  planeBits, bottomPixel, #COLOR_BIT_2
+                    rolnib  planeBits, topPixel, #COLOR_BIT_2
+                    wrbyte  planeBits, pPlaneByte
+                    sub     pPlaneByte, frameBytes
+                    getnib  planeBits, bottomPixel, #COLOR_BIT_3
+                    rolnib  planeBits, topPixel, #COLOR_BIT_3
+                    wrbyte  planeBits, pPlaneByte
+                    sub     pPlaneByte, frameBytes
+                    getnib  planeBits, bottomPixel, #COLOR_BIT_4
+                    rolnib  planeBits, topPixel, #COLOR_BIT_4
+                    wrbyte  planeBits, pPlaneByte
+                    sub     pPlaneByte, frameBytes
+                    getnib  planeBits, bottomPixel, #COLOR_BIT_5
+                    rolnib  planeBits, topPixel, #COLOR_BIT_5
+                    wrbyte  planeBits, pPlaneByte
+                    sub     pPlaneByte, frameBytes
+                    getnib  planeBits, bottomPixel, #COLOR_BIT_6
+                    rolnib  planeBits, topPixel, #COLOR_BIT_6
+                    wrbyte  planeBits, pPlaneByte
+                    sub     pPlaneByte, frameBytes                  ' plane 0: the most significant bit
+                    getnib  planeBits, bottomPixel, #COLOR_BIT_7
+                    rolnib  planeBits, topPixel, #COLOR_BIT_7
+                    wrbyte  planeBits, pPlaneByte
+                    ' next column: next pixel of this slot, next byte along the line
+                    add     pPlaneByte, columnStep
+                    add     pTopPixel, pixelBytes
+                    add     pBottomPixel, pixelBytes
+                    djnz    columnCtr, #nextPairColumn
+                    ' the same row of the next slot, and that slot's line
+                    add     pPlaneByte, slotGapBytes
+                    add     pTopPixel, panelSkipBytes
+                    add     pBottomPixel, panelSkipBytes
+                    djnz    panelCtr, #nextPairPanel
+                    ' the next top-half row, until the top half is done
+                    add     pLineStart, rowStepBytes
+                    add     pRowStart, rowBytes
+                    cmp     pRowStart, pRowsEnd             wc
+        if_c        jmp     #nextPairRow
+    END
+
+#IFDEF HUB75_CORRUPT_CONVERTER
+  ' converter-test FAIL limb only (test_hub75_converter.spin2): one wrong bit, in the last byte
+  ' of the last plane, for both scans
+  BYTE[pFrameSet + planeCnt * frameBytes - hub75Bffrs.BYTES_PER_COLUMN_CLOCK] ^= RGB2_BLUE_BIT
+#ENDIF
+
+PRI channelOrder(bSwapRB, bSwapGB) : swapOrder
+' Return the MOVBYTS byte order that puts a pixel's channel bytes where the panel's R, G and B
+' pins take them (bytes 0, 1, 2), leaving byte 3 in place. With both swaps set, the red/blue
+' swap is applied first and the green/blue swap to its result.
+'
+' @param bSwapRB - TRUE to swap red and blue channels
+' @param bSwapGB - TRUE to swap green and blue channels
+' @returns swapOrder - one of CHANNELS_AS_IS, CHANNELS_SWAP_RB, CHANNELS_SWAP_GB, CHANNELS_SWAP_RB_THEN_GB
+
+  swapOrder := CHANNELS_AS_IS
+  if bSwapRB <> FALSE and bSwapGB <> FALSE
+    swapOrder := CHANNELS_SWAP_RB_THEN_GB
+  elseif bSwapRB <> FALSE
+    swapOrder := CHANNELS_SWAP_RB
+  elseif bSwapGB <> FALSE
+    swapOrder := CHANNELS_SWAP_GB
 
 PRI waitPostedSetTaken()
 ' Wait until the refresh driver has taken the frame set posted last, that is, until the set it

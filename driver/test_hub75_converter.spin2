@@ -1,0 +1,1025 @@
+'' =================================================================================================
+''
+''   File....... test_hub75_converter.spin2
+''   Purpose.... Converter equivalence test: runs the screen-to-PWM converters on buffers of its own and compares their frame sets byte for byte
+''   Authors.... Stephen M Moraco
+''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
+''   Started.... Oct 2026
+''   Updated.... 04 Oct 2026
+''
+'' =================================================================================================
+
+{ Description:
+
+   Runs on the P2 with no panels attached: it never starts the panel driver, so no cog starts and
+   no pin is driven, and it needs no edit to isp_hub75_hwPanelConfig.spin2. It fills a screen
+   buffer of its own with a fixed pseudo-random image, runs a converter into one frame set and a
+   reference into another, and compares the two byte for byte. It prints one PASS or FAIL line
+   per case (with the count of differing bytes, and of bytes written outside the frame set), the
+   first difference of a failing case, a total, a verdict line, then END_SESSION.
+
+   The converters under test are the ones the driver runs, the MERGEB converters
+   isp_hub75_panel.convertHalfScan() and convertQuarterScan(). The references are the converters
+   they replaced, copied below unchanged (referenceHalfScan(), referenceQuarterScan()) and
+   called with the same geometry, depth and swaps.
+
+   Groups, each run for the half-scan geometries and then the quarter-scan ones:
+     1 - every geometry, at depths 3-8, with no swap, RB swap, GB swap and both swaps: new
+         against old; with both swaps, new against the expected set built by hand-written Spin2
+         (buildExpected()), because the old converters are wrong there (they map red to no pin
+         and both red and green to the blue pin)
+     2 - the expected-set builder against the old converter, at depth 8 with no swap, RB swap and
+         GB swap, where the old converters are right: this checks the builder group 1 trusts for
+         the both-swap cases
+
+   Geometries (panels x columns x rows): half-scan 1x128x64, 4x64x32, 9x32x16, 10x32x16,
+   16x32x16; quarter-scan (1/8 scan, chip flag SCAN_4) 1x64x32, 2x64x32, 3x64x32.
+
+   FAIL limb: defining HUB75_CORRUPT_CONVERTER (the two lines below) makes both new converters
+   write one wrong bit, in the last byte of their last plane; every group 1 case must then FAIL.
+}
+
+' FAIL-limb switch: remove the leading ' from both lines to corrupt the new converter's output
+'#DEFINE HUB75_CORRUPT_CONVERTER
+'#PRAGMA EXPORTDEF HUB75_CORRUPT_CONVERTER
+
+CON ' timing
+
+    CLK_FREQ = 335_000_000                                        ' system freq as a constant
+    _clkfreq = CLK_FREQ                                           ' set system clock
+
+CON ' DEBUG PINs
+
+    DEBUG_COGS = %11111111
+    DEBUG_BAUD = 2_000_000
+
+CON ' test buffers
+
+    BYTES_PER_LONG          = 4
+
+    ' red, green, blue at +0, +1, +2: the screen-buffer pixel both converters read
+    PIXEL_BYTES             = 3
+
+    ' the largest geometry in the tables below (1x128x64, 4x64x32, 16x32x16)
+    MAX_CASE_PIXELS         = 8192
+
+    ' the converters RDLONG each pixel, so the last pixel's read runs past it
+    RDLONG_OVERRUN_BYTES    = 4
+    SCREEN_LONGS            = (MAX_CASE_PIXELS * PIXEL_BYTES + RDLONG_OVERRUN_BYTES) / BYTES_PER_LONG
+
+    ' one frame holds one byte per column clock, and each byte carries two pixels
+    MAX_FRAME_BYTES         = MAX_CASE_PIXELS / panel.HALF_DIVISOR * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
+    MAX_SET_BYTES           = MAX_FRAME_BYTES * hwEnum.DEPTH_8BIT
+
+    ' bytes checked on each side of the frame set under test for stray writes
+    GUARD_BYTES             = 64
+
+    ' fill values: neither can be a plane byte, which uses bits 0-5 only
+    REF_FILL                = $A5
+    NEW_FILL                = $5A
+
+    ' compareSets() first-difference result when the sets match
+    NO_DIFFERENCE           = -1
+
+CON ' case records
+
+    ' a geometry (one row of a geometry table):
+    '  GEO_SCAN    - SCAN_HALF or SCAN_QUARTER: which converter pair runs
+    '  GEO_PANELS  - panels on the adapter (buffer slots)
+    '  GEO_COLUMNS - pixel columns per panel
+    '  GEO_ROWS    - pixel rows per panel
+    #0, GEO_SCAN, GEO_PANELS, GEO_COLUMNS, GEO_ROWS, GEO_LONGS
+
+    ' scan kinds:
+    '  SCAN_HALF    - two rows lit at once (convertHalfScan)
+    '  SCAN_QUARTER - four rows lit at once (convertQuarterScan)
+    #0, SCAN_HALF, SCAN_QUARTER
+
+    ' channel swaps:
+    '  SWAP_NONE - no swap
+    '  SWAP_RB   - red/blue swap
+    '  SWAP_GB   - green/blue swap
+    '  SWAP_BOTH - both swaps (red/blue applied first)
+    #0, SWAP_NONE, SWAP_RB, SWAP_GB, SWAP_BOTH
+
+    ' pins per half of a plane byte (R, G, B)
+    PINS_PER_HALF           = 3
+
+    ' frame-set sources:
+    '  SRC_OLD      - the replaced converter (referenceHalfScan, referenceQuarterScan)
+    '  SRC_NEW      - the driver's converter (panel.convertHalfScan, panel.convertQuarterScan)
+    '  SRC_EXPECTED - the hand-written Spin2 builder (buildExpected)
+    #0, SRC_OLD, SRC_NEW, SRC_EXPECTED
+
+    ' the 1/8-scan line map: the second line of a row address's pair
+    SECOND_LINE             = 1
+
+    ' the old quarter-scan set-up: three quarters of the panel rows
+    QUARTERS_IN_THREE_QUARTERS = 3
+
+CON ' pseudo-random image (xorshift32)
+
+    RANDOM_SEED             = $2545_F491
+    XORSHIFT_LEFT_FIRST     = 13
+    XORSHIFT_RIGHT          = 17
+    XORSHIFT_LEFT_SECOND    = 5
+
+OBJ
+
+    panel       : "isp_hub75_panel"
+    hub75Bffrs  : "isp_hub75_hwBufferAccess"
+    hwEnum      : "isp_hub75_hwEnums"
+
+DAT ' ---- geometries ----
+
+' scan, panels, columns per panel, rows per panel
+halfScanGeometries
+    LONG    SCAN_HALF,   1, 128, 64                               ' one panel, the rig's panel width
+    LONG    SCAN_HALF,   4,  64, 32
+    LONG    SCAN_HALF,   9,  32, 16
+    LONG    SCAN_HALF,  10,  32, 16
+    LONG    SCAN_HALF,  16,  32, 16                               ' the converter limit (hub75Bffrs.CONVERTER_MAX_PANELS)
+halfScanGeometriesEnd
+
+quarterScanGeometries
+    LONG    SCAN_QUARTER, 1, 64, 32                               ' the 64x32 1/8-scan panel (MBI5124GP, DP5125D)
+    LONG    SCAN_QUARTER, 2, 64, 32
+    LONG    SCAN_QUARTER, 3, 64, 32
+quarterScanGeometriesEnd
+
+DAT ' ---- the hand-built channel map ----
+
+' source byte of the R, G and B pins, per swap mode (worked by hand from the swap definitions)
+pinSources
+    BYTE    panel.RED_BYTE_IDX,   panel.GREEN_BYTE_IDX, panel.BLUE_BYTE_IDX       ' SWAP_NONE
+    BYTE    panel.BLUE_BYTE_IDX,  panel.GREEN_BYTE_IDX, panel.RED_BYTE_IDX        ' SWAP_RB: R pin blue, B pin red
+    BYTE    panel.RED_BYTE_IDX,   panel.BLUE_BYTE_IDX,  panel.GREEN_BYTE_IDX      ' SWAP_GB: G pin blue, B pin green
+    BYTE    panel.BLUE_BYTE_IDX,  panel.RED_BYTE_IDX,   panel.GREEN_BYTE_IDX      ' SWAP_BOTH: RB, then GB on its result
+
+' plane-byte bit of the R, G and B pins, for the top-half pixel (RGB1) and the bottom-half one (RGB2)
+topPinBits
+    BYTE    panel.RGB1_RED_BIT, panel.RGB1_GREEN_BIT, panel.RGB1_BLUE_BIT
+bottomPinBits
+    BYTE    panel.RGB2_RED_BIT, panel.RGB2_GREEN_BIT, panel.RGB2_BLUE_BIT
+
+DAT ' ---- buffers ----
+
+' guardBefore must sit directly before newFrameSet: one fill and one check span both
+screenBuffer    LONG    0[SCREEN_LONGS]                           ' the image every case converts
+refFrameSet     BYTE    0[MAX_SET_BYTES]                          ' the reference's frame set
+guardBefore     BYTE    0[GUARD_BYTES]                            ' must stay NEW_FILL: just before the set under test
+newFrameSet     BYTE    0[MAX_SET_BYTES + GUARD_BYTES]            ' the frame set under test, then room for its guard
+
+VAR
+
+    LONG    caseCount                                             ' cases run so far
+    LONG    passCount                                             ' cases that passed
+    LONG    failCount                                             ' cases that failed
+    LONG    randomState                                           ' xorshift32 state
+
+PUB main()
+'' Fill the image, run every case, print one PASS or FAIL line per case, then the total, the
+'' verdict and END_SESSION, then hold.
+''
+
+  debug("CONVERTER TEST: screen-to-PWM converters, new against reference, byte for byte")
+#IFDEF HUB75_CORRUPT_CONVERTER
+  debug("CONVERTER TEST: HUB75_CORRUPT_CONVERTER is defined: the new converters write one wrong bit, so every group 1 case must FAIL")
+#ENDIF
+  caseCount := passCount := failCount := 0
+  fillScreenBuffer()
+
+  debug("CONVERTER TEST: group 1, half-scan: new against old (against the expected set with both swaps)")
+  runEquivalenceCases(@halfScanGeometries, @halfScanGeometriesEnd)
+  debug("CONVERTER TEST: group 1, quarter-scan: new against old (against the expected set with both swaps)")
+  runEquivalenceCases(@quarterScanGeometries, @quarterScanGeometriesEnd)
+  debug("CONVERTER TEST: group 2, half-scan: the expected-set builder against old")
+  runBuilderChecks(@halfScanGeometries, @halfScanGeometriesEnd)
+  debug("CONVERTER TEST: group 2, quarter-scan: the expected-set builder against old")
+  runBuilderChecks(@quarterScanGeometries, @quarterScanGeometriesEnd)
+
+  debug("CONVERTER TEST: ", udec_(caseCount), " cases, ", udec_(passCount), " PASS, ", udec_(failCount), " FAIL")
+  if failCount == 0 and caseCount > 0
+    debug("CONVERTER TEST VERDICT: PASS")
+  else
+    debug("CONVERTER TEST VERDICT: FAIL")
+  debug("END_SESSION")
+
+  repeat                                                        ' hold
+
+PRI runEquivalenceCases(pFirst, pEnd) | pGeometry, planeCnt, swapMode, eReference
+' Group 1: run the new converter on each geometry at every depth and swap, against the old
+' converter, or against the hand-built expected set when both swaps are set.
+'
+' @param pFirst - address of the first geometry
+' @param pEnd - address just past the last geometry
+
+' Local Variables:
+' @local pGeometry - address of the geometry being run
+' @local planeCnt - colour depth of the case (bit planes)
+' @local swapMode - channel swaps of the case
+' @local eReference - the frame-set source the new converter is compared with
+
+  pGeometry := pFirst
+  repeat while pGeometry < pEnd
+    repeat planeCnt from hwEnum.DEPTH_3BIT to hwEnum.DEPTH_8BIT
+      repeat swapMode from SWAP_NONE to SWAP_BOTH
+        if swapMode == SWAP_BOTH
+          eReference := SRC_EXPECTED                            ' the old converter is wrong with both swaps
+        else
+          eReference := SRC_OLD
+        runCase(pGeometry, planeCnt, swapMode, SRC_NEW, eReference)
+    pGeometry += GEO_LONGS * BYTES_PER_LONG
+
+PRI runBuilderChecks(pFirst, pEnd) | pGeometry, swapMode
+' Group 2: run the expected-set builder on each geometry at depth 8, with each single swap and
+' none, against the old converter.
+'
+' @param pFirst - address of the first geometry
+' @param pEnd - address just past the last geometry
+
+' Local Variables:
+' @local pGeometry - address of the geometry being run
+' @local swapMode - channel swaps of the case
+
+  pGeometry := pFirst
+  repeat while pGeometry < pEnd
+    repeat swapMode from SWAP_NONE to SWAP_GB
+      runCase(pGeometry, hwEnum.DEPTH_8BIT, swapMode, SRC_EXPECTED, SRC_OLD)
+    pGeometry += GEO_LONGS * BYTES_PER_LONG
+
+PRI runCase(pGeometry, planeCnt, swapMode, eTested, eReference) | frameBytes, setBytes, diffCount, outsideCount, firstDiff, bPass
+' Run one case: the reference into refFrameSet, the source under test into newFrameSet, then
+' compare them byte for byte and check the guard bytes; print the case line and count it.
+'
+' @param pGeometry - address of the case's geometry
+' @param planeCnt - colour depth of the case (bit planes)
+' @param swapMode - channel swaps of the case
+' @param eTested - the frame-set source under test
+' @param eReference - the frame-set source it is compared with
+
+' Local Variables:
+' @local frameBytes - bytes in one frame (bit plane) of this geometry
+' @local setBytes - bytes in the frame set of this case
+' @local diffCount - bytes of the set that differ
+' @local outsideCount - guard bytes the source under test changed
+' @local firstDiff - offset in the set of the first differing byte, or NO_DIFFERENCE
+' @local bPass - TRUE when the case passed
+
+  caseCount++
+  frameBytes := frameBytesOf(pGeometry)
+  setBytes := frameBytes * planeCnt
+  diffCount := outsideCount := 0
+  firstDiff := NO_DIFFERENCE
+  if pixelsOf(pGeometry) > MAX_CASE_PIXELS
+    bPass := FALSE
+    debug("FAIL #", udec_(caseCount), ": geometry larger than the test buffers (MAX_CASE_PIXELS); not run")
+  else
+    bytefill(@refFrameSet, REF_FILL, MAX_SET_BYTES)
+    bytefill(@guardBefore, NEW_FILL, GUARD_BYTES + MAX_SET_BYTES + GUARD_BYTES)
+    convertWith(eReference, pGeometry, planeCnt, swapMode, @refFrameSet)
+    convertWith(eTested, pGeometry, planeCnt, swapMode, @newFrameSet)
+    diffCount, firstDiff := compareSets(setBytes)
+    outsideCount := countOutside(setBytes)
+    bPass := diffCount == 0 and outsideCount == 0
+    printCase(pGeometry, planeCnt, swapMode, eTested, eReference, bPass, diffCount, outsideCount)
+    if firstDiff <> NO_DIFFERENCE
+      printFirstDifference(firstDiff, frameBytes, eTested, eReference)
+  if bPass
+    passCount++
+  else
+    failCount++
+
+PRI convertWith(eSource, pGeometry, planeCnt, swapMode, pFrameSet) | bSwapRB, bSwapGB, panelCnt, panelCols, panelRows
+' Write one case's frame set from the test image, with the given source.
+'
+' @param eSource - the frame-set source to run (SRC_OLD, SRC_NEW or SRC_EXPECTED)
+' @param pGeometry - address of the case's geometry
+' @param planeCnt - colour depth of the case (bit planes)
+' @param swapMode - channel swaps of the case
+' @param pFrameSet - hub address of the frame set to write
+
+' Local Variables:
+' @local bSwapRB - TRUE to swap red and blue channels
+' @local bSwapGB - TRUE to swap green and blue channels
+' @local panelCnt - panels on the adapter (buffer slots)
+' @local panelCols - pixel columns per panel
+' @local panelRows - pixel rows per panel
+
+  bSwapRB, bSwapGB := swapFlags(swapMode)
+  panelCnt := LONG[pGeometry][GEO_PANELS]
+  panelCols := LONG[pGeometry][GEO_COLUMNS]
+  panelRows := LONG[pGeometry][GEO_ROWS]
+  case LONG[pGeometry][GEO_SCAN]
+    SCAN_HALF:
+      case eSource
+        SRC_OLD:
+          referenceHalfScan(@screenBuffer, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, PIXEL_BYTES, bSwapRB, bSwapGB)
+        SRC_NEW:
+          panel.convertHalfScan(@screenBuffer, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, PIXEL_BYTES, bSwapRB, bSwapGB)
+        SRC_EXPECTED:
+          buildExpected(@screenBuffer, pFrameSet, SCAN_HALF, panelCnt, panelCols, panelRows, planeCnt, swapMode)
+    SCAN_QUARTER:
+      case eSource
+        SRC_OLD:
+          referenceQuarterScan(@screenBuffer, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, PIXEL_BYTES, bSwapRB, bSwapGB)
+        SRC_NEW:
+          panel.convertQuarterScan(@screenBuffer, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, PIXEL_BYTES, bSwapRB, bSwapGB)
+        SRC_EXPECTED:
+          buildExpected(@screenBuffer, pFrameSet, SCAN_QUARTER, panelCnt, panelCols, panelRows, planeCnt, swapMode)
+    ' any scan kind not handled writes nothing, so its case fails
+
+PRI compareSets(setBytes) : diffCount, firstDiff | offset
+' Compare the frame set under test with the reference set, byte for byte.
+'
+' @param setBytes - bytes in the frame set of this case
+' @returns diffCount - bytes that differ
+' @returns firstDiff - offset of the first differing byte, or NO_DIFFERENCE
+
+' Local Variables:
+' @local offset - offset of the byte being compared
+
+  diffCount := 0
+  firstDiff := NO_DIFFERENCE
+  repeat offset from 0 to setBytes - 1
+    if newFrameSet[offset] <> refFrameSet[offset]
+      if diffCount == 0
+        firstDiff := offset
+      diffCount++
+
+PRI countOutside(setBytes) : outsideCount | offset
+' Count the guard bytes on each side of the frame set under test that are no longer NEW_FILL.
+'
+' @param setBytes - bytes in the frame set of this case
+' @returns outsideCount - guard bytes changed
+
+' Local Variables:
+' @local offset - offset of the guard byte being checked
+
+  outsideCount := 0
+  repeat offset from 0 to GUARD_BYTES - 1
+    if guardBefore[offset] <> NEW_FILL
+      outsideCount++
+    if newFrameSet[setBytes + offset] <> NEW_FILL
+      outsideCount++
+
+PRI printCase(pGeometry, planeCnt, swapMode, eTested, eReference, bPass, diffCount, outsideCount) | pVerdict, pScan, pSwap, pTested, pReference
+' Print one case line: verdict, case number, geometry, depth, swaps, sources and counts.
+'
+' @param pGeometry - address of the case's geometry
+' @param planeCnt - colour depth of the case (bit planes)
+' @param swapMode - channel swaps of the case
+' @param eTested - the frame-set source under test
+' @param eReference - the frame-set source it is compared with
+' @param bPass - TRUE when the case passed
+' @param diffCount - bytes of the set that differ
+' @param outsideCount - guard bytes the source under test changed
+
+' Local Variables:
+' @local pVerdict - "PASS" or "FAIL"
+' @local pScan - name of the scan kind
+' @local pSwap - name of the swaps
+' @local pTested - name of the source under test
+' @local pReference - name of the reference source
+
+  pVerdict := @"FAIL"
+  if bPass
+    pVerdict := @"PASS"
+  pScan := scanText(LONG[pGeometry][GEO_SCAN])
+  pSwap := swapText(swapMode)
+  pTested := sourceText(eTested)
+  pReference := sourceText(eReference)
+  debug(zstr_(pVerdict), " #", udec_(caseCount), " ", zstr_(pScan), " ", udec_(LONG[pGeometry][GEO_PANELS]), "x", udec_(LONG[pGeometry][GEO_COLUMNS]), "x", udec_(LONG[pGeometry][GEO_ROWS]), " depth ", udec_(planeCnt), " swap ", zstr_(pSwap), ": ", zstr_(pTested), " vs ", zstr_(pReference), ": ", udec_(diffCount), " bytes differ, ", udec_(outsideCount), " written outside")
+
+PRI printFirstDifference(firstDiff, frameBytes, eTested, eReference) | pTested, pReference
+' Print where a failing case first differs: plane, byte within the plane, and both values.
+'
+' @param firstDiff - offset in the set of the first differing byte
+' @param frameBytes - bytes in one frame (bit plane) of this geometry
+' @param eTested - the frame-set source under test
+' @param eReference - the frame-set source it is compared with
+
+' Local Variables:
+' @local pTested - name of the source under test
+' @local pReference - name of the reference source
+
+  pTested := sourceText(eTested)
+  pReference := sourceText(eReference)
+  debug("     first difference: plane ", udec_(firstDiff / frameBytes), " byte ", udec_(firstDiff // frameBytes), ": ", zstr_(pTested), " ", uhex_byte_(newFrameSet[firstDiff]), ", ", zstr_(pReference), " ", uhex_byte_(refFrameSet[firstDiff]))
+
+PRI buildExpected(pScreen, pFrameSet, eScan, panelCnt, panelCols, panelRows, planeCnt, swapMode) | frameBytes, halfRows, rowBytes, byteIdx, scanRow, slot, pTop, pBottom, plane, bitMask, planeByte, pinIdx, srcIdx
+' Build the expected frame set by hand-written Spin2, one plane byte at a time, from the
+' hand-built channel map (pinSources), pin bits (topPinBits, bottomPinBits) and line map
+' (lineOffsetOf()). It shares no code with any converter.
+'
+' @param pScreen - pointer to the test image
+' @param pFrameSet - hub address of the frame set to write
+' @param eScan - SCAN_HALF or SCAN_QUARTER
+' @param panelCnt - panels on the adapter (buffer slots)
+' @param panelCols - pixel columns per panel
+' @param panelRows - pixel rows per panel
+' @param planeCnt - colour depth of the case (bit planes)
+' @param swapMode - channel swaps of the case
+
+' Local Variables:
+' @local frameBytes - bytes in one frame (bit plane)
+' @local halfRows - rows in the top half of a panel (the scan rows)
+' @local rowBytes - bytes in one row of one panel in the image
+' @local byteIdx - offset of the column-clock byte within a frame
+' @local scanRow - top-half row being built (paired with the row half a panel below)
+' @local slot - buffer slot (panel along the cable) being built
+' @local pTop - image address of the top-half pixel
+' @local pBottom - image address of the bottom-half pixel
+' @local plane - bit plane being built (0 = most significant colour bit)
+' @local bitMask - the colour bit of this plane, as a mask
+' @local planeByte - the plane byte being built
+' @local pinIdx - pin being built (R, G, B)
+' @local srcIdx - channel byte the pin shows
+
+  halfRows := panelRows / panel.HALF_DIVISOR
+  frameBytes := halfRows * panelCnt * panelCols * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
+  rowBytes := panelCols * PIXEL_BYTES
+  repeat scanRow from 0 to halfRows - 1
+    repeat slot from 0 to panelCnt - 1
+      pTop := pScreen + ((slot * panelRows) + scanRow) * rowBytes
+      pBottom := pTop + halfRows * rowBytes
+      byteIdx := lineOffsetOf(eScan, scanRow, slot, panelCnt, panelCols, panelRows)
+      repeat panelCols
+        repeat plane from 0 to planeCnt - 1
+          bitMask := DECOD (panel.MSBIT_OF_BYTE - plane)
+          planeByte := 0
+          repeat pinIdx from 0 to PINS_PER_HALF - 1
+            srcIdx := BYTE[@pinSources][swapMode * PINS_PER_HALF + pinIdx]
+            if (BYTE[pTop][srcIdx] & bitMask) <> 0
+              planeByte |= BYTE[@topPinBits][pinIdx]
+            if (BYTE[pBottom][srcIdx] & bitMask) <> 0
+              planeByte |= BYTE[@bottomPinBits][pinIdx]
+          BYTE[pFrameSet][plane * frameBytes + byteIdx] := planeByte
+        pTop += PIXEL_BYTES
+        pBottom += PIXEL_BYTES
+        byteIdx += hub75Bffrs.BYTES_PER_COLUMN_CLOCK
+
+PRI lineOffsetOf(eScan, scanRow, slot, panelCnt, panelCols, panelRows) : byteIdx | quarterRows, lineIdx
+' Return where in a frame one slot's line of a top-half row starts.
+'  half-scan:    the rows follow one another, each row's line slot 0 first
+'  quarter-scan: each row address holds two lines of every slot, slot 0 first; rows 0 .. q-1
+'                (q = a quarter of the panel rows) are lines 1, 3, 5, ... and rows q .. 2q-1
+'                are lines 0, 2, 4, ... (the old 1/8-scan converter's line map)
+'
+' @param eScan - SCAN_HALF or SCAN_QUARTER
+' @param scanRow - top-half row
+' @param slot - buffer slot (panel along the cable)
+' @param panelCnt - panels on the adapter (buffer slots)
+' @param panelCols - pixel columns per panel
+' @param panelRows - pixel rows per panel
+' @returns byteIdx - offset in the frame of the line's first column-clock byte
+
+' Local Variables:
+' @local quarterRows - a quarter of the panel rows
+' @local lineIdx - the row's line (quarter-scan)
+
+  byteIdx := 0
+  case eScan
+    SCAN_HALF:
+      byteIdx := ((scanRow * panelCnt) + slot) * panelCols * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
+    SCAN_QUARTER:
+      quarterRows := panelRows / panel.QUARTER_DIVISOR
+      if scanRow < quarterRows
+        lineIdx := scanRow * hub75Bffrs.SCAN_4_COLUMN_FACTOR + SECOND_LINE
+      else
+        lineIdx := (scanRow - quarterRows) * hub75Bffrs.SCAN_4_COLUMN_FACTOR
+      byteIdx := ((((lineIdx / hub75Bffrs.SCAN_4_COLUMN_FACTOR) * panelCnt) + slot) * hub75Bffrs.SCAN_4_COLUMN_FACTOR + (lineIdx // hub75Bffrs.SCAN_4_COLUMN_FACTOR)) * panelCols * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
+
+PRI referenceHalfScan(p24bitScreen, pPwmFrameSet, lPanelCount, lPanelCols, lPanelRows, lMaxPwmBuffers, lDisplayBytesPerColor, bSwapRB, bSwapGB) | lHalfPanelRows, lPanelRowBytes, lHalfPanelBytes, lPanelSkipBytes, lPwmFrameSizeInBytes
+' The reference: the half-scan converter convertHalfScan() replaced (isp_hub75_panel.spin2
+' convertScreen2PWM() before task #98). The PASM is copied unchanged, except that its constants
+' are named through the panel object; the Spin2 set-up takes the geometry, depth and pixel size
+' as parameters in place of the panel object's instance variables, and it posts nothing.
+'
+' @param p24bitScreen - pointer to 24-bit screen buffer
+' @param pPwmFrameSet - hub address of the PWM frame set to write
+' @param lPanelCount - panels on this adapter (buffer slots)
+' @param lPanelCols - columns per panel
+' @param lPanelRows - rows per panel
+' @param lMaxPwmBuffers - number of PWM buffers (color depth)
+' @param lDisplayBytesPerColor - bytes per color in the display buffer
+' @param bSwapRB - TRUE to swap red and blue channels
+' @param bSwapGB - TRUE to swap green and blue channels
+
+' Local Variables:
+' @local lHalfPanelRows - half panel height for RGB1/RGB2 split
+' @local lPanelRowBytes - bytes in one row of one panel in the screen buffer
+' @local lHalfPanelBytes - bytes from a top-half (RGB1) row to its bottom-half (RGB2) row
+' @local lPanelSkipBytes - bytes from the end of a row in one slot to the same row in the next slot
+' @local lPwmFrameSizeInBytes - size of one PWM frame in bytes
+
+' NOTE: 16 longs total avail to inline pasm: params + return + local
+'  --> 14/16 used
+
+  lHalfPanelRows          := lPanelRows / panel.HALF_DIVISOR
+  lPanelRowBytes          := lPanelCols * lDisplayBytesPerColor
+  lHalfPanelBytes         := lHalfPanelRows * lPanelRowBytes
+  lPanelSkipBytes         := (lPanelRows - 1) * lPanelRowBytes
+  lPwmFrameSizeInBytes    := lHalfPanelRows * lPanelCount * lPanelCols * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
+
+    ORG
+                JMP         #start16s
+
+' Initialized values copied into PASM area
+redBitTopValue      LONG    panel.RGB1_RED_BIT
+greenBitTopValue    LONG    panel.RGB1_GREEN_BIT
+blueBitTopValue     LONG    panel.RGB1_BLUE_BIT
+redBitBotValue      LONG    panel.RGB2_RED_BIT
+greenBitBotValue    LONG    panel.RGB2_GREEN_BIT
+blueBitBotValue     LONG    panel.RGB2_BLUE_BIT
+redPwmBitsTop       LONG    0
+greenPwmBitsTop     LONG    0
+bluePwmBitsTop      LONG    0
+redPwmBitsBot       LONG    0
+greenPwmBitsBot     LONG    0
+bluePwmBitsBot      LONG    0
+pPwmFrameByt        LONG    0
+pTopPixelAddr       LONG    0
+pBotPixelAddr       LONG    0
+colorValue24bit     LONG    0
+bitCount            LONG    0
+currMaskBitIdx      LONG    0
+currPwmBffrIdx      LONG    0
+panelBGR            LONG    0
+pwmByteIndex        LONG    0
+' Loop control
+scanRowCtr          LONG    0
+scanRow             LONG    0
+panelCtr            LONG    0
+localColCtr         LONG    0
+
+start16s
+                    ' Initialize color bit values
+                    mov     redBitTopValue, #panel.RGB1_RED_BIT
+                    mov     greenBitTopValue, #panel.RGB1_GREEN_BIT
+                    mov     blueBitTopValue, #panel.RGB1_BLUE_BIT
+                    mov     redBitBotValue, #panel.RGB2_RED_BIT
+                    mov     greenBitBotValue, #panel.RGB2_GREEN_BIT
+                    mov     blueBitBotValue, #panel.RGB2_BLUE_BIT
+                    ' Setup for red/blue swap if needed
+                    or      bSwapRB, bSwapRB   wz
+    if_nz           mov     redBitTopValue, #panel.RGB1_BLUE_BIT
+    if_nz           mov     blueBitTopValue, #panel.RGB1_RED_BIT
+    if_nz           mov     redBitBotValue, #panel.RGB2_BLUE_BIT
+    if_nz           mov     blueBitBotValue, #panel.RGB2_RED_BIT
+                    ' Setup for green/blue swap if needed
+                    or      bSwapGB, bSwapGB   wz
+    if_nz           mov     greenBitTopValue, #panel.RGB1_BLUE_BIT
+    if_nz           mov     blueBitTopValue, #panel.RGB1_GREEN_BIT
+    if_nz           mov     greenBitBotValue, #panel.RGB2_BLUE_BIT
+    if_nz           mov     blueBitBotValue, #panel.RGB2_GREEN_BIT
+
+                    ' Initialize PWM byte index
+                    xor     pwmByteIndex, pwmByteIndex
+                    ' Outer loop: scan rows 0 to halfPanelRows-1 (e.g., 0-31)
+                    xor     scanRow, scanRow
+                    mov     scanRowCtr, lHalfPanelRows
+nextScanRow
+                    ' this scan row in slot 0: top pixel (RGB1) and bottom pixel (RGB2)
+                    ' pTopPixelAddr = p24bitScreen + scanRow * panelRowBytes
+                    ' pBotPixelAddr = pTopPixelAddr + halfPanelRows * panelRowBytes
+                    mov     pTopPixelAddr, scanRow
+                    mul     pTopPixelAddr, lPanelRowBytes
+                    add     pTopPixelAddr, p24bitScreen
+                    mov     pBotPixelAddr, pTopPixelAddr
+                    add     pBotPixelAddr, lHalfPanelBytes
+                    ' Middle loop: slots 0 to panelCount-1, in cable order (slot 0 first)
+                    mov     panelCtr, lPanelCount
+nextPanel
+                    ' Inner loop: columns 0 to panelCols-1 of this slot (e.g., 0-127)
+                    mov     localColCtr, lPanelCols
+nextLocalCol
+                    ' Load top pixel color (RGB1)
+                    rdlong  colorValue24bit, pTopPixelAddr
+                    getbyte redPwmBitsTop, colorValue24bit, #panel.RED_BYTE_IDX
+                    getbyte greenPwmBitsTop, colorValue24bit, #panel.GREEN_BYTE_IDX
+                    getbyte bluePwmBitsTop, colorValue24bit, #panel.BLUE_BYTE_IDX
+
+                    ' Load bottom pixel color (RGB2)
+                    rdlong  colorValue24bit, pBotPixelAddr
+                    getbyte redPwmBitsBot, colorValue24bit, #panel.RED_BYTE_IDX
+                    getbyte greenPwmBitsBot, colorValue24bit, #panel.GREEN_BYTE_IDX
+                    getbyte bluePwmBitsBot, colorValue24bit, #panel.BLUE_BYTE_IDX
+
+                    ' Write to PWM buffers for each bit plane
+                    xor     currPwmBffrIdx, currPwmBffrIdx
+                    mov     bitCount, lMaxPwmBuffers
+                    mov     currMaskBitIdx, #panel.MSBIT_OF_BYTE
+nextBit
+                    ' Calculate PWM frame byte address
+                    mov     pPwmFrameByt, currPwmBffrIdx
+                    mul     pPwmFrameByt, lPwmFrameSizeInBytes
+                    add     pPwmFrameByt, pPwmFrameSet
+                    add     pPwmFrameByt, pwmByteIndex
+
+                    ' Build RGB1 and RGB2 bits
+                    xor     panelBGR, panelBGR
+                    testb   redPwmBitsTop, currMaskBitIdx     wc
+        if_c        or      panelBGR, redBitTopValue
+                    testb   greenPwmBitsTop, currMaskBitIdx   wc
+        if_c        or      panelBGR, greenBitTopValue
+                    testb   bluePwmBitsTop, currMaskBitIdx    wc
+        if_c        or      panelBGR, blueBitTopValue
+                    testb   redPwmBitsBot, currMaskBitIdx     wc
+        if_c        or      panelBGR, redBitBotValue
+                    testb   greenPwmBitsBot, currMaskBitIdx   wc
+        if_c        or      panelBGR, greenBitBotValue
+                    testb   bluePwmBitsBot, currMaskBitIdx    wc
+        if_c        or      panelBGR, blueBitBotValue
+
+                    ' Write PWM byte
+                    wrbyte  panelBGR, pPwmFrameByt
+                    ' Next bit plane
+                    add     currPwmBffrIdx, #1
+                    sub     currMaskBitIdx, #1
+                    djnz    bitCount, #nextBit
+
+                    ' Advance to next column: next pixel of this slot, next PWM byte along the cable
+                    add     pTopPixelAddr, lDisplayBytesPerColor
+                    add     pBotPixelAddr, lDisplayBytesPerColor
+                    add     pwmByteIndex, #1
+                    djnz    localColCtr, #nextLocalCol
+
+                    ' Advance to the same scan row of the next slot
+                    add     pTopPixelAddr, lPanelSkipBytes
+                    add     pBotPixelAddr, lPanelSkipBytes
+                    djnz    panelCtr, #nextPanel
+
+                    ' Advance to next scan row
+                    add     scanRow, #1
+                    djnz    scanRowCtr, #nextScanRow
+done16s
+    END
+
+PRI referenceQuarterScan(p24bitScreen, pPwmFrameSet, lPanelCount, lPanelCols, lPhyRows, lMaxPwmBuffers, lDisplayBytesPerColor, bSwapRB, bSwapGB) | pPwmFrame, lOne4thLineCt, lOneHalfLineCt, lThree4thsLineCt, lPanelSkipBytes, lPwmAddrRowBytes, lPwmFrameSizeInBytes
+' The reference: the quarter-scan converter convertQuarterScan() replaced (isp_hub75_panel.spin2
+' convertScreen2PWM_14() before task #98). The PASM is copied unchanged, except that its
+' constants are named through the panel object; the Spin2 set-up takes the geometry, depth and
+' pixel size as parameters in place of the panel object's instance variables, and it posts
+' nothing.
+'
+' @param p24bitScreen - pointer to 24-bit screen buffer
+' @param pPwmFrameSet - hub address of the PWM frame set to write
+' @param lPanelCount - panels on this adapter (buffer slots)
+' @param lPanelCols - pixel columns per panel
+' @param lPhyRows - pixel rows per panel
+' @param lMaxPwmBuffers - number of PWM buffers (color depth)
+' @param lDisplayBytesPerColor - bytes per color in the display buffer
+' @param bSwapRB - TRUE to swap red and blue channels
+' @param bSwapGB - TRUE to swap green and blue channels
+
+' Local Variables:
+' @local pPwmFrame - pointer to current PWM frame
+' @local lOne4thLineCt - one quarter of the panel row count
+' @local lOneHalfLineCt - one half of the panel row count
+' @local lThree4thsLineCt - three quarters of the panel row count
+' @local lPanelSkipBytes - bytes from the end of a row in one slot to the same row in the next slot
+' @local lPwmAddrRowBytes - PWM bytes the refresh core shifts per row address (two lines of every panel)
+' @local lPwmFrameSizeInBytes - size of one PWM frame in bytes
+
+' NOTE: 16 longs total avail to inline pasm: params + return + local
+'  --> 16/16 used
+
+  lOne4thLineCt           := lPhyRows / panel.QUARTER_DIVISOR
+  lOneHalfLineCt          := lPhyRows / panel.HALF_DIVISOR
+  lThree4thsLineCt        := (lPhyRows / panel.QUARTER_DIVISOR) * QUARTERS_IN_THREE_QUARTERS
+  lPanelSkipBytes         := (lPhyRows - 1) * lPanelCols * lDisplayBytesPerColor
+  lPwmAddrRowBytes        := hub75Bffrs.SCAN_4_COLUMN_FACTOR * lPanelCount * lPanelCols * hub75Bffrs.BYTES_PER_COLUMN_CLOCK ' as the refresh core sizes one row address
+  lPwmFrameSizeInBytes    := lOneHalfLineCt * lPanelCount * lPanelCols * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
+
+    ORG
+                JMP         #startS8
+
+' the following initialized values are simply copied into PASM area before routine is run
+nPhysLineIdx        LONG    0
+nPhysLineCtr        LONG    0
+nPanelCtr           LONG    0
+nColumnCtr          LONG    0
+nTargLineIdx        LONG    0
+nPwmRGB12ByteIdx    LONG    0
+bIsBottomHalf       LONG    0
+nRGBColorOfst       LONG    0
+maskQtrRowsModulus  LONG    0
+pRGBPixAddr         LONG    0
+redBitRGB1Value     LONG    panel.RGB1_RED_BIT
+greenBitRGB1Value   LONG    panel.RGB1_GREEN_BIT
+blueBitRGB1Value    LONG    panel.RGB1_BLUE_BIT
+redBitRGB2Value     LONG    panel.RGB2_RED_BIT
+greenBitRGB2Value   LONG    panel.RGB2_GREEN_BIT
+blueBitRGB2Value    LONG    panel.RGB2_BLUE_BIT
+maskOnlyRGB1bits    LONG    panel.MASK_RGB1
+maskOnlyRGB2bits    LONG    panel.MASK_RGB2
+maskRGB1nRGB2bits   LONG    panel.MASK_RGB12
+redPwmBits          LONG    0
+greenPwmBits        LONG    0
+bluePwmBits         LONG    0
+colorValue24bit     LONG    0
+pwmBitCtr           LONG    0
+currPwmBffrIdx      LONG    0
+currMaskBitIdx      LONG    0
+bitsBGR             LONG    0
+pPwmFrameByte       LONG    0
+currPwmBits         LONG    0
+allOnes             LONG    panel.ALL_ONES
+
+startS8
+                ' init variables
+                MOV         redBitRGB1Value, #panel.RGB1_RED_BIT
+                MOV         greenBitRGB1Value, #panel.RGB1_GREEN_BIT
+                MOV         blueBitRGB1Value, #panel.RGB1_BLUE_BIT
+                MOV         redBitRGB2Value, #panel.RGB2_RED_BIT
+                MOV         greenBitRGB2Value, #panel.RGB2_GREEN_BIT
+                MOV         blueBitRGB2Value, #panel.RGB2_BLUE_BIT
+                ' setup for red/blue flip if needed
+                OR          bSwapRB, bSwapRB                wz      ' T/F where: T=nz, F=z
+    ' T/nz = is Swapped
+    if_nz       MOV         redBitRGB1Value, #panel.RGB1_BLUE_BIT   ' red1 gets blue
+    if_nz       MOV         blueBitRGB1Value, #panel.RGB1_RED_BIT   ' blue1 gets red
+    if_nz       MOV         redBitRGB2Value, #panel.RGB2_BLUE_BIT   ' red2 gets blue
+    if_nz       MOV         blueBitRGB2Value, #panel.RGB2_RED_BIT   ' blue2 gets red
+                ' setup for blue/green flip if needed
+                OR          bSwapGB, bSwapGB                wz      ' T/F where: T=nz, F=z
+    ' T/nz = is Swapped
+    if_nz       MOV         greenBitRGB1Value, #panel.RGB1_BLUE_BIT ' green1 gets blue
+    if_nz       MOV         blueBitRGB1Value, #panel.RGB1_GREEN_BIT ' blue1 gets green
+    if_nz       MOV         greenBitRGB2Value, #panel.RGB2_BLUE_BIT ' green2 gets blue
+    if_nz       MOV         blueBitRGB2Value, #panel.RGB2_GREEN_BIT ' blue2 gets green
+for8SScreen
+                ' for all pixels of the screen buffer
+                'repeat nPhysLineIdx from 0 to screen.MAX_PHYSICAL_ROWS - 1             ' [0-31]
+                XOR         nPhysLineIdx, nPhysLineIdx
+                MOV         nPhysLineCtr, lPhyRows
+next8SLine
+                ' calc nPwmRGB12ByteIdx: offset into PWM buffer
+                MOV         nTargLineIdx, nPhysLineIdx              ' start with phys row number
+                '  if low-half rows of panelSet...
+                CMP         nPhysLineIdx, lOneHalfLineCt    wc
+    if_nc       JMP         #bottom8SRows
+top8SRows                                                           ' determine calcs to use for top half of panel - Rows [0-15]
+                ' if nPhysLineIdx < lOne4thLineCt...
+                CMP         nPhysLineIdx, lOne4thLineCt     wc
+    ' CY=1: nTargLineIdx := (nPhysLineIdx * 2) + 1 - rows  [0-7]
+    if_c        SHL         nTargLineIdx, #1                        ' mult by 2
+    if_c        ADD         nTargLineIdx, #1                        ' add 1
+    ' CY=0: nTargLineIdx := (nPhysLineIdx - lOne4thLineCt) * 2 - Rows [8-15]
+    if_nc       SUB         nTargLineIdx, lOne4thLineCt             ' subtract 8
+    if_nc       SHL         nTargLineIdx, #1                        ' mult by 2
+                JMP         #targ8SCalcsDone
+bottom8SRows                                                        ' determine calcs to use for bottom half of panel - Rows [16-31]
+                ' if nPhysLineIdx < lThree4thsLineCt
+                CMP         nPhysLineIdx, lThree4thsLineCt  wc
+    ' CY=1: nTargLineIdx := ((nPhysLineIdx - lOneHalfLineCt) * 2) + lOneHalfLineCt + 1 - Rows [16-23]
+    if_c        SUB         nTargLineIdx, lOneHalfLineCt            ' minus lOneHalfLineCt
+    if_c        SHL         nTargLineIdx, #1                        ' mult by 2
+    if_c        ADD         nTargLineIdx, lOneHalfLineCt            ' add lOneHalfLineCt
+    if_c        ADD         nTargLineIdx, #1                        ' add 1
+    ' CY=0: nTargLineIdx := ((nPhysLineIdx - lThree4thsLineCt) + lOneHalfLineCt) * 2 - Rows  [24-31]
+    if_nc       SUB         nTargLineIdx, lThree4thsLineCt          ' minus lThree4thsLineCt
+    if_nc       SHL         nTargLineIdx, #1                        ' mult by 2
+    if_nc       ADD         nTargLineIdx, lOneHalfLineCt            ' add lOneHalfLineCt
+targ8SCalcsDone
+                ' bIsBottomHalf := (nTargLineIdx > lOneHalfLineCt - 1) ? TRUE : FALSE
+                CMP         nTargLineIdx, lOneHalfLineCt    wc
+    if_nc       MOV         bIsBottomHalf, allOnes                  ' TRUE if row 16-31
+    if_c        XOR         bIsBottomHalf, bIsBottomHalf            ' FALSE if row 0-15
+                ' a bottom (RGB2) line shares its bytes with the top (RGB1) line half a panel above
+    if_nc       SUB         nTargLineIdx, lOneHalfLineCt            ' target line within its half
+                ' nPwmRGB12ByteIdx := (nTargLineIdx / 2) * lPwmAddrRowBytes + (nTargLineIdx odd ? lPanelCols : 0)
+                '  (slot 0's bytes for this line; each row address holds two lines of every slot, slot 0 first)
+                MOV         nPwmRGB12ByteIdx, nTargLineIdx
+                SHR         nPwmRGB12ByteIdx, #1                    ' row address of this line
+                MUL         nPwmRGB12ByteIdx, lPwmAddrRowBytes
+                TESTB       nTargLineIdx, #0                wc      ' odd line: 2nd line of the pair
+    if_c        ADD         nPwmRGB12ByteIdx, lPanelCols
+                ' calc nRGBColorOfst: offset of this row in slot 0 of the screen buffer
+                'nRGBColorOfst := (nPhysLineIdx * lPanelCols) * screen.DISPLAY_BYTES_PER_COLOR
+                MOV         nRGBColorOfst, nPhysLineIdx
+                MUL         nRGBColorOfst, lPanelCols
+                MUL         nRGBColorOfst, lDisplayBytesPerColor
+                ' pRGBPixAddr := @BYTE[p24bitScreen][nRGBColorOfst]    ' add in offset to 24-bit color
+                MOV         pRGBPixAddr, p24bitScreen
+                ADD         pRGBPixAddr, nRGBColorOfst
+                ' repeat for each slot (panel along the cable), slot 0 first
+                MOV         nPanelCtr, lPanelCount
+next8SPanel
+                ' repeat nColumnIdx from 0 to lPanelCols - 1
+                MOV         nColumnCtr, lPanelCols
+next8SColumn
+                ' locate and load color for scanline
+                RDLONG      colorValue24bit, pRGBPixAddr
+                ' red := BYTE[pRGBPixAddr][0]
+                GETBYTE     redPwmBits, colorValue24bit, #panel.RED_BYTE_IDX
+                ' green := BYTE[pRGBPixAddr][1]
+                GETBYTE     greenPwmBits, colorValue24bit, #panel.GREEN_BYTE_IDX
+                ' blue := BYTE[pRGBPixAddr][2]
+                GETBYTE     bluePwmBits, colorValue24bit, #panel.BLUE_BYTE_IDX
+
+                ' write color information to our PWM buffers
+                ' expand PWM-Bit-width bits into N pwm frames of 3-bit pixels two pixels/BYTE
+
+                ' for ea. bit do...
+                ' repeat currPwmBffrIdx from 0 to screen.MAX_PWM_BUFFERS - 1 (there's PWM_BUFFER for ea. bit in color depth)
+                XOR         currPwmBffrIdx, currPwmBffrIdx          ' start with buffer[0] of [0-MAX_PWM_BUFFERS - 1]
+                ' NOTE: PWM def'n bits are org'd at MSBit and are COLOR_DEPTH in width (3-8 bits depth)
+                MOV         currMaskBitIdx, #panel.MSBIT_OF_BYTE   ' start bitmask is always msBit of BYTE
+                MOV         pwmBitCtr, lMaxPwmBuffers               ' MAX PWM FRAME bits to scan in LONG
+
+next8SPwmFrame
+                ' calculate pointer to frame for this bit #
+                '   nFrameOffset := frameIdx * nPwmFrameSizeInLongs ' 256 longs in each frame
+                '   pPwmFrame := @LONG[pPwmFrameSet][nFrameOffset]
+                MOV         pPwmFrame, currPwmBffrIdx
+                MUL         pPwmFrame, lPwmFrameSizeInBytes
+                ADD         pPwmFrame, pPwmFrameSet
+                ' calc address of BYTE in pwm frame for this nPwmRGB12ByteIdx
+                MOV         pPwmFrameByte, nPwmRGB12ByteIdx         ' get base addr
+                ADD         pPwmFrameByte, pPwmFrame                ' add offset
+                ' build top RGB1 or bottom RGB2 bits to be stored in pwm BYTE
+                ' if not bIsBottomHalf
+                OR          bIsBottomHalf, bIsBottomHalf    wz      ' T/F where: T=nz, F=z
+    if_nz       JMP         #bottom8SHalf
+top8SHalf
+                ' bitsBGR := 0
+                XOR         bitsBGR, bitsBGR                        ' clear all bits
+                ' set our RGB1 bits
+                '     bitsBGR |= (rPwm & currBitMask) > 0 ? 1 : 0
+                '     bitsBGR |= (gPwm & currBitMask) > 0 ? 2 : 0
+                '     bitsBGR |= (bPwm & currBitMask) > 0 ? 4 : 0
+                TESTB       redPwmBits, currMaskBitIdx      wc
+    if_c        OR          bitsBGR, redBitRGB1Value
+                TESTB       greenPwmBits, currMaskBitIdx    wc
+    if_c        OR          bitsBGR, greenBitRGB1Value
+                TESTB       bluePwmBits, currMaskBitIdx     wc
+    if_c        OR          bitsBGR, blueBitRGB1Value
+                JMP         #write8SPwmByte
+bottom8SHalf
+                '    bitsBGR := BYTE[pPwmFrame][nPwmRGB12ByteIdx]
+                RDBYTE      bitsBGR, pPwmFrameByte                  ' load current value
+                ' NOTE: see if there's a write w/mask so we don't have to read...
+                ' not needed        and     bitsBGR, maskOnlyRGB1bits   ' clear all bits except RGB1 value
+                ' set our RGB2 bits
+                '    bitsBGR |= (rPwm & currBitMask) > 0 ? 8 : 0
+                '    bitsBGR |= (gPwm & currBitMask) > 0 ? $10 : 0
+                '    bitsBGR |= (bPwm & currBitMask) > 0 ? $20 : 0
+                TESTB       redPwmBits, currMaskBitIdx      wc
+    if_c        OR          bitsBGR, redBitRGB2Value
+                TESTB       greenPwmBits, currMaskBitIdx    wc
+    if_c        OR          bitsBGR, greenBitRGB2Value
+                TESTB       bluePwmBits, currMaskBitIdx     wc
+    if_c        OR          bitsBGR, blueBitRGB2Value
+write8SPwmByte
+                ' write RGB1, RGB2 value to BYTE
+                'BYTE[pPwmFrame][nPwmRGB12ByteIdx] := bitsBGR
+                'or      bitsBGR, #$3F
+                WRBYTE      bitsBGR, pPwmFrameByte                  ' load current value
+                ' this one done, if not all 8 bits done, go do next
+                ADD         currPwmBffrIdx, #1
+                SUB         currMaskBitIdx, #1
+                DJNZ        pwmBitCtr, #next8SPwmFrame
+
+                ' count this column, go do next column if not yet done
+                ADD         pRGBPixAddr, lDisplayBytesPerColor
+                ADD         nPwmRGB12ByteIdx, #1
+                DJNZ        nColumnCtr, #next8SColumn
+                ' same row of the next slot; skip the other line of this slot's pair
+                ADD         pRGBPixAddr, lPanelSkipBytes
+                ADD         nPwmRGB12ByteIdx, lPanelCols
+                DJNZ        nPanelCtr, #next8SPanel
+                ' count this row, go do next row if not yet done
+                ADD         nPhysLineIdx, #1
+                DJNZ        nPhysLineCtr, #next8SLine
+doneS8
+    END
+
+PRI fillScreenBuffer() | longIdx
+' Fill the test image with the fixed pseudo-random sequence (the same image every run).
+'
+
+' Local Variables:
+' @local longIdx - long of the image being filled
+
+  randomState := RANDOM_SEED
+  repeat longIdx from 0 to SCREEN_LONGS - 1
+    screenBuffer[longIdx] := nextRandom()
+
+PRI nextRandom() : randomLong
+' Step the xorshift32 generator and return its new state.
+'
+' @returns randomLong - the next pseudo-random long
+
+  randomState ^= randomState << XORSHIFT_LEFT_FIRST
+  randomState ^= randomState >> XORSHIFT_RIGHT
+  randomState ^= randomState << XORSHIFT_LEFT_SECOND
+  randomLong := randomState
+
+PRI frameBytesOf(pGeometry) : frameBytes
+' Return the bytes in one frame (bit plane) of a geometry: one byte per column clock, for half
+' the panel rows of every panel (the configuration's DISPn_PWM_FRAME_SIZE_IN_BYTES).
+'
+' @param pGeometry - address of the geometry
+' @returns frameBytes - bytes in one frame
+
+  frameBytes := pixelsOf(pGeometry) / panel.HALF_DIVISOR * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
+
+PRI pixelsOf(pGeometry) : pixelCount
+' Return the pixels on all the panels of a geometry.
+'
+' @param pGeometry - address of the geometry
+' @returns pixelCount - panels x columns x rows
+
+  pixelCount := LONG[pGeometry][GEO_PANELS] * LONG[pGeometry][GEO_COLUMNS] * LONG[pGeometry][GEO_ROWS]
+
+PRI swapFlags(swapMode) : bSwapRB, bSwapGB
+' Return the two swap flags a swap mode passes to the converters.
+'
+' @param swapMode - channel swaps of the case
+' @returns bSwapRB - TRUE to swap red and blue channels
+' @returns bSwapGB - TRUE to swap green and blue channels
+
+  bSwapRB := swapMode == SWAP_RB or swapMode == SWAP_BOTH
+  bSwapGB := swapMode == SWAP_GB or swapMode == SWAP_BOTH
+
+PRI scanText(eScan) : pName
+' Return the printed name of a scan kind.
+'
+' @param eScan - SCAN_HALF or SCAN_QUARTER
+' @returns pName - its name
+
+  case eScan
+    SCAN_HALF:
+      pName := @"half-scan"
+    SCAN_QUARTER:
+      pName := @"quarter-scan"
+    other:
+      pName := @"unknown-scan"
+
+PRI swapText(swapMode) : pName
+' Return the printed name of a swap mode.
+'
+' @param swapMode - channel swaps of the case
+' @returns pName - its name
+
+  case swapMode
+    SWAP_NONE:
+      pName := @"none"
+    SWAP_RB:
+      pName := @"RB"
+    SWAP_GB:
+      pName := @"GB"
+    SWAP_BOTH:
+      pName := @"RB+GB"
+    other:
+      pName := @"unknown"
+
+PRI sourceText(eSource) : pName
+' Return the printed name of a frame-set source.
+'
+' @param eSource - SRC_OLD, SRC_NEW or SRC_EXPECTED
+' @returns pName - its name
+
+  case eSource
+    SRC_OLD:
+      pName := @"old"
+    SRC_NEW:
+      pName := @"new"
+    SRC_EXPECTED:
+      pName := @"expected"
+    other:
+      pName := @"unknown"
+
+CON { license }
+
+{{
+
+ -------------------------------------------------------------------------------------------------
+  MIT License
+
+  Copyright (c) 2024 Iron Sheep Productions, LLC
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+ =================================================================================================
+
+}}
