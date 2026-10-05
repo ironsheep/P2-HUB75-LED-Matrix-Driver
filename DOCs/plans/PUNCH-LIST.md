@@ -61,7 +61,7 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 - **More general:** make the home one record (a STRUCT, or the composed affine above) that cube.homeOnFaceOfExtent returns and the draw path carries; scrollFaceTextAtRCOfColor would then take 7 parameters instead of 10.
 - **Also:** face text spaces characters with FACE_TEXT_GAP_PIX while grid text uses horizontalGapInPix (spacing defined twice), and display recomputes the scroller's window width to find the extent (the formula lives in two places).
 
-### Interleave the bit-plane repeats to raise the flicker rate (refresh quality, measured motivation)
+### [x] Interleave the bit-plane repeats to raise the flicker rate (refresh quality, closed: steady at 5-8 bit on the new core)
 
 - **Found:** 2026-10-02 at Visit B «#83». Stephen saw a rainbow test image at each colour depth. At 6-bit (measured 19.7 Hz full cycle) it was *"shimmering but seems to be a side-to-side shifts"*, at 5-bit (40.1 Hz) *"less shimmer"*, and at 4-bit (82 Hz) *"rock steady"*.
 - **Stephen, after Visit B:** *"flicker is not location based just specific colors at this color depth"*. Colours whose light is concentrated in the MSB plane flicker most.
@@ -71,6 +71,12 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 - **Bears on:** the depth a rig can use without visible shimmer (today 4-bit on this rig); the limits table's refresh column.
 - **At 8-bit on today's core (2026-10-03, «#91» check, demo_hub75_quadPanel; 4.86 Hz measured at visit B «#89»):** Stephen: *"cyan has deep slow blink vs. flicker"*, then *"so does green"*. The same mechanism at a lower rate: the 8-bit default («#96») landed before the new refresh core («#92»), which removes the repeats. Verdict at visit C «#94», disposition «#95».
 - **New core, phase 1 (2026-10-03, «#92», demo_hub75_quadPanel at 8-bit, 66.1 Hz measured):** Stephen: *"yes correct text/arrows/color and no flicker"*. The formal verdict (rainbow and hue images at 5-8 bit) is still visit C «#94».
+- **Closed 2026-10-04 by «#95», from visit C «#94»; no interleave needed.** The new core («#92») shows each plane once per row, weighted by /OE time, so there are no back-to-back MSB repeats left to interleave, and refresh rose from 4.86-40.0 Hz to 71-85 Hz. Stephen viewed `demo_hub75_quadPanel` (per-panel hues) and `demo_hub75_color` (rainbow sweep, hue groups and lines, palettes) at each depth (logs and method in `DOCs/bench/RUN-NOTES.md`, visit C):
+  - 8-bit, 71.0 Hz measured: *"colors all look steady"*.
+  - 7-bit, 75.0 Hz: *"no shimmering"*.
+  - 6-bit, 79.6 Hz: *"steady"*.
+  - 5-bit, 84.7 Hz: *"steady"*.
+  Sweep at closeout.
 
 ### [x] Docs disagree on the ICN2037 maximum clock: 20 MHz or 30 MHz (doc conflict, settled)
 

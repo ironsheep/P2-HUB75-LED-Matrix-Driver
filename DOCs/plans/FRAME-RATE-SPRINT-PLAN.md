@@ -523,6 +523,9 @@ its feature list (p.2) and absolute maximums (p.7); V1.1 gives 30 MHz throughout
 
 **Verification:** Stephen's observation by eye, quoted, plus the measured refresh.
 
+**Outcome (2026-10-04, «#95»):** steady at 5-8 bit on the new core (71.0-84.7 Hz). The
+punch item is closed with Stephen's words; the plane order is unchanged.
+
 ## 7. `MERGEB` converter, both paths (F10)
 
 **Why:** commit 14.2 ms → about 5 ms on the rig at 5-bit (calculated). It replaces
@@ -720,7 +723,9 @@ the audit can't see, and those are fixed by keeping one canonical copy.
   the line buffer moves to LUT RAM (512 longs, unused).
 - **A 14-clock shift split meeting 20 ns both ways:** settled by the timing
   measurement in §5. 15 clocks is the fallback.
-- **The shimmer verdict:** §6, by eye at visit C.
+- **The shimmer verdict:** settled at visit C (2026-10-04): steady at 5, 6, 7 and 8 bit
+  by eye (Stephen, quoted in RUN-NOTES and the punch list). §6 needed no interleave;
+  the punch item is closed («#95»).
 
 ## Tasks (generated 2026-10-03, sprint tag `framerate`)
 
