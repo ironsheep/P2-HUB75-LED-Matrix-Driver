@@ -204,9 +204,9 @@ A display must pass all four limits, and the tightest decides:
 
 | Panel type | Columns | Scan factor | 512 / (columns x factor) | **Max panels per adapter** | Status |
 |---|---|---|---|---|---|
-| FM6126A 64x32, 1/16 scan | 64 | 1 | 8 | **8** | calculated |
-| FM6124 64x32, 1/16 scan | 64 | 1 | 8 | **8** | calculated |
-| MBI5124GP 64x32, 1/8 scan, quarter-scan conversion | 64 | 2 | 4 | **4** | calculated |
+| FM6126A 64x32, 1/16 scan | 64 | 1 | 8 | **8** | calculated; one panel run on the bench |
+| FM6124 64x32, 1/16 scan | 64 | 1 | 8 | **8** | calculated; one panel run on the bench |
+| MBI5124GP 64x32, 1/8 scan, quarter-scan conversion | 64 | 2 | 4 | **4** | calculated; one panel run on the bench |
 | GS6238S 64x32, 1/16 scan | 64 | 1 | 8 | **8** | calculated |
 | ICN2037 64x64, 1/32 scan | 64 | 1 | 8 | **8** | calculated |
 | ICN2037 128x64, 1/32 scan | 128 | 1 | 4 | **4** | calculated; checked with 4 panels on the bench |
@@ -272,7 +272,7 @@ A build with DEBUG prints a `REFRESH` line at startup (S, T, *j*, the chip's sho
 
 #### Measured refresh
 
-Measured on one rig only: four ICN2037 128x64 panels (512 column clocks, 1/32 scan) at the default 60 Hz target, 335 MHz. The monitors count LATCH and /OE on the P2's own pins. The lit share is the part of the time /OE holds the panels lit, at brightness 256.
+Measured on the author's rig, four ICN2037 128x64 panels (512 column clocks, 1/32 scan), at the default 60 Hz target, 335 MHz. The monitors count LATCH and /OE on the P2's own pins. The lit share is the part of the time /OE holds the panels lit, at brightness 256.
 
 | Depth | Refresh (Hz) | Lit share | *j* chosen |
 |---|---|---|---|
@@ -285,7 +285,15 @@ Measured on one rig only: four ICN2037 128x64 panels (512 column clocks, 1/32 sc
 
 Each figure is within 0.2% of the rate and lit share the driver predicts at startup. The image is steady by eye at 5-bit to 8-bit on a full-screen colour demo; the author's words at each depth were *"steady"* (5-bit), *"steady"* (6-bit), *"no shimmering"* (7-bit) and *"colors all look steady"* (8-bit). A test build of the method showed visible flicker at 36.9 Hz and none at 65.9 Hz.
 
-Refresh has been measured for the ICN2037 128x64 rig only. The rate of any other panel type follows the same rule, but its figures are not in this table.
+Single 64x32 panels, one at a time on one adapter, same target and clock. Each reaches 60 Hz with every plane lit for its whole slot (*j* = 0), so it runs at its fastest rate:
+
+| Panel | 8-bit refresh | 8-bit lit share | 5-bit refresh | 5-bit lit share | Floor at brightness 1 |
+|---|---|---|---|---|---|
+| FM6126A (overlapped latch) | 85.1 Hz | 99.6% | 688.9 Hz | 97.9% | 1.4% lit (40 ns) |
+| FM6124 | 85.3 Hz | 99.7% | 694.1 Hz | 98.6% | 1.1% lit (30 ns) |
+| MBI5124GP (1/8 scan, 128 column clocks per row address) | 85.4 Hz | 99.8% | 698.5 Hz | 99.2% | 0.8% lit (50 ns) |
+
+The image was correct by eye on the test patterns on all three at both depths. Other panel types follow the same rule; their figures have not been measured.
 
 #### Brightness
 

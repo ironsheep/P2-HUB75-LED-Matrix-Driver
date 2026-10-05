@@ -61,6 +61,7 @@ This table is the one place the project states each chip's datasheet clock and /
 | Latch Style | Offset | |
 | Latch Position | Overlap | |
 | Multi-Panel | **Tested** | Works in chains |
+| 4.0.0 refresh core | **Verified**, one panel | 85.1 Hz at 8-bit, 688.9 Hz at 5-bit; overlapped latch, init sequence run (2026-10-05) |
 
 **On-Board Chips:**
 | Chip | Function | Details |
@@ -98,6 +99,7 @@ CHIP_MANUAL_SPEC | LAT_STYLE_OFFSET | LAT_POSN_OVERLAP | INIT_PANEL_REQUIRED
 | Latch Style | Standard | |
 | Latch Position | Standard | |
 | Multi-Panel | Untested | Expected to work |
+| 4.0.0 refresh core | **Verified**, one panel | 85.3 Hz at 8-bit, 694.1 Hz at 5-bit; the 30 ns /OE floor shown at brightness 1 (2026-10-05) |
 
 **On-Board Chips:**
 | Chip | Function | Details |
@@ -199,6 +201,7 @@ CHIP_MANUAL_SPEC
 | Latch Style | Enclosed | Latch at end |
 | Latch Position | Standard | |
 | Multi-Panel | **Tested** | Works in chains and 2D grids |
+| 4.0.0 refresh core | **Verified**, four 128x64 panels | 71.0 Hz at 8-bit to 193.3 Hz at 3-bit (the author's rig; 2026-10-04) |
 
 **On-Board Chips (128×64 panels):**
 | Chip | Function | Details |
@@ -292,6 +295,7 @@ CHIP_MANUAL_SPEC | SCAN_4
 | Latch Style | Enclosed (special) | Different from standard |
 | Latch Position | End-enclosed | |
 | Multi-Panel | **Untested** | Needs investigation |
+| 4.0.0 refresh core | **Verified**, one panel | 85.4 Hz at 8-bit, 698.5 Hz at 5-bit on the quarter-scan path (2026-10-05). The green panel shows a correct image with no initialization sequence; the driver sends none for this chip |
 
 **On-Board Chips:**
 | Chip | Function | Details |

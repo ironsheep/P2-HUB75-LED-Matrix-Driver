@@ -68,7 +68,7 @@ Each panel is described by one sentence, each adapter starts with one call, six 
 
 - The cube is checked by a 163-case fold self-test that runs on the P2 with no panels attached (`test_hub75_cube_fold.spin2`). It has not yet run on six real panels.
 - Multiple quarter-scan panels (the green MBI5124GP panels), chains of more than nine panels, and two adapters cabled at once are checked by buffer-level tests on the P2, not yet on panels.
-- Only the ICN2037 128x64 panel type has been run with this release. The driver limits for every other type are calculated, and refresh has been measured only for four of those panels at the default 60 Hz target (full color cycle: 193.3 Hz at 3-bit, 90.5 at 4-bit, 84.7 at 5-bit, 79.6 at 6-bit, 75.0 at 7-bit, 71.0 at 8-bit). The image was steady by eye at 5-bit to 8-bit.
+- This release has been run on four ICN2037 128x64 panels (refresh at the default 60 Hz target: 193.3 Hz at 3-bit, 90.5 at 4-bit, 84.7 at 5-bit, 79.6 at 6-bit, 75.0 at 7-bit, 71.0 at 8-bit; steady by eye at 5-bit to 8-bit) and on single FM6126A, FM6124 and MBI5124GP 64x32 panels (about 85 Hz at 8-bit and 690-700 Hz at 5-bit; correct by eye). The ICN2037 64x64, FM6124C, ICN2038S, GS6238S and DP5125D have not been run, and every driver limit above one panel is calculated except the four ICN2037 128x64 panels.
 - The scan setting of the ICN2038S is disputed: the driver sets `SCAN_4` (four rows lit at once), while its five address lines suggest 1/32 scan. The panel-count limit for this chip follows the driver's setting.
 
 ## [3.0.3] 11 Jun 2026

@@ -55,6 +55,8 @@ DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP     ' DISP0_C1 .. DISP0_C15 are 
 
 **Multi-Panel Status:** ✅ Working in multi-panel chains (the panels need the initialization sequence). A row of four of these is [Example 1](WiringGuide.md#example-1-a-row-of-4) in the Wiring Guide; the number of panels one adapter can drive is in the [driver limits table](WiringGuide.md#driver-limits) (calculated, not yet exercised at that count).
 
+**4.0.0 refresh core:** ✅ verified on one panel (2026-10-05) at 8-bit and 5-bit: correct image on the test patterns, refresh 85.1 Hz at 8-bit and 688.9 Hz at 5-bit; figures in the [Wiring Guide](WiringGuide.md#measured-refresh).
+
 ---
 
 ### Configuration 4: FM6124 64×32 Panels (Hackerbox)
@@ -79,6 +81,8 @@ DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP     ' DISP0_C1 .. DISP0_C15 are 
 ```
 
 **Multi-Panel Status:** ❌ Single panel only; multi-panel is untested. The driver's limit for this panel type is in the [driver limits table](WiringGuide.md#driver-limits).
+
+**4.0.0 refresh core:** ✅ verified on one panel (2026-10-05) at 8-bit and 5-bit: correct image on the test patterns, refresh 85.3 Hz at 8-bit and 694.1 Hz at 5-bit; figures in the [Wiring Guide](WiringGuide.md#measured-refresh).
 
 ---
 
@@ -131,6 +135,8 @@ DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP     ' DISP0_C1 .. DISP0_C15 are 
 ```
 
 **Multi-Panel Status:** ❌ Single panel only (1/8 scan complexity). The 4.0.0 driver reads quarter-scan panels panel by panel for a chain, but that is proven only by a buffer-level test, not on these panels. The driver limit for this type is in the [driver limits table](WiringGuide.md#driver-limits).
+
+**4.0.0 refresh core:** ✅ verified on one panel (2026-10-05) at 8-bit and 5-bit: correct image on the test patterns, refresh 85.4 Hz at 8-bit and 698.5 Hz at 5-bit; figures in the [Wiring Guide](WiringGuide.md#measured-refresh).
 
 ---
 
@@ -261,7 +267,7 @@ DISP0_MAX_PANEL_ROWS = 64
 DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP     ' DISP0_C1 .. DISP0_C15 are hwEnum.NO_PANEL
 ```
 
-**Multi-Panel Status:** ✅ **Working in multi-panel chains.** This is the rig's panel type, and the only one whose refresh has been measured. Four of these (the rig) sit exactly at the driver's limit for this panel type: see the [driver limits table](WiringGuide.md#driver-limits).
+**Multi-Panel Status:** ✅ **Working in multi-panel chains.** This is the rig's panel type; its refresh is measured at every depth. Four of these (the rig) sit exactly at the driver's limit for this panel type: see the [driver limits table](WiringGuide.md#driver-limits).
 
 **2×2 Grid Configuration** (the author's rig: the panels hang upside down, the adapter plugs into the bottom-left panel, and the ribbon runs along the bottom row and then the top row; every arrow is `ARROW_DOWN`):
 ```spin2
@@ -331,8 +337,9 @@ How many panels one adapter can drive, for each panel type above, is in the
 table: the maximum per adapter, what sets it (the refresh line buffer, for every type), the
 hub RAM available, and the refresh rate. Its rows are these configurations. Every limit in it
 is **calculated** from the driver's constants and none has been exercised at that panel count
-on hardware; only the rig's type (configuration 11, ICN2037 128x64, four panels) has measured
-refresh rates, which are in the same page. Configuration 12 (ICN2038S) is listed with the
+on hardware except the rig's four ICN2037 128x64 panels (configuration 11). Refresh is
+measured for the rig and for single FM6126A, FM6124 and MBI5124GP panels (configurations 1-4
+and 7), on the same page. Configuration 12 (ICN2038S) is listed with the
 code's scan setting, which is disputed (see Configuration 12).
 
 ---

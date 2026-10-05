@@ -129,7 +129,7 @@ Each chip's datasheet clock and /OE ratings are in the [Chip Characteristics Mat
 Upcoming work on the driver:
 
 - Finishing work on initialization of panel chips that require it (MBI5124GP). It's working for single panels but not multiple panels in the chain. *There's a lot of information that is just not readily found on this panels making continuing this "kind of hit-or-miss".*
-- Proving the 4.0.0 display organization on more hardware: the cube on six real panels, the green MBI5124GP quarter-scan panels in a chain, a second adapter cabled at the same time, panel types other than the ICN2037 128x64, and measured refresh for those types. See the Known Issues in the [Change Log](ChangeLog.md).
+- Proving the 4.0.0 display organization on more hardware: the cube on six real panels, the green MBI5124GP quarter-scan panels in a chain, a second adapter cabled at the same time, panel types not yet run (ICN2037 64x64, FM6124C, ICN2038S, GS6238S, DP5125D) and measured refresh for them. See the Known Issues in the [Change Log](ChangeLog.md).
 - I've even some fun animated clocks coming (sorry, I'm been doing software clocks of many, many, forms for a long time.)
 
 Morphing digits Matrix displays can be found at [P2 LED-Matrix Morphing Digits](https://github.com/ironsheep/P2-LED-Matrix-Morphing-Digits) Repository.
