@@ -2,20 +2,22 @@
 
 This document provides a comprehensive matrix of all driver chip characteristics needed for proper panel control.
 
-**Scan** is written *1/S scan*, where S is the number of row addresses the panel's address lines select; each address lights panel rows ÷ S rows at once (the [glossary](../THEOPS.md#scan) defines it). Most panels light two rows at once. A panel that lights four rows at once, such as a 64×32 1/8-scan panel, needs a different screen-to-panel conversion, which the driver selects with the `SCAN_4` chip flag.
+**Scan** is written *1/S scan*, where S is the number of row addresses the panel's address lines select; each address lights panel rows ÷ S rows at once (the [glossary](../THEOPS.md#scan) defines it). Most panels light two rows at once. A panel that lights four rows at once, such as a 64×32 1/8-scan panel, needs its rows placed differently in the frame set; the driver does that when the `SCAN_4` chip flag is set, with the same converter (`convertRowPairs()`) as every other panel.
 
 ## Quick Reference Matrix
 
-| Chip | Color | Addr Lines | Scan | R/B Swap | G/B Swap | Wide CLK | Init Req | Latch Style | Multi-Panel |
-|------|-------|------------|------|----------|----------|----------|----------|-------------|-------------|
-| **FM6126A** | Pink | ABCD | 1/16 | - | - | - | **Yes** | Offset+Overlap | ✅ Tested |
-| **FM6124** | Orange | ABCD | 1/16 | - | - | - | - | Standard | ⚠️ Untested |
-| **FM6124C** | - | ABCDE | 1/32 | - | - | - | - | Standard | ⚠️ Untested |
-| **ICN2037/BP** | - | ABCDE | 1/32 | **Yes** | - | **Yes** | - | Enclosed | ✅ Tested |
-| **ICN2038S** | - | ABCDE | disputed* | - | - | **Yes** | Untested | Enclosed | N/A (single) |
-| **MBI5124GP** | Green | ABC | 1/8 | - | - | - | **Yes** | Enclosed | ⚠️ Untested |
-| **GS6238S** | Cyan | ABCD | 1/16 | - | **Yes** | - | - | Offset+Overlap | ⚠️ Untested |
-| **DP5125D** | - | ABC | 1/8 | - | - | - | - | Offset+Overlap | ⚠️ Untested |
+| Chip | Color | Addr Lines | Scan | R/B Swap | G/B Swap | Init Req | Latch Style | Multi-Panel |
+|------|-------|------------|------|----------|----------|----------|-------------|-------------|
+| **FM6126A** | Pink | ABCD | 1/16 | - | - | **Yes** | Offset+Overlap | ✅ Tested |
+| **FM6124** | Orange | ABCD | 1/16 | - | - | - | Standard | ⚠️ Untested |
+| **FM6124C** | - | ABCDE | 1/32 | - | - | - | Standard | ⚠️ Untested |
+| **ICN2037/BP** | - | ABCDE | 1/32 | **Yes** | - | - | Enclosed | ✅ Tested |
+| **ICN2038S** | - | ABCDE | disputed* | - | - | Untested | Enclosed | N/A (single) |
+| **MBI5124GP** | Green | ABC | 1/8 | - | - | **Yes** | Enclosed | ⚠️ Untested |
+| **GS6238S** | Cyan | ABCD | 1/16 | - | **Yes** | - | Offset+Overlap | ⚠️ Untested |
+| **DP5125D** | - | ABC | 1/8 | - | - | - | Offset+Overlap | ✅ Tested |
+
+The column clock is held to the chip's rated maximum, and each half of the clock pulse is at least 20 ns; the ratings are in the table below.
 
 **Notes:**
 - ICN2037BP is the same chip as ICN2037 in SSOP24-P-150 package
@@ -56,7 +58,6 @@ This table is the one place the project states each chip's datasheet clock and /
 | Min /OE Pulse | 40 ns | |
 | R/B Swap | No | |
 | G/B Swap | No | |
-| Wide Clock Pulse | No | |
 | Init Required | **Yes** | Special power-up sequence |
 | Latch Style | Offset | |
 | Latch Position | Overlap | |
@@ -94,7 +95,6 @@ CHIP_MANUAL_SPEC | LAT_STYLE_OFFSET | LAT_POSN_OVERLAP | INIT_PANEL_REQUIRED
 | Min /OE Pulse | 30 ns | |
 | R/B Swap | No | |
 | G/B Swap | No | |
-| Wide Clock Pulse | No | |
 | Init Required | No | Simpler than FM6126A |
 | Latch Style | Standard | |
 | Latch Position | Standard | |
@@ -141,7 +141,6 @@ CHIP_MANUAL_SPEC
 | Max Clock | 30 MHz | Same as FM6124 |
 | R/B Swap | No | |
 | G/B Swap | No | |
-| Wide Clock Pulse | No | |
 | Init Required | No | Same as FM6124 |
 | Latch Style | Standard | |
 | Latch Position | Standard | |
@@ -196,7 +195,6 @@ CHIP_MANUAL_SPEC
 | Min /OE Pulse | 60 ns | |
 | R/B Swap | **Yes** | Red and Blue swapped |
 | G/B Swap | No | |
-| Wide Clock Pulse | **Yes** | Slower clock required |
 | Init Required | No | |
 | Latch Style | Enclosed | Latch at end |
 | Latch Position | Standard | |
@@ -250,7 +248,6 @@ CHIP_MANUAL_SPEC | RB_SWAP
 | Min /OE Pulse | 40 ns | |
 | R/B Swap | No | **Different from ICN2037** |
 | G/B Swap | No | |
-| Wide Clock Pulse | **Yes** | |
 | Init Required | Untested | The datasheet has FM6126A-style register commands; whether the panels need them is untested |
 | Latch Style | Enclosed | |
 | Latch Position | Standard | |
@@ -290,12 +287,11 @@ CHIP_MANUAL_SPEC | SCAN_4
 | Min /OE Pulse | 45 ns at VDD 5.0 V, 50 ns at VDD 3.3 V | Datasheet minimum; typical and maximum are in the timing table below |
 | R/B Swap | No | |
 | G/B Swap | No | |
-| Wide Clock Pulse | No | |
 | Init Required | **Yes** | Special initialization |
 | Latch Style | Enclosed (special) | Different from standard |
 | Latch Position | End-enclosed | |
 | Multi-Panel | **Untested** | Needs investigation |
-| 4.0.0 refresh core | **Verified**, one panel | 85.4 Hz at 8-bit, 698.5 Hz at 5-bit on the quarter-scan path (2026-10-05). The green panel shows a correct image with no initialization sequence; the driver sends none for this chip |
+| 4.0.0 refresh core | **Verified**, one panel | 85.4 Hz at 8-bit, 698.5 Hz at 5-bit on the quarter-scan path; init sequence run (2026-10-05) |
 
 **On-Board Chips:**
 | Chip | Function | Details |
@@ -341,7 +337,6 @@ CHIP_MANUAL_SPEC | CHIP_UNK_LAT_END_ENCL | SCAN_4 | INIT_PANEL_REQUIRED
 | Max Clock | 30 MHz | |
 | R/B Swap | No | |
 | G/B Swap | **Yes** | Green and Blue swapped |
-| Wide Clock Pulse | No | |
 | Init Required | No | |
 | Latch Style | Offset | |
 | Latch Position | Overlap | |
@@ -378,11 +373,10 @@ CHIP_MANUAL_SPEC | LAT_STYLE_OFFSET | LAT_POSN_OVERLAP | GB_SWAP
 | Max Clock | Unknown | |
 | R/B Swap | No | |
 | G/B Swap | No | |
-| Wide Clock Pulse | No | |
 | Init Required | No | |
 | Latch Style | Offset | |
 | Latch Position | Overlap | |
-| Multi-Panel | Untested | May work |
+| Multi-Panel | **Tested** | Working in multi-panel use (README chip table) |
 
 **Driver Flags:**
 ```spin2
@@ -399,7 +393,7 @@ CHIP_MANUAL_SPEC | LAT_STYLE_OFFSET | LAT_POSN_OVERLAP | SCAN_4
 | `LAT_POSN_OVERLAP` | $200 | Latch position overlaps with data clock |
 | `INIT_PANEL_REQUIRED` | $400 | Panel requires special initialization sequence at power-up |
 | `RB_SWAP` | $1000 | Red and Blue color channels are physically swapped |
-| `SCAN_4` | $2000 | Four rows lit at once (1/8 scan on a 32-row panel); needs the quarter-scan screen-to-panel conversion, and the refresh line holds two column clocks for every panel column |
+| `SCAN_4` | $2000 | Four rows lit at once (1/8 scan on a 32-row panel); the converter is the same as for every other panel and differs only in where each row lands in the frame set, and the refresh line holds two column clocks for every panel column |
 | `GB_SWAP` | $4000 | Green and Blue color channels are physically swapped |
 
 ---
@@ -818,6 +812,7 @@ For successful multi-panel daisy-chaining:
 ### Known Working Configurations
 - FM6126A (Pink): Chains tested
 - ICN2037: Chains and 2D grids tested
+- DP5125D: working in multi-panel use (README chip table)
 
 ### Investigation Needed
 - **MBI5124GP (Green)**: Two panels not daisy-chaining

@@ -149,7 +149,7 @@ A panel's scan is written **1/S scan**, where S is the number of row addresses i
 | 64×64 | `ADDR_ABCDE` (32 addresses) | 1/32 scan | 2 |
 | 64×32 | `ADDR_ABC` (8 addresses) | 1/8 scan | 4 |
 
-Most panels light two rows at once, one fed by each set of color pins. A panel that lights **four** rows at once, such as a 64×32 1/8-scan panel, needs a different conversion from screen to panel; the driver selects that conversion when the panel's chip flags include `SCAN_4` (called *quarter-scan* elsewhere, after the code's `SCAN_4` and `bScan_1_4`; "four rows at once" is what it means, not 1/4 of the panel).
+Most panels light two rows at once, one fed by each set of color pins. A panel that lights **four** rows at once, such as a 64×32 1/8-scan panel, needs its rows placed differently in the frame set; the driver does that when the panel's chip flags include `SCAN_4`, using the same converter as every other panel (`convertRowPairs()`) (called *quarter-scan* elsewhere, after the code's `SCAN_4` and `bScan_1_4`; "four rows at once" is what it means, not 1/4 of the panel).
 
 
 ## Configuring the driver
@@ -192,9 +192,9 @@ The storage format is shown in the diagram at the various points of translation.
 
 The PASM2 HUB75 driver derives its signal timing from the configured system clock (`_clkfreq`) rather than assuming a fixed frequency. This clock-frequency-independent timing means a demo can change its `_clkfreq` and the panel CLK/latch/blanking pulses continue to meet the panel's timing requirements without hand-tuning the driver.
 
-Another view we'll later be adding to this page is how we allocate and use memory for these buffers as our display sizes change (these sizes are what you configured before you compiled the driver.)  This is only now being decided as we begin to add the multi-panel support.
+Each adapter's buffers are sized at compile time from the panels its wiring sentences name: a pixel takes 3 screen-buffer bytes plus one byte per bit of color depth for the two PWM frame sets (11 bytes at 8-bit). The [Wiring Guide](DOCs/WiringGuide.md#driver-limits) gives the hub RAM each display needs and the most panels one adapter can drive.
 
-To create our rich colors we change which LEDs are powered veriy rapidly (PWM). A compile-time `COLOR_DEPTH` setting specifies how rich the colors are to be for your display; the default is 8-bit (full 24-bit color).
+To create our rich colors the driver lights each bit plane for a time proportional to its bit weight (binary-coded modulation, weighted by /OE). A compile-time `COLOR_DEPTH` setting specifies how rich the colors are to be for your display; the default is 8-bit (full 24-bit color).
 
 The PWM Frame-set consists of one plane for each bit in the color depth. The following digram shows the constituent frames being displayed with the MSBit being displayed for the longest period and the LSBit for the shortest. Each plane's lit time is its power-of-2 weight: in 3-bit the MSBit is lit 2^2 or 4 units, the next bit 2^1 or 2 units and the LSBit 1 unit.
 
@@ -221,7 +221,7 @@ pnut-ts -d            demo_hub75_color.spin2     # normal build -- diagnostics a
 
 The number of panels one adapter can drive depends on the **panel type**, and is counted in panels, not pixels. Two limits apply:
 
-- **The refresh line buffer.** The refresh core holds one row of the whole chain, 512 column clocks. Max panels per adapter is 512 / (panel columns x scan factor), never more than 16, where the scan factor is 2 for the chips the driver flags `SCAN_4` (see [scan](#scan)) and 1 for every other chip. For example, 8 panels of 64 columns, or 4 panels of 128 columns. The driver checks this at startup and prints a message if your display is over it. This is the limit on every panel type for a single adapter.
+- **The refresh line buffer.** The refresh core holds one row of the whole chain, 512 column clocks. Max panels per adapter is 512 / (panel columns x scan factor), never more than 16, where the scan factor is 2 for the chips the driver flags `SCAN_4` (see [scan](#scan)) and 1 for every other chip. For example, 8 panels of 64 columns, or 4 panels of 128 columns. The driver checks this at startup and prints a message if your display is over it. This is the limit on every panel type for a single adapter. A panel's width (`DISPx_MAX_PANEL_COLUMNS`) must also be a multiple of 4, as every common panel is (32, 64, 80, 128); startup stops with a message otherwise.
 - **Hub RAM**, shared by all three adapters. One panel of P pixels at color depth N takes P x (3 + N) bytes for its screen buffer and two PWM frame sets. The compiler stops with `Program requirement exceeds 512KB hub RAM by N bytes` when the buffers do not fit.
 
 The table of limits for every panel type the author has tested, with the arithmetic, the RAM figures and the refresh rates, is in the [Wiring Guide's driver limits](DOCs/WiringGuide.md#driver-limits). Those limits are calculated from the driver's constants; only the author's rig (four ICN2037 128x64 panels) is measured.

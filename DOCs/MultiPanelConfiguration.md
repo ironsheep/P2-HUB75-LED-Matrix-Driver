@@ -46,6 +46,8 @@ Common panel sizes:
 - 64×64 (4,096 pixels)
 - 128×64 (8,192 pixels)
 
+The panel width must be a multiple of 4 (every common panel is). Startup stops with a message otherwise.
+
 ### Step 3: Color Depth
 
 ```spin2
@@ -147,7 +149,7 @@ For multi-panel displays, verified chips are **FM6126A (Pink)** and **ICN2037**.
 - If one panel's content is turned, correct its arrow word; if the whole display is turned, set `DISP0_ROTATION` to how the display hangs. Both are explained in the [Wiring Guide](WiringGuide.md#display-rotation)
 
 ### Out of memory errors
-- Reduce color depth (8-bit → 5-bit saves ~40%)
+- Reduce color depth (a pixel takes 3 + depth bytes, so 8-bit → 5-bit takes 11 bytes down to 8, about 27% less)
 - Reduce panel count
 - Check total pixel count against memory limits
 

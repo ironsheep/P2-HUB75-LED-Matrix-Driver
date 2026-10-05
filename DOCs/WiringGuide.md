@@ -335,7 +335,7 @@ How to read the messages:
 
 The checks run in two passes, so one mistake does not set off a chain of others:
 
-1. Every sentence on its own (rows 1-7, 11, 13 and 14), then the whole display (rows 10 and 12). All of these are reported in one run.
+1. Every sentence on its own (rows 1-7, 11, 13 and 14), then the whole display (rows 10, 12 and 22). All of these are reported in one run.
 2. The walk out from `C0` (rows 8 and 9). It runs only when pass 1 found nothing, because it needs well-formed sentences.
 
 | # | Check | Exact message |
@@ -367,11 +367,13 @@ The checks run in two passes, so one mistake does not set off a chain of others:
 | 19 | the panels are not one of the 11 cube nets | `HUB75: DISPn: the panels do not fold into a cube (Cj and Ck fold onto the same face); arrange the six panels as one of the 11 cube nets` (when a panel shares no edge: `... (Ck shares no edge with the other panels); ...`) |
 | 20 | Front opposite Top once folded | `HUB75: DISPn_CUBE_FRONT: Cj is opposite the top face (Ck) when the panels are folded; the front face must share an edge with the top face` |
 | 21 | a shape value other than flat or cube | `HUB75: DISPn: DISPn_SHAPE must be SHAPE_FLAT or SHAPE_CUBE` |
+| 22 | a panel width that is not a multiple of 4 | `HUB75: DISPn: panels W columns wide (DISPn_MAX_PANEL_COLUMNS) are not supported; the width must be a multiple of 4` |
 | notice | a mounting rotation on a cube (not a mistake; startup continues) | `HUB75: DISPn: DISPn_ROTATION does not apply to a cube and is ignored` |
 | - | summary, after any of the above | `HUB75: DISPn: K wiring problem(s) above; startup stopped` |
 | notice | no refresh rate the driver can reach meets `DISPn_TARGET_REFRESH_HZ` (not a mistake; startup continues at the fastest rate) | `HUB75: DISPn: DISPn_TARGET_REFRESH_HZ = N Hz is out of reach for this display; running at N.N Hz, its fastest (j = j)` |
 | notice | a panel chip with no /OE rating in the driver's table: any chip but FM6124, FM6126A, ICN2037, ICN2038S and MBI5124GP (not a mistake; startup continues) | `HUB75: DISPn: this panel chip has no /OE rating in the driver's table; the shortest /OE pulse is set to 50 ns` |
-| stop | the /OE unit is longer than the /OE smart pin can time (cannot happen within the driver limits; startup stops at this message, with no summary line) | `HUB75: DISPn: the /OE unit T = N clocks is longer than the /OE smart pin's 16-bit period (65535 clocks); startup stopped` |
+| notice | a panel chip with no clock rating in the driver's table (not a mistake; startup continues with the clock held to 20 MHz) | `HUB75: DISPn: this panel chip has no clock rating in the driver's table; the clock is held to 20 MHz` |
+| stop | the /OE unit is longer than the brightness multiply's 16-bit operand (cannot happen within the driver limits; startup stops at this message, with no summary line) | `HUB75: DISPn: the /OE unit T = N clocks is longer than the brightness multiply's 16-bit operand (65535 clocks); startup stopped` |
 | refusal | `showFrameSet()` given no frame set (while running, not at startup; nothing is posted) | `HUB75: DISPn: showFrameSet(NULL) refused: no frame set given; give one of this adapter's two PWM frame sets, $HHHH_HHHH or $HHHH_HHHH` |
 | refusal | `showFrameSet()` given an address that is not one of the adapter's two PWM frame sets (while running; nothing is posted) | `HUB75: DISPn: showFrameSet($HHHH_HHHH) refused: not one of this adapter's two PWM frame sets, $HHHH_HHHH or $HHHH_HHHH` |
 

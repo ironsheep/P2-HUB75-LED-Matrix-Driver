@@ -1,6 +1,6 @@
 # HUB75 Driver - configuring for a chip we haven't seen yet
 
-> **History, superseded.** This page is kept as the record of the version 1.x work. Its clock figures (20 MHz) are not the chips' ratings; the current ratings are in the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings).
+> **History, superseded.** This page is kept as the record of the version 1.x work, and all of it is history for the current driver: the settings table (including `WIDER_CLOCK`), the chip composites (with `CLK_WIDE_PULSE`), the `CHIP_MBI5124_8S` name and the PWM refresh description describe v3 and earlier. Its clock figures (20 MHz) are not the chips' ratings. For the current driver see the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md) (the current ratings are in its [clock and /OE ratings](DOCs/ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)) and the [Wiring Guide](DOCs/WiringGuide.md).
 
 ![Project Maintenance][maintenance-shield]
 

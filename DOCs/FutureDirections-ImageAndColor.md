@@ -143,19 +143,9 @@ The refresh method (each bit plane shown once per row address and lit by /OE tim
 
 **Problem**: Human perception of brightness is non-linear. A pixel at 50% PWM does not appear half as bright as 100%.
 
-**Solution**: Apply gamma correction lookup table during screen-to-PWM conversion.
+**Today**: `isp_hub75_colorUtils.spin2` holds a 256-entry gamma curve and folds it into each adapter's color table (the table also does the color-depth mapping), so gamma costs nothing per pixel. The curve is off by default and is a driver test control, not a setting you make.
 
-```
-Perceived Brightness = (Actual Brightness)^2.2
-
-Example LUT approach:
-- Input: 8-bit linear color (0-255)
-- Output: gamma-corrected value for BCM
-- Standard gamma: 2.2 (matches most content)
-- Can be panel-specific if LED characteristics vary
-```
-
-**Implementation**: Add compile-time or runtime gamma LUT in `isp_hub75_colorUtils.spin2`.
+**Future**: A per-display setting to turn gamma on, and a curve chosen per panel if LED characteristics vary.
 
 #### 2. Color Balance/White Point Calibration
 
@@ -195,30 +185,22 @@ Typical values for 6500K white point:
 
 #### 4. Scan-Line Brightness Uniformity
 
-**Problem**: Due to BCM timing, some scan lines may appear brighter than others.
+**Today**: The refresh core times each bit plane by /OE inside a fixed slot of 2^*k* x T clocks, so every row address gets the same timing at every brightness.
 
-**Solution**: Normalize OE (output enable) timing across all bit planes.
-
-**Implementation**: Already partially addressed in PASM2 driver timing. Can be fine-tuned per chip type.
+**Future**: Any remaining difference between scan lines would be per chip, and would need measuring on a panel before it is worth a fix.
 
 ### Performance Enhancements
 
 #### 1. Screen-to-PWM Conversion Optimization
 
-**Current**: Inline PASM2 in Spin2 method
+**Current**: Inline PASM2 in a Spin2 method, using MERGEB to build four columns per plane write; a commit takes 4.09 ms at 8-bit on the author's rig (see the [Wiring Guide](WiringGuide.md#refresh-rate)).
 
-**Future**: Move entire conversion to dedicated PASM2 COG
+**Future**: Move the conversion to a dedicated PASM2 COG
 - Parallel processing with display refresh
 - Reduced main COG load
 - Potential for real-time effects
 
-#### 2. 2D Panel Grid Support (In Progress)
-
-**Current Issue**: PWM conversion assumes horizontal chain layout; 2D grids (2x2, 2x3, etc.) show repeated content.
-
-**Fix Required**: Modify PWM conversion to read from correct display rows based on panel grid position.
-
-#### 3. Direct DMA Feeding
+#### 2. Direct DMA Feeding
 
 **Concept**: Use P2's FIFO capabilities to stream PWM data directly to pins.
 
@@ -254,7 +236,7 @@ The driver supports multiple panel types with different characteristics:
 
 2. **2x2 Grid** (128x64 × 4 panels)
    - 256 × 128 effective resolution
-   - Requires 2D grid PWM fix (in progress)
+   - Described by wiring sentences; this is the author's rig
 
 3. **Horizontal Chains** (up to 6 panels)
    - Various panel sizes tested
@@ -276,7 +258,7 @@ The driver supports multiple panel types with different characteristics:
 ### For Color Optimization
 
 1. Current system provides **16.7M colors** at 8-bit, with a measured full color-cycle rate of **71.0 Hz** on the rig at the default 60 Hz target; 4-bit (4,096 colors) runs at 90.5 Hz
-2. Future: Add **gamma correction** for perceptually linear brightness
+2. Future: a setting to turn on the **gamma correction** the color table already holds, for perceptually linear brightness
 3. Future: Add **white point calibration** for accurate color balance
 4. Future: Consider **temporal dithering** for enhanced low-depth color
 

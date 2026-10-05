@@ -408,7 +408,7 @@ Both panel types share these ICN2037-specific characteristics:
 |----------------|-------|-------|
 | Address Lines | ABCDE (5) | 32 row addressing |
 | Scan Rate | 1/32 | Full scan |
-| Max Clock | 30 MHz rated; 25 MHz cap | 20 ns pulses cap it at 25 MHz; wide pulse recommended |
+| Max Clock | 30 MHz rated; 25 MHz cap | 20 ns pulses cap it at 25 MHz |
 | **R/B Swap** | **Yes** | Red and Blue channels physically swapped |
 | G/B Swap | No | |
 | Init Required | No | Works immediately at power-up |
@@ -425,14 +425,14 @@ CHIP_MANUAL_SPEC | RB_SWAP
 
 ### 7.1 Required Driver Constants
 
-Based on ICN2037 specifications, the following driver configuration values should be used:
+What the driver does for the ICN2037 (the clock and latch are the driver's own choices, not settings you make):
 
 | Driver Constant | Recommended Value | Reason |
 |-----------------|-------------------|--------|
 | `CHIP_TYPE` | `CHIP_ICN2037` | Identifies chip family |
 | `ADDR_LINES` | 5 (ABCDE) | 1/32 scan requires 5 address lines |
-| `CLK_FREQ` | 20-25 MHz | Rated 30 MHz; 20 ns pulses cap it at 25 MHz |
-| `LATCH_STYLE` | Standard | No special init sequence needed |
+| Column clock | 15 system clocks per column at 335 MHz, about 22.3 MHz | Rated 30 MHz; 20 ns pulses cap it at 25 MHz |
+| Latch | At the end of the row | No special init sequence needed |
 | `OE_POLARITY` | Active LOW | OE=0 enables outputs |
 | `LATCH_POLARITY` | Active HIGH | LE pulse HIGH to latch |
 | `CLK_EDGE` | Rising | Data shifts on CLK rising edge |
@@ -455,7 +455,9 @@ The ICN2037 is compatible with:
 
 ## 8. Observed Symptoms vs. Expected Behavior
 
-### Current Issues (from testing):
+### Bring-up history (resolved):
+
+These symptoms were seen during the first bring-up of the driver and are kept as a record of it. The driver's current clock and refresh figures are in section 7.1 and in the [Wiring Guide](../WiringGuide.md#refresh-rate).
 
 | Symptom | Expected | Observed | Likely Cause |
 |---------|----------|----------|--------------|

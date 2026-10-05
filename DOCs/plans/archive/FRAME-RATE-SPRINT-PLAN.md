@@ -1,5 +1,9 @@
 # FRAME-RATE — Sprint Plan
 
+> **CLOSED 2026-10-05.** Plan certified complete; audit, exit baseline and carryover in
+> [`2026-10-05-FRAME-RATE-Sprint-Closeout.md`](2026-10-05-FRAME-RATE-Sprint-Closeout.md).
+> Build 4.0.0 is untagged; shaping the release is the next piece of work.
+
 **Status:** started 2026-10-03. The exit gate was met and no questions are open.
 **Build:** **4.0.0**, agreed with Stephen at sprint start (2026-10-03): "this also
 adds content to the upcoming v4 release". 4.0.0 stays in development and untagged;
@@ -811,10 +815,14 @@ the audit can't see, and those are fixed by keeping one canonical copy.
   GS6238S have no panel on this bench and are untested. If one later shows a
   wrong image, the prototype's `SHIFT_WHILE_DARK` mode confirms the cause, and
   adding the path to the core is raised with Stephen as a logged scope change.
-- **Cog RAM headroom:** about 100 longs is inferred. If §4's loop doesn't fit,
-  the line buffer moves to LUT RAM (512 longs, unused).
-- **A 14-clock shift split meeting 20 ns both ways:** settled by the timing
-  measurement in §5. 15 clocks is the fallback.
+- **Cog RAM headroom:** settled at closeout (2026-10-05): the refresh core's cog image
+  ends at cog address 280 of the 496 its `FIT` allows, so 215 longs are free at
+  `e1c76d1` (compiler listing of `isp_hub75_rgb3bit.spin2`). The line buffer stayed in
+  cog RAM.
+- **A 14-clock shift split meeting 20 ns both ways:** settled by the loop's
+  instruction count («#93»): the shift loop's fixed high half is 6 clocks (DRVH, WAITX,
+  SETBYTE), 17.9 ns at 335 MHz, so it needs one WAITX clock to reach 20 ns, and 15 is
+  the shortest loop (high 7 clocks, 20.9 ns; low 8, 23.9 ns).
 - **The shimmer verdict:** settled at visit C (2026-10-04): steady at 5, 6, 7 and 8 bit
   by eye (Stephen, quoted in RUN-NOTES and the punch list). §6 needed no interleave;
   the punch item is closed («#95»).
@@ -838,6 +846,9 @@ the audit can't see, and those are fixed by keeping one canonical copy.
 | §9 | row-run primitives | «#100» | 13 | either + P2 self-test |
 | Visit E | §7-§9 accepted | «#101» | 14 | macOS + quad rig |
 | §12 (measured) | refresh, brightness, buffering docs; ChangeLog | «#102» | 15 | either |
+| §4 (visit C finding) | /OE pulses start at once; brightness linear (added 2026-10-03) | «#103» | — | either + quad rig |
+| §7 (SC-1) | converter hub-slice stall removed (added 2026-10-05) | «#104» | — | either + P2 timing |
+| §4/§5 (visit D finding) | overlapped-latch clock pulse ended before the dark wait (added 2026-10-05) | «#105» | — | either + FM6126A |
 
 §1 (the prototype) and §11 (bench validation) have no task of their own: §1 was done
 in planning (visit A), and §11 is the visit tasks.
@@ -873,5 +884,16 @@ in planning (visit A), and §11 is the visit tasks.
 - 2026-10-03 — tasks «#88»-«#102» generated; cross-reference table added.
 - 2026-10-04 — visit C completed; results table added. §3's tearing acceptance changed
   from an observation to the pin take check (agreed with Stephen).
+- 2026-10-03 — visit C finding: two §4 defects fixed by «#103» (/OE start latency,
+  linear brightness), added mid-sprint; visit C resumed after it.
 - 2026-10-05 — visit E completed; results table added. §7's commit time misses its
   prediction (6.58 ms against about 5 ms at 5-bit); recorded on the punch list.
+- 2026-10-05 — cause of the commit miss measured (plane writes share one hub slice);
+  SC-1 agreed with Stephen and done in «#104» (4.09 / 3.26 ms at 8 / 5-bit).
+- 2026-10-05 — visit D completed on the FM6126A, MBI5124GP and FM6124 («#97»); results
+  table added. «#102»'s visit-D doc rows done.
+- 2026-10-05 — visit D finding: the overlapped-latch path held one clock pulse high
+  through the dark wait; ended before it in «#105». The clock halves were found
+  swapped in the visit C note and the docs (high 7 clocks, low 8); corrected.
+- 2026-10-05 — closeout audit: named unknowns 2 and 3 settled; task table gains
+  «#103»-«#105».

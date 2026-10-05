@@ -20,7 +20,7 @@ All the terms used here (adapter, display, cable position, panel position, and s
 
 ## Convert your panel layout settings
 
-In **isp\_hub75_hwPanelConfig.spin2**, each adapter has a group of settings, `DISP0_`, `DISP1_` and `DISP2_`. The chip, address lines, pin group, panel size and color depth settings are **unchanged**. These v3.x settings are removed, and the table shows what replaces each:
+In **isp\_hub75_hwPanelConfig.spin2**, each adapter has a group of settings, `DISP0_`, `DISP1_` and `DISP2_`. The chip, address lines, pin group, panel size and color depth settings keep their names and meaning, but check two things: the default color depth is now 8-bit, and the panel width must be a multiple of 4 (see [What else is new](#what-else-is-new)). These v3.x settings are removed, and the table shows what replaces each:
 
 | v3.x setting (old) | v4.x (new) |
 |---|---|
@@ -190,6 +190,11 @@ Calls that name a panel (`fillPanel`, `setCursorOnPanel`, `drawPanelBox`, `drawP
 
 - **The cube.** Six square panels wired as one of the 11 cube nets, with `DISPx_SHAPE = hwEnum.SHAPE_CUBE`, form a cube display with face-centric drawing calls that carry across every edge. See [the cube](DOCs/WiringGuide.md#the-cube).
 - **Driver limits.** How many panels one adapter can drive depends on the panel type: see [driver limits](DOCs/WiringGuide.md#driver-limits). The driver prints a message if your display is over the limit.
+- **Default color depth is 8-bit.** A configuration that fit in hub RAM before may not fit now; the compiler reports it. Lower `DISPx_COLOR_DEPTH` or reduce the panel count.
+- **Panel width must be a multiple of 4.** `DISPx_MAX_PANEL_COLUMNS` of 32, 64, 80 or 128 is fine; startup stops with a message otherwise.
+- **Refresh target.** The new `DISPx_TARGET_REFRESH_HZ` (default 60) is the refresh rate you want; the driver picks the brightest timing that reaches it. See [refresh rate](DOCs/WiringGuide.md#refresh-rate).
+- **Brightness is lit time.** `setBrightness()` now sets how long each bit plane is lit, so the image keeps its full color depth at any brightness.
+- **Showing a frame set.** `display.showFrameSet()` shows a frame set you built yourself.
 
 That's it. If you have converted your settings, replaced your startup calls and confirmed the panels with the identify screen, you are good to go.
 

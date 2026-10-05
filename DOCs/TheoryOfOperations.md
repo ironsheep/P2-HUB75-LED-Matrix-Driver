@@ -185,7 +185,7 @@ Panel-centric calls take (panel position, panel coordinates) in the viewer's fra
 
 1. **Wait for the previous post to be taken.** The refresh cog names the frame set it is showing in `dvrShowing` at each frame start. Before converting again, the commit waits until `dvrShowing` is the set it posted last (within one refresh), so the set it is about to write is never the set on display. The first commit after start has nothing to wait for.
 2. **Select the PWM frame set that is not on display** (the one `dvrShowing` does not name).
-3. **For each pixel pair in the screen buffer**: read the top and bottom pixel, spread each channel's bits across the bit planes, and write one byte per plane (the `MERGEB` converters; quarter-scan panels use their own conversion).
+3. **For each group of four columns**: block-read the four top-half and four bottom-half pixels, spread each pixel pair's channel bits across the bit planes with `MERGEB`, collect the four columns' plane bytes in one long per plane, and write each plane's long once. Half-scan and quarter-scan panels share this converter; only where each row lands in the frame set differs. Panel widths are a multiple of 4 columns (checked at startup). On the author's four-panel rig a commit takes 4.09 ms at 8-bit and 3.26 ms at 5-bit.
 4. **Post the converted set** to the PASM2 driver with `cmdWritePwmBuffer()`.
 5. **Return immediately** - the driver takes the set at its next frame start and continues displaying asynchronously, so the panels never show a half-converted image.
 
@@ -344,7 +344,7 @@ The bounding box would be 128×128, but the buffers hold only the three panels.
 The `isp_hub75_hwBufferAccess.spin2` file maintains one descriptor for each HUB75 adapter. All three are always present, and the descriptor's buffer addresses, chip type, pin base and address lines are filled in when the adapter is started (`configureAdapter`, which the display's start call makes):
 
 ```
-Descriptor Structure (13 LONGs per adapter):
+Descriptor Structure (14 LONGs per adapter):
   [0]  Screen buffer address
   [1]  PWM frameset 1 address
   [2]  PWM frameset 2 address
@@ -358,6 +358,7 @@ Descriptor Structure (13 LONGs per adapter):
   [10] Panel chip type
   [11] HUB75 pin base
   [12] Address line count (ABC/ABCD/ABCDE)
+  [13] Refresh target in Hz (DISPn_TARGET_REFRESH_HZ)
 ```
 
 The display's size and grid are **not** in the descriptor. The wiring sentences are decoded and checked once at startup, and the layout derived from them lives in lookup tables, one entry per cable or panel position, per adapter:
@@ -400,7 +401,7 @@ The method is the binary-coded (bit-angle) modulation with output-enable weighti
 - **Transfer Size**: one row of one bit plane for the whole chain, up to 128 longs (512 bytes)
 
 #### Row Address Change (LOW PRIORITY)
-- **Location**: `emitAddr` routine
+- **Location**: `emitAddress` routine
 - **Operations**: Set address pins, wait for settle
 - **Timing**: ~10 clock cycles per row change
 
@@ -418,7 +419,7 @@ The method is the binary-coded (bit-angle) modulation with output-enable weighti
 4. **Bit-Parallel Output**: 6 color bits output simultaneously
 5. **Panel-Specific Code Paths**: Separate loops for different latch timing
 6. **Color table and row runs**: correction is one table read, and lines, boxes, text rows, BMP rows and fills write a run of pixels per panel
-7. **`MERGEB` converters**: a pixel pair's bits are spread across the planes with `MERGEB`
+7. **`MERGEB` converter**: a pixel pair's bits are spread across the planes with `MERGEB`, and four columns' plane bytes go out as one `WRLONG` per plane. The planes of a column all sit in one hub slice, so one byte write per plane would wait a full hub rotation each
 
 ---
 
@@ -496,7 +497,7 @@ Each chip's datasheet clock and /OE ratings are in the [Chip Characteristics Mat
 
 **Latch Timing Modes**:
 - **Latch-After**: Standard mode - latch after all columns clocked (most panels)
-- **Latch-Overlap**: FM6126A - latch overlaps with final columns
+- **Latch-Overlap**: FM6126A, GS6238S and DP5125D - LATCH is high over the last 3 columns
 
 **Color Channel Swapping**:
 - Some panels require Red/Blue swap or Green/Blue swap
@@ -504,7 +505,7 @@ Each chip's datasheet clock and /OE ratings are in the [Chip Characteristics Mat
 
 **Scan Modes** (the [glossary](../THEOPS.md#scan) defines the term: a panel is **1/S scan**, where S is the number of row addresses its address lines select, and each address lights panel rows ÷ S rows at once):
 - Standard: two rows lit at once, one fed by each set of color pins: 1/16 scan on a 64x32 panel, 1/32 scan on a 64x64 or 128x64 panel
-- Special: four rows lit at once, flagged `SCAN_4` (MBI5124GP and DP5125D, 1/8 scan on a 64x32 panel) - requires a different screen-to-panel conversion, and the refresh line holds two column clocks for every panel column
+- Special: four rows lit at once, flagged `SCAN_4` (MBI5124GP and DP5125D, 1/8 scan on a 64x32 panel) - uses the same converter as the standard scans (`convertRowPairs()`), which differs only in where each row lands in the frame set, and the refresh line holds two column clocks for every panel column
 - ICN2038S: the driver flags it `SCAN_4`, but its five address lines suggest 1/32 scan; this is an open item (see the Change Log's Known Issues) and the panel's scan is **disputed** until it is settled
 
 ### 7.3 Adding New Chip Support

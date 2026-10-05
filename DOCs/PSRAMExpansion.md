@@ -30,10 +30,12 @@ The current driver stores all buffers in hub RAM:
 
 | Configuration | Pixels | 8-bit Memory | Status |
 |---------------|--------|--------------|--------|
-| 2×2 @ 128×64 | 32,768 | 196 KB | ✓ Works |
-| 4×4 @ 64×64 | 65,536 | 393 KB | ✓ Tight |
-| 4×4 @ 128×64 | 131,072 | 786 KB | ✗ Exceeds 512KB |
-| 8×8 @ 64×64 | 262,144 | 1.5 MB | ✗ Exceeds 512KB |
+| 2×2 @ 128×64 | 32,768 | 352 KB | ✓ Works |
+| 4×4 @ 64×64 | 65,536 | 704 KB | ✗ Exceeds 512KB |
+| 4×4 @ 128×64 | 131,072 | 1,408 KB | ✗ Exceeds 512KB |
+| 8×8 @ 64×64 | 262,144 | 2,816 KB | ✗ Exceeds 512KB |
+
+At 8-bit a pixel takes 3 + 8 = 11 bytes (the screen buffer plus the two frame sets), so 32,768 pixels take 360,448 bytes (352 KB).
 
 ## What 32MB PSRAM Enables
 

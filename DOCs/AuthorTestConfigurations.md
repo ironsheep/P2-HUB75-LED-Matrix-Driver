@@ -119,7 +119,7 @@ DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP     ' DISP0_C1 .. DISP0_C15 are 
 
 **Specifications:**
 - Size: 64 columns × 32 rows = 2,048 pixels
-- Scan: **1/8 scan** (8 row addresses, so four rows lit at once: the driver flag `SCAN_4`, which needs its own screen-to-panel conversion)
+- Scan: **1/8 scan** (8 row addresses, so four rows lit at once: the driver flag `SCAN_4`, which uses the same converter as every other panel and places each row differently in the frame set)
 - Driver Chip: MBI5124GP
 - Address Lines: ABC (3 lines)
 - Clock and /OE ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)

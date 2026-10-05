@@ -1,0 +1,129 @@
+diff --git a/driver/test_hub75_rates.spin2 b/driver/test_hub75_rates.spin2
+index a60b3b3..94eda25 100644
+--- a/driver/test_hub75_rates.spin2
++++ b/driver/test_hub75_rates.spin2
+@@ -138,6 +138,9 @@ CON ' ---- Brightness steps and tearing test (visit C) ----
+     ' check: longer than one refresh at any rate above 10 Hz
+     TAKE_SETTLE_MS          = 100
+ 
++    ' Commits alternate between the two frame sets: an odd count leaves set 1 on display
++    ODD_DIVISOR             = 2
++
+ CON ' ---- Test patterns (plan section 1), judged by eye ----
+ 
+     ' Seconds each pattern is held
+@@ -401,7 +404,7 @@ DAT ' ---- Test State (singleton) ----
+     scrollText      BYTE    "AB12", 0                       ' SCROLL_WINDOW_CHARS + 1 characters
+     emptyNote       BYTE    0                               ' no note after a case line
+ 
+-PUB main() : ok | nCommitsBefore, bTakeCheck
++PUB main() : ok | nCommitsBefore, bTakeCheck, nShownPosts
+ '' Start adapter 1 and the instrument, run every phase of the workload, report, and end the session.
+ ''
+ '' @returns ok - cog ID of the display driver or -1 on failure
+@@ -409,6 +412,7 @@ PUB main() : ok | nCommitsBefore, bTakeCheck
+ ' Local Variables:
+ ' @local nCommitsBefore - commits posted before the take check started
+ ' @local bTakeCheck - TRUE if the take check started
++' @local nShownPosts - frame sets posted by showFrameSet() (each must be taken once)
+ 
+   debug("RATES: ---- HUB75 rates workload ----")
+ 
+@@ -428,10 +432,11 @@ PUB main() : ok | nCommitsBefore, bTakeCheck
+     runWorkload()
+     runHandshakeTrace()
+     refuseNullFrameSet()
++    nShownPosts := showIdleFrameSet()
+     runBrightnessSteps()
+     runTearingTest()
+     if bTakeCheck == TRUE
+-      reportTakeCheck(nCommitsBefore)
++      reportTakeCheck(nCommitsBefore, nShownPosts)
+     instrument.stop()
+   debug("END_SESSION")
+ 
+@@ -1444,12 +1449,14 @@ PRI patternLabel(patternIdx) : pLabel
+     other:
+       pLabel := string("one-pixel checkerboard: dark pixels stay dark (no ghosting)")
+ 
+-PRI reportTakeCheck(nCommitsBefore) | nCommitsAfter, nTakes, nOnBoundary, nOffBoundary, lastOffRow, nProblems
++PRI reportTakeCheck(nCommitsBefore, nShownPosts) | nCommitsAfter, nTakes, nOnBoundary, nOffBoundary, lastOffRow, nProblems
+ ' Print the frame-set take check: every take must have been made at a frame boundary, and the
+-' takes counted must equal the commits made since the check started (each commit posts the set
+-' not on display, so each is taken once), or the check missed some.
++' takes counted must equal the commits made since the check started plus the frame sets posted
++' by showFrameSet() (each posts the set not on display, so each is taken once), or the check
++' missed some.
+ '
+ ' @param nCommitsBefore - commits posted before the take check started
++' @param nShownPosts - frame sets posted by showFrameSet() while the check ran
+ 
+ ' Local Variables:
+ ' @local nCommitsAfter - commits posted by now
+@@ -1466,14 +1473,14 @@ PRI reportTakeCheck(nCommitsBefore) | nCommitsAfter, nTakes, nOnBoundary, nOffBo
+   if nOffBoundary <> 0
+     debug("RATES: FAIL: ", udec_(nOffBoundary), " of ", udec_(nTakes), " frame-set takes were part way through a frame (latest at row address ", udec_(lastOffRow), ", expected ", udec_(rowsPerRefresh() - 1), ")")
+     nProblems++
+-  if nTakes <> nCommitsAfter - nCommitsBefore
+-    debug("RATES: FAIL: the take check saw ", udec_(nTakes), " takes for ", udec_(nCommitsAfter - nCommitsBefore), " commits")
++  if nTakes <> nCommitsAfter - nCommitsBefore + nShownPosts
++    debug("RATES: FAIL: the take check saw ", udec_(nTakes), " takes for ", udec_(nCommitsAfter - nCommitsBefore), " commits and ", udec_(nShownPosts), " showFrameSet() posts")
+     nProblems++
+   if nTakes == 0
+     debug("RATES: FAIL: the take check saw no takes")
+     nProblems++
+   if nProblems == 0
+-    debug("RATES: TAKE CHECK PASS: ", udec_(nOnBoundary), " of ", udec_(nTakes), " frame-set takes at a frame boundary (row address ", udec_(rowsPerRefresh() - 1), " on the pins), one per commit")
++    debug("RATES: TAKE CHECK PASS: ", udec_(nOnBoundary), " of ", udec_(nTakes), " frame-set takes at a frame boundary (row address ", udec_(rowsPerRefresh() - 1), " on the pins), one per commit and per showFrameSet() post")
+   else
+     debug("RATES: TAKE CHECK FAIL: ", udec_(nProblems), " problem(s); ", udec_(nOnBoundary), " on the boundary, ", udec_(nOffBoundary), " off it, ", udec_(nTakes), " takes, ", udec_(nCommitsAfter - nCommitsBefore), " commits")
+ 
+@@ -1578,6 +1585,48 @@ PRI refuseNullFrameSet() | bAccepted
+   else
+     debug("RATES: FAIL: showFrameSet(0) was accepted")
+ 
++PRI showIdleFrameSet() : nShownPosts | pSet1, pSet2, pShown, pIdle, setLongs, bAccepted
++' Exercise display.showFrameSet() on a set the caller built: copy the frame set on display into
++' the other set (so the picture does not change) and post it with showFrameSet(); then offer the
++' screen buffer's address, which must be refused. Every commit converts into the set not on
++' display, so after an odd number of commits set 1 is on display (the first commit converts into
++' set 1). The take check counts the accepted post as one more take; posting the wrong set would
++' repost the set on display, which no take marks, so the take check would FAIL.
++'
++' @returns nShownPosts - frame sets posted by showFrameSet() (1 when it accepted the idle set)
++
++' Local Variables:
++' @local pSet1 - hub address of the adapter's frame set 1
++' @local pSet2 - hub address of the adapter's frame set 2
++' @local pShown - the set on display
++' @local pIdle - the set not on display
++' @local setLongs - longs in one frame set
++' @local bAccepted - what showFrameSet() answered
++
++  nShownPosts := 0
++  waitms(TAKE_SETTLE_MS)                                        ' the last commit's post is taken
++  pSet1 := hub75Bffrs.pwmFrame1BufferAddress(chainIndex)
++  pSet2 := hub75Bffrs.pwmFrame2BufferAddress(chainIndex)
++  pShown := pSet2
++  pIdle := pSet1
++  if commitsPosted() // ODD_DIVISOR == 1
++    pShown := pSet1
++    pIdle := pSet2
++  setLongs := hub75Bffrs.pwmFrameSizeInLongs(chainIndex) * hub75Bffrs.pwmFrameCount(chainIndex)
++  longmove(pIdle, pShown, setLongs)
++  bAccepted := display.showFrameSet(pIdle)
++  if bAccepted == TRUE
++    nShownPosts := 1
++    debug("RATES: PASS: showFrameSet() accepted the set not on display (", uhex_long_(pIdle), "); the take check counts its take")
++  else
++    debug("RATES: FAIL: showFrameSet() refused the set not on display (", uhex_long_(pIdle), ")")
++  bAccepted := display.showFrameSet(hub75Bffrs.displayBufferAddress(chainIndex))
++  if bAccepted == FALSE
++    debug("RATES: PASS: showFrameSet() refused the screen buffer's address (its message is the line above)")
++  else
++    nShownPosts++
++    debug("RATES: FAIL: showFrameSet() accepted the screen buffer's address")
++
+ PRI drawPhase(phaseIdx) | drawStart, commitStart
+ ' Draw one phase into the screen buffer and commit it, timing each step.
+ '

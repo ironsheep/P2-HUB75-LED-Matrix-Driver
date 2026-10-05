@@ -72,7 +72,8 @@ Additional pages:
 - [HardwareTurnon](HardwareTurnon.md) - Describes the initial turn-on effort of this driver
 - [Driver Details](THEOPS.md) - Provides more detail about the driver and driver-configuration
 - [Wiring Guide](DOCs/WiringGuide.md) - How to describe your panels' layout, cabling and rotation, with seven worked examples
-- [Panel Config/Timing Details](HUB75-Driver-SWver1.md) - Notes about each panel-driver chip this P2 driver supports
+- [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md) - Notes about each panel-driver chip this P2 driver supports
+- [Panel Config/Timing Details (history)](HUB75-Driver-SWver1.md) - The v3-era notes on panel configuration and timing; kept as history
 - [HUB75 Card Details](HUB75-brd-config.md) - Pins and Probing Support provided by HUB75 card
 - [P2 P2 Cube testing](CubePix.md) - Author's test hardware - Flat P2 P2 Cube Configuration
 - [Change Log](ChangeLog.md) - Notes about each release of this driver
@@ -89,8 +90,8 @@ What's working today with the current driver:
 - Compile-time selectable color depth from 3 to 8-bits per color, per hub75 card
 - **Cube display**: six square panels wired as a cube net draw as one object. Face-centric calls (`drawFace*`, `scrollFaceTextAtRC*`) draw lines, boxes, circles, text and scrolling that carry across all 12 edges. *The cube's drawing is proven by a 163-case self-test (`test_hub75_cube_fold.spin2`); it has not yet been run on six real panels.*
 - Single panel support working well for supported chips, up to 8192 leds (128x64)
-- Supported Panel Driver Chips: FM6126A, FM6124, ICN2037, ICN2038S, and MBI5124 (1/8 scan)
-- Multi-panel support working well for ICN2037 chip only (*we're trying to figure out the panel initialization sequences for chips like the FM6126A. Until we do, Multi-panel won't work for these panels*)
+- Supported Panel Driver Chips: DP5125D, FM6124, FM6126A, GS6238S, ICN2037, ICN2037BP, ICN2038S, and MBI5124GP (1/8 scan); see the [chip table](#chips-supported) for the status of each
+- Multi-panel status differs by chip: the [chip table](#chips-supported) marks each chip `Multi-panel` or `Single-panel`
 - PWM'ing images to achieve 3-bit to 8-bit color per LED (9-bit to 24-bit color per pixel)
 - Displaying text in both 5x7 and 8x8 fonts
 - Initial version of scrolling text - will get more performant in future updates (now up, down, right, and left scroll!)
@@ -115,12 +116,12 @@ This driver works with the following chips. Other chips may well work since the 
 | --- | --- | --- | --- | --- |
 | DP5125D | ABC | working `Multi-panel` | Shenzhen Developer Microelectronics Co., Ltd |
 | FM6124 | ABCD | working `Single-panel` | Shenzhen Funman Electronics Group Co., Ltd. 
-| FM6126A | ABCD | working `Multi-panel` | Shenzhen Funman Electronics Group Co., Ltd. | Requires Panel init sequence to get Multi-panel working!
+| FM6126A | ABCD | working `Multi-panel` | Shenzhen Funman Electronics Group Co., Ltd. | The driver sends the panel init sequence at start
 | GS6238S | ABCD | working `Single-panel` | ?? | ??
 | ICN2037 | ABCDE | working `Multi-panel` | Chipone Technology (Beijing) Co., Ltd. | Our P2 P2 cube panels 
 | ICN2037BP | ABCDE | working `Multi-panel` |Chipone Technology (Beijing) Co., Ltd. |
-| ICN2038S | ABCDE | working `Multi-panel` | Chipone Technology (Beijing) Co., Ltd. |
-| MBI5124GP | ABC | working `Single-panel` | Macroblock, Inc. (Taiwan) | Requires Panel init sequence to get Multi-panel working! Finally have datasheet, there is hope!
+| ICN2038S | ABCDE | working `Single-panel` | Chipone Technology (Beijing) Co., Ltd. | Single-ended road-sign panel: no daisy-chain by construction |
+| MBI5124GP | ABC | working `Single-panel` | Macroblock, Inc. (Taiwan) | The driver sends the panel init sequence at start; chains of these panels have not been run
 
 Each chip's datasheet clock and /OE ratings are in the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings).
 
@@ -170,7 +171,7 @@ Definition of the constants specified in the file **isp\_hub75_hwPanelConfig.spi
 | `DISPx_ADAPTER_BASE_PIN` | {none}  |  Identify which pin-group your HUB75 board is connected |
 | `DISPx_PANEL_DRIVER_CHIP` | CHIP_UNKNOWN | in most cases UNKNOWN will work. Some specialized panels need a specific driver chip (e.g., those using the FM6126A, ICN2037, MBI5124GP, etc.) |
 | `DISPx_PANEL_ADDR_LINES` | {none} | The number of Address lines driving your panels (ADDR\_ABC, ADDR\_ABCD, or ADDR\_ABCDE) |
-| `DISPx_MAX_PANEL_COLUMNS` | {none} | The number of LEDs in each row of your panel ( # pixels-wide) |
+| `DISPx_MAX_PANEL_COLUMNS` | {none} | The number of LEDs in each row of your panel ( # pixels-wide); must be a multiple of 4, or startup stops with a message |
 | `DISPx_MAX_PANEL_ROWS` | {none} | The number of LEDs in each column of your panel ( # pixels-high) |
 | `DISPx_COLOR_DEPTH` | `DEPTH_8BIT` | The color depth you wish to display on your panels (compile-time selectable from 3-bit to 8-bit; 8-bit is full 24-bit color) |
 | `DISPx_TARGET_REFRESH_HZ` | 60 | The refresh rate to aim for, in Hz. The driver picks the brightest panel timing that reaches it. A long chain at deep color may not reach it; the driver then runs at the fastest rate it can and prints that rate at startup. Lower it for more brightness on a large display. How it works and what it reaches: [refresh rate](DOCs/WiringGuide.md#refresh-rate) |
@@ -338,6 +339,9 @@ There are a couple of demos which you can review then copy and paste from.  Thes
 | demo\_hub75_boundary.spin2 | **TEST** Draws lines, a box, a circle and text across the panel seams of a multi-panel display, and a panel-centric line that must stop at its panel's edge; prints the time of one full draw |
 | demo\_hub75_quadPanel.spin2, demo\_hub75_multi2x2panel.spin2 | Show off drawing to a 2x2 display and to its individual panels |
 | test\_hub75\_cube\_fold.spin2 | **TEST** Checks the cube's edge folding with no panels attached: one PASS or FAIL line per case |
+| test\_hub75\_rates.spin2 | **TEST** Runs a fixed workload on one adapter with the instrument and reports refresh, lit share, clock, commit and draw time; runs the frame-set handshake and take checks, the brightness steps, the colour-table and row-run self-tests |
+| test\_hub75\_converter.spin2 | **TEST** Compares the screen-to-PWM converters with a reference converter byte for byte, with no panels attached, and prints PASS or FAIL |
+| test\_hub75\_oe\_bcm.spin2 | **TEST** Stand-alone check of the output-enable-weighted refresh method on one adapter, with test patterns and monitors |
 
 
 **NOTE1:** most of the demo's are built for a 64x32 panels. You may have to modify them to run on your panel geometry.
