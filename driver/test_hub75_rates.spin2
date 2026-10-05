@@ -37,8 +37,10 @@
    Then the brightness steps (full, half, the chip-minimum floor, off), each labelled on the
    panel with its step, its brightness and the lit share measured relative to full, so a viewer
    can judge the dimming by eye; then the tearing test (white and black alternating at the
-   fastest commit rate). The frame-set take check runs from the first phase to the end of the
-   tearing test: every take must find the frame's last row address on the address pins (a
+   fastest commit rate). The plan section 1 test patterns run first, right after start, so a
+   viewer sees them at once: drawn through the display API and held PATTERN_HOLD_SECONDS each
+   (grey ramp, RGB bands, solid red, green, blue and white, one-pixel checkerboard). The
+   frame-set take check runs from the first pattern to the end of the tearing test: every take must find the frame's last row address on the address pins (a
    frame boundary), and the takes counted must equal the commits made. TAKE CHECK PASS/FAIL.
 
    With the adapter at base P0 the instrument reports its monitors unavailable (the strobes would
@@ -105,6 +107,38 @@ CON ' ---- Brightness steps and tearing test (visit C) ----
     ' After the last commit, wait this long for its post to be taken before reading the take
     ' check: longer than one refresh at any rate above 10 Hz
     TAKE_SETTLE_MS          = 100
+
+CON ' ---- Test patterns (plan section 1), judged by eye ----
+
+    ' Seconds each pattern is held
+    PATTERN_HOLD_SECONDS    = 6
+
+    ' Patterns, in the order shown:
+    '  PATTERN_GREY_RAMP   - grey 0..255 left to right across the display
+    '  PATTERN_RGB_BANDS   - four horizontal bands: red, green, blue and white ramps
+    '  PATTERN_SOLID_RED .. PATTERN_SOLID_WHITE - every pixel one full colour
+    '  PATTERN_CHECKER     - one-pixel white and black checkerboard (dark pixels must stay dark)
+    '  PATTERN_COUNT       - number of patterns
+    #0, PATTERN_GREY_RAMP, PATTERN_RGB_BANDS, PATTERN_SOLID_RED, PATTERN_SOLID_GREEN, ...
+    PATTERN_SOLID_BLUE, PATTERN_SOLID_WHITE, PATTERN_CHECKER, PATTERN_COUNT
+
+    ' The band pattern's bands, top to bottom: one channel ramps, or all three (BAND_WHITE)
+    #0, BAND_RED, BAND_GREEN, BAND_BLUE, BAND_WHITE, BAND_COUNT
+
+    ' Levels in an 8-bit channel, and full on
+    LEVEL_COUNT             = 256
+    LEVEL_MAX               = LEVEL_COUNT - 1
+
+    ' Channel places in a 24-bit $RRGGBB colour
+    RED_SHIFT               = 16
+    GREEN_SHIFT             = 8
+
+    ' A checkerboard pixel is lit when its row + column is odd
+    CHECKER_PHASES          = 2
+    CHECKER_LIT_PHASE       = 1
+
+    ' Width or height of a one-pixel box
+    ONE_PIXEL               = 1
 
 CON ' ---- Brightness step labels ----
 
@@ -180,6 +214,7 @@ PUB main() : ok | nCommitsBefore, bTakeCheck
     instrument.start(hub75Bffrs.pinBase(chainIndex), latchesPerRefresh())
     nCommitsBefore := commitsPosted()
     bTakeCheck := instrument.startTakeCheck(rowsPerRefresh() - 1)
+    runPatterns()
     runWorkload()
     runHandshakeTrace()
     refuseNullFrameSet()
@@ -308,6 +343,112 @@ PRI runTearingTest() | endMs, commitCount, pScreen, screenBytes
     display.commitScreenToPanelSet()
     commitCount += 2
   debug("RATES: TEARING TEST done: ", udec_(commitCount), " commits in ", udec_(TEAR_TEST_SECONDS), " s")
+
+PRI runPatterns() | patternIdx, displayRows, displayColumns
+' Draw each plan section 1 test pattern over the whole display, commit it, name it in the log
+' and hold it PATTERN_HOLD_SECONDS so it can be judged by eye.
+'
+
+' Local Variables:
+' @local patternIdx - PATTERN_* being shown
+' @local displayRows - display height in pixels
+' @local displayColumns - display width in pixels
+
+  displayRows, displayColumns := hub75Bffrs.displaySizeInPixels(chainIndex)
+  repeat patternIdx from 0 to PATTERN_COUNT - 1
+    display.clearScreenBuffer()
+    drawPattern(patternIdx, displayRows, displayColumns)
+    display.commitScreenToPanelSet()
+    debug("RATES: PATTERN ", udec_(patternIdx + 1), " of ", udec_(PATTERN_COUNT), ": ", zstr_(patternLabel(patternIdx)))
+    waitms(PATTERN_HOLD_SECONDS * MS_PER_SECOND)
+
+PRI drawPattern(patternIdx, displayRows, displayColumns) | columnIdx, rowIdx, level, bandIdx, bandRows
+' Draw one test pattern into the screen buffer, in display coordinates.
+'
+' @param patternIdx - PATTERN_* to draw
+' @param displayRows - display height in pixels
+' @param displayColumns - display width in pixels
+
+' Local Variables:
+' @local columnIdx - display column being drawn
+' @local rowIdx - display row being drawn
+' @local level - the ramp's level at this column
+' @local bandIdx - BAND_* being drawn
+' @local bandRows - rows in one band
+
+  bandRows := displayRows / BAND_COUNT
+  case patternIdx
+    PATTERN_GREY_RAMP:
+      repeat columnIdx from FIRST_COLUMN to displayColumns - 1
+        level := columnIdx * LEVEL_COUNT / displayColumns
+        display.drawBoxOfColor(FIRST_ROW, columnIdx, ONE_PIXEL, displayRows, TRUE, rgbOf(level, level, level))
+    PATTERN_RGB_BANDS:
+      repeat columnIdx from FIRST_COLUMN to displayColumns - 1
+        level := columnIdx * LEVEL_COUNT / displayColumns
+        repeat bandIdx from 0 to BAND_COUNT - 1
+          display.drawBoxOfColor(bandIdx * bandRows, columnIdx, ONE_PIXEL, bandRows, TRUE, bandColor(bandIdx, level))
+    PATTERN_SOLID_RED:
+      display.fillScreen(rgbOf(LEVEL_MAX, 0, 0))
+    PATTERN_SOLID_GREEN:
+      display.fillScreen(rgbOf(0, LEVEL_MAX, 0))
+    PATTERN_SOLID_BLUE:
+      display.fillScreen(rgbOf(0, 0, LEVEL_MAX))
+    PATTERN_SOLID_WHITE:
+      display.fillScreen(rgbOf(LEVEL_MAX, LEVEL_MAX, LEVEL_MAX))
+    other:
+      repeat rowIdx from FIRST_ROW to displayRows - 1
+        repeat columnIdx from FIRST_COLUMN to displayColumns - 1
+          if (rowIdx + columnIdx) // CHECKER_PHASES == CHECKER_LIT_PHASE
+            display.drawBoxOfColor(rowIdx, columnIdx, ONE_PIXEL, ONE_PIXEL, TRUE, color.cWhite)
+
+PRI bandColor(bandIdx, level) : rgbColor
+' Return the colour of a band pattern pixel: the band's channel (or all three) at level.
+'
+' @param bandIdx - BAND_* of the pixel
+' @param level - ramp level 0..255
+' @returns rgbColor - 24-bit $RRGGBB colour
+
+  case bandIdx
+    BAND_RED:
+      rgbColor := rgbOf(level, 0, 0)
+    BAND_GREEN:
+      rgbColor := rgbOf(0, level, 0)
+    BAND_BLUE:
+      rgbColor := rgbOf(0, 0, level)
+    other:
+      rgbColor := rgbOf(level, level, level)
+
+PRI rgbOf(redLevel, greenLevel, blueLevel) : rgbColor
+' Compose a 24-bit $RRGGBB colour from three 8-bit levels.
+'
+' @param redLevel - red 0..255
+' @param greenLevel - green 0..255
+' @param blueLevel - blue 0..255
+' @returns rgbColor - 24-bit $RRGGBB colour
+
+  rgbColor := (redLevel << RED_SHIFT) | (greenLevel << GREEN_SHIFT) | blueLevel
+
+PRI patternLabel(patternIdx) : pLabel
+' Return what a viewer should see in a test pattern.
+'
+' @param patternIdx - PATTERN_* shown
+' @returns pLabel - zero-terminated description
+
+  case patternIdx
+    PATTERN_GREY_RAMP:
+      pLabel := string("grey ramp: dark to bright left to right, even steps, no missing or doubled bands")
+    PATTERN_RGB_BANDS:
+      pLabel := string("bands top to bottom: red, green, blue, white ramps")
+    PATTERN_SOLID_RED:
+      pLabel := string("solid red")
+    PATTERN_SOLID_GREEN:
+      pLabel := string("solid green")
+    PATTERN_SOLID_BLUE:
+      pLabel := string("solid blue")
+    PATTERN_SOLID_WHITE:
+      pLabel := string("solid white")
+    other:
+      pLabel := string("one-pixel checkerboard: dark pixels stay dark (no ghosting)")
 
 PRI reportTakeCheck(nCommitsBefore) | nCommitsAfter, nTakes, nOnBoundary, nOffBoundary, lastOffRow, nProblems
 ' Print the frame-set take check: every take must have been made at a frame boundary, and the
