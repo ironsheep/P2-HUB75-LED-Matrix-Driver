@@ -168,6 +168,50 @@ What passed: the 60 Hz target picked the predicted j at every depth, the handsha
 brightness 0 read 0.0%, and brightness 1 sat at the chip-minimum floor. «#103» fixes both
 defects inside §4's targets; it is not a scope change. «#94» then re-runs visit C in full.
 
+### Visit C results (2026-10-03 and 2026-10-04, quad rig, new refresh core)
+
+Measured by `driver/test_hub75_rates.spin2` on the fixed core (`9ea5959`), one build per
+depth; logs, method and Stephen's words in `DOCs/bench/RUN-NOTES.md` (visit C).
+
+| Depth | Refresh / model (Hz) | /OE lit / model | j (60 Hz target) | Commit (ms) | Draw fill / lines / text / BMP (ms) |
+|---|---|---|---|---|---|
+| 8 | 71.0 / 71.1 | 83.0 / 83.1% | 4 | 21.25 | 635.4 / 233.3 / 1,103.0 / 304.2 |
+| 7 | 75.0 / 75.1 | 87.4 / 87.5% | 3 | 18.90 | 635.4 / 232.2 / 1,097.7 / 303.4 |
+| 6 | 79.6 / 79.6 | 91.9 / 92.0% | 2 | 16.55 | 635.4 / 231.0 / 1,092.4 / 302.5 |
+| 5 | 84.7 / 84.7 | 96.3 / 96.3% | 1 | 14.20 | 635.4 / 229.9 / 1,087.1 / 301.7 |
+| 4 | 90.5 / 90.5 | 99.6 / 99.6% | 0 | 11.86 | 635.4 / 228.8 / 1,082.7 / 300.9 |
+| 3 | 193.3 / 193.4 | 99.2 / 99.3% | 0 | 9.51 | 635.4 / 227.9 / 1,077.4 / 299.8 |
+
+- **§3 accepted.** Handshake PASS at every depth. Take check (the §3 acceptance below):
+  824 of 824 frame-set takes at a frame boundary, one per commit; its negative limb (P8
+  also pulsed at every row start) reported 128,386 takes off the boundary.
+- **§4 accepted.** Refresh and lit share within 0.2% of the model at every depth, and the
+  target picked the predicted j. Brightness 128 gives half the lit share of 256 with
+  refresh unchanged; 1 sits at the chip-minimum floor (3.6% at 8-bit); 0 is dark. By eye,
+  with each step labelled on the panel: Stephen, "yes dimming looks good... seems to be
+  correct". A target above reach (200 Hz at 8-bit) printed its catalogue message and ran
+  at 165.0 Hz against 165.7 Hz predicted.
+- **§5 accepted.** CLK high 23.9 ns at every depth; the low half is 7 clocks (20.9 ns) on
+  paper, which this instrument resolves to about +/-0.5 clock.
+- **Shimmer (§6):** steady at 5, 6, 7 and 8 bit by eye (Stephen's words per depth in
+  RUN-NOTES). «#95» records the disposition.
+- **The commit and draw columns are the "before"** for §7-§9; visit E compares against them.
+
+**§3 acceptance changed (agreed with Stephen, 2026-10-04).**
+- *What changed:* the tearing test's acceptance is a pin measurement, not an observation.
+  The instrument catches every rise of P8 (posted set taken) and reads the row-address pins
+  at that moment; every take must find the frame's last row address, and the takes counted
+  must equal the commits made. Its negative limb must report FAIL.
+- *Why:* by eye the 18 Hz white/black flip is too fast to judge (Stephen: "So maybe too fast
+  for me to distinguish"), and a camera cannot tell an unlit row from the black image, so
+  neither can show a torn frame on a scanned panel. Stephen: "I like your pin measurement
+  idea".
+- *What it touches:* `isp_hub75_instrument.spin2` (the take check) and
+  `test_hub75_rates.spin2` (the report, and the brightness-step labels Stephen asked for so
+  the dimming can be judged by eye).
+- *What it does not admit:* no change to the driver; the white/black flip stays in the test
+  as the load the take check runs under.
+
 ## 1. Prototype: prove the OE-weighted method on panels (planning phase)
 
 **Why:** §4 rewrites the shared refresh core. Two premises are unproven on panels:
@@ -312,7 +356,10 @@ the method.
 
 **Verification:**
 - **Normal (visit C):** a tearing test. Two full-screen patterns alternate at the
-  fastest commit rate, and no frame shows parts of both.
+  fastest commit rate while the instrument's take check reads the row-address pins at
+  every frame-set take: every take is at a frame boundary, one per commit, and the check
+  reports FAIL on a build that marks takes mid-frame (acceptance changed 2026-10-04; see
+  "Visit C results").
 - **Edge:**
   - A commit issued while the previous one has not yet been taken waits, and
     never overwrites the set on display.
@@ -727,3 +774,5 @@ in planning (visit A), and §11 is the visit tasks.
   say 60, V2.0 says 40), and §12 would otherwise have changed a correct doc to a
   wrong one.
 - 2026-10-03 — tasks «#88»-«#102» generated; cross-reference table added.
+- 2026-10-04 — visit C completed; results table added. §3's tearing acceptance changed
+  from an observation to the pin take check (agreed with Stephen).

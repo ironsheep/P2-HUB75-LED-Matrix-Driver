@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2026
-''   Updated.... 03 Oct 2026
+''   Updated.... 04 Oct 2026
 ''
 '' =================================================================================================
 
@@ -47,6 +47,14 @@
    read still gets one whole window. The refresh core drives CLK low at the end of every shift, so
    CLK idles low between shifts and highs / periods is the mean high time of one pulse; the
    low half is the column period (RG3 TIMING line) minus it.
+
+   The frame-set take check (startTakeCheck()) answers "does a new image ever start part way
+   through a frame?" from the pins. A cog of its own waits for each rise of P8 (posted set
+   taken) as a pin event, which latches even the two-clock pulse, and reads the adapter's
+   row-address pins A-E at that moment. The refresh core takes a set before it drives row 0's
+   address, so a take at a frame boundary finds the last row address of the frame still on the
+   pins; any other address is a take part way through a frame. The takes counted must also
+   equal the commits made, or the check missed some.
 }
 
 CON ' ---- Signals and Monitors ----
@@ -81,6 +89,32 @@ CON ' ---- Signals and Monitors ----
 
     ' A window that has not completed after this many window lengths is given up
     WINDOW_TIMEOUT_LENGTHS  = 2
+
+CON ' ---- Frame-Set Take Check ----
+
+    ' SETSE1 D[8:6] = %001: selectable event 1 fires when the pin in D[5:0] rises (p2kbPasm2Setse1)
+    EVENT_PIN_RISES         = %001 << 6
+
+    ' A pin number's bit 5 selects the port it is read through (0 = INA, 1 = INB); the low five
+    ' bits are its place in that port
+    PORT_SELECT_BIT         = 5
+    PIN_IN_PORT_MASK        = %1_1111
+
+    ' The row address on the five pins A-E
+    ROW_ADDRESS_MASK        = %1_1111
+
+    ' Marks the take check's cog as not running
+    NO_COG                  = -1
+
+    ' Stack of the take check's cog: it runs one method that never calls another
+    TAKE_STACK_LONGS        = 32
+
+    ' Take tallies the take check's cog keeps (TALLY_COUNT longs in takeTallies):
+    '  TALLY_TAKES        - P8 rises seen
+    '  TALLY_ON_BOUNDARY  - of those, taken with the frame's last row address on A-E
+    '  TALLY_OFF_BOUNDARY - of those, taken with any other row address
+    '  TALLY_LAST_OFF_ROW - the row address of the latest take off the boundary
+    #0, TALLY_TAKES, TALLY_ON_BOUNDARY, TALLY_OFF_BOUNDARY, TALLY_LAST_OFF_ROW, TALLY_COUNT
 
 CON ' ---- Report Arithmetic ----
 
@@ -127,6 +161,10 @@ DAT ' ---- Singleton State ----
     lastClkHighClocksX100   LONG    0                               ' mean CLK high time per pulse, clocks x100
     lastClkHighNsX100       LONG    0                               ' mean CLK high time per pulse, ns x100
 
+    takeCheckCog            LONG    NO_COG                          ' cog running watchTakes(), or NO_COG
+    takeTallies             LONG    0[TALLY_COUNT]                  ' written only by that cog
+    takeCheckStack          LONG    0[TAKE_STACK_LONGS]
+
 PUB start(adapterBasePin, latchesPerRefreshCount) : bRunning | sigIdx, monitorPin
 '' Start a monitor beside each signal that has a free neighbour pin, for the adapter whose
 '' pins begin at adapterBasePin. An adapter at P0 has the strobe pins among its own: nothing
@@ -171,12 +209,13 @@ PUB start(adapterBasePin, latchesPerRefreshCount) : bRunning | sigIdx, monitorPi
     debug("INSTR: monitors unavailable: the adapter at P", udec_(adapterFirstPin), " owns P", udec_(adapterFirstPin), "-P", udec_(adapterLastPin), ", which holds strobes P", udec_(matrix.MTX_LA_XT_P08), "-P", udec_(matrix.MTX_LA_XT_P11), " and the monitor pins; none driven, none started")
 
 PUB stop() | sigIdx
-'' Release every monitor pin.
+'' Stop the take check and release every monitor pin.
 ''
 
 ' Local Variables:
 ' @local sigIdx - signal whose monitor is released
 
+  stopTakeCheck()
   repeat sigIdx from 0 to MON_COUNT - 1
     if LONG[@monitorPins][sigIdx] <> NO_PIN
       pinclear(LONG[@monitorPins][sigIdx])
@@ -237,6 +276,46 @@ PUB clockHighNsX100() : highNsX100
 '' @returns highNsX100 - nanoseconds x 100
 
   highNsX100 := lastClkHighNsX100
+
+PUB startTakeCheck(lastRowAddress) : bStarted
+'' Start a cog that checks every frame-set take: at each rise of P8 it reads the row-address
+'' pins and counts the take as at a frame boundary when they hold lastRowAddress. Needs the
+'' monitors running (P8 is driven only then). Read the counts with takeTotals().
+''
+'' @param lastRowAddress - the row address of a frame's last row (row addresses in a frame - 1)
+'' @returns bStarted - TRUE if the check's cog started
+
+  bStarted := FALSE
+  stopTakeCheck()
+  if monitorsRunning == TRUE
+    longfill(@takeTallies, 0, TALLY_COUNT)
+    takeCheckCog := cogspin(NEWCOG, watchTakes(matrix.MTX_LA_XT_P08, adapterFirstPin + matrix.PIN_OFST_A, lastRowAddress), @takeCheckStack)
+    if takeCheckCog >= 0
+      bStarted := TRUE
+    else
+      takeCheckCog := NO_COG
+      debug("INSTR: take check not started: no free cog")
+
+PUB stopTakeCheck()
+'' Stop the take check's cog, if running. Its counts stay readable.
+''
+
+  if takeCheckCog <> NO_COG
+    cogstop(takeCheckCog)
+    takeCheckCog := NO_COG
+
+PUB takeTotals() : nTakes, nOnBoundary, nOffBoundary, lastOffRow
+'' Return the take check's counts since startTakeCheck().
+''
+'' @returns nTakes - frame-set takes seen (P8 rises)
+'' @returns nOnBoundary - takes made with the frame's last row address on the pins
+'' @returns nOffBoundary - takes made with any other row address: part way through a frame
+'' @returns lastOffRow - row address of the latest take off the boundary (meaningful only when nOffBoundary > 0)
+
+  nTakes := LONG[@takeTallies][TALLY_TAKES]
+  nOnBoundary := LONG[@takeTallies][TALLY_ON_BOUNDARY]
+  nOffBoundary := LONG[@takeTallies][TALLY_OFF_BOUNDARY]
+  lastOffRow := LONG[@takeTallies][TALLY_LAST_OFF_ROW]
 
 PUB stopwatchStart() : startTick
 '' Take the start of an interval, for commit time or draw time.
@@ -419,6 +498,54 @@ PRI reportSecond()
 '
 
   debug("INSTR: refresh ", udec_(lastRefreshX100 / FIXED_POINT_SCALE), ".", udec_((lastRefreshX100 // FIXED_POINT_SCALE) / FRACTION_DIVISOR), " Hz, lit ", udec_(lastLitX100 / FIXED_POINT_SCALE), ".", udec_((lastLitX100 // FIXED_POINT_SCALE) / FRACTION_DIVISOR), "%, clk ", udec_(lastClkRisesPerSec / matrix.HZ_PER_MHZ), ".", udec_((lastClkRisesPerSec // matrix.HZ_PER_MHZ) / (matrix.HZ_PER_MHZ / FRACTION_DIVISOR)), " MHz mean, high ", udec_(lastClkHighClocksX100 / FIXED_POINT_SCALE), ".", udec_((lastClkHighClocksX100 // FIXED_POINT_SCALE) / FRACTION_DIVISOR), " clk ", udec_(lastClkHighNsX100 / FIXED_POINT_SCALE), ".", udec_((lastClkHighNsX100 // FIXED_POINT_SCALE) / FRACTION_DIVISOR), " ns | /s: cmd ", udec_(LONG[@windowCounts][MON_CMD]), " frame ", udec_(LONG[@windowCounts][MON_FRAME]), " row ", udec_(LONG[@windowCounts][MON_ROW]), " plane ", udec_(LONG[@windowCounts][MON_PLANE]), " latch ", udec_(LONG[@windowCounts][MON_LATCH]))
+
+PRI watchTakes(takePin, firstAddressPin, lastRowAddress) | eventConfig, addressShift, rowAddress, tally, pTakes, pOnBoundary, pOffBoundary, pLastOffRow
+' Run in the take check's own cog, forever (stopTakeCheck() stops the cog). Selectable event 1
+' latches each rise of takePin (p2kbPasm2Setse1), so the two-clock P8 pulse is never missed, and
+' WAITSE1 returns on it and clears it (p2kbPasm2Waitse1). The row address is read from the port
+' at once: the refresh core drives row 0's address only after shifting row 0's first plane.
+'
+' @param takePin - the posted-set-taken strobe pin (P8)
+' @param firstAddressPin - the adapter's address pin A; A-E are five consecutive pins
+' @param lastRowAddress - the row address a take at a frame boundary finds on A-E
+
+' Local Variables:
+' @local eventConfig - SETSE1 value: takePin rises
+' @local addressShift - place of pin A in its port
+' @local rowAddress - row address read at a take
+' @local tally - a count being stepped
+' @local pTakes - hub address of TALLY_TAKES
+' @local pOnBoundary - hub address of TALLY_ON_BOUNDARY
+' @local pOffBoundary - hub address of TALLY_OFF_BOUNDARY
+' @local pLastOffRow - hub address of TALLY_LAST_OFF_ROW
+
+  eventConfig := EVENT_PIN_RISES | takePin
+  addressShift := firstAddressPin & PIN_IN_PORT_MASK
+  pTakes := @LONG[@takeTallies][TALLY_TAKES]
+  pOnBoundary := @LONG[@takeTallies][TALLY_ON_BOUNDARY]
+  pOffBoundary := @LONG[@takeTallies][TALLY_OFF_BOUNDARY]
+  pLastOffRow := @LONG[@takeTallies][TALLY_LAST_OFF_ROW]
+  org
+                setse1  eventConfig                     ' also clears the event flag
+.waitTake       waitse1
+                testb   firstAddressPin, #PORT_SELECT_BIT  wc
+    if_nc       mov     rowAddress, ina
+    if_c        mov     rowAddress, inb
+                shr     rowAddress, addressShift
+                and     rowAddress, #ROW_ADDRESS_MASK
+                rdlong  tally, pTakes
+                add     tally, #1
+                wrlong  tally, pTakes
+                cmp     rowAddress, lastRowAddress  wz
+    if_z        rdlong  tally, pOnBoundary
+    if_z        add     tally, #1
+    if_z        wrlong  tally, pOnBoundary
+    if_nz       rdlong  tally, pOffBoundary
+    if_nz       add     tally, #1
+    if_nz       wrlong  tally, pOffBoundary
+    if_nz       wrlong  rowAddress, pLastOffRow
+                jmp     #.waitTake
+  end
 
 PRI signalLabel(sigIdx) : pLabel
 ' Return the printable name of a signal.

@@ -96,3 +96,42 @@ Each hand-back adds one dated entry with three parts: tree state (scoped to
 **Clock low half (finding):** the exact low time is (window clocks - high clocks) / periods, because CLK idles high in the gaps. It gives 6.5 clocks (19.5 ns) against 7 clocks (20.9 ns) on paper at 16 cycles per column, and 14.5 against 15 at 33. The same half-clock offset at both settings points to edge asymmetry in how the monitor sees the pin. This instrument therefore resolves the 20 ns minimum only to about +/-0.5 clock (1.5 ns).
 
 **Steps completed:** visit B. The before table exists for all six depths; the negative limb and the base-0 check are recorded.
+
+### 2026-10-03 / 2026-10-04 — FRAME-RATE visit C, quad rig, new refresh core (`test_hub75_rates.spin2`)
+
+**Tree:** `driver/*.spin2` at `9ea5959` (after «#103»). Each depth was a temporary edit of `DISP0_COLOR_DEPTH` in `isp_hub75_hwPanelConfig.spin2`, restored to `9ea5959` after each sweep (`git diff` empty). On 2026-10-04 the instrument gained the frame-set take check and the test gained brightness-step labels and 5 s brightness steps (committed with this entry). The unreachable-target run and the take check's negative limb used scratch copies of `driver/` outside the tree.
+**Rig:** quad rig, 2 x 2 of 128x64 ICN2037 on P16-P31, 512 column clocks, 32 row addresses, 335 MHz, 15 clocks per column. A second P2 (another project's motor rig) was on the same Mac from 2026-10-04 on `/dev/tty.usbserial-P6yh4spg`; every load named the LED plug: `pnut-term-ts -r <bin> -p Parw7ukt --headless --end-marker --timeout 180`.
+
+**First sweep failed (2026-10-03, `driver/logs/headless_261003-210125.log` to `-210748.log`):** refresh was below the model at every depth (8-bit 70.3 / 71.1 Hz, 3-bit 135.8 / 193.4) and brightness 128 gave 79% of full light. Two §4 defects: the /OE pulse waited up to one base period to start, and a shorter pulse period shortened the row. Fixed by «#103» (`9ea5959`); these logs are kept as the defect evidence.
+
+**Unattended sweep on the fixed core (2026-10-03).** Model = the RG3 MODEL line, 60 Hz target:
+
+| Depth | Refresh / model (Hz) | /OE lit / model | j chosen | Clock (M rises/s, mean) | CLK high | Commit (ms) | Draw fill / lines / text / BMP (ms) | Log |
+|---|---|---|---|---|---|---|---|---|
+| 8 | 71.0 / 71.1 | 83.0 / 83.1% | 4 | 9.31 | 23.9 ns | 21.25 | 635.4 / 233.3 / 1,103.0 / 304.2 | `-213601` |
+| 7 | 75.0 / 75.1 | 87.4 / 87.5% | 3 | 8.61 | 23.9 ns | 18.90 | 635.4 / 232.2 / 1,097.7 / 303.4 | `-224253` |
+| 6 | 79.6 / 79.6 | 91.9 / 92.0% | 2 | 7.83 | 23.9 ns | 16.55 | 635.4 / 231.0 / 1,092.4 / 302.5 | `-224433` |
+| 5 | 84.7 / 84.7 | 96.3 / 96.3% | 1 | 6.94 | 23.9 ns | 14.20 | 635.4 / 229.9 / 1,087.1 / 301.7 | `-213739` |
+| 4 | 90.5 / 90.5 | 99.6 / 99.6% | 0 | 5.93 | 23.9 ns | 11.86 | 635.4 / 228.8 / 1,082.7 / 300.9 | `-224607` |
+| 3 | 193.3 / 193.4 | 99.2 / 99.3% | 0 | 9.50 | 23.9 ns | 9.51 | 635.4 / 227.9 / 1,077.4 / 299.8 | `-213911` |
+
+- Every depth within 0.2% of the model on refresh and lit share; the target chose the predicted j at every depth. Handshake PASS at every depth.
+- Brightness at every depth: 128 gave half the lit share of 256 with refresh unchanged; at 8-bit, 1 gave 3.6% (the chip-minimum floor) and 0 gave 0.0%.
+- Unreachable target (scratch, `DISP0_TARGET_REFRESH_HZ = 200` at 8-bit; `driver/logs/scratch-unreach94_headless_261003-224750.log`, copied from the scratch run): "HUB75: DISP0: DISP0_TARGET_REFRESH_HZ = 200 Hz is out of reach for this display; running at 165.7 Hz, its fastest (j = 8)"; measured 165.0 Hz.
+- The commit and draw columns are the "before" figures for §7-§9 (visit E compares against them).
+
+**Attended part, 8-bit (2026-10-04).** Stephen at the rig.
+- Runs `-172034` and `-172454` (5 s brightness steps from the second): identical to the unattended 8-bit figures. Tearing run 712 commits in 20 s.
+- **Tearing, by eye and on video.** Stephen: "the tearing test seems to break the panel into 4 horizontal equally sized rows". Stephen: "I never saw white and black simultaneously. What I did see on the four rows was that they were flickering badly." Stephen: "So maybe too fast for me to distinguish". On a normal-rate phone video: "I saw them go from all white to all black, with two or three steps in between, so there's no tearing. It's the amount of pixels that were white versus black." Stephen: "the four rows were identically filled with white at each step". Verdict: consistent with no tearing, but not proof. A camera cannot tell an unlit row from the black image, so a white/black flip on a scanned panel looks the same torn or not. The four regions are the four 32-row panel halves that the shared row address scans in lockstep (2 x 2 of 1/32-scan panels): expected.
+- **Tearing, by pins (the §3 acceptance from here; Stephen: "I like your pin measurement idea").** The instrument's take check catches every rise of P8 (posted set taken) as a pin event and reads the row-address pins A-E at that moment. A take at a frame boundary finds row address 31, the frame's last; the takes counted must equal the commits made. `-174204` and `-174541`: **TAKE CHECK PASS: 824 of 824 frame-set takes at a frame boundary (row address 31 on the pins), one per commit**, from the first workload commit to the end of the tearing test.
+- **Take check negative limb** (scratch copy, P8 also pulsed at every row start; `driver/logs/scratch-takeneg_headless_261004-174335.log`, copied from the scratch run): **TAKE CHECK FAIL**: 128,386 takes off the boundary, 4,965 on it, 133,351 takes for 824 commits. The counts agree with the scan: about 4,141 frames ran, giving 4,141 false marks at row 31 (+ 824 real) and 31 x 4,141 = 128,371 elsewhere.
+- **Brightness by eye.** Each step labelled on the panel with its step, brightness and lit share relative to full, measured from the step's second window. `-174204` first used the first window, which began before the step change, and showed 58% / 11% for the 128 / 1 steps. Fixed to the second window; `-174541` labels 100 / 50 / 4 / 0% of full from lit 83.0 / 41.5 / 3.6 / 0.0%. Stephen: "yes dimming looks good... seems to be correct".
+- **Shimmer** (`demo_hub75_quadPanel` 30 s, then `demo_hub75_color` about 100 s, at each depth):
+  - 8-bit (`-174900`, `-174931`): Stephen: "colors all look steady".
+  - 7-bit (`-175608`, `-175639`): Stephen: "no shimmering".
+  - 6-bit (`-180658`, `-180729`): Stephen: "steady".
+  - 5-bit (`-181922`, `-181953`): Stephen: "steady".
+
+**Verdicts:** §3 accepted (handshake PASS; take check PASS with its negative limb shown failing). §4 accepted (refresh and lit share within 0.2% of the model at every depth; target j as predicted; brightness linear, floor and 0 correct; unreachable target reported and run at the fastest rate). §5 accepted (CLK high 23.9 ns at every depth; the low half is 7 clocks, 20.9 ns, on paper, resolved by this instrument to about +/-0.5 clock). Shimmer steady at 5-8 bit, for «#95».
+
+**Steps completed:** visit C.
