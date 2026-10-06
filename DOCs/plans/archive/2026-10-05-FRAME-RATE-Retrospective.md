@@ -75,13 +75,13 @@ New this sprint (to append to `feedback_skill_evolution_candidates.md`):
    tops): print the verdict before the last count line, or read verdicts from counts only;
    tool fix is Stephen's.
 
-Buffered entries, proposed verdicts (for Stephen):
+Buffered entries, verdicts (proposed, accepted by Stephen 2026-10-05: "sounds ok"):
 
 | Entry | Proposed verdict | Why |
 |---|---|---|
 | 2026-10-02 human-reader doc guide (owner Stephen) | Deferred | Still waiting on Stephen's voicing guide; release shaping is a natural moment |
 | 2026-10-03 «#89» instrument semantics | Addressed | The rule (trace the observed event and idle level before relying on a channel) belongs in `sprint-plan` research; fold with lesson 4 |
-| 2026-10-03 «#89» depth is compile-time | Closed-no-change | One-off fact, now in the test's header and memory; no general rule |
+| 2026-10-03 «#89» depth is compile-time | Closed-no-change (deleted) | One-off fact, now in the test's header and memory; no general rule |
 | 2026-10-03 «#93» measurement premise across a core change | Addressed | Same fix as «#89» semantics: record the property a method depends on |
 | 2026-10-04 «#94» unobservable by-eye acceptance | Addressed | Becomes a `sprint-plan` research check: every by-eye limb names what failure looks like and whether the observer can tell |
 | 2026-10-04 «#97»/«#98»/«#99» protocol pinch | Addressed | `task-execution` §7 names the case: a paused task's verified, self-contained sub-unit may be committed as a protection point |
