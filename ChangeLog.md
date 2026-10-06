@@ -6,9 +6,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for reminders on how to str
 
 ### Pages: [README](README.md) | [Hardware Turn-on](HardwareTurnon.md) | [Driver Details](THEOPS.md) | [Wiring Guide](DOCs/WiringGuide.md) | Change Log
 
-## [4.0.0] (in development, not yet released)
-
-4.0.0 is still being built: this entry grows as later work lands, and gets its date when the version is tagged.
+## [4.0.0] 06 Oct 2026
 
 ### Wiring sentences, a cube layer, one-call adapter startup, and a target refresh rate
 
