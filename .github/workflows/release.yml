@@ -1,0 +1,42 @@
+# Release packaging: on a pushed v* tag, build the release zip from release/manifest.txt and
+# attach it to the GitHub release. Packaging only: the files are compiled and the manifest is
+# proved complete before the tag, on the author's machine (python3 tools/check_release.py).
+# Pushing the tag again (a moved tag) replaces the zip and the notes on the existing release.
+name: Release package
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the tagged commit
+        uses: actions/checkout@v4
+
+      - name: Build the package from the manifest
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "+ python3 tools/package_release.py --version $VERSION --out dist"
+          python3 tools/package_release.py --version "$VERSION" --out dist
+
+      - name: Create or update the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          ZIP="dist/p2-obex-driver-v${VERSION}.zip"
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            echo "+ gh release upload $GITHUB_REF_NAME $ZIP --clobber"
+            gh release upload "$GITHUB_REF_NAME" "$ZIP" --clobber
+            echo "+ gh release edit $GITHUB_REF_NAME --notes-file dist/release-notes.md"
+            gh release edit "$GITHUB_REF_NAME" --notes-file dist/release-notes.md
+          else
+            echo "+ gh release create $GITHUB_REF_NAME $ZIP --title v$VERSION --notes-file dist/release-notes.md"
+            gh release create "$GITHUB_REF_NAME" "$ZIP" --title "v${VERSION}" --notes-file dist/release-notes.md
+          fi

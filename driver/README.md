@@ -6,7 +6,9 @@ Language: Spin2 / Pasm2
 
 Created: 03-DEC-2020
 
-Upadted: 10-NOV-2022
+Updated: 05-OCT-2026
+
+Version: 4.0.0
 
 Category: display
 
@@ -19,4 +21,6 @@ Related:
 - Buy P2 Eval HUB75 Driver Board at [Parallax Online Store](https://www.parallax.com/product/p2-eval-hub75-adapter-board/)
 - See Morphing Digits software add-on at the [P2 LED-Matrix Morphing Digits Repository](https://github.com/ironsheep/P2-LED-Matrix-Morphing-Digits)
 
-License: MIT (see end of source code)
+License: MIT (see LICENSE)
+
+Change history: see ChangeLog.md

@@ -1,6 +1,6 @@
 # RELEASE 4.0.0 — Plan
 
-**Status:** agreed with Stephen 2026-10-05; item 1 done (manifest and check).
+**Status:** agreed with Stephen 2026-10-05; items 1-3 done (manifest and check, release workflow, OBEX README).
 **Build:** 4.0.0 (DISPLAY-ORGANIZATION and FRAME-RATE). Tagging and pushing are Stephen's.
 
 ## The line of division (Stephen, 2026-10-05)
@@ -42,7 +42,7 @@ uses it).
    only the manifest's files into a clean folder laid out as the package, and compiles every
    demo and `isp_hub75_anlyCheck` there with 0 warnings. Its fail limb is shown: a manifest
    missing one object must fail.
-2. **GitHub release workflow** (`.github/workflows/`): on push of a `v*` tag, read the
+2. **GitHub release workflow** (`.github/workflows/release.yml`, packaging in `tools/package_release.py`, previewable locally with `python3 tools/package_release.py --version <v>`): on push of a `v*` tag, read the
    manifest, check every file exists, stamp the README, build the inner and outer zips, and
    create the GitHub release with the tag's ChangeLog section as notes and the zip attached.
    No compile.

@@ -88,3 +88,6 @@ driver/performance.log
 DOCs/policy/STYLE-AUDIT-STATUS.md
 /DOCs/REF-NO-COMMIT
 __pycache__/
+
+# release package preview (tools/package_release.py --out dist)
+/dist
