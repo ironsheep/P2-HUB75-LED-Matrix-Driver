@@ -9,8 +9,8 @@ ChangeLog and voicing adjustments, code audits) happens before release, and the 
 workflow itself is packaging only. All commits are local, not pushed.
 
 **Verdict: the plan is certified complete.** Every code and documentation commitment is
-SHIPPED. One acceptance clause (§2's 5% agreement at 8-bit) was met only by diagnosis and is
-put to Stephen below. The audit's other gaps were missing records, now written, and one
+SHIPPED. One acceptance clause (§2's 5% agreement at 8-bit) was met by diagnosis, which
+Stephen ratified. The audit's other gaps were missing records, now written, and one
 public call (`display.showFrameSet()`) whose accepted path has not run; it is carried on the
 punch list with its test written.
 
@@ -50,7 +50,7 @@ the dark wait. It now ends the pulse first (FM6126A CLK high reads 21.7 ns, was 
 1. **§2 Normal, 8-bit at +5.7% against THEOPS's table (clause: within 5%).** RUN-NOTES visit
    B diagnoses THEOPS's 8-bit figure, not the counters: refresh is the LATCH rate divided by
    (2^depth - 1) x 32, and the counters match THEOPS at the four depths whose figures follow
-   that scaling. **Put to Stephen for ratification.**
+   that scaling. **Ratified by Stephen, 2026-10-05: "yes, accept".**
 2. **§2 Edge, no instrument code in a normal build.** Checked at closeout: no strobe, monitor
    or instrument call in any driver object outside `#IFDEF HUB75_INSTRUMENT`. Resolved.
 3. **§3 Error, `showFrameSet()`.** The NULL refusal passes on every rates run. The accepted
