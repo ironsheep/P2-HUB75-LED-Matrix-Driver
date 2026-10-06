@@ -1,0 +1,42 @@
+# Release package manifest: the exact set of files the 4.0.0+ package ships.
+# One line per file: <section> <path in the repo> [<name in the package>]
+#   driver - flat at the top of p2-obex-driver-v<version>.zip
+#   demos  - inside isp_hub75_demos.zip (a user unpacks it beside the driver objects)
+#   docs   - flat at the top of the package; README.md is stamped with the version
+# The local pre-release check (python3 tools/check_release.py) proves this list is complete
+# and compiles; the GitHub release workflow packages exactly this list. Keep one list.
+
+docs    driver/README.md                    README.md
+docs    LICENSE
+docs    ChangeLog.md
+
+driver  driver/isp_hub75_color.spin2
+driver  driver/isp_hub75_colorUtils.spin2
+driver  driver/isp_hub75_cube.spin2
+driver  driver/isp_hub75_display.spin2
+driver  driver/isp_hub75_display_bmp.spin2
+driver  driver/isp_hub75_fonts.spin2
+driver  driver/isp_hub75_hwBufferAccess.spin2
+driver  driver/isp_hub75_hwBuffers.spin2
+driver  driver/isp_hub75_hwEnums.spin2
+driver  driver/isp_hub75_hwPanelConfig.spin2
+driver  driver/isp_hub75_panel.spin2
+driver  driver/isp_hub75_rgb3bit.spin2
+driver  driver/isp_hub75_screenUtils.spin2
+driver  driver/isp_hub75_scrollingText.spin2
+
+demos   driver/demo_hub75_5x7font.spin2
+demos   driver/demo_hub75_7seg.spin2
+demos   driver/demo_hub75_boundary.spin2
+demos   driver/demo_hub75_color.spin2
+demos   driver/demo_hub75_colorPad.spin2
+demos   driver/demo_hub75_multi2x2panel.spin2
+demos   driver/demo_hub75_multiPanel.spin2
+demos   driver/demo_hub75_numberPanels.spin2
+demos   driver/demo_hub75_quadPanel.spin2
+demos   driver/demo_hub75_scroll.spin2
+demos   driver/demo_hub75_text.spin2
+demos   driver/isp_hub75_7seg.spin2
+demos   driver/isp_hub75_segment.spin2
+demos   driver/isp_hub75_anlyCheck.spin2
+demos   driver/TstBG-Up.bmp
