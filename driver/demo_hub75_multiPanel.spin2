@@ -3,45 +3,28 @@
 ''   File....... demo_hub75_multiPanel.spin2
 ''   Purpose.... Top-level Demonstration - showing off our HUB75 matrix access to individual panels
 ''   Authors.... Stephen M Moraco
-''               -- Copyright (c) 2021 Iron Sheep Productions, LLC
+''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Apr 2021
-''   Updated.... 10 Nov 2022
+''   Updated.... 06 Oct 2026
 ''
 '' =================================================================================================
 
-CON ' timing
+CON ' ---- Timing ----
 
     CLK_FREQ  = 335_000_000                                         ' system freq as a constant 2.985 nSec
     ' CLK_FREQ = 250_000_000                                        ' system freq as a constant 2.985 nSec
     _CLKFREQ  = CLK_FREQ                                            ' set system clock
 
-CON ' DEBUG PINs
-
-' DEBUG_PIN = 0
     DEBUG_COGS  = %11111111
     DEBUG_BAUD  = 2_000_000
 
-VAR
+CON ' ---- Demo Info ----
 
-    LONG    cog
-    LONG    chainIndex
-    LONG    demoPausePeriod
-    LONG    textSize
-
-OBJ
-
-    color           : "isp_hub75_color"
-    colorUtils      : "isp_hub75_colorUtils"
-    pixels          : "isp_hub75_screenUtils"
-    hub75Bffrs      : "isp_hub75_hwBufferAccess"
-    display         : "isp_hub75_display"
-    user            : "isp_hub75_hwPanelConfig"                     ' hardware config common to all demos
-
-CON ' DEMO info
-
-' 11 enables .bmp file display
+    ' DEMO_COUNT is how many of the demos in main()'s case run, in order (1 to 4):
+    '  1 - demoPanelColors, 2 - demoTopBottomScroll, 3 - demoRandomPanelColors
+    '  4 - demoPanelFillColors (set DEMO_COUNT to 4 to include it)
     DEMO_COUNT  = 3
 
     ' Panel positions P0 .. P5 of a six-panel flat display, in reading order from the
@@ -57,29 +40,68 @@ CON ' DEMO info
     '  PNL_BOTTOM - labelled BOTTOM (P5)
     #0, PNL_TOP, PNL_FRONT, PNL_RIGHT, PNL_BACK, PNL_LEFT, PNL_BOTTOM
 
-DAT
+    ' demo timing and counts
+    DEMO_PAUSE_SECONDS  = 3                                         ' pause between demos
+    DEMO_PASSES         = 20                                        ' times the whole demo sequence repeats
+    RANDOM_PASSES       = 20                                        ' random-colour screens per demoRandomPanelColors
+    FILL_PASSES         = 4                                         ' times demoPanelFillColors cycles its colours
+    FILL_SHORT_SECONDS  = 2
+    FILL_LONG_SECONDS   = 4
+    MS_PER_SECOND       = 1000
+
+    ' hue arithmetic (a hue is a 0..HUE_SPAN position around the colour circle)
+    HUE_SPAN            = 256
+    RANDOM_HUE_RANGE    = 254                                       ' random hue is RANDOM_HUE_MIN .. RANDOM_HUE_MIN + this - 1
+    RANDOM_HUE_MIN      = 1
+    BOX_HUE_OFFSET      = 3                                         ' the box hue is this many panels past the panel's own
+    PANEL_HUE_OFFSET    = 1                                         ' the panel hue is this many panels past its index
+    ASCII_ZERO          = $30                                       ' the character '0'
+
+    ' the coloured box drawn inside each panel
+    BOX_TOP_ROW         = 17
+    BOX_LEFT_COLUMN     = 10
+    BOX_WIDTH           = 40
+    BOX_HEIGHT          = 34
+
+OBJ ' ---- Objects ----
+
+    color           : "isp_hub75_color"
+    colorUtils      : "isp_hub75_colorUtils"
+    hub75Bffrs      : "isp_hub75_hwBufferAccess"
+    display         : "isp_hub75_display"
+
+DAT ' ---- Panel Messages ----
 
     panelIdMessage  BYTE    "Pn",0
 
-PUB main() : ok | demoIndex
+    lblTop      BYTE    "Top", 0
+    lblBot      BYTE    "Bot", 0
+    lblFrnt     BYTE    "Front", 0
+    lblRight    BYTE    "Right", 0
+    lblBack     BYTE    "Back", 0
+    lblLeft     BYTE    "Left", 0
+
+VAR ' ---- Per-instance State ----
+
+    LONG    chainIndex
+    LONG    demoPausePeriod
+    LONG    textSize
+
+PUB main() | demoIndex
 '' Start underlying drivers and run the multi-panel demo sequence.
 ''
-'' @returns ok - cog ID of the started display driver or -1 on failure
 
 ' Local Variables:
 ' @local demoIndex - index of the current demo being run
 
   chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
-  ' startup our backend COG(s): one call per adapter
-  ok := cog := display.start(hub75Bffrs.HUB75_ADAPTER_1)
-  if ok == -1
-    DEBUG("- DEMO: underlying driver failed!")
-    abort
+  ' startup our backend COG(s): one call per adapter (aborts if no cog is free)
+  display.start(hub75Bffrs.HUB75_ADAPTER_1)
 
-  demoPausePeriod := 3                                  ' seconds
+  demoPausePeriod := DEMO_PAUSE_SECONDS
 
-  repeat 20
+  repeat DEMO_PASSES
     repeat demoIndex from 0 TO DEMO_COUNT - 1
       case demoIndex + 1
         1: demoPanelColors()
@@ -89,15 +111,7 @@ PUB main() : ok | demoIndex
 
       waitSec(demoPausePeriod)
 
-  stop()
-
-PRI stop()
-' Stop the display driver and release the cog.
-'
-
-  if cog
-    display.stop()
-    cog := 0
+  display.stop()
 
 PRI waitSec(countSeconds)
 ' Wait for the specified number of seconds.
@@ -105,30 +119,22 @@ PRI waitSec(countSeconds)
 ' @param countSeconds - number of seconds to wait
 
   repeat countSeconds
-    waitms(1000)
-
-PRI wait1000thSecs(count)
-' Wait for N milliseconds.
-'
-' @param count - number of milliseconds to wait
-
-  repeat count
-    waitms(1)                                           ' 1/100 seconds
+    waitms(MS_PER_SECOND)
 
 PRI demoPanelFillColors()
 ' Fill the screen with solid red, green, blue, and white colors in sequence.
 '
 
   display.clearScreenBuffer()
-  repeat 4
+  repeat FILL_PASSES
     display.fillScreenNoPWM(color.BASE_RED)             ' full single color panel NO pwm
-    waitSec(2)
+    waitSec(FILL_SHORT_SECONDS)
     display.fillScreenNoPWM(color.BASE_GREEN)           ' full single color panel NO pwm
-    waitSec(2)
+    waitSec(FILL_SHORT_SECONDS)
     display.fillScreenNoPWM(color.BASE_BLUE)            ' full single color panel NO pwm
-    waitSec(2)
+    waitSec(FILL_SHORT_SECONDS)
     display.fillScreenNoPWM(color.BASE_WHITE)           ' full single color panel NO pwm
-    waitSec(4)
+    waitSec(FILL_LONG_SECONDS)
 
 PRI demoRandomPanelColors() | panelIndex, panelHue, panelColor
 ' Fill each panel with a random hue color.
@@ -140,22 +146,13 @@ PRI demoRandomPanelColors() | panelIndex, panelHue, panelColor
 ' @local panelColor - RGB color derived from the hue
 
   display.clearScreenBuffer()
-  repeat 20
+  repeat RANDOM_PASSES
     repeat panelIndex from 0 TO hub75Bffrs.maxPanels(chainIndex) - 1
-      panelHue := (GETRND() +// 254) + 1
+      panelHue := (GETRND() +// RANDOM_HUE_RANGE) + RANDOM_HUE_MIN
       panelColor := colorUtils.rgbColorFromDegrees(panelHue)
       display.fillPanel(panelIndex, panelColor)
     ' update our screen
     display.commitScreenToPanelSet()
-
-DAT  ' panel messages
-
-    lblTop      BYTE    "Top", 0
-    lblBot      BYTE    "Bot", 0
-    lblFrnt     BYTE    "Front", 0
-    lblRight    BYTE    "Right", 0
-    lblBack     BYTE    "Back", 0
-    lblLeft     BYTE    "Left", 0
 
 PRI demoTopBottomScroll() | scrollerID
 ' Label each panel face and scroll text across multiple panels.
@@ -205,7 +202,7 @@ PRI demoTopBottomScroll() | scrollerID
   display.commitScreenToPanelSet()
 
   ' loop while scrolling finishes
-  repeat while NOT display.isScrollingComplete()
+  repeat while display.isScrollingComplete() == FALSE
     ' move the text
     display.animateScroll()
     ' commit to screen
@@ -222,7 +219,7 @@ PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, boxColor, hueInde
 ' @local boxColor - RGB color for the box drawn inside the panel
 ' @local hueIndex - computed hue index for color selection
 
-  panelHueWidth := 256 / hub75Bffrs.maxPanels(chainIndex)
+  panelHueWidth := HUE_SPAN / hub75Bffrs.maxPanels(chainIndex)
 
   ' set up text subsystem
   textSize := display.TEXT_FONT_8x8A
@@ -237,24 +234,24 @@ PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, boxColor, hueInde
 
   repeat panelIndex from 0 TO hub75Bffrs.maxPanels(chainIndex) - 1
     ' color the panel
-    hueIndex := panelIndex + 1
+    hueIndex := panelIndex + PANEL_HUE_OFFSET
     if hueIndex > hub75Bffrs.maxPanels(chainIndex) - 1
       hueIndex -= hub75Bffrs.maxPanels(chainIndex)
     panelColor := colorUtils.rgbColorFromDegrees(panelHueWidth * hueIndex)
     display.fillPanel(panelIndex, panelColor)
     ' number the panel
     display.setCursorOnPanel(1,1, panelIndex)
-    BYTE [@panelIdMessage][1] := panelIndex + $30
+    BYTE [@panelIdMessage][1] := panelIndex + ASCII_ZERO
     display.setTextAtCursor(@panelIdMessage)
     ' draw a colored box in panel (don't use panel color)
-    hueIndex := panelIndex + 3
+    hueIndex := panelIndex + BOX_HUE_OFFSET
     if hueIndex > hub75Bffrs.maxPanels(chainIndex) - 1
       hueIndex -= hub75Bffrs.maxPanels(chainIndex)
     boxColor := colorUtils.rgbColorFromDegrees(panelHueWidth * hueIndex)
-    display.drawPanelBoxOfColor(panelIndex, 17, 10, 40, 34, TRUE, boxColor)
+    display.drawPanelBoxOfColor(panelIndex, BOX_TOP_ROW, BOX_LEFT_COLUMN, BOX_WIDTH, BOX_HEIGHT, TRUE, boxColor)
   display.commitScreenToPanelSet()
 
-CON ' license
+CON ' ---- License ----
 
 {{
 
@@ -262,7 +259,7 @@ CON ' license
  -------------------------------------------------------------------------------------------------
   MIT License
 
-  Copyright (c) 2021 Iron Sheep Productions, LLC
+  Copyright (c) 2024 Iron Sheep Productions, LLC
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal

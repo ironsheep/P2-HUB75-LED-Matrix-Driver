@@ -3,190 +3,80 @@
 ''   File....... demo_hub75_quadPanel.spin2
 ''   Purpose.... Top-level Demonstration - showing off our HUB75 morganization of a quad-panel display
 ''   Authors.... Stephen M Moraco
-''               -- Copyright (c) 2025 Iron Sheep Productions, LLC
+''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Feb 2025
-''   Updated.... 8 Feb 2025
+''   Updated.... 06 Oct 2026
 ''
 '' =================================================================================================
 
 
-CON ' timing
+CON ' ---- Timing ----
 
     CLK_FREQ = 335_000_000                                        ' system freq as a constant 2.985 nSec
     'CLK_FREQ = 250_000_000                                        ' system freq as a constant 2.985 nSec
     _clkfreq = CLK_FREQ                                           ' set system clock
 
-CON ' DEBUG PINs
+CON ' ---- Debug Settings ----
 
-    'DEBUG_PIN = 0
     DEBUG_COGS = %11111111
     DEBUG_BAUD = 2_000_000
 
-VAR
+CON ' ---- Panel ID Layout ----
 
-    LONG    cog
-    LONG    chainIndex
-    LONG    demoPausePeriod
-    LONG    scrollPeriod
-    LONG    textSize
+    HUE_SPAN = 256                                                ' a hue is a 0..HUE_SPAN position around the colour circle
+    PANEL_HUE_OFFSET = 1                                          ' each panel's hue is this many panels past its index
+    ASCII_ZERO = $30                                              ' the character '0'
+    ARROW_ROW = 2                                                 ' panel text row of the up arrow
+    ARROW_COLUMN = 7                                              ' panel text column of the up arrow
+    ID_ROW = 4                                                    ' panel text row of the panel ID "Pn"
+    ID_COLUMN = 7                                                 ' panel text column of the panel ID "Pn"
 
-OBJ
+OBJ ' ---- Objects ----
 
     color       : "isp_hub75_color"
     colorUtils  : "isp_hub75_colorUtils"
-    pixels      : "isp_hub75_screenUtils"
     hub75Bffrs  : "isp_hub75_hwBufferAccess"
     display     : "isp_hub75_display"
-    user        : "isp_hub75_hwPanelConfig"                       ' hardware config common to all demos
 
-CON ' DEMO info
-
-    ' 11 enables .bmp file display
-    DEMO_COUNT = 3
-
-    ' Panel positions for the quad-panel display: reading order from the top-left panel,
-    ' as the display is mounted (panel position P0 is the top-left panel):
-    '  PNL_TOPLEFT  - top-left panel     (index 0)
-    '  PNL_TOPRIGHT - top-right panel    (index 1)
-    '  PNL_BOTLEFT  - bottom-left panel  (index 2)
-    '  PNL_BOTRIGHT - bottom-right panel (index 3)
-    #0, PNL_TOPLEFT, PNL_TOPRIGHT, PNL_BOTLEFT, PNL_BOTRIGHT
-
-DAT
+DAT ' ---- Panel Messages ----
 
     panelIdMessage  BYTE    "Pn",0
     panelArrow      BYTE    "^",0
 
-PUB main() : ok
-'' start underlying drivers and run demo
+VAR ' ---- Per-instance State ----
+
+    LONG    chainIndex
+    LONG    textSize
+
+PUB main()
+'' Start underlying drivers and run the panel identification demo.
 ''
-'' @returns ok - cog ID of display driver or -1 on failure
 
   debug("Demo: HUB75 Quad Panel Demo")
 
   chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
-  ' startup our backend COG(s): one call per adapter
-  ok := cog := display.start(hub75Bffrs.HUB75_ADAPTER_1)
-  if ok == -1
-    debug("- DEMO: underlying driver failed!")
-    abort
+  ' startup our backend COG(s): one call per adapter (aborts if no cog is free)
+  display.start(hub75Bffrs.HUB75_ADAPTER_1)
 
   ' Run panel identification demo with centered numbers
   demoPanelColors()
   debug("Demo: Panel Colors... HALT")
   repeat
 
-  stop()
-
-PRI stop()
-' Stop the driver
-
-  if cog
-    display.stop()
-    cog := 0
-
-PRI waitSec(countSeconds)
-' Wait for the specified number of seconds.
-'
-' @param countSeconds - number of seconds to wait
-
-  repeat countSeconds
-    waitms(1000)
-
-PRI wait1000thSecs(count)
-' Wait for N 1000ths of a second.
-'
-' @param count - number of 1/1000th second intervals to wait
-
-  repeat count
-    waitms(1)                                                     ' 1/100 seconds
-
-PRI demoPanelFillColors()
-' Fill screen panels with alternating solid colors.
-
-  display.clearScreenBuffer()
-  repeat 4
-    display.fillScreenNoPWM(color.BASE_RED)                       ' full single color panel NO pwm
-    waitSec(2)
-    display.fillScreenNoPWM(color.BASE_GREEN)                     ' full single color panel NO pwm
-    waitSec(2)
-    display.fillScreenNoPWM(color.BASE_BLUE)                      ' full single color panel NO pwm
-    waitSec(2)
-    display.fillScreenNoPWM(color.BASE_WHITE)                     ' full single color panel NO pwm
-    waitSec(4)
-
-PRI demoRandomPanelColors() | panelIndex, panelHue, panelColor
-' Fill each panel with a random hue color, cycling 20 times.
-'
-' @local panelIndex - index of the current panel
-' @local panelHue - random hue angle in degrees
-' @local panelColor - RGB color value derived from hue
-
-  display.clearScreenBuffer()
-  repeat 20
-    repeat panelIndex from 0 to hub75Bffrs.maxPanels(chainIndex) - 1
-      panelHue := (getrnd() +// 254) + 1
-      panelColor := colorUtils.rgbColorFromDegrees(panelHue)
-      display.fillPanel(panelIndex, panelColor)
-    ' update our screen
-    display.commitScreenToPanelSet()
-
-DAT { panel messages }
-
-    lblTopLt      BYTE    "TopLt", 0
-    lblTopRt      BYTE    "TopRt", 0
-    lblBotLt      BYTE    "BotLt", 0
-    lblBotRt      BYTE    "BotRt", 0
-
-PRI demoQuadLocations()
-' Display labeled colored panels at each quadrant location with optional scroll.
-
-  textSize := display.TEXT_FONT_8x8A
-  'textSize := display.TEXT_FONT_8x8B
-  display.setTextFont(textSize)                                   ' font size
-  display.setTextColor(color.cBlueViolet)
-
-  ' start with blank screen on which to draw
-  display.clearScreenBuffer()
-
-  display.fillPanel(PNL_TOPLEFT, color.cGreen)
-  display.setCursorOnPanel(4, 3, PNL_TOPLEFT)
-  display.setTextAtCursor(@lblTopLt)
-
-  display.fillPanel(PNL_TOPRIGHT, color.cYellow)
-  display.setCursorOnPanel(7, 1, PNL_TOPRIGHT)
-  display.setTextAtCursor(@lblTopRt)
-
-  display.fillPanel(PNL_BOTLEFT, color.cCyan)
-  display.setCursorOnPanel(7, 1, PNL_BOTLEFT)
-  display.setTextAtCursor(@lblBotLt)
-
-  display.fillPanel(PNL_BOTRIGHT, color.cOrange)
-  display.setCursorOnPanel(7, 2, PNL_BOTRIGHT)
-  display.setTextAtCursor(@lblBotRt)
-
-  ' update our screen
-  display.commitScreenToPanelSet()
-
-  ' loop while scrolling finishes
-  repeat while NOT display.isScrollingComplete()
-    ' move the text
-    display.animateScroll()
-    ' commit to screen
-    display.commitScreenToPanelSet()
-
 PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, hueIndex
 ' Color each panel with a distinct hue and display centered panel ID and arrow.
 '
+
+' Local Variables:
 ' @local panelIndex - index of the current panel
 ' @local panelHueWidth - hue degrees per panel
 ' @local panelColor - RGB color value for panel fill
 ' @local hueIndex - adjusted hue index for color selection
 
-  panelHueWidth := 256 / hub75Bffrs.maxPanels(chainIndex)
+  panelHueWidth := HUE_SPAN / hub75Bffrs.maxPanels(chainIndex)
 
   ' set up text subsystem
   'textSize := display.TEXT_FONT_5x7
@@ -204,27 +94,27 @@ PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, hueIndex
   ' color individual panels with CENTERED panel ID and up arrow
   ' For 128x64 panel with 8x8 font: 16 chars wide, 8 chars tall
   ' Center "Pn" (2 chars) at row 4, col 7
-  ' Arrow "^" above at row 3, col 7 (centered above the "P")
+  ' Arrow "^" above at row 2, col 7 (centered above the "P")
   repeat panelIndex from 0 to hub75Bffrs.maxPanels(chainIndex) - 1
     ' color the panel with distinct colors
-    hueIndex := panelIndex + 1
+    hueIndex := panelIndex + PANEL_HUE_OFFSET
     if hueIndex > hub75Bffrs.maxPanels(chainIndex) - 1
       hueIndex -= hub75Bffrs.maxPanels(chainIndex)
     panelColor := colorUtils.rgbColorFromDegrees(panelHueWidth * hueIndex)
     display.fillPanel(panelIndex, panelColor)
 
     ' Draw up arrow CENTERED above panel number (row 2, col 7)
-    display.setCursorOnPanel(2, 7, panelIndex)
+    display.setCursorOnPanel(ARROW_ROW, ARROW_COLUMN, panelIndex)
     display.setTextAtCursor(@panelArrow)
 
     ' Number the panel CENTERED (row 4, col 7 for "Pn")
-    display.setCursorOnPanel(4, 7, panelIndex)
-    BYTE [@panelIdMessage][1] := panelIndex + $30
+    display.setCursorOnPanel(ID_ROW, ID_COLUMN, panelIndex)
+    BYTE [@panelIdMessage][1] := panelIndex + ASCII_ZERO
     display.setTextAtCursor(@panelIdMessage)
 
   display.commitScreenToPanelSet()
 
-CON { license }
+CON ' ---- License ----
 
 {{
 
@@ -232,7 +122,7 @@ CON { license }
  -------------------------------------------------------------------------------------------------
   MIT License
 
-  Copyright (c) 2025 Iron Sheep Productions, LLC
+  Copyright (c) 2024 Iron Sheep Productions, LLC
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal

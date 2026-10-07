@@ -3,48 +3,45 @@
 ''   File....... demo_hub75_scroll.spin2
 ''   Purpose.... Top-level Demonstration - showing off our HUB75 matrix scrolling capability
 ''   Authors.... Stephen M Moraco
-''               -- Copyright (c) 2022 Iron Sheep Productions, LLC
+''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2022
-''   Updated.... 10 Nov 2022
+''   Updated.... 06 Oct 2026
 ''
 '' =================================================================================================
 
-CON ' timing
+CON ' ---- Timing ----
 
     CLK_FREQ  = 335_000_000                                         ' system freq as a constant
     _CLKFREQ  = CLK_FREQ                                            ' set system clock
 
-CON ' DEBUG PINs
+    DEBUG_BAUD  = 2_000_000
 
-' DEBUG_PIN = 0
+CON ' ---- Demo Constants ----
 
-VAR
+    SCROLL_PERIOD       = 20                                        ' hundredths of a second between scroll steps
+    MS_PER_100TH_SEC    = 10
 
-    LONG    cog
-    LONG    chainIndex
-    LONG    scrollPeriod
-
-OBJ
+OBJ ' ---- Objects ----
 
     color           : "isp_hub75_color"
     hub75Bffrs      : "isp_hub75_hwBufferAccess"
     display         : "isp_hub75_display"
-    user            : "isp_hub75_hwPanelConfig"                     ' hardware config common to all demos
 
-PUB main() : ok
+VAR ' ---- Per-instance State ----
+
+    LONG    chainIndex
+    LONG    scrollPeriod
+
+PUB main()
 '' Run the scrolling text demo on the HUB75 LED matrix.
 ''
-'' @returns ok - cog ID of the started display driver or -1 on failure
 
     chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
-    ' startup our backend COG(s): one call per adapter
-    ok := cog := display.start(hub75Bffrs.HUB75_ADAPTER_1)
-    if ok == -1
-        DEBUG("- DEMO: underlying drivers failed!")
-        abort
+    ' startup our backend COG(s): one call per adapter (aborts if no cog is free)
+    display.start(hub75Bffrs.HUB75_ADAPTER_1)
 
     demoScrollingText()
 
@@ -58,7 +55,7 @@ PRI demoScrollingText() | scrollerID, textSize
 ' @local scrollerID - identifier for the active text scroller
 ' @local textSize - selected font size for the display text
 
-    scrollPeriod := 20                                  ' 50 * 10 mSec :: 50/100th Sec
+    scrollPeriod := SCROLL_PERIOD                       ' 20 * 10 mSec :: 20/100th Sec
 
     textSize := display.TEXT_FONT_5x7
 
@@ -96,7 +93,7 @@ PRI demoScrollingText() | scrollerID, textSize
     wait100thSecs(scrollPeriod)
 
     ' while scrolling not done...
-    repeat while NOT display.isScrollingComplete()
+    repeat while display.isScrollingComplete() == FALSE
         ' move the text
         display.animateScroll()
         ' commit to screen
@@ -105,62 +102,15 @@ PRI demoScrollingText() | scrollerID, textSize
         ' delay while we stare wide-eyed at the new...
         wait100thSecs(scrollPeriod)
 
-DAT  ' string data
-
-    pwmMsg      BYTE    "XXXfrm pwm",0
-    bitMsg      BYTE    "-RGB "
-    bitCt       BYTE    "nbit-",0
-
-PRI demoText() | frameCount
-' Display static text showing driver info including color depth and PWM frame count.
-'
-
-' Local Variables:
-' @local frameCount - number of PWM frames reported by the driver
-
-    display.clearScreen()
-    display.setTextFont(display.TEXT_FONT_5x7)          ' font size
-    display.setCursor(0, 0)                             ' start at top left, with one pixel of spacing
-    display.setColoredTextAtLnCol(0,0, string("iron sheep"), color.cMaroon)
-
-    frameCount := hub75Bffrs.pwmFrameCount(chainIndex)
-    case hub75Bffrs.colorDepth(chainIndex)
-        hub75Bffrs.DEPTH_3BIT:
-            pwmMsg.BYTE[0] := $20                       ' space
-            pwmMsg.BYTE[1] := $20                       ' space
-            pwmMsg.BYTE[2] := $30 + frameCount
-        hub75Bffrs.DEPTH_7BIT,hub75Bffrs.DEPTH_8BIT:
-            pwmMsg.BYTE[0] := $30 + (frameCount / 100)
-            pwmMsg.BYTE[1] := $30 + ((frameCount // 100) / 10)
-            pwmMsg.BYTE[2] := $30 + ((frameCount // 100) // 10)
-        other:
-            pwmMsg.BYTE[0] := $20                       ' space
-            pwmMsg.BYTE[1] := $30 + (frameCount / 10)
-            pwmMsg.BYTE[2] := $30 + (frameCount // 10)
-    bitCt.BYTE[0] := hub75Bffrs.colorDepth(chainIndex) + $30
-
-    display.setColoredTextAtLnCol(1,0, @bitMsg, color.cOrange)
-    display.setColoredTextAtLnCol(2,0, @pwmMsg, color.cMagenta)
-    display.setColoredTextAtLnCol(3,0, string("led matrix"), color.cWhite)
-    display.commitScreenToPanelSet()
-
-PRI waitSec(countSeconds)
-' Wait for the specified number of seconds.
-'
-' @param countSeconds - number of seconds to wait
-
-    repeat countSeconds
-        waitms(1000)
-
 PRI wait100thSecs(count)
 ' Wait for N hundredths of a second.
 '
 ' @param count - number of hundredths of a second to wait
 
     repeat count
-        waitms(10)                                      ' 1/100 seconds
+        waitms(MS_PER_100TH_SEC)
 
-CON ' license
+CON ' ---- License ----
 
 {{
 
@@ -168,7 +118,7 @@ CON ' license
  -------------------------------------------------------------------------------------------------
   MIT License
 
-  Copyright (c) 2022 Iron Sheep Productions, LLC
+  Copyright (c) 2024 Iron Sheep Productions, LLC
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal

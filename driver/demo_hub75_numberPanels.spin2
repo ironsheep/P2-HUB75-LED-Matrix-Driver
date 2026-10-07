@@ -4,11 +4,11 @@
 ''   Purpose.... Top-level Demonstration - the identify routine: labels every panel with its
 ''               cable position (Ck), its panel position (Pp) and the way its arrow points
 ''   Authors.... Stephen M Moraco
-''               -- Copyright (c) 2021 Iron Sheep Productions, LLC
+''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Apr 2021
-''   Updated.... 2 Oct 2026
+''   Updated.... 06 Oct 2026
 ''
 ''   How to read the image (the wiring sentences are DISPn_C0 .. DISPn_C15 in isp_hub75_hwPanelConfig):
 ''     - Each panel gets its own background colour, so panels are easy to tell apart.
@@ -29,17 +29,17 @@
 '' =================================================================================================
 
 
-CON { timing }
+CON ' ---- Timing ----
 
     CLK_FREQ = 335_000_000                                        ' system freq as a constant 2.985 nSec
     _clkfreq = CLK_FREQ                                           ' set system clock
 
-CON { DEBUG PINs }
+CON ' ---- Debug Settings ----
 
     DEBUG_COGS = %11111111
     DEBUG_BAUD = 2_000_000
 
-CON { identify layout }
+CON ' ---- Identify Layout ----
 
     LARGE_PANEL_ROWS = 64                                         ' panels this tall (or taller) use the 8x8 font, smaller ones the 5x7 font
     MIN_SEPARATE_LINES = 5                                        ' text lines a panel needs to show the arrow, Ck and Pp on separate lines
@@ -48,7 +48,6 @@ CON { identify layout }
     CABLE_LINE_BACK = 1                                           ' the Ck line is this many lines above the middle of the panel
     POSITION_LINE_FORWARD = 1                                     ' the Pp line is this many lines below the middle of the panel
     COMPACT_ARROW_LEN = 1                                         ' the arrow is one character at the start of the compact line
-    DEGREES_PER_CIRCLE = 360                                      ' the hue wheel the panel colours are spread around
     DECIMAL_BASE = 10                                             ' digits in a number label
     DIGIT_ZERO = "0"                                              ' the character of the digit 0
     ARROW_CHAR = "^"                                              ' the identify arrow: it points up as the panel's own top points
@@ -56,41 +55,35 @@ CON { identify layout }
     POSITION_LETTER = "P"                                         ' label letter for a panel position
     LABEL_BYTES = 8                                               ' longest label: the compact line "^C15P15" and its terminator
 
-DAT { identify labels }
-
-    lblArrow        BYTE    ARROW_CHAR, 0                         ' the arrow on its own line
-    lblText         BYTE    0[LABEL_BYTES]                        ' the label being built: "C2", "P1" or "^C2P1"
-
-OBJ
+OBJ ' ---- Objects ----
 
     color       : "isp_hub75_color"
     colorUtils  : "isp_hub75_colorUtils"
     hub75Bffrs  : "isp_hub75_hwBufferAccess"
     display     : "isp_hub75_display"
-    user        : "isp_hub75_hwPanelConfig"                       ' hardware config common to all demos
 
-VAR
+DAT ' ---- Identify Labels ----
 
-    LONG    cog
+    lblArrow        BYTE    ARROW_CHAR, 0                         ' the arrow on its own line
+    lblText         BYTE    0[LABEL_BYTES]                        ' the label being built: "C2", "P1" or "^C2P1"
+
+VAR ' ---- Per-instance State ----
+
     LONG    chainIndex
     LONG    panelTextLines                                        ' text lines on one panel, for the chosen font
     LONG    panelTextColumns                                      ' text columns on one panel, for the chosen font
 
-PUB main() : ok
-'' start the display driver, draw the identify image once, report the end of the session,
-'' then hold the image on the panels
+PUB main()
+'' Start the display driver, draw the identify image once, report the end of the session,
+'' then hold the image on the panels.
 ''
-'' @returns ok - cog ID of display driver or -1 on failure
 
   debug("Demo: HUB75 identify panels")
 
   chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
-  ' startup our backend COG(s): one call per adapter
-  ok := cog := display.start(hub75Bffrs.HUB75_ADAPTER_1)
-  if ok == -1
-    debug("- DEMO: underlying driver failed!")
-    abort
+  ' startup our backend COG(s): one call per adapter (aborts if no cog is free)
+  display.start(hub75Bffrs.HUB75_ADAPTER_1)
 
   identifyPanels()
   debug("END_SESSION")
@@ -102,6 +95,8 @@ PRI identifyPanels() | panelCount, cablePos, panelPosn, cellRows, cellColumns, b
 ' sits (reading order as mounted) and draw on that panel an arrow, Ck and Pp, over a
 ' background colour of its own.
 '
+
+' Local Variables:
 ' @local panelCount - number of panels in use
 ' @local cablePos - cable position being labelled
 ' @local panelPosn - panel position of the panel at that cable position, as mounted
@@ -128,8 +123,8 @@ PRI identifyPanels() | panelCount, cablePos, panelPosn, cellRows, cellColumns, b
 
   repeat cablePos from 0 to panelCount - 1
     panelPosn := hub75Bffrs.positionForCable(chainIndex, cablePos)
-    display.fillPanel(panelPosn, colorUtils.rgbColorFromDegrees((cablePos * DEGREES_PER_CIRCLE) / panelCount))
-    if bCompact
+    display.fillPanel(panelPosn, colorUtils.rgbColorFromDegrees((cablePos * colorUtils.DEGREES_PER_CIRCLE) / panelCount))
+    if bCompact == TRUE
       lblText[0] := ARROW_CHAR
       appendNumber(appendNumber(COMPACT_ARROW_LEN, CABLE_LETTER, cablePos), POSITION_LETTER, panelPosn)
       drawCentered(panelPosn, ARROW_LINE, @lblText)
@@ -165,6 +160,8 @@ PRI drawCentered(panelPosn, line, pText) | column
 ' @param panelPosn - panel position of the panel to draw on
 ' @param line - zero-based text line within the panel
 ' @param pText - pointer to the zero-terminated text
+
+' Local Variables:
 ' @local column - text column within the panel where the text starts
 
   column := 0 #> ((panelTextColumns - strsize(pText)) / CENTER_DIVISOR)
@@ -172,7 +169,7 @@ PRI drawCentered(panelPosn, line, pText) | column
   display.setTextAtCursor(pText)
 
 
-CON { license }
+CON ' ---- License ----
 
 {{
 
@@ -180,7 +177,7 @@ CON { license }
  -------------------------------------------------------------------------------------------------
   MIT License
 
-  Copyright (c) 2021 Iron Sheep Productions, LLC
+  Copyright (c) 2024 Iron Sheep Productions, LLC
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal

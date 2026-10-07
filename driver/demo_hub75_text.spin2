@@ -3,52 +3,61 @@
 ''   File....... demo_hub75_text.spin2
 ''   Purpose.... Top-level Demonstration - showing off our HUB75 matrix text and scrolling features
 ''   Authors.... Stephen M Moraco
-''               -- Copyright (c) 2020 Iron Sheep Productions, LLC
+''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 10 Nov 2022
+''   Updated.... 06 Oct 2026
 ''
 '' =================================================================================================
 
-CON ' timing
+CON ' ---- Timing ----
 
     CLK_FREQ  = 335_000_000                                         ' system freq as a constant
     _CLKFREQ  = CLK_FREQ                                            ' set system clock
 
-CON ' DEBUG PINs
+    DEBUG_BAUD  = 2_000_000
 
-' DEBUG_PIN = 0
+CON ' ---- Demo Constants ----
 
-VAR
+    ASCII_SPACE         = $20
+    ASCII_ZERO          = $30                                       ' the character '0'
+    DECIMAL_BASE        = 10
+    HUNDRED             = 100                                       ' divisor for the hundreds digit of a frame count
+    DELAY_SECONDS       = 4                                         ' pause between the static text and the scrolling text
+    MS_PER_SECOND       = 1000
+    MS_PER_100TH_SEC    = 10
+    SCROLL_PERIOD       = 0                                         ' hundredths of a second between scroll steps (0 = no delay)
 
-    LONG    cog
-    LONG    chainIndex
-    LONG    scrollPeriod
-
-OBJ
+OBJ ' ---- Objects ----
 
     color           : "isp_hub75_color"
     hub75Bffrs      : "isp_hub75_hwBufferAccess"
     display         : "isp_hub75_display"
-    user            : "isp_hub75_hwPanelConfig"                     ' hardware config common to all demos
 
-PUB main() : ok
+DAT ' ---- String Data ----
+
+    pwmMsg      BYTE    "XXXfrm pwm",0
+    bitMsg      BYTE    "-RGB "
+    bitCt       BYTE    "nbit-",0
+
+VAR ' ---- Per-instance State ----
+
+    LONG    chainIndex
+    LONG    scrollPeriod
+
+PUB main()
 '' Run demo displaying text and graphics in various ways.
 ''
-'' @returns ok - cog ID of display driver or -1 on failure
 
   chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
-  ' startup our backend COG(s): one call per adapter
-  ok := cog := display.start(hub75Bffrs.HUB75_ADAPTER_1)
-  if ok == -1
-    DEBUG("- DEMO: underlying drivers failed!")
-    abort
+  ' startup our backend COG(s): one call per adapter (aborts if no cog is free)
+  display.start(hub75Bffrs.HUB75_ADAPTER_1)
 
   demoText()
 
-  waitSec(4)
+  waitSec(DELAY_SECONDS)
 
   demoScrollingText()
 
@@ -62,7 +71,7 @@ PRI demoScrollingText() | scrollerID, textSize
 ' @local scrollerID - ID of the active scroll region
 ' @local textSize - selected font size for display
 
-  scrollPeriod := 0                                     ' 50 * 10 mSec :: 50/100th Sec
+  scrollPeriod := SCROLL_PERIOD                         ' hundredths of a second between scroll steps
 
   textSize := display.TEXT_FONT_5x7
 
@@ -92,7 +101,7 @@ PRI demoScrollingText() | scrollerID, textSize
   wait100thSecs(scrollPeriod)
 
   ' while scrolling not done...
-  repeat while NOT display.isScrollingComplete()
+  repeat while display.isScrollingComplete() == FALSE
     ' move the text
     display.animateScroll()
     ' commit to screen
@@ -100,12 +109,6 @@ PRI demoScrollingText() | scrollerID, textSize
 
     ' delay while we stare wide-eyed at the new...
     wait100thSecs(scrollPeriod)
-
-DAT  ' string data
-
-    pwmMsg      BYTE    "XXXfrm pwm",0
-    bitMsg      BYTE    "-RGB "
-    bitCt       BYTE    "nbit-",0
 
 PRI demoText() | frameCount
 ' Display static text and panel info on the LED matrix.
@@ -122,18 +125,18 @@ PRI demoText() | frameCount
   frameCount := hub75Bffrs.pwmFrameCount(chainIndex)
   case hub75Bffrs.colorDepth(chainIndex)
     hub75Bffrs.DEPTH_3BIT:
-      pwmMsg.BYTE[0] := $20                             ' space
-      pwmMsg.BYTE[1] := $20                             ' space
-      pwmMsg.BYTE[2] := $30 + frameCount
+      pwmMsg.BYTE[0] := ASCII_SPACE
+      pwmMsg.BYTE[1] := ASCII_SPACE
+      pwmMsg.BYTE[2] := ASCII_ZERO + frameCount
     hub75Bffrs.DEPTH_7BIT,hub75Bffrs.DEPTH_8BIT:
-      pwmMsg.BYTE[0] := $30 + (frameCount / 100)
-      pwmMsg.BYTE[1] := $30 + ((frameCount // 100) / 10)
-      pwmMsg.BYTE[2] := $30 + ((frameCount // 100) // 10)
+      pwmMsg.BYTE[0] := ASCII_ZERO + (frameCount / HUNDRED)
+      pwmMsg.BYTE[1] := ASCII_ZERO + ((frameCount // HUNDRED) / DECIMAL_BASE)
+      pwmMsg.BYTE[2] := ASCII_ZERO + ((frameCount // HUNDRED) // DECIMAL_BASE)
     other:
-      pwmMsg.BYTE[0] := $20                             ' space
-      pwmMsg.BYTE[1] := $30 + (frameCount / 10)
-      pwmMsg.BYTE[2] := $30 + (frameCount // 10)
-  bitCt.BYTE[0] := hub75Bffrs.colorDepth(chainIndex) + $30
+      pwmMsg.BYTE[0] := ASCII_SPACE
+      pwmMsg.BYTE[1] := ASCII_ZERO + (frameCount / DECIMAL_BASE)
+      pwmMsg.BYTE[2] := ASCII_ZERO + (frameCount // DECIMAL_BASE)
+  bitCt.BYTE[0] := hub75Bffrs.colorDepth(chainIndex) + ASCII_ZERO
 
   display.setColoredTextAtLnCol(1,0, @bitMsg, color.cOrange)
   display.setColoredTextAtLnCol(2,0, @pwmMsg, color.cMagenta)
@@ -146,7 +149,7 @@ PRI waitSec(countSeconds)
 ' @param countSeconds - number of seconds to wait
 
   repeat countSeconds
-    waitms(1000)
+    waitms(MS_PER_SECOND)
 
 PRI wait100thSecs(count)
 ' Wait for N hundredths of a second.
@@ -154,9 +157,9 @@ PRI wait100thSecs(count)
 ' @param count - number of 1/100th second intervals to wait
 
   repeat count
-    waitms(10)                                          ' 1/100 seconds
+    waitms(MS_PER_100TH_SEC)
 
-CON ' license
+CON ' ---- License ----
 
 {{
 
@@ -164,7 +167,7 @@ CON ' license
  -------------------------------------------------------------------------------------------------
   MIT License
 
-  Copyright (c) 2020 Iron Sheep Productions, LLC
+  Copyright (c) 2024 Iron Sheep Productions, LLC
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
