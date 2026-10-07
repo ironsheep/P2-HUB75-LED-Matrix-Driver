@@ -3,24 +3,24 @@
 ''   File....... isp_hub75_anlyCheck.spin2
 ''   Purpose.... Top-level pin exercisor for HUB75 board so we can verify Logic Analyzer connections
 ''   Authors.... Stephen M Moraco
-''               -- Copyright (c) 2021 Iron Sheep Productions, LLC
+''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... May 2021
-''   Updated.... 11 May 2021
+''   Updated.... 06 Oct 2026
 ''
 '' =================================================================================================
 
-CON ' timing
+CON ' ---- Timing ----
 
     CLK_FREQ  = 320_000_000                                         ' system freq as a constant
     _CLKFREQ  = CLK_FREQ                                            ' set system clock
 
-CON ' DEBUG PINs
+CON ' ---- DEBUG Pins ----
 
 ' DEBUG_PIN = 0
 
-CON ' I/O PINs
+CON ' ---- I/O Pins ----
 
 ' New P2 Eval Board HUB75 Adapter (16-pin board; mounts on one 16-pin group).
 '  The pin range is in each name, so no math is needed to know which pins are involved.
@@ -65,7 +65,7 @@ CON ' I/O PINs
 
     MTX_16PINS           = MTX_LED_BASE_PIN ADDPINS 15
 
-CON ' pin-exercise sweep limits and timing
+CON ' ---- Pin-Exercise Sweep Limits and Timing ----
 
     MAX_16PIN_VALUE      = 65535                                    ' max value for 16-pin passthrough sweep
     MAX_CTL_VALUE        = 7                                        ' max value for 3 control pins
@@ -73,10 +73,13 @@ CON ' pin-exercise sweep limits and timing
     MAX_RGB_VALUE        = 7                                        ' max value for 3 RGB color pins
     HOLD_DELAY_MS        = 1000                                     ' hold time at each passthrough extreme (ms)
     CYCLE_DELAY_MS       = 3                                        ' settle time between signal-group cycles (ms)
+    PASSTHRU_PASSES      = 1                                        ' passes of the 16-pin passthrough sweep before the group check (0 skips it)
 
 PUB start() | addr, rgb1, rgb2, ctl, ctr
-'' Exercise all HUB75 adapter pins in groups to verify logic analyzer connections.
-'' This top-level entry never returns (it loops the pin exercises forever).
+'' Exercise all HUB75 adapter pins to verify logic analyzer connections. First the 16-pin
+'' passthrough sweep runs PASSTHRU_PASSES times: each pass counts 0..65535 on all 16 pins, then holds
+'' all pins low and then all pins high for HOLD_DELAY_MS each. Then the check of the HUB75 signal
+'' pins by group (control, row address, color) repeats forever, so this top-level entry never returns.
 ''
 
 ' Local Variables:
@@ -89,17 +92,15 @@ PUB start() | addr, rgb1, rgb2, ctl, ctr
   'debug("`term temp size 82 50 textsize 10")
   pinclear(MTX_16PINS)
   pinlow(MTX_16PINS)
-  '{
+
   ' check all pins for passthru on hub75 card
-  repeat
+  repeat PASSTHRU_PASSES
     repeat ctr from 0 to MAX_16PIN_VALUE
       pinwrite(MTX_16PINS, ctr)
     pinwrite(MTX_16PINS, 0)
     waitms(HOLD_DELAY_MS)  ' 1 second
     pinwrite(MTX_16PINS, MAX_16PIN_VALUE)
     waitms(HOLD_DELAY_MS)  ' 1 second
-
-  '}
 
   ' check all hub75 signal pins by group
   repeat
@@ -130,7 +131,7 @@ CON ' license
  -------------------------------------------------------------------------------------------------
   MIT License
 
-  Copyright (c) 2021 Iron Sheep Productions, LLC
+  Copyright (c) 2024 Iron Sheep Productions, LLC
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal

@@ -3,21 +3,29 @@
 ''   File....... isp_hub75_7seg.spin2
 ''   Purpose.... manipulate a mechanical 7 segment digit
 ''   Authors.... Stephen M Moraco
-''               -- Copyright (c) 2020 Iron Sheep Productions, LLC
+''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 18 Oct 2020
+''   Updated.... 06 Oct 2026
 ''
 '' =================================================================================================
 
-CON ' public control values
+CON ' ---- Public Control Values ----
+    {Spin2_Doc_CON}
+    ' Digit values other than 0..9 (the digit's current value is DIGIT_NO_VALUE until one is set):
+    '  DIGIT_NO_VALUE - no value has been set yet: nothing is showing
+    '  DIGIT_HIDDEN   - the digit is blank: all lit segments slide off
+    DIGIT_NO_VALUE  = -2
+    DIGIT_HIDDEN    = -1
 
-    DIGIT_NO_VALUE  = -2                                            ' digit value when NOT [0-9]
-    DIGIT_HIDDEN    = -1                                            ' digit value when NOT [0-9]
-
+    ' incrementValue() wrap choices:
+    '  WITH_WRAP    - wrap from 9 to 0
+    '  WITHOUT_WRAP - stay at 9
     WITH_WRAP       = TRUE
     WITHOUT_WRAP    = FALSE
+
+CON ' ---- Digit Geometry ----
 
     SEGMENTS_PER_DIGIT  = 7                                         ' a 7-segment digit has 7 segments
     MAX_DIGIT_VALUE     = 9                                         ' decimal digits run 0..9
@@ -41,7 +49,7 @@ OBJ
     hub75Bffrs      : "isp_hub75_hwBufferAccess"
     segments[SEGMENTS_PER_DIGIT]     : "isp_hub75_segment"
 
-DAT  ' initialized data
+DAT ' ---- Digit Segment Table ----
 
 segmentsByDigit
                 BYTE    %0111_1110                                  ' 0 abcdef-
@@ -55,13 +63,14 @@ segmentsByDigit
                 BYTE    %0111_1111                                  ' 8 abcdefg
                 BYTE    %0111_1011                                  ' 9 abcd-fg
 
-VAR ' globals
+VAR ' ---- Digit State ----
     LONG    chainIndex
     LONG    currValue
     LONG    currRgbColor
     LONG    topY
     LONG    leftX
 
+    BYTE    shownSegments                                           ' bit per segment (bit n is segment index n): the segments lit, or sliding on
     BYTE    isSetup
 
 PUB null()
@@ -69,9 +78,11 @@ PUB null()
 ''
 
 PUB placeDigit(nChainIdx, row, column, digit, rgbColor) | maxRowPixels, maxColPixels
-'' Locate a desired digit on the screen and draw the initial segment if state is not off.
+'' Locate a desired digit on the screen and start its segments moving to the initial digit unless
+'' that is DIGIT_HIDDEN. Calling it again moves the digit to a new place and starts it blank, so
+'' hide a lit digit first and let its segments finish moving.
 ''
-'' @param nChainIdx - the panel chain index to use
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @param row - top row for the digit placement
 '' @param column - left column for the digit placement
 '' @param digit - digit value to display (0-9 or DIGIT_HIDDEN)
@@ -82,7 +93,8 @@ PUB placeDigit(nChainIdx, row, column, digit, rgbColor) | maxRowPixels, maxColPi
   'debug("7s:placeDigit rc=(", udec_(row), ",", udec_(column),"), dgt=(", udec_(digit), "), RGB=(", uhex_long_(rgbColor),")")
   maxRowPixels, maxColPixels := hub75Bffrs.displaySizeInPixels(chainIndex)
   isSetup := FALSE
-  ' FIXME: UNDONE shouldn't this limit to whole digit width from right edge???
+  ' the digit's corner is held on the display, not its whole width: a digit placed near the right
+  ' or bottom edge is clipped there (each segment's drawing clamps to the display)
   leftX :=  0 #> column <# maxColPixels - 1
   topY :=  0 #> row <# maxRowPixels - 1
   currRgbColor := rgbColor
@@ -92,7 +104,10 @@ PUB placeDigit(nChainIdx, row, column, digit, rgbColor) | maxRowPixels, maxColPi
     reconfigureForDigit(digit)
 
 PUB setValue(digit)
-'' Configure the display to show the desired digit value.
+'' Configure the display to show the desired digit value. DIGIT_HIDDEN slides every lit segment
+'' off; the next value then slides on from a blank digit. Each segment slides one step per
+'' animateStep(). Aborts if a segment that has to change is still sliding from an earlier
+'' request: let isAnimationComplete() report TRUE before the next call.
 ''
 '' @param digit - digit value to display (0-9 or DIGIT_HIDDEN)
 
@@ -126,7 +141,7 @@ PUB isAnimationComplete() : bComplete | segmentIndex
 
   bComplete := TRUE
   repeat segmentIndex from 0 TO SEGMENTS_PER_DIGIT - 1
-    if NOT segments[segmentIndex].isMovementComplete()
+    if segments[segmentIndex].isMovementComplete() == FALSE
       bComplete := FALSE
       quit                                              ' we have our answer, abort loop
 
@@ -137,21 +152,22 @@ PUB animateStep() | segmentIndex
 ' Local Variables:
 ' @local segmentIndex - loop index over the seven segments
 
-  if NOT isAnimationComplete()
+  if isAnimationComplete() == FALSE
     repeat segmentIndex from 0 TO SEGMENTS_PER_DIGIT - 1
-      if NOT segments[segmentIndex].isMovementComplete()
+      if segments[segmentIndex].isMovementComplete() == FALSE
         segments[segmentIndex].animateStep()
 
 PRI ensureIsSetup()
 ' Perform initial setup if not yet done.
 '
 
-  if NOT isSetup
+  if isSetup == FALSE
     initialSetup()
 
 PRI initialSetup() | segIndex, orientation, segRow, segCol
 ' Initialize all seven segments with their type, color, and location, set to hidden.
-'
+
+' Local Variables:
 ' @local segIndex - loop index over the seven segments
 ' @local orientation - segment orientation constant for the current segment
 ' @local segRow - computed row position for the current segment
@@ -188,53 +204,46 @@ PRI initialSetup() | segIndex, orientation, segRow, segCol
         segCol := leftX
       SEG_IDX_G_MIDDLE:                                 ' G MIDDLE
         orientation := segments.SEG_MIDDLE
-        segRow := topY + LAYOUT_EDGE_INSET + segments.SEG_LENGTH + 0 - LAYOUT_EDGE_INSET
+        segRow := topY + LAYOUT_EDGE_INSET + segments.SEG_LENGTH - LAYOUT_EDGE_INSET
         segCol := leftX + LAYOUT_EDGE_INSET
 
     segments[segIndex].placeSegment(chainIndex, segRow, segCol, orientation, segments.STATE_OFF, currRgbColor)
 
   currValue := DIGIT_NO_VALUE
+  shownSegments := 0                                    ' the segments were placed off
   isSetup := TRUE
 
-PRI reconfigureForDigit(digit) | BYTE fromSegments, BYTE toSegments, bitIndex
-' Reconfigure segment visibility to transition from the current digit to the new digit.
+PRI reconfigureForDigit(digit) | BYTE toSegments, segmentBit, bitIndex
+' Reconfigure segment visibility to transition from the segments now shown to those the new digit
+' needs. A value that is not 0..9 (DIGIT_HIDDEN) needs none, so every lit segment slides off. The
+' segments now shown are tracked in shownSegments as each segment is commanded, so a transition
+' always starts from what the digit actually shows, whatever came before it. Aborts, as the
+' segment's moveSegmentToState() does, when a segment that has to change is still moving.
 '
 ' @param digit - new digit value to display (0-9 or DIGIT_HIDDEN)
-'
-' @local fromSegments - bitmask of segments currently showing
+
+' Local Variables:
 ' @local toSegments - bitmask of segments that should show for the new digit
+' @local segmentBit - the bit of the segment being considered
 ' @local bitIndex - loop index over the seven segment bits
 
 ' debug("7s:reconfig dgt=(", udec_(digit), ")")
 
   if currValue <> digit
-    if digit <> DIGIT_HIDDEN
-      ' hide some segments, show others (guard sentinel currValue: nothing showing yet)
-      fromSegments := 0
-      if currValue >= 0
-        fromSegments := BYTE[@segmentsByDigit][currValue]                       ' currValue [0-9]
+    toSegments := 0
+    if digit >= MIN_DIGIT_VALUE AND digit <= MAX_DIGIT_VALUE
       toSegments := BYTE[@segmentsByDigit][digit]                               ' digit [0-9]
-      ' debug(" -- table:",ubin(fromSegments),ubin(toSegments))
-      repeat bitIndex from SEGMENTS_PER_DIGIT - 1 TO 0
-        if fromSegments & (1 << bitIndex) > 0
-          ' from segment is showing
-          if toSegments & (1 << bitIndex) > 0
-          ' to segment should be showing
-          '   NO CHANGE
-          else
-            ' to segment should be hidden
-            segments[bitIndex].moveSegmentToState(segments.STATE_OFF)
+    ' debug(" -- table:",ubin(shownSegments),ubin(toSegments))
+    ' hide some segments, show others, leave the rest as they are
+    repeat bitIndex from SEGMENTS_PER_DIGIT - 1 TO 0
+      segmentBit := 1 << bitIndex
+      if (shownSegments & segmentBit) <> (toSegments & segmentBit)
+        if (toSegments & segmentBit) == 0
+          segments[bitIndex].moveSegmentToState(segments.STATE_OFF)
         else
-          ' from segment is hidden
-          if toSegments & (1 << bitIndex) > 0
-            ' to segment should be showing
-            segments[bitIndex].moveSegmentToState(segments.STATE_ON)
-          else
-    ' to segment should be hidden
-    '   NO CHANGE
-    else
-  ' going from digit to same digit, nothing to do!
-  currValue := digit
+          segments[bitIndex].moveSegmentToState(segments.STATE_ON)
+        shownSegments ^= segmentBit                                             ' commanded: now shown (or on its way)
+    currValue := digit
 
 CON ' license
 
@@ -244,7 +253,7 @@ CON ' license
  -------------------------------------------------------------------------------------------------
   MIT License
 
-  Copyright (c) 2020 Iron Sheep Productions, LLC
+  Copyright (c) 2024 Iron Sheep Productions, LLC
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal

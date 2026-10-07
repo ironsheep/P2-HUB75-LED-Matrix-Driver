@@ -3,11 +3,11 @@
 ''   File....... isp_hub75_segment.spin2
 ''   Purpose.... manipulate a single mechanical segment
 ''   Authors.... Stephen M Moraco
-''               -- Copyright (c) 2020 Iron Sheep Productions, LLC
+''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 04 Oct 2026
+''   Updated.... 06 Oct 2026
 ''
 '' =================================================================================================
 
@@ -71,11 +71,9 @@ VAR
     LONG    segOrientation
     LONG    currentState
     LONG    nextState
-    LONG    segHeight
-    LONG    segWidth
     LONG    segStartX
     LONG    segStartY
-    LONG    segRgbColor    ' TODO add next color for when ea. digit value can be a diff color
+    LONG    segRgbColor    ' the color the segment is drawn in
     LONG    desiredEndState
     LONG    maxRows
     LONG    maxColumns
@@ -85,9 +83,10 @@ PUB null()
 ''
 
 PUB placeSegment(nChainIdx, row, column, orientation, initialState, rgbColor)
-'' Locate a segment on the screen and draw it if the initial state is not off.
+'' Locate a segment on the screen and draw it if the initial state is not off. Aborts, before the
+'' segment is drawn, when orientation is not one of the seven segments (SEG_LEFT_E .. SEG_BOTTOM).
 ''
-'' @param nChainIdx - the panel chain index to use
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @param row - top row for the segment placement
 '' @param column - left column for the segment placement
 '' @param orientation - segment orientation (SEG_TOP, SEG_LEFT_E, etc.)
@@ -104,16 +103,9 @@ PUB placeSegment(nChainIdx, row, column, orientation, initialState, rgbColor)
   segStartY :=  0 #> row <# maxRows - 1
   segOrientation := orientation
   segRgbColor := rgbColor
-  case orientation
-    SEG_TOP..SEG_BOTTOM:
-      segHeight := SEG_WIDTH
-      segWidth := SEG_LENGTH
-    SEG_LEFT_E..SEG_RIGHT_C:
-      segHeight := SEG_LENGTH
-      segWidth := SEG_WIDTH
-    OTHER:
-      debug("SEG: BAD segment type!")
-      abort
+  if orientation < SEG_LEFT_E OR orientation > SEG_BOTTOM
+    debug("SEG: BAD segment type!")
+    abort
   ' if the segment is initially showing, let's draw it!
   if initialState <> currentState
     updateSegmentToState(initialState)
@@ -122,7 +114,7 @@ PUB hideSegment()
 '' Start the segment moving to STATE_OFF if not already off.
 ''
 
-  if isMovementComplete()
+  if isMovementComplete() == TRUE
     if currentState <> STATE_OFF
       moveSegmentToState(STATE_OFF)
 
@@ -132,7 +124,7 @@ PUB showSegment()
 
 ' debug("seg:show orient=(", udec_(segOrientation), ")")
 
-  if isMovementComplete()
+  if isMovementComplete() == TRUE
     if currentState <> STATE_ON
       moveSegmentToState(STATE_ON)
 
@@ -147,11 +139,14 @@ PUB animateStep()
 '' Perform one animation step if a movement is pending.
 ''
 
-  if NOT isMovementComplete()
+  if isMovementComplete() == FALSE
     updateSegmentToState(nextState)
 
 PUB moveSegmentToState(newEndState)
-'' Start the animated transition sequence to move the segment to the desired end state.
+'' Start the animated transition sequence to move the segment to the desired end state. Aborts, with
+'' the segment unchanged, when the segment is still moving from an earlier request (finish it with
+'' animateStep() first) or when newEndState is neither STATE_ON nor STATE_OFF. A request for the
+'' end state already wanted only reports a debug message.
 ''
 '' @param newEndState - target state (STATE_ON or STATE_OFF)
 
@@ -199,7 +194,8 @@ PRI updateVerticalSegment(newState) | pixInset, columnIndex
 ' Draw a vertical segment (left or right) at the given animation state.
 '
 ' @param newState - the animation state to draw
-'
+
+' Local Variables:
 ' @local pixInset - pixel inset from segment edge for tapered drawing
 ' @local columnIndex - current column being drawn
 
@@ -243,9 +239,9 @@ PRI updateVerticalSegment(newState) | pixInset, columnIndex
     if newState <> STATE_ON
       ' clear the segment
       pixInset := SEG_WIDTH - 1
-        repeat columnIndex from 0 TO SEG_WIDTH - 1
-          drawLine(segStartY + pixInset, segStartX + columnIndex, segStartY + SEG_LENGTH - 1 - pixInset, segStartX + columnIndex, CBLACK)
-          pixInset--
+      repeat columnIndex from 0 TO SEG_WIDTH - 1
+        drawLine(segStartY + pixInset, segStartX + columnIndex, segStartY + SEG_LENGTH - 1 - pixInset, segStartX + columnIndex, CBLACK)
+        pixInset--
     ' now draw segment lines that are showing
     case newState
       STATE_3RD_ON:                                                                                         ' smallest 1 line showing
@@ -275,7 +271,8 @@ PRI updateHorizontalSegment(newState) | pixInset, rowIndex
 ' Draw a horizontal segment (top or bottom) at the given animation state.
 '
 ' @param newState - the animation state to draw
-'
+
+' Local Variables:
 ' @local pixInset - pixel inset from segment edge for tapered drawing
 ' @local rowIndex - current row being drawn
 
@@ -331,9 +328,9 @@ PRI updateHorizontalSegment(newState) | pixInset, rowIndex
         nextState := STATE_ON
       STATE_ON:
         pixInset := SEG_WIDTH - 1
-          repeat rowIndex from 0 TO SEG_WIDTH - 1
-            drawLine(segStartY + rowIndex, segStartX + pixInset, segStartY + rowIndex, segStartX + SEG_LENGTH - 1 - pixInset, segRgbColor)
-            pixInset --
+        repeat rowIndex from 0 TO SEG_WIDTH - 1
+          drawLine(segStartY + rowIndex, segStartX + pixInset, segStartY + rowIndex, segStartX + SEG_LENGTH - 1 - pixInset, segRgbColor)
+          pixInset --
       STATE_3RD_OFF:                                                                                        ' smallest 2 lines showing
         drawLine(segStartY + INSET_INNER, segStartX + INSET_MID, segStartY + INSET_INNER, segStartX + SEG_LENGTH - 1 - INSET_MID, segRgbColor)  ' mid
         drawLine(segStartY + INSET_MID, segStartX + INSET_INNER, segStartY + INSET_MID, segStartX + SEG_LENGTH - 1 - INSET_INNER, segRgbColor)  ' shortest
@@ -349,7 +346,8 @@ PRI updateMiddleSegment(newState) | pixInset, rowIndex
 ' Draw the middle segment at the given animation state.
 '
 ' @param newState - the animation state to draw
-'
+
+' Local Variables:
 ' @local pixInset - pixel inset from segment edge for tapered drawing
 ' @local rowIndex - current row being drawn
 
@@ -386,13 +384,16 @@ PRI drawLine(fmRow, fmColumn, toRow, toColumn, rgbColor) | row, column, bRun
 ' Draw a horizontal or vertical line between two points with the given color: one run
 ' (screenUtils fillRowRun() or fillColumnRun()), or pixel by pixel while the instrument build's
 ' self-test draws its reference. The color is taken as it stands (cRainbow is not special here).
+' Aborts, drawing nothing, when the two points are on neither one row nor one column (a diagonal
+' line is not supported).
 '
 ' @param fmRow - starting row of the line
 ' @param fmColumn - starting column of the line
 ' @param toRow - ending row of the line
 ' @param toColumn - ending column of the line
 ' @param rgbColor - 24-bit RGB color for the line
-'
+
+' Local Variables:
 ' @local row - current row being drawn
 ' @local column - current column being drawn
 ' @local bRun - TRUE to draw the line as one run
@@ -433,7 +434,7 @@ CON ' license
  -------------------------------------------------------------------------------------------------
   MIT License
 
-  Copyright (c) 2020 Iron Sheep Productions, LLC
+  Copyright (c) 2024 Iron Sheep Productions, LLC
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal

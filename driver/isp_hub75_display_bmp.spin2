@@ -3,17 +3,17 @@
 ''   File....... isp_hub75_display_bmp.spin2
 ''   Purpose.... Display contents of .bmp file on HUB75 RGB Matrix
 ''   Authors.... Stephen M Moraco
-''               -- Copyright (c) 2020 Iron Sheep Productions, LLC
+''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Dec 2020
-''   Updated.... 04 Oct 2026
+''   Updated.... 06 Oct 2026
 ''
 ''  This object adds .bmp file loading support: an image of any size is placed on the display,
 ''  centred, optionally turned by a content rotation (see placeBMP).
 '' =================================================================================================
 
-CON ' .bmp file-format protocol constants
+CON ' ---- .bmp File-Format Constants ----
 
     ' BMP file-type signature bytes ("BM")
     BMP_SIG_B               = $42         ' 'B'
@@ -47,12 +47,20 @@ CON ' .bmp file-format protocol constants
     ' most display pixels gathered into one row run before it is written (a LONG each, on the stack)
     BMP_RUN_PIXELS          = 64
 
-OBJ ' Objects Used by this Object
+    ' placement arithmetic: positions are kept in half-pixel units from the centre
+    BMP_HALF_PIXEL_SCALE    = 2           ' half-pixel units per pixel
+    BMP_HALF_PIXEL_SHIFT    = 1           ' the same factor as a shift: halves a half-pixel position
+    BMP_LAST_INDEX_OFFSET   = 1           ' a count less this is the index of its last member
+
+    ' smallest valid image width in pixels
+    BMP_MIN_IMAGE_WIDTH     = 1
+
+OBJ ' ---- Objects Used ----
 
     hub75Bffrs  :   "isp_hub75_hwBufferAccess"
     pixels      :   "isp_hub75_screenUtils"
 
-VAR ' buffer addresses
+VAR ' ---- Buffer Addresses ----
 
     LONG    pBitmapFileInMemory
     LONG    chainIndex
@@ -67,7 +75,7 @@ PUB fillScreenFromBMP(nChainIdx, pBmpFile) : bPlaced
 '' Load a 24-bit .bmp file image onto the display, centred and not turned. This is placeBMP()
 '' at ROT_NONE: a display-sized image lands exactly on the display, any other size is centred.
 ''
-'' @param nChainIdx - the panel chain index to use
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @param pBmpFile - pointer to the in-memory .bmp file data
 '' @returns bPlaced - TRUE if the image was placed, FALSE if the file was rejected
 
@@ -86,7 +94,7 @@ PUB placeBMP(nChainIdx, pBmpFile, eContentRotation) : bPlaced
 '' An invalid rotation value, or a file that is not an uncompressed 24-bit .bmp, draws nothing,
 '' returns FALSE and reports a debug message (in DEBUG builds).
 ''
-'' @param nChainIdx - the panel chain index to use
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @param pBmpFile - pointer to the in-memory .bmp file data
 '' @param eContentRotation - how the image is turned: hub75Bffrs.ROT_NONE, ROT_RIGHT_90 (clockwise), ROT_LEFT_90 or ROT_180
 '' @returns bPlaced - TRUE if the image was placed, FALSE if the rotation or the file was rejected
@@ -94,7 +102,7 @@ PUB placeBMP(nChainIdx, pBmpFile, eContentRotation) : bPlaced
   chainIndex := nChainIdx
   maxRowPixels, maxColPixels := hub75Bffrs.displaySizeInPixels(chainIndex)
   bPlaced := FALSE
-  if isValidContentRotation(eContentRotation)
+  if isValidContentRotation(eContentRotation) == TRUE
     bPlaced := loadBitmap(pBmpFile, eContentRotation)
   else
     debug("- ERROR placeBMP() invalid content rotation value [", udec_(eContentRotation), "], nothing drawn")
@@ -123,7 +131,8 @@ PRI loadBitmap(pBitmapFile, eContentRotation) : bLoaded | nImageWidth, nImageHei
 ' @param pBitmapFile - pointer to the in-memory .bmp file data
 ' @param eContentRotation - a valid content rotation
 ' @returns bLoaded - TRUE if the file was valid and the image was placed
-'
+
+' Local Variables:
 ' @local nImageWidth - image width in pixels, from the file header
 ' @local nImageHeight - image height in pixels, from the file header
 ' @local bTopDown - TRUE if the file stores its rows top first (negative biHeight)
@@ -147,7 +156,7 @@ PRI loadBitmap(pBitmapFile, eContentRotation) : bLoaded | nImageWidth, nImageHei
   pBitmapFileInMemory := pBitmapFile
 
   bLoaded := validateBmpFile(pBitmapFile)
-  if bLoaded
+  if bLoaded == TRUE
     nImageWidth := biWidth
     nImageHeight := abs(biHeight)
     bTopDown := (biHeight < 0)
@@ -159,10 +168,10 @@ PRI loadBitmap(pBitmapFile, eContentRotation) : bLoaded | nImageWidth, nImageHei
     runFirstColumn := 0
 
     repeat maxRowPixels with nDisplayRow
-      nRowOffset2 := (2 * nDisplayRow) - (maxRowPixels - 1)
+      nRowOffset2 := (BMP_HALF_PIXEL_SCALE * nDisplayRow) - (maxRowPixels - BMP_LAST_INDEX_OFFSET)
       nRunPixels := 0
       repeat maxColPixels with nDisplayColumn
-        nColumnOffset2 := (2 * nDisplayColumn) - (maxColPixels - 1)
+        nColumnOffset2 := (BMP_HALF_PIXEL_SCALE * nDisplayColumn) - (maxColPixels - BMP_LAST_INDEX_OFFSET)
         ' inverse rotation: where in the image does this display pixel come from?
         ' (y grows downward; a clockwise turn sends image-top to display-right)
         case eContentRotation
@@ -178,11 +187,11 @@ PRI loadBitmap(pBitmapFile, eContentRotation) : bLoaded | nImageWidth, nImageHei
           other:
             nSourceX2 := nColumnOffset2
             nSourceY2 := nRowOffset2
-        nImageColumn := (nSourceX2 + nImageWidth - 1) sar 1
-        nImageRow := (nSourceY2 + nImageHeight - 1) sar 1
+        nImageColumn := (nSourceX2 + nImageWidth - BMP_LAST_INDEX_OFFSET) sar BMP_HALF_PIXEL_SHIFT
+        nImageRow := (nSourceY2 + nImageHeight - BMP_LAST_INDEX_OFFSET) sar BMP_HALF_PIXEL_SHIFT
         ' unsigned compare: a negative index is out of range as well
         if nImageColumn +< nImageWidth and nImageRow +< nImageHeight
-          if bTopDown
+          if bTopDown == TRUE
             nFileRow := nImageRow
           else
             nFileRow := (nImageHeight - 1) - nImageRow         ' bottom-up file: first stored row is the image bottom
@@ -210,7 +219,8 @@ PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader
 '
 ' @param pBmpFileImage - pointer to the in-memory .bmp file data
 ' @returns bValidStatus - TRUE if the file is an uncompressed 24-bit BMP with a non-empty image
-'
+
+' Local Variables:
 ' @local pFileHeader - moving pointer through header fields during parsing
 
   bValidStatus := TRUE
@@ -228,7 +238,7 @@ PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader
   pFileHeader += BMP_LONG_FIELD_BYTES
   bytemove(@biCompression, pFileHeader, BMP_DIB_TAIL_BYTES)
 
-  if biWidth < 1 or biHeight == 0
+  if biWidth < BMP_MIN_IMAGE_WIDTH or biHeight == 0
     bValidStatus := FALSE
 
   if biBitCount <> BMP_BIT_COUNT_24
@@ -243,16 +253,7 @@ PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader
   if bValidStatus == FALSE
     debug("- ERROR placeBMP() file is not an uncompressed 24-bit .bmp image, nothing drawn")
 
-DAT ' .bmp file work area
-
-
-fileHeaderMsg       BYTE    "File Header",0
-fileStartMsg        BYTE    "FileImage start",0
-fileEndMsg          BYTE    "FileImage end",0
-screenMessage       BYTE    "screenBuffer",0
-screenRed           BYTE    "screenRedBuffer",0
-screenBlue          BYTE    "screenGreenBuffer",0
-screenGreen         BYTE    "screenBlueBuffer",0
+DAT ' ---- .bmp file work area ----
 
                     ALIGNL
                     BYTE 0  ' fill aligning header to avoid gaps
@@ -285,7 +286,7 @@ CON ' license
  -------------------------------------------------------------------------------------------------
   MIT License
 
-  Copyright (c) 2020 Iron Sheep Productions, LLC
+  Copyright (c) 2024 Iron Sheep Productions, LLC
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
