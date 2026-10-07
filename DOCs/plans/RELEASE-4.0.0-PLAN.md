@@ -53,6 +53,12 @@ uses it).
    review and date; the code audit (style guide T2 rules); the 18-file compile and the
    pre-release check on the final tree.
 
+5. **Code audit findings** (`DOCs/analysis/2026-10-06-4.0.0-CODE-AUDIT.md`: 52 must-fix,
+   105 should-fix, 61 nits in the shipped files). Stephen, 2026-10-06: *"A please, nothing
+   found outstanding"*: every finding is fixed before release, the demos' dead code
+   included. Behaviour fixes (M1 cog-start failure, M6 dithered scroll, M9 7-segment hide,
+   S12 pad overflow, S13 anlyCheck) are confirmed on the P2 / at the bench afterwards.
+
 Then any testing Stephen wants, then the tag and push (Stephen).
 
 ## The 4.0.0 release process, and later releases (Stephen, 2026-10-05)
