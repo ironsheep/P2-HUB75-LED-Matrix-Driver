@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 06 Oct 2026
+''   Updated.... 07 Oct 2026
 ''
 '' =================================================================================================
 
@@ -1266,9 +1266,10 @@ PRI placeCharAtRC(cChar, sRowPixIdx, sColumnPixIdx, rgbColor, eDrawMode, drawTar
   else
     placeCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor, eDrawMode, drawTarget)
 
-PRI placeCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor, eDrawMode, drawTarget) | cRowOffset, cRowBits, cColOffset, pixColor, cBitOffset, bRunRows, packedFg, packedBlack, runColors[pixels.GLYPH_RUN_PIXELS]
-' Render a non-dithered character bitmap to the screen buffer. A display-centric glyph row is one
-' run (screenUtils copyRowRun()), each pixel foreground or black; with cRainbow, or while the
+PRI placeCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor, eDrawMode, drawTarget) | cRowOffset, cRowBits, cColOffset, pixColor, cBitOffset, bRunRows, packedFg, packedBlack, runColors[pixels.GLYPH_RUN_PIXELS], bDrawnAsBlock
+' Render a non-dithered character bitmap to the screen buffer. A display-centric glyph wholly inside
+' one panel is one block (screenUtils copyGlyphBlock()); otherwise each glyph row is one run
+' (screenUtils copyRowRun()), each pixel foreground or black; with cRainbow, or while the
 ' instrument build's self-test draws its reference, each pixel goes straight to the screen buffer.
 ' A face-centric pixel goes through the one drawing core, drawPixelInternal().
 '
@@ -1288,35 +1289,41 @@ PRI placeCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor, eDrawMode,
 ' @local bRunRows - TRUE when each display-centric glyph row is drawn as one run
 ' @local packedFg - the foreground's corrected bytes, packed
 ' @local packedBlack - black's corrected bytes, packed
+' @local bDrawnAsBlock - TRUE when the whole glyph was drawn as one block (screenUtils copyGlyphBlock())
 ' @local runColors - one glyph row's packed colors, one LONG per pixel
 
   bRunRows := eDrawMode == DRAW_WHOLE_DISPLAY and charWidthInPix <= pixels.GLYPH_RUN_PIXELS and pixels.isRunDrawable(rgbColor) == TRUE
+  bDrawnAsBlock := FALSE
   if bRunRows == TRUE
     packedFg := pixels.packedColorOf(chainIndex, rgbColor)
     packedBlack := pixels.packedColorOf(chainIndex, color.CBLACK)
-  repeat cRowOffset from 0 TO charHeightInPix - 1
-    cRowBits := BYTE[pCharBitMap][cRowOffset]
-    ' the mode is tested once per row, not per pixel: each variant's column loop holds only
-    ' the one-line bit-to-color step and its own draw step
-    if bRunRows == TRUE
-      repeat cColOffset from 0 TO charWidthInPix - 1
-        cBitOffset := (charWidthInPix - 1) - cColOffset
-        runColors[cColOffset] := ((cRowBits & (1 << cBitOffset)) > 0) ? packedFg : packedBlack
-      pixels.copyRowRun(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx, charWidthInPix, @runColors)
-    elseif eDrawMode == DRAW_WHOLE_DISPLAY
-      repeat cColOffset from 0 TO charWidthInPix - 1
-        cBitOffset := (charWidthInPix - 1) - cColOffset
-        pixColor := ((cRowBits & (1 << cBitOffset)) > 0) ? rgbColor : color.CBLACK
-        pixels.drawPixelAtRC(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor)
-    else
-      repeat cColOffset from 0 TO charWidthInPix - 1
-        cBitOffset := (charWidthInPix - 1) - cColOffset
-        pixColor := ((cRowBits & (1 << cBitOffset)) > 0) ? rgbColor : color.CBLACK
-        drawPixelInternal(sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor, eDrawMode, drawTarget)
+    ' the whole glyph as one block when it lies inside one cell, else row by row
+    bDrawnAsBlock := pixels.copyGlyphBlock(chainIndex, sRowPixIdx, sColumnPixIdx, charHeightInPix, charWidthInPix, pCharBitMap, FALSE, charWidthInPix, 0, 0, packedFg, packedFg, packedBlack)
+  if bDrawnAsBlock == FALSE
+    repeat cRowOffset from 0 TO charHeightInPix - 1
+      cRowBits := BYTE[pCharBitMap][cRowOffset]
+      ' the mode is tested once per row, not per pixel: each variant's column loop holds only
+      ' the one-line bit-to-color step and its own draw step
+      if bRunRows == TRUE
+        repeat cColOffset from 0 TO charWidthInPix - 1
+          cBitOffset := (charWidthInPix - 1) - cColOffset
+          runColors[cColOffset] := ((cRowBits & (1 << cBitOffset)) > 0) ? packedFg : packedBlack
+        pixels.copyRowRun(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx, charWidthInPix, @runColors)
+      elseif eDrawMode == DRAW_WHOLE_DISPLAY
+        repeat cColOffset from 0 TO charWidthInPix - 1
+          cBitOffset := (charWidthInPix - 1) - cColOffset
+          pixColor := ((cRowBits & (1 << cBitOffset)) > 0) ? rgbColor : color.CBLACK
+          pixels.drawPixelAtRC(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor)
+      else
+        repeat cColOffset from 0 TO charWidthInPix - 1
+          cBitOffset := (charWidthInPix - 1) - cColOffset
+          pixColor := ((cRowBits & (1 << cBitOffset)) > 0) ? rgbColor : color.CBLACK
+          drawPixelInternal(sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor, eDrawMode, drawTarget)
 
-PRI placeDitheredCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor, eDrawMode, drawTarget) | cRowOffset, cRowBits, cColOffset, ditheredRGBColor, cBitOffset, pixVal, pixColor, bRunRows, packedFg, packedHalf, packedBlack, runColors[pixels.GLYPH_RUN_PIXELS]
+PRI placeDitheredCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor, eDrawMode, drawTarget) | cRowOffset, cRowBits, cColOffset, ditheredRGBColor, cBitOffset, pixVal, pixColor, bRunRows, packedFg, packedHalf, packedBlack, runColors[pixels.GLYPH_RUN_PIXELS], bDrawnAsBlock
 ' Render a dithered character bitmap to the screen buffer using two brightness levels. A
-' display-centric glyph row is one run (screenUtils copyRowRun()), each pixel full, reduced or
+' display-centric glyph wholly inside one panel is one block (screenUtils copyGlyphBlock());
+' otherwise each glyph row is one run (screenUtils copyRowRun()), each pixel full, reduced or
 ' black; with cRainbow, or while the instrument build's self-test draws its reference, each pixel
 ' goes straight to the screen buffer. A face-centric pixel goes through the one drawing core,
 ' drawPixelInternal().
@@ -1340,44 +1347,49 @@ PRI placeDitheredCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor, eD
 ' @local packedFg - the full-brightness color's corrected bytes, packed
 ' @local packedHalf - the reduced-brightness color's corrected bytes, packed
 ' @local packedBlack - black's corrected bytes, packed
+' @local bDrawnAsBlock - TRUE when the whole glyph was drawn as one block (screenUtils copyGlyphBlock())
 ' @local runColors - one glyph row's packed colors, one LONG per pixel
 
   ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, scroller.DITHER_BRIGHTNESS_PCT)  ' half-pixel brightness arg (36, not 50)
   ' debug(" COLOR PERCENT ", uhex_long_(rgbColor), " -> ", uhex_long_(ditheredRGBColor))
   bRunRows := eDrawMode == DRAW_WHOLE_DISPLAY and charWidthInPix <= pixels.GLYPH_RUN_PIXELS and pixels.isRunDrawable(rgbColor) == TRUE
+  bDrawnAsBlock := FALSE
   if bRunRows == TRUE
     packedFg := pixels.packedColorOf(chainIndex, rgbColor)
     packedHalf := pixels.packedColorOf(chainIndex, ditheredRGBColor)
     packedBlack := pixels.packedColorOf(chainIndex, color.CBLACK)
-  repeat cRowOffset from 0 TO charHeightInPix - 1
-    cRowBits := WORD[pCharBitMap][cRowOffset]                                   ' ms 12 bits are char def'n (of the 16bits)
-    ' debug(" FONT row ", ubin_word_(cRowBits))
-    ' the mode is tested once per row, not per pixel; the bit-to-color step is the same in every
-    ' column loop (see placeCharBitmap())
-    if bRunRows == TRUE
-      repeat cColOffset from 0 TO charWidthInPix - 1
-        cBitOffset := cColOffset * scroller.DITH_BITS_PER_PIX
-        pixVal := ((cRowBits << cBitOffset) & scroller.DITH_PIX_MASK) >> scroller.DITH_PIX_TOP_SHIFT
-        runColors[cColOffset] := packedFg
-        if pixVal <> scroller.DITH_PIX_FULL
-          runColors[cColOffset] := (pixVal == scroller.DITH_PIX_HALF) ? packedHalf : packedBlack  ' val == [2,0] = black
-      pixels.copyRowRun(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx, charWidthInPix, @runColors)
-    elseif eDrawMode == DRAW_WHOLE_DISPLAY
-      repeat cColOffset from 0 TO charWidthInPix - 1
-        cBitOffset := cColOffset * scroller.DITH_BITS_PER_PIX
-        pixVal := ((cRowBits << cBitOffset) & scroller.DITH_PIX_MASK) >> scroller.DITH_PIX_TOP_SHIFT
-        pixColor := rgbColor
-        if pixVal <> scroller.DITH_PIX_FULL
-          pixColor := (pixVal == scroller.DITH_PIX_HALF) ? ditheredRGBColor : color.CBLACK  ' val == [2,0] = black
-        pixels.drawPixelAtRC(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor)
-    else
-      repeat cColOffset from 0 TO charWidthInPix - 1
-        cBitOffset := cColOffset * scroller.DITH_BITS_PER_PIX
-        pixVal := ((cRowBits << cBitOffset) & scroller.DITH_PIX_MASK) >> scroller.DITH_PIX_TOP_SHIFT
-        pixColor := rgbColor
-        if pixVal <> scroller.DITH_PIX_FULL
-          pixColor := (pixVal == scroller.DITH_PIX_HALF) ? ditheredRGBColor : color.CBLACK  ' val == [2,0] = black
-        drawPixelInternal(sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor, eDrawMode, drawTarget)
+    ' the whole glyph as one block when it lies inside one cell, else row by row
+    bDrawnAsBlock := pixels.copyGlyphBlock(chainIndex, sRowPixIdx, sColumnPixIdx, charHeightInPix, charWidthInPix, pCharBitMap, TRUE, charWidthInPix, 0, 0, packedFg, packedHalf, packedBlack)
+  if bDrawnAsBlock == FALSE
+    repeat cRowOffset from 0 TO charHeightInPix - 1
+      cRowBits := WORD[pCharBitMap][cRowOffset]                                   ' ms 12 bits are char def'n (of the 16bits)
+      ' debug(" FONT row ", ubin_word_(cRowBits))
+      ' the mode is tested once per row, not per pixel; the bit-to-color step is the same in every
+      ' column loop (see placeCharBitmap())
+      if bRunRows == TRUE
+        repeat cColOffset from 0 TO charWidthInPix - 1
+          cBitOffset := cColOffset * scroller.DITH_BITS_PER_PIX
+          pixVal := ((cRowBits << cBitOffset) & scroller.DITH_PIX_MASK) >> scroller.DITH_PIX_TOP_SHIFT
+          runColors[cColOffset] := packedFg
+          if pixVal <> scroller.DITH_PIX_FULL
+            runColors[cColOffset] := (pixVal == scroller.DITH_PIX_HALF) ? packedHalf : packedBlack  ' val == [2,0] = black
+        pixels.copyRowRun(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx, charWidthInPix, @runColors)
+      elseif eDrawMode == DRAW_WHOLE_DISPLAY
+        repeat cColOffset from 0 TO charWidthInPix - 1
+          cBitOffset := cColOffset * scroller.DITH_BITS_PER_PIX
+          pixVal := ((cRowBits << cBitOffset) & scroller.DITH_PIX_MASK) >> scroller.DITH_PIX_TOP_SHIFT
+          pixColor := rgbColor
+          if pixVal <> scroller.DITH_PIX_FULL
+            pixColor := (pixVal == scroller.DITH_PIX_HALF) ? ditheredRGBColor : color.CBLACK  ' val == [2,0] = black
+          pixels.drawPixelAtRC(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor)
+      else
+        repeat cColOffset from 0 TO charWidthInPix - 1
+          cBitOffset := cColOffset * scroller.DITH_BITS_PER_PIX
+          pixVal := ((cRowBits << cBitOffset) & scroller.DITH_PIX_MASK) >> scroller.DITH_PIX_TOP_SHIFT
+          pixColor := rgbColor
+          if pixVal <> scroller.DITH_PIX_FULL
+            pixColor := (pixVal == scroller.DITH_PIX_HALF) ? ditheredRGBColor : color.CBLACK  ' val == [2,0] = black
+          drawPixelInternal(sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor, eDrawMode, drawTarget)
 
 PRI incrCursorWithWrap()
 ' Increment the cursor position, wrapping at end of line and end of screen.
@@ -1426,8 +1438,13 @@ PRI fillPanelPixels(panelIndex, rgbColor) : offsetPixelRows, offsetPixelColumns 
 ' @local layoutColumns - pixel columns of the panel in the layout
 
   offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, panelIndex)
-  layoutTopRow, layoutLeftColumn, layoutRows, layoutColumns := hub75Bffrs.layoutAreaOfPanel(chainIndex, panelIndex)
-  pixels.fillLayoutArea(chainIndex, layoutTopRow, layoutLeftColumn, layoutRows, layoutColumns, rgbColor)
+  if pixels.isRunDrawable(rgbColor) == TRUE
+    ' one color: the panel is one cell of the mounted grid, filled as one block
+    pixels.fillMountedArea(chainIndex, offsetPixelRows, offsetPixelColumns, rowsPerPanel, columnsPerPanel, pixels.packedColorOf(chainIndex, rgbColor))
+  else
+    ' cRainbow follows the layout column: the layout rectangle, pixel by pixel
+    layoutTopRow, layoutLeftColumn, layoutRows, layoutColumns := hub75Bffrs.layoutAreaOfPanel(chainIndex, panelIndex)
+    pixels.fillLayoutArea(chainIndex, layoutTopRow, layoutLeftColumn, layoutRows, layoutColumns, rgbColor)
 
 PRI drawLineInternal(fmRow, fmColumn, toRow, toColumn, rgbColor, eDrawMode, drawTarget) | row, column
 ' Internal line drawing for display-centric, panel-centric and face-centric lines: the one line
@@ -1708,7 +1725,10 @@ PRI drawBoxInternal(topRow, leftColumn, width, height, filled, rgbColor, eDrawMo
 
   rightColumn := leftColumn + width - 1
   bottomRow := topRow + height - 1
-  if filled == TRUE
+  if filled == TRUE and width > 0 and height > 0 and isRunLine(rgbColor, eDrawMode) == TRUE
+    ' one color, flat: the same pixels as row by row, as one rectangle (blocks per panel)
+    fillBoxArea(topRow, leftColumn, bottomRow, rightColumn, rgbColor, eDrawMode, drawTarget)
+  elseif filled == TRUE
     if width < height and width > 0 and isRunLine(rgbColor, eDrawMode) == TRUE
       ' narrower than tall: one column run per column, so a box one pixel wide is one run,
       ' not one run per pixel (the same pixels as row by row, in one color)
@@ -1722,6 +1742,39 @@ PRI drawBoxInternal(topRow, leftColumn, width, height, filled, rgbColor, eDrawMo
     drawLineInternal(topRow, rightColumn, bottomRow, rightColumn, rgbColor, eDrawMode, drawTarget)      ' vert right
     drawLineInternal(bottomRow, leftColumn, bottomRow, rightColumn, rgbColor, eDrawMode, drawTarget)    ' horiz bottom
     drawLineInternal(topRow, leftColumn, bottomRow, leftColumn, rgbColor, eDrawMode, drawTarget)        ' vert left
+
+PRI fillBoxArea(topRow, leftColumn, bottomRow, rightColumn, rgbColor, eDrawMode, drawTarget) | panelTopRow, panelLeftColumn
+' Fill a display-centric or panel-centric box in one color as one rectangle (screenUtils
+' fillMountedArea()). It writes the pixels the box's row runs write: a display-centric box's
+' rows and columns are held to the display, so its rectangle is its corners held to the display;
+' a panel-centric box's rows are clipped to its panel, so its rectangle is the box clipped to the
+' panel's rectangle (positions as mounted), and nothing when they do not meet.
+'
+' @param topRow - top row of the box
+' @param leftColumn - left column of the box
+' @param bottomRow - bottom row of the box
+' @param rightColumn - right column of the box
+' @param rgbColor - 24-bit RGB color value
+' @param eDrawMode - DRAW_WHOLE_DISPLAY or DRAW_CLIP_TO_PANEL
+' @param drawTarget - DRAW_NO_TARGET, or the panel position the box is clipped to
+
+' Local Variables:
+' @local panelTopRow - display row of the panel's top-left pixel, as mounted
+' @local panelLeftColumn - display column of the panel's top-left pixel, as mounted
+
+  if eDrawMode == DRAW_CLIP_TO_PANEL
+    panelTopRow, panelLeftColumn := hub75Bffrs.offsetToPanel(chainIndex, drawTarget)
+    topRow #>= panelTopRow
+    leftColumn #>= panelLeftColumn
+    bottomRow <#= panelTopRow + rowsPerPanel - 1
+    rightColumn <#= panelLeftColumn + columnsPerPanel - 1
+  else
+    topRow := 0 #> topRow <# maxDisplayRows - 1
+    leftColumn := 0 #> leftColumn <# maxDisplayColumns - 1
+    bottomRow := 0 #> bottomRow <# maxDisplayRows - 1
+    rightColumn := 0 #> rightColumn <# maxDisplayColumns - 1
+  if topRow <= bottomRow and leftColumn <= rightColumn
+    pixels.fillMountedArea(chainIndex, topRow, leftColumn, bottomRow - topRow + 1, rightColumn - leftColumn + 1, pixels.packedColorOf(chainIndex, rgbColor))
 
 PRI drawCircleInternal(ctrRow, ctrColumn, radius, rgbColor, eDrawMode, drawTarget) | column, row, decision
 ' Internal circle drawing for display-centric and face-centric circles: the one circle primitive

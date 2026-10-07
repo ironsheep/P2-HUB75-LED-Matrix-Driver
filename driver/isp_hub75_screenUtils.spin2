@@ -27,9 +27,14 @@ CON ' ---- Packed colors and runs ----
 
     ' A packed color (packedColorOf(), packedCorrectedRgb()) holds the three screen-buffer bytes
     ' of one pixel, already corrected: red in bits 0-7, green in bits 8-15, blue in bits 16-23.
-    PACKED_GREEN_SHIFT  = 8
-    PACKED_BLUE_SHIFT   = 16
+    PACKED_GREEN_SHIFT  = colorUtils.PACKED_GREEN_SHIFT
+    PACKED_BLUE_SHIFT   = colorUtils.PACKED_BLUE_SHIFT
     BYTES_PER_LONG_SHIFT = 2                     ' a color-list index -> its byte offset (one LONG per pixel)
+
+    ' copyGlyphBlock(): the glyph address that draws every pixel black (a gap), and the blank rows
+    ' after a glyph's last row (the black row between lines when text scrolls up or down)
+    NO_GLYPH            = 0
+    GLYPH_BLANK_ROWS    = 1
 
     ' widest glyph row drawn as one run (the widest font is 8 pixels); a wider one goes pixel by pixel
     GLYPH_RUN_PIXELS    = 16
@@ -63,12 +68,13 @@ OBJ ' ---- Objects used by this object ----
     color       : "isp_hub75_color"
     colorUtils  : "isp_hub75_colorUtils"
     hub75Bffrs  : "isp_hub75_hwBufferAccess"
+    fonts       : "isp_hub75_fonts"                                 ' the dithered pixel codec, for glyph blocks
 
 PUB null()
 '' This is not a top level object
 ''
 
-PUB drawPixelAtRC(nChainIdx, row, column, rgbColor) | xlatedColor
+PUB drawPixelAtRC(nChainIdx, row, column, rgbColor) | xlatedColor, pPixel
 '' Place an rgbColor pixel at the specified row and column (display coordinates, as the
 '' display is mounted).
 ''
@@ -79,12 +85,15 @@ PUB drawPixelAtRC(nChainIdx, row, column, rgbColor) | xlatedColor
 
 ' Local Variables:
 ' @local xlatedColor - translated color after special-color handling
+' @local pPixel - pointer to the pixel within the screen buffer
 
     xlatedColor := rgbColor
     if rgbColor == color.cRainbow
         xlatedColor := colorUtils.rgbColorFromDegrees(DEGREES_PER_COLUMN * (column + 1))             ' replace '360 / 64' with 6 [was resulting in 5 vs. 6]
 
-    drawPixelAtRCwithRGB(nChainIdx, row, column, colorUtils.rgbForCValue(xlatedColor))
+    pPixel := pixelAddressAtRC(nChainIdx, row, column)
+    if pPixel <> hub75Bffrs.NO_PIXEL
+        writePacked(pPixel, colorUtils.packedCorrectedColor(nChainIdx, xlatedColor))
 
 PUB drawPixelAtRCwithRGB(nChainIdx, row, column, red, green, blue) | pColor
 '' Place an r,g,b color pixel at the specified row and column (display coordinates, as the
@@ -105,9 +114,7 @@ PUB drawPixelAtRCwithRGB(nChainIdx, row, column, red, green, blue) | pColor
 
     pColor := pixelAddressAtRC(nChainIdx, row, column)
     if pColor <> hub75Bffrs.NO_PIXEL
-        BYTE[pColor][RED_BYTE_OFST] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_RED, red)
-        BYTE[pColor][GREEN_BYTE_OFST] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_GREEN, green)
-        BYTE[pColor][BLUE_BYTE_OFST] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_BLUE, blue)
+        writePacked(pColor, colorUtils.packedCorrectedRgb(nChainIdx, red, green, blue))
 
 PUB pixelAddressAtRC(nChainIdx, row, column) : pPixel
 '' Return the hub address of the pixel at the specified row and column (display coordinates, as
@@ -142,7 +149,7 @@ PUB packedColorOf(nChainIdx, rgbColor) : packedColor
 '' @param rgbColor - combined RGB color value
 '' @returns packedColor - the corrected red, green and blue bytes, packed
 
-    packedColor := packedCorrectedRgb(nChainIdx, colorUtils.rgbForCValue(rgbColor))
+    packedColor := colorUtils.packedCorrectedColor(nChainIdx, rgbColor)
 
 PUB packedCorrectedRgb(nChainIdx, red, green, blue) : packedColor
 '' Return the packed screen-buffer bytes of one r,g,b color on the nChainIdx adapter: each channel
@@ -154,9 +161,7 @@ PUB packedCorrectedRgb(nChainIdx, red, green, blue) : packedColor
 '' @param blue - blue channel value
 '' @returns packedColor - the corrected red, green and blue bytes, packed
 
-    packedColor := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_RED, red)
-    packedColor |= colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_GREEN, green) << PACKED_GREEN_SHIFT
-    packedColor |= colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_BLUE, blue) << PACKED_BLUE_SHIFT
+    packedColor := colorUtils.packedCorrectedRgb(nChainIdx, red, green, blue)
 
 PUB fillRowRun(nChainIdx, row, firstColumn, nColumns, packedColor)
 '' Write one color along a run of one display row (display coordinates, as mounted): nColumns
@@ -258,6 +263,84 @@ PUB fillLayoutArea(nChainIdx, topRow, leftColumn, nRows, nColumns, rgbColor) | x
           BYTE[pColor][RED_BYTE_OFST] := red
           BYTE[pColor][GREEN_BYTE_OFST] := green
           BYTE[pColor][BLUE_BYTE_OFST] := blue
+
+PUB copyGlyphBlock(nChainIdx, row, column, nRows, nPixels, pGlyph, bDithered, charWidth, firstBit, vtOffset, packedFg, packedHalf, packedBlack) : bDrawn | pPixel, rightStep, downStep
+'' Draw a glyph as one block when the whole block lies on the display inside one cell
+'' (hub75Bffrs.mountedBlockRun()): one address lookup, then each row in PASM. Block row r shows
+'' glyph row (r + vtOffset) +// (nRows + GLYPH_BLANK_ROWS), the last of which is blank; pixel i of a
+'' row shows bit firstBit + i, decided as the text paths decide it pixel by pixel (one bit per
+'' pixel, or the dithered codec in fonts). pGlyph NO_GLYPH draws every pixel black. It writes
+'' exactly the bytes the row-by-row path writes. Returns FALSE, drawing nothing, when the block
+'' reaches past an edge or crosses a cell boundary; the caller then draws it row by row. The rows
+'' are written by one PASM call (blitGlyphBlock()), which uses PR0-PR7 as scratch.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @param row - top row of the block, as mounted
+'' @param column - left column of the block, as mounted
+'' @param nRows - glyph rows (the font's character height)
+'' @param nPixels - pixels in each row of the block
+'' @param pGlyph - hub address of the glyph's rows (BYTE rows, or WORD rows when dithered), or NO_GLYPH
+'' @param bDithered - TRUE for a dithered font
+'' @param charWidth - the font's character width in pixels
+'' @param firstBit - bit index (from the glyph's left edge) of each row's first pixel
+'' @param vtOffset - rows the glyph is turned up by (0 when not scrolling up or down)
+'' @param packedFg - the full-brightness color's corrected bytes, packed
+'' @param packedHalf - the reduced-brightness color's corrected bytes, packed (dithered fonts)
+'' @param packedBlack - black's corrected bytes, packed
+'' @returns bDrawn - TRUE when the block was drawn
+
+' Local Variables:
+' @local pPixel - hub address of the block's top-left pixel
+' @local rightStep - signed bytes to the pixel at the right
+' @local downStep - signed bytes to the pixel below
+
+    pPixel, rightStep, downStep := hub75Bffrs.mountedBlockRun(nChainIdx, row, column, nRows, nPixels)
+    bDrawn := pPixel <> hub75Bffrs.NO_PIXEL
+    if bDrawn == TRUE
+        blitGlyphBlock(pPixel, rightStep, downStep, nRows, nPixels, pGlyph, bDithered, charWidth, firstBit, vtOffset, packedFg, packedHalf, packedBlack)
+
+PUB fillMountedArea(nChainIdx, topRow, leftColumn, nRows, nColumns, packedColor) | sizeRows, sizeColumns, cellRows, cellColumns, blockTop, blockLeft, blockRows, blockColumns, pPixel, rightStep, downStep
+'' Fill a rectangle of the display (display coordinates, as mounted) with one packed color: one
+'' block per cell it covers, each from one address lookup (hub75Bffrs.mountedBlockRun()), its
+'' rows written in PASM. The rectangle must lie on the display (callers hold or clip it first); a
+'' cell that holds no panel is not drawn, as a run does not draw it. Nothing is drawn when the
+'' rectangle is empty.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @param topRow - display row of the rectangle's top-left pixel, as mounted
+'' @param leftColumn - display column of the rectangle's top-left pixel, as mounted
+'' @param nRows - height of the rectangle in pixels
+'' @param nColumns - width of the rectangle in pixels
+'' @param packedColor - the fill color's corrected bytes, packed (packedColorOf())
+
+' Local Variables:
+' @local sizeRows - display height, as mounted
+' @local sizeColumns - display width, as mounted
+' @local cellRows - pixel rows of one mounted cell
+' @local cellColumns - pixel columns of one mounted cell
+' @local blockTop - top row of the block in the current cell
+' @local blockLeft - left column of the block in the current cell
+' @local blockRows - rows of the block in the current cell
+' @local blockColumns - columns of the block in the current cell
+' @local pPixel - hub address of the block's top-left pixel, or NO_PIXEL for a cell with no panel
+' @local rightStep - signed bytes to the pixel at the right
+' @local downStep - signed bytes to the pixel below
+
+    sizeRows, sizeColumns := hub75Bffrs.displaySizeInPixels(nChainIdx)
+    cellRows, cellColumns := hub75Bffrs.cellSizeInPixels(nChainIdx)
+    if nRows > 0 and nColumns > 0 and topRow >= 0 and leftColumn >= 0 and topRow + nRows <= sizeRows and leftColumn + nColumns <= sizeColumns
+        blockTop := topRow
+        repeat while blockTop < topRow + nRows
+            ' rows from blockTop to the end of its cell, or of the rectangle when sooner
+            blockRows := ((((blockTop / cellRows) + 1) * cellRows) <# (topRow + nRows)) - blockTop
+            blockLeft := leftColumn
+            repeat while blockLeft < leftColumn + nColumns
+                blockColumns := ((((blockLeft / cellColumns) + 1) * cellColumns) <# (leftColumn + nColumns)) - blockLeft
+                pPixel, rightStep, downStep := hub75Bffrs.mountedBlockRun(nChainIdx, blockTop, blockLeft, blockRows, blockColumns)
+                if pPixel <> hub75Bffrs.NO_PIXEL
+                    fillBlock(pPixel, rightStep, downStep, blockRows, blockColumns, packedColor)
+                blockLeft += blockColumns
+            blockTop += blockRows
 
 PUB isRunDrawable(rgbColor) : bRun
 '' Return TRUE when pixels of rgbColor may be drawn by runs: FALSE for cRainbow (its hue follows
@@ -467,6 +550,141 @@ PRI writeCellPart(pPixel, stride, nPixels, pColors, packedColor, colorIdx, lastW
                 wrbyte  pixelColor, pByte
                 add     pPixel, stride
                 djnz    nPixels, #.nextPixel
+    end
+
+PRI blitGlyphBlock(pPixel, rightStep, downStep, nRows, nPixels, pGlyph, bDithered, charWidth, firstBit, vtOffset, packedFg, packedHalf, packedBlack) | rowIdx, glyphRow
+' Write a glyph block, in PASM: nRows rows from pPixel, downStep bytes apart, each of nPixels
+' pixels rightStep bytes apart. Row r shows glyph row (r + vtOffset) // (nRows + GLYPH_BLANK_ROWS),
+' 0 bits for the blank row or for NO_GLYPH; pixel i shows bit firstBit + i as the row-by-row path
+' decides it. One bit per pixel: bit (charWidth - 1 - index), held to its low five bits as
+' Spin2's << holds a shift, set means packedFg. Dithered (two bits per pixel from the top): value
+' DITH_PIX_FULL is packedFg, DITH_PIX_HALF packedHalf, any other packedBlack, and a pixel past the
+' row's sixteen bits is packedBlack. PR0-PR7 are scratch.
+'
+' @param pPixel - hub address of the top-left pixel's red byte
+' @param rightStep - signed bytes from one pixel to the next along a row
+' @param downStep - signed bytes from one row to the next
+' @param nRows - glyph rows (at least one)
+' @param nPixels - pixels in each row (at least one)
+' @param pGlyph - hub address of the glyph's rows, or NO_GLYPH
+' @param bDithered - TRUE for a dithered font (WORD rows)
+' @param charWidth - the font's character width in pixels
+' @param firstBit - bit index (from the glyph's left edge) of each row's first pixel
+' @param vtOffset - rows the glyph is turned up by
+' @param packedFg - the full-brightness color's corrected bytes, packed
+' @param packedHalf - the reduced-brightness color's corrected bytes, packed
+' @param packedBlack - black's corrected bytes, packed
+
+' Local Variables:
+' @local rowIdx - block row being drawn
+' @local glyphRow - glyph row shown in that block row
+
+    rowIdx := 0
+    org
+.nextRow
+                ' which glyph row this block row shows (the last of the period is blank)
+                mov     glyphRow, rowIdx
+                add     glyphRow, vtOffset
+                mov     pr0, nRows
+                add     pr0, #GLYPH_BLANK_ROWS
+                qdiv    glyphRow, pr0
+                getqy   glyphRow
+                mov     pr4, #0                             ' row bits: 0 for the blank row or a gap
+                tjz     pGlyph, #.haveRowBits
+                cmp     glyphRow, nRows             wc
+    if_nc       jmp     #.haveRowBits
+                mov     pr0, pGlyph
+                tjz     bDithered, #.byteRow
+                add     pr0, glyphRow
+                add     pr0, glyphRow                       ' a dithered row is one WORD
+                rdword  pr4, pr0
+                jmp     #.haveRowBits
+.byteRow
+                add     pr0, glyphRow
+                rdbyte  pr4, pr0
+.haveRowBits
+                mov     pr5, pPixel                         ' the row's pixel
+                mov     pr6, nPixels                        ' pixels left in the row
+                mov     pr7, firstBit                       ' the pixel's bit index
+.nextPixel
+                mov     pr1, packedBlack
+                tjnz    bDithered, #.ditheredPixel
+                mov     pr3, charWidth
+                sub     pr3, #1
+                sub     pr3, pr7
+                testb   pr4, pr3                    wc      ' TESTB reads the bit number's low five bits
+    if_c        mov     pr1, packedFg
+                jmp     #.writePixel
+.ditheredPixel
+                mov     pr3, pr7
+                shl     pr3, #fonts.DITH_BITS_PER_PIX_SHIFT
+                cmp     pr3, #fonts.DITH_PIX_TOP_SHIFT  wcz
+    if_a        jmp     #.writePixel                        ' past the row's bits: black
+                subr    pr3, #fonts.DITH_PIX_TOP_SHIFT
+                mov     pr0, pr4
+                shr     pr0, pr3
+                and     pr0, #fonts.DITH_PIX_VALUE_MASK
+                cmp     pr0, #fonts.DITH_PIX_FULL   wz
+    if_z        mov     pr1, packedFg
+                cmp     pr0, #fonts.DITH_PIX_HALF   wz
+    if_z        mov     pr1, packedHalf
+.writePixel
+                mov     pr2, pr5
+                add     pr2, #RED_BYTE_OFST
+                wrbyte  pr1, pr2
+                mov     pr2, pr5
+                add     pr2, #GREEN_BYTE_OFST
+                shr     pr1, #PACKED_GREEN_SHIFT
+                wrbyte  pr1, pr2
+                mov     pr2, pr5
+                add     pr2, #BLUE_BYTE_OFST
+                shr     pr1, #PACKED_BLUE_SHIFT - PACKED_GREEN_SHIFT
+                wrbyte  pr1, pr2
+                add     pr5, rightStep
+                add     pr7, #1
+                djnz    pr6, #.nextPixel
+                add     pPixel, downStep
+                add     rowIdx, #1
+                cmp     rowIdx, nRows               wz
+    if_nz       jmp     #.nextRow
+    end
+
+PRI fillBlock(pPixel, rightStep, downStep, nRows, nColumns, packedColor) | rowsLeft
+' Fill a block in one color, in PASM: nRows rows from pPixel, downStep bytes apart, each of
+' nColumns pixels rightStep bytes apart. PR0-PR3 are scratch.
+'
+' @param pPixel - hub address of the block's top-left pixel's red byte
+' @param rightStep - signed bytes from one pixel to the next along a row
+' @param downStep - signed bytes from one row to the next
+' @param nRows - rows (at least one)
+' @param nColumns - pixels in each row (at least one)
+' @param packedColor - the color's corrected bytes, packed
+
+' Local Variables:
+' @local rowsLeft - rows still to fill
+
+    rowsLeft := nRows
+    org
+.nextRow
+                mov     pr0, pPixel                         ' the row's pixel
+                mov     pr1, nColumns                       ' pixels left in the row
+.nextPixel
+                mov     pr2, packedColor
+                mov     pr3, pr0
+                add     pr3, #RED_BYTE_OFST
+                wrbyte  pr2, pr3
+                mov     pr3, pr0
+                add     pr3, #GREEN_BYTE_OFST
+                shr     pr2, #PACKED_GREEN_SHIFT
+                wrbyte  pr2, pr3
+                mov     pr3, pr0
+                add     pr3, #BLUE_BYTE_OFST
+                shr     pr2, #PACKED_BLUE_SHIFT - PACKED_GREEN_SHIFT
+                wrbyte  pr2, pr3
+                add     pr0, rightStep
+                djnz    pr1, #.nextPixel
+                add     pPixel, downStep
+                djnz    rowsLeft, #.nextRow
     end
 
 PRI writePacked(pPixel, packedColor)

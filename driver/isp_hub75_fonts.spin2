@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 06 Oct 2026
+''   Updated.... 07 Oct 2026
 ''
 '' =================================================================================================
 
@@ -48,6 +48,25 @@ CON ' ---- Font Geometry / Sizing ----
     FONT_8X8B_HEIGHT              = 8
     FONT_5X7_DCNDR_HEIGHT         = 9
     FONT_8X8A_TOP_SKIP            = 1
+
+CON ' ---- Dithered pixel codec ----
+    {Spin2_Doc_CON}
+
+    ' A dithered font's row is one WORD, two bits per pixel, the leftmost pixel in the top pair:
+    '  DITH_BITS_PER_PIX       - bits per dithered pixel
+    '  DITH_BITS_PER_PIX_SHIFT - a pixel index -> its bit offset (x DITH_BITS_PER_PIX)
+    '  DITH_PIX_MASK           - the top pixel pair
+    '  DITH_PIX_TOP_SHIFT      - shift that right-aligns the top pixel pair
+    '  DITH_PIX_VALUE_MASK     - one pixel's two bits
+    '  DITH_PIX_FULL           - full-brightness pixel value
+    '  DITH_PIX_HALF           - reduced-brightness pixel value (any other value is black)
+    DITH_BITS_PER_PIX             = 2
+    DITH_BITS_PER_PIX_SHIFT       = 1
+    DITH_PIX_MASK                 = $c000
+    DITH_PIX_TOP_SHIFT            = 14
+    DITH_PIX_VALUE_MASK           = %11
+    DITH_PIX_FULL                 = 3
+    DITH_PIX_HALF                 = 1
 
 PUB null()
 '' This is not a top level object

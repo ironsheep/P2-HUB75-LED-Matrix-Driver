@@ -48,17 +48,14 @@ CON ' ---- Internal Sizing ----
     SPACE_CHAR                   = $20                              ' ASCII space
 
 ' inter-row blank pixel (one blank row of pixels between rows)
-    BLANK_ROW_PIX                = 1
+    BLANK_ROW_PIX                = pixels.GLYPH_BLANK_ROWS
 
-' dithered-font pixel codec (2 bits per pixel, MSB pair first)
-    DITH_BITS_PER_PIX            = 2                                ' bits per dithered pixel
-    DITH_PIX_MASK                = $c000                            ' top pixel-pair mask
-    DITH_PIX_TOP_SHIFT           = 14                               ' shift to right-align top pixel-pair
-    DITH_PIX_FULL                = 3                                ' full-brightness pixel value
-    DITH_PIX_HALF                = 1                                ' half-brightness (dithered) pixel value
-    DITH_PIX_VALUE_MASK          = %11                              ' one dithered pixel's two bits
-    DITH_BITS_PER_PIX_SHIFT      = 1                                ' a pixel index -> its bit offset (DITH_BITS_PER_PIX bits per pixel)
-    NO_GLYPH                     = 0                                ' blitGlyph() glyph address for an all-black block (a gap)
+' dithered-font pixel codec (2 bits per pixel, MSB pair first): the font object's
+    DITH_BITS_PER_PIX            = fonts.DITH_BITS_PER_PIX
+    DITH_PIX_MASK                = fonts.DITH_PIX_MASK
+    DITH_PIX_TOP_SHIFT           = fonts.DITH_PIX_TOP_SHIFT
+    DITH_PIX_FULL                = fonts.DITH_PIX_FULL
+    DITH_PIX_HALF                = fonts.DITH_PIX_HALF
 
 ' dithered-font brightness reduction
     DITHER_BRIGHTNESS_PCT        = 36                               ' brightness percent for dithered pixels
@@ -592,7 +589,7 @@ PRI placeSpaceAtRC(row, column, widthInPix) : endColumn | colIndex, rowIndex, pa
   if widthInPix > 0 and isGlyphRun(color.CBLACK) == TRUE
     packedBlack := pixels.packedColorOf(chainIndex, color.CBLACK)
     ' the whole gap as one block when it lies inside one cell, else one column run per column
-    if blitGlyph(row, column, widthInPix, 0, 0, NO_GLYPH, packedBlack, packedBlack, packedBlack) == FALSE
+    if blitGlyph(row, column, widthInPix, 0, 0, pixels.NO_GLYPH, packedBlack, packedBlack, packedBlack) == FALSE
       repeat colIndex from column TO widthInPix - 1 + column
         pixels.fillColumnRun(chainIndex, colIndex, row, charHeightInPix, packedBlack)
   else
@@ -886,111 +883,22 @@ PRI placeColrBitmapVtOffsetAtRC(row, column, vtPxOffset, pChrBitmap, rgbColor) :
         if bRunRows == TRUE
           pixels.copyRowRun(chainIndex, pixRow, column, ctBitsToDraw, @runColors)
 
-PRI blitGlyph(row, column, nPixels, firstBit, vtPxOffset, pChrBitmap, packedFg, packedHalf, packedBlack) : bDrawn | pPixel, rightStep, downStep, rowIdx, cByteIdx, cRowBits
-' Draw a glyph's rows as one block: nPixels pixels of each of the charHeightInPix rows, from bit
-' firstBit of each bitmap row on, when the whole block lies on the display and inside one cell
-' (hub75Bffrs.mountedBlockRun()): one address lookup for the glyph, then each row in PASM
-' (blitGlyphRow()). Row r shows bitmap row (r + vtPxOffset) +// (charHeightInPix + BLANK_ROW_PIX),
-' the last of which is the black row between lines; pChrBitmap NO_GLYPH draws every pixel black.
-' It writes exactly the bytes the row-by-row path writes. Returns FALSE, drawing nothing, when
-' the block reaches past an edge or crosses a cell boundary.
+PRI blitGlyph(row, column, nPixels, firstBit, vtPxOffset, pChrBitmap, packedFg, packedHalf, packedBlack) : bDrawn
+' Draw this region's glyph (or gap) as one block when it lies on the display inside one cell
+' (screenUtils copyGlyphBlock(), in this region's font). Returns FALSE, drawing nothing, otherwise.
 '
 ' @param row - top row of the block, as mounted
 ' @param column - left column of the block, as mounted
 ' @param nPixels - pixels in each row of the block
 ' @param firstBit - bit index (from the glyph's left edge) of each row's first pixel
 ' @param vtPxOffset - vertical pixel offset into the glyph (0 when not scrolling up or down)
-' @param pChrBitmap - pointer to the character bitmap, or NO_GLYPH
+' @param pChrBitmap - pointer to the character bitmap, or pixels.NO_GLYPH for a black gap
 ' @param packedFg - the full-brightness color's corrected bytes, packed
 ' @param packedHalf - the reduced-brightness color's corrected bytes, packed
 ' @param packedBlack - black's corrected bytes, packed
 ' @returns bDrawn - TRUE when the block was drawn
 
-' Local Variables:
-' @local pPixel - hub address of the first pixel of the row being drawn
-' @local rightStep - signed bytes to the pixel at the right
-' @local downStep - signed bytes to the pixel below
-' @local rowIdx - block row being drawn
-' @local cByteIdx - bitmap row shown in that block row
-' @local cRowBits - that bitmap row's bits (0 for the black row)
-
-  pPixel, rightStep, downStep := hub75Bffrs.mountedBlockRun(chainIndex, row, column, charHeightInPix, nPixels)
-  bDrawn := pPixel <> hub75Bffrs.NO_PIXEL
-  if bDrawn == TRUE
-    repeat rowIdx from 0 TO charHeightInPix - 1
-      cByteIdx := (rowIdx + vtPxOffset) +// (charHeightInPix + BLANK_ROW_PIX)
-      cRowBits := 0                                                             ' the black row, or a gap
-      if pChrBitmap <> NO_GLYPH and cByteIdx < charHeightInPix
-        if bFontIsDithered == TRUE
-          cRowBits := WORD[pChrBitmap][cByteIdx]
-        else
-          cRowBits := BYTE[pChrBitmap][cByteIdx]
-      blitGlyphRow(pPixel, rightStep, nPixels, cRowBits, firstBit, charWidthInPix, bFontIsDithered, packedFg, packedHalf, packedBlack)
-      pPixel += downStep
-
-PRI blitGlyphRow(pPixel, rightStep, nPixels, rowBits, bitIdx, charWidth, bDithered, packedFg, packedHalf, packedBlack) | pixelColor, pByte, bitShift, pixVal
-' Write one glyph row, in PASM: nPixels pixels from pPixel, rightStep bytes apart, pixel i showing
-' bit bitIdx + i of rowBits as the row-by-row path decides it. One bit per pixel: bit
-' (charWidth - 1 - index), held to its low five bits as Spin2's << holds a shift, set means
-' packedFg. Dithered (two bits per pixel from the top): value 3 is packedFg, 1 packedHalf, any
-' other packedBlack, and a pixel past the glyph's sixteen bits is packedBlack.
-'
-' @param pPixel - hub address of the first pixel's red byte
-' @param rightStep - signed bytes from one pixel to the next
-' @param nPixels - pixels to write (at least one)
-' @param rowBits - the bitmap row
-' @param bitIdx - bit index (from the glyph's left edge) of the first pixel
-' @param charWidth - the font's character width in pixels
-' @param bDithered - TRUE for a dithered font
-' @param packedFg - the full-brightness color's corrected bytes, packed
-' @param packedHalf - the reduced-brightness color's corrected bytes, packed
-' @param packedBlack - black's corrected bytes, packed
-
-' Local Variables:
-' @local pixelColor - packed color of the pixel being written, shifted as each byte is written
-' @local pByte - hub address of the byte being written
-' @local bitShift - the pixel's bit number (one bit per pixel) or the shift to its two bits (dithered)
-' @local pixVal - a dithered pixel's two-bit value
-
-    org
-.nextPixel
-                mov     pixelColor, packedBlack
-                tjnz    bDithered, #.ditheredPixel
-                mov     bitShift, charWidth
-                sub     bitShift, #1
-                sub     bitShift, bitIdx
-                testb   rowBits, bitShift           wc      ' TESTB reads the bit number's low five bits
-    if_c        mov     pixelColor, packedFg
-                jmp     #.writePixel
-.ditheredPixel
-                mov     bitShift, bitIdx
-                shl     bitShift, #DITH_BITS_PER_PIX_SHIFT
-                cmp     bitShift, #DITH_PIX_TOP_SHIFT   wcz
-    if_a        jmp     #.writePixel                        ' past the glyph's bits: black
-                subr    bitShift, #DITH_PIX_TOP_SHIFT
-                mov     pixVal, rowBits
-                shr     pixVal, bitShift
-                and     pixVal, #DITH_PIX_VALUE_MASK
-                cmp     pixVal, #DITH_PIX_FULL      wz
-    if_z        mov     pixelColor, packedFg
-                cmp     pixVal, #DITH_PIX_HALF      wz
-    if_z        mov     pixelColor, packedHalf
-.writePixel
-                mov     pByte, pPixel
-                add     pByte, #pixels.RED_BYTE_OFST
-                wrbyte  pixelColor, pByte
-                mov     pByte, pPixel
-                add     pByte, #pixels.GREEN_BYTE_OFST
-                shr     pixelColor, #pixels.PACKED_GREEN_SHIFT
-                wrbyte  pixelColor, pByte
-                mov     pByte, pPixel
-                add     pByte, #pixels.BLUE_BYTE_OFST
-                shr     pixelColor, #pixels.PACKED_BLUE_SHIFT - pixels.PACKED_GREEN_SHIFT
-                wrbyte  pixelColor, pByte
-                add     pPixel, rightStep
-                add     bitIdx, #1
-                djnz    nPixels, #.nextPixel
-    end
+  bDrawn := pixels.copyGlyphBlock(chainIndex, row, column, charHeightInPix, nPixels, pChrBitmap, bFontIsDithered, charWidthInPix, firstBit, vtPxOffset, packedFg, packedHalf, packedBlack)
 
 PRI glyphSetup(rgbColor) : bRunRows, packedFg, packedHalf, packedBlack, ditheredRGBColor
 ' Prepare one character's glyph rows: the reduced-brightness color (dithered fonts only), whether

@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Nov 2022
-''   Updated.... 06 Oct 2026
+''   Updated.... 07 Oct 2026
 ''
 '' =================================================================================================
 
@@ -20,6 +20,11 @@ CON ' ---- LED Color Channel IDs ----
     '  LED_GREEN   - green channel
     '  LED_BLUE    - blue channel
     #0, LED_UNKNOWN, LED_RED, LED_GREEN, LED_BLUE
+
+    ' A packed color (packedCorrectedColor(), packedCorrectedRgb()) holds the three screen-buffer
+    ' bytes of one pixel, already corrected: red in bits 0-7, green in bits 8-15, blue in bits 16-23.
+    PACKED_GREEN_SHIFT      = 8
+    PACKED_BLUE_SHIFT       = 16
 
 CON ' ---- Color Scaling / Masks / Shifts ----
 
@@ -115,6 +120,62 @@ PUB fillColorTable(pTable, nDepthInBits, bGamma) | levelIdx, nPwmFrames, gammaLe
 #IFDEF HUB75_CORRUPT_COLOUR_TABLE
   BYTE[pTable][CORRUPT_LEVEL] ^= CORRUPT_XOR_BITS                ' test hook: one wrong entry
 #ENDIF
+
+PUB packedCorrectedColor(nChainIdx, rgbColor) : packedColor | pTable
+'' Correct a combined RGB color for the screen buffer, in one call: each channel is one read of the
+'' adapter's color table, as correctedSingleColor() reads it, and the three bytes come back packed.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @param rgbColor - combined RGB color value
+'' @returns packedColor - the corrected red, green and blue bytes, packed (PACKED_GREEN_SHIFT, PACKED_BLUE_SHIFT)
+''
+'' Aborts when nChainIdx names no adapter.
+
+' Local Variables:
+' @local pTable - this adapter's color table
+
+    if nChainIdx +>= hub75Bffrs.ADAPTER_COUNT
+        abort
+    pTable := @colorTable + (nChainIdx * COLOR_LEVELS)
+    packedColor := BYTE[pTable][(rgbColor & RED_MASK) >> RED_SHIFT]
+    packedColor |= BYTE[pTable][(rgbColor & GREEN_MASK) >> GREEN_SHIFT] << PACKED_GREEN_SHIFT
+    packedColor |= BYTE[pTable][rgbColor & CHANNEL_MASK] << PACKED_BLUE_SHIFT
+
+PUB colorTableAddress(nChainIdx) : pTable
+'' Return the hub address of the adapter's color table: COLOR_LEVELS bytes, entry i the corrected
+'' value of 8-bit input i (the value correctedSingleColor() reads), for code that corrects many
+'' pixels in PASM.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @returns pTable - hub address of the adapter's color table
+''
+'' Aborts when nChainIdx names no adapter.
+
+    if nChainIdx +>= hub75Bffrs.ADAPTER_COUNT
+        abort
+    pTable := @colorTable + (nChainIdx * COLOR_LEVELS)
+
+PUB packedCorrectedRgb(nChainIdx, red, green, blue) : packedColor | pTable
+'' Correct separate red, green and blue values for the screen buffer, in one call: each is one
+'' read of the adapter's color table (its low eight bits), and the three bytes come back packed.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @param red - red value (0-255)
+'' @param green - green value (0-255)
+'' @param blue - blue value (0-255)
+'' @returns packedColor - the corrected red, green and blue bytes, packed (PACKED_GREEN_SHIFT, PACKED_BLUE_SHIFT)
+''
+'' Aborts when nChainIdx names no adapter.
+
+' Local Variables:
+' @local pTable - this adapter's color table
+
+    if nChainIdx +>= hub75Bffrs.ADAPTER_COUNT
+        abort
+    pTable := @colorTable + (nChainIdx * COLOR_LEVELS)
+    packedColor := BYTE[pTable][red & CHANNEL_MASK]
+    packedColor |= BYTE[pTable][green & CHANNEL_MASK] << PACKED_GREEN_SHIFT
+    packedColor |= BYTE[pTable][blue & CHANNEL_MASK] << PACKED_BLUE_SHIFT
 
 PUB correctedSingleColor(nChainIdx, led, colorValue) : adjustedColor
 '' Correct the color for a specific LED (R, G, or B): one read of the adapter's color table

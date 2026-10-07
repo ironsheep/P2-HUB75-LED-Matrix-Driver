@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Dec 2020
-''   Updated.... 06 Oct 2026
+''   Updated.... 07 Oct 2026
 ''
 ''  This object adds .bmp file loading support: an image of any size is placed on the display,
 ''  centred, optionally turned by a content rotation (see placeBMP).
@@ -44,8 +44,6 @@ CON ' ---- .bmp File-Format Constants ----
     BMP_BYTES_PER_PIXEL     = 3           ' bytes per 24-bit pixel
     BMP_ROW_ALIGN_BYTES     = 4           ' each pixel row of the file is padded to this multiple
 
-    ' most display pixels gathered into one row run before it is written (a LONG each, on the stack)
-    BMP_RUN_PIXELS          = 64
 
     ' placement arithmetic: positions are kept in half-pixel units from the centre
     BMP_HALF_PIXEL_SCALE    = 2           ' half-pixel units per pixel
@@ -59,6 +57,7 @@ OBJ ' ---- Objects Used ----
 
     hub75Bffrs  :   "isp_hub75_hwBufferAccess"
     pixels      :   "isp_hub75_screenUtils"
+    colorUtils  :   "isp_hub75_colorUtils"                          ' the color table, for rows written in PASM
 
 VAR ' ---- Buffer Addresses ----
 
@@ -119,11 +118,11 @@ PRI isValidContentRotation(eContentRotation) : bIsValid
     other:
       bIsValid := FALSE
 
-PRI loadBitmap(pBitmapFile, eContentRotation) : bLoaded | nImageWidth, nImageHeight, bTopDown, nRowStride, nDisplayRow, nDisplayColumn, nRowOffset2, nColumnOffset2, nSourceX2, nSourceY2, nImageColumn, nImageRow, nFileRow, pPixel, bRun, nRunPixels, runFirstColumn, runColors[BMP_RUN_PIXELS]
+PRI loadBitmap(pBitmapFile, eContentRotation) : bLoaded | nImageWidth, nImageHeight, bTopDown, nRowStride, nDisplayRow, nDisplayColumn, nRowOffset2, nColumnOffset2, nImageColumn, nImageRow, pPixel, bRun
 ' Place a validated 24-bit .bmp image on the display, turned by eContentRotation. Each display
-' pixel the image covers takes its source pixel's color; on a display row those pixels are written
-' as row runs of up to BMP_RUN_PIXELS pixels, each pixel with its own corrected color (screenUtils
-' copyRowRun(): one start address and step per cell, not one address per pixel). While the
+' pixel the image covers takes its source pixel's color; on a display row those pixels are one
+' span of the image, written cell by cell in PASM from one address lookup per cell
+' (placeRowSpan()), each pixel corrected through the color table. While the
 ' instrument build's self-test draws its reference, each pixel goes through drawPixelAtRCwithRGB().
 ' Positions are held in half-pixel units measured from the display centre (and from the image
 ' centre), so the image is centred whatever the parity of its size and the display's.
@@ -141,16 +140,10 @@ PRI loadBitmap(pBitmapFile, eContentRotation) : bLoaded | nImageWidth, nImageHei
 ' @local nDisplayColumn - display column being painted, as mounted
 ' @local nRowOffset2 - twice the row distance of the display pixel from the display centre
 ' @local nColumnOffset2 - twice the column distance of the display pixel from the display centre
-' @local nSourceX2 - twice the column distance of the source pixel from the image centre
-' @local nSourceY2 - twice the row distance of the source pixel from the image centre
 ' @local nImageColumn - column of the source pixel in the image (0 at its left)
 ' @local nImageRow - row of the source pixel in the image (0 at its top)
-' @local nFileRow - row of the source pixel as the file stores it
 ' @local pPixel - address of the source pixel's bytes within the file image
-' @local bRun - TRUE to write the image as row runs, FALSE pixel by pixel
-' @local nRunPixels - pixels gathered for the row run being built
-' @local runFirstColumn - display column of that run's first pixel
-' @local runColors - that run's packed corrected colors, one LONG per pixel
+' @local bRun - TRUE to write each row as spans in PASM, FALSE pixel by pixel
 
   ' save address of 24bit file image for use by called routines
   pBitmapFileInMemory := pBitmapFile
@@ -165,53 +158,198 @@ PRI loadBitmap(pBitmapFile, eContentRotation) : bLoaded | nImageWidth, nImageHei
 #IFDEF HUB75_INSTRUMENT
     bRun := pixels.isPerPixelReference() == FALSE
 #ENDIF
-    runFirstColumn := 0
 
-    repeat maxRowPixels with nDisplayRow
-      nRowOffset2 := (BMP_HALF_PIXEL_SCALE * nDisplayRow) - (maxRowPixels - BMP_LAST_INDEX_OFFSET)
-      nRunPixels := 0
-      repeat maxColPixels with nDisplayColumn
-        nColumnOffset2 := (BMP_HALF_PIXEL_SCALE * nDisplayColumn) - (maxColPixels - BMP_LAST_INDEX_OFFSET)
-        ' inverse rotation: where in the image does this display pixel come from?
-        ' (y grows downward; a clockwise turn sends image-top to display-right)
-        case eContentRotation
-          hub75Bffrs.ROT_RIGHT_90:
-            nSourceX2 := nRowOffset2
-            nSourceY2 := -nColumnOffset2
-          hub75Bffrs.ROT_LEFT_90:
-            nSourceX2 := -nRowOffset2
-            nSourceY2 := nColumnOffset2
-          hub75Bffrs.ROT_180:
-            nSourceX2 := -nColumnOffset2
-            nSourceY2 := -nRowOffset2
-          other:
-            nSourceX2 := nColumnOffset2
-            nSourceY2 := nRowOffset2
-        nImageColumn := (nSourceX2 + nImageWidth - BMP_LAST_INDEX_OFFSET) sar BMP_HALF_PIXEL_SHIFT
-        nImageRow := (nSourceY2 + nImageHeight - BMP_LAST_INDEX_OFFSET) sar BMP_HALF_PIXEL_SHIFT
-        ' unsigned compare: a negative index is out of range as well
-        if nImageColumn +< nImageWidth and nImageRow +< nImageHeight
-          if bTopDown == TRUE
-            nFileRow := nImageRow
-          else
-            nFileRow := (nImageHeight - 1) - nImageRow         ' bottom-up file: first stored row is the image bottom
-          pPixel := @BYTE[pBitmapFileInMemory][bfOffBits] + (nFileRow * nRowStride) + (nImageColumn * BMP_BYTES_PER_PIXEL)
-          ' our internal .bmp file BYTE order is BGR!
-          if bRun == TRUE
-            if nRunPixels == 0
-              runFirstColumn := nDisplayColumn
-            runColors[nRunPixels++] := pixels.packedCorrectedRgb(chainIndex, BYTE[pPixel][BMP_RED_OFST], BYTE[pPixel][BMP_GREEN_OFST], BYTE[pPixel][BMP_BLUE_OFST])
-            if nRunPixels == BMP_RUN_PIXELS
-              pixels.copyRowRun(chainIndex, nDisplayRow, runFirstColumn, nRunPixels, @runColors)
-              nRunPixels := 0
-          else
+    if bRun == TRUE
+      ' each display row is one span of the image: written cell by cell in PASM (placeRowSpan())
+      repeat maxRowPixels with nDisplayRow
+        placeRowSpan(nDisplayRow, eContentRotation, nImageWidth, nImageHeight, bTopDown, nRowStride)
+    else
+      ' pixel by pixel: the instrument build's self-test reference
+      repeat maxRowPixels with nDisplayRow
+        nRowOffset2 := (BMP_HALF_PIXEL_SCALE * nDisplayRow) - (maxRowPixels - BMP_LAST_INDEX_OFFSET)
+        repeat maxColPixels with nDisplayColumn
+          nColumnOffset2 := (BMP_HALF_PIXEL_SCALE * nDisplayColumn) - (maxColPixels - BMP_LAST_INDEX_OFFSET)
+          nImageColumn, nImageRow := sourcePixelOf(eContentRotation, nRowOffset2, nColumnOffset2, nImageWidth, nImageHeight)
+          ' unsigned compare: a negative index is out of range as well
+          if nImageColumn +< nImageWidth and nImageRow +< nImageHeight
+            pPixel := sourceAddressOf(nImageColumn, nImageRow, nImageHeight, bTopDown, nRowStride)
+            ' our internal .bmp file BYTE order is BGR!
             pixels.drawPixelAtRCwithRGB(chainIndex, nDisplayRow, nDisplayColumn, BYTE[pPixel][BMP_RED_OFST], BYTE[pPixel][BMP_GREEN_OFST], BYTE[pPixel][BMP_BLUE_OFST])
-        elseif nRunPixels > 0
-          ' a pixel the image does not cover ends the run (the run's pixels are next to each other)
-          pixels.copyRowRun(chainIndex, nDisplayRow, runFirstColumn, nRunPixels, @runColors)
-          nRunPixels := 0
-      if nRunPixels > 0
-        pixels.copyRowRun(chainIndex, nDisplayRow, runFirstColumn, nRunPixels, @runColors)
+
+PRI sourcePixelOf(eContentRotation, nRowOffset2, nColumnOffset2, nImageWidth, nImageHeight) : nImageColumn, nImageRow | nSourceX2, nSourceY2
+' Return the image pixel a display pixel shows: the inverse of the content rotation, about the
+' centres of the display and the image (y grows downward; a clockwise turn sends image-top to
+' display-right). The result may lie outside the image.
+'
+' @param eContentRotation - ROT_NONE, ROT_RIGHT_90, ROT_LEFT_90 or ROT_180
+' @param nRowOffset2 - twice the row distance of the display pixel from the display centre
+' @param nColumnOffset2 - twice the column distance of the display pixel from the display centre
+' @param nImageWidth - image width in pixels
+' @param nImageHeight - image height in pixels
+' @returns nImageColumn - column of the source pixel in the image (0 at its left)
+' @returns nImageRow - row of the source pixel in the image (0 at its top)
+
+' Local Variables:
+' @local nSourceX2 - twice the column distance of the source pixel from the image centre
+' @local nSourceY2 - twice the row distance of the source pixel from the image centre
+
+  case eContentRotation
+    hub75Bffrs.ROT_RIGHT_90:
+      nSourceX2 := nRowOffset2
+      nSourceY2 := -nColumnOffset2
+    hub75Bffrs.ROT_LEFT_90:
+      nSourceX2 := -nRowOffset2
+      nSourceY2 := nColumnOffset2
+    hub75Bffrs.ROT_180:
+      nSourceX2 := -nColumnOffset2
+      nSourceY2 := -nRowOffset2
+    other:
+      nSourceX2 := nColumnOffset2
+      nSourceY2 := nRowOffset2
+  nImageColumn := (nSourceX2 + nImageWidth - BMP_LAST_INDEX_OFFSET) sar BMP_HALF_PIXEL_SHIFT
+  nImageRow := (nSourceY2 + nImageHeight - BMP_LAST_INDEX_OFFSET) sar BMP_HALF_PIXEL_SHIFT
+
+PRI sourceAddressOf(nImageColumn, nImageRow, nImageHeight, bTopDown, nRowStride) : pPixel | nFileRow
+' Return the address of an image pixel's bytes in the file image.
+'
+' @param nImageColumn - column of the pixel in the image (0 at its left)
+' @param nImageRow - row of the pixel in the image (0 at its top)
+' @param nImageHeight - image height in pixels
+' @param bTopDown - TRUE when the file stores the top row first
+' @param nRowStride - bytes per stored row (padded)
+' @returns pPixel - address of the pixel's B, G, R bytes
+
+' Local Variables:
+' @local nFileRow - row of the pixel as the file stores it
+
+  if bTopDown == TRUE
+    nFileRow := nImageRow
+  else
+    nFileRow := (nImageHeight - 1) - nImageRow                 ' bottom-up file: first stored row is the image bottom
+  pPixel := @BYTE[pBitmapFileInMemory][bfOffBits] + (nFileRow * nRowStride) + (nImageColumn * BMP_BYTES_PER_PIXEL)
+
+PRI placeRowSpan(nDisplayRow, eContentRotation, nImageWidth, nImageHeight, bTopDown, nRowStride) | nRowOffset2, nImageColumn, nImageRow, bVaryRow, nVaryStep, nFixed, nFixedSize, nVary0, nVarySize, firstColumn, lastColumn, pSource, sourceStep, column, cellColumns, nPixels, pPixel, rightStep, pTable
+' Write one display row of the image: the display pixels it covers are one span, and along it
+' exactly one image coordinate changes, by one per display column (the column for ROT_NONE and
+' ROT_180, the row for the quarter turns), so the source bytes step by a constant amount. The
+' span is written cell by cell, each part from one address lookup (hub75Bffrs.mountedPixelRun())
+' in PASM (copyBgrSpan()). It writes the bytes drawPixelAtRCwithRGB() writes pixel by pixel; a
+' cell that holds no panel is not drawn.
+'
+' @param nDisplayRow - display row being painted, as mounted
+' @param eContentRotation - ROT_NONE, ROT_RIGHT_90, ROT_LEFT_90 or ROT_180
+' @param nImageWidth - image width in pixels
+' @param nImageHeight - image height in pixels
+' @param bTopDown - TRUE when the file stores the top row first
+' @param nRowStride - bytes per stored row (padded)
+
+' Local Variables:
+' @local nRowOffset2 - twice the row distance of the display row from the display centre
+' @local nImageColumn - image column at the span's first display column
+' @local nImageRow - image row at the span's first display column
+' @local bVaryRow - TRUE when the image row changes along the display row (quarter turns)
+' @local nVaryStep - +1 or -1: how the changing image coordinate moves per display column
+' @local nFixed - the image coordinate that is the same along the display row
+' @local nFixedSize - the image's size along that coordinate
+' @local nVary0 - the changing image coordinate at display column 0
+' @local nVarySize - the image's size along the changing coordinate
+' @local firstColumn - first display column the image covers on this row
+' @local lastColumn - last display column the image covers on this row
+' @local pSource - address of the source bytes of the pixel being written
+' @local sourceStep - signed bytes from one source pixel to the next along the span
+' @local column - display column of the span part being written
+' @local cellColumns - pixel columns of one mounted cell
+' @local nPixels - pixels of the span in the current cell
+' @local pPixel - hub address of the part's first pixel, or NO_PIXEL for a cell with no panel
+' @local rightStep - signed bytes to the pixel at the right, within the cell
+
+  nRowOffset2 := (BMP_HALF_PIXEL_SCALE * nDisplayRow) - (maxRowPixels - BMP_LAST_INDEX_OFFSET)
+  ' the image pixel at display column 0; along the row one coordinate moves by nVaryStep per column
+  nImageColumn, nImageRow := sourcePixelOf(eContentRotation, nRowOffset2, -(maxColPixels - BMP_LAST_INDEX_OFFSET), nImageWidth, nImageHeight)
+  case eContentRotation
+    hub75Bffrs.ROT_RIGHT_90:
+      bVaryRow, nVaryStep := TRUE, -1
+    hub75Bffrs.ROT_LEFT_90:
+      bVaryRow, nVaryStep := TRUE, 1
+    hub75Bffrs.ROT_180:
+      bVaryRow, nVaryStep := FALSE, -1
+    other:
+      bVaryRow, nVaryStep := FALSE, 1
+  if bVaryRow == TRUE
+    nFixed, nFixedSize, nVary0, nVarySize := nImageColumn, nImageWidth, nImageRow, nImageHeight
+  else
+    nFixed, nFixedSize, nVary0, nVarySize := nImageRow, nImageHeight, nImageColumn, nImageWidth
+  ' the display columns whose changing coordinate lies inside the image
+  if nVaryStep > 0
+    firstColumn := 0 #> -nVary0
+    lastColumn := (maxColPixels - 1) <# (nVarySize - 1 - nVary0)
+  else
+    firstColumn := 0 #> (nVary0 - (nVarySize - 1))
+    lastColumn := (maxColPixels - 1) <# nVary0
+  if nFixed +< nFixedSize and firstColumn <= lastColumn
+    if bVaryRow == TRUE
+      nImageRow := nVary0 + (nVaryStep * firstColumn)
+      sourceStep := nVaryStep * nRowStride
+      if bTopDown == FALSE
+        sourceStep := -sourceStep                               ' bottom-up file: a lower image row is an earlier stored row
+    else
+      nImageColumn := nVary0 + (nVaryStep * firstColumn)
+      sourceStep := nVaryStep * BMP_BYTES_PER_PIXEL
+    pSource := sourceAddressOf(nImageColumn, nImageRow, nImageHeight, bTopDown, nRowStride)
+    pTable := colorUtils.colorTableAddress(chainIndex)
+    _, cellColumns := hub75Bffrs.cellSizeInPixels(chainIndex)
+    column := firstColumn
+    repeat while column <= lastColumn
+      ' the pixels from column to the end of its cell, or of the span when sooner
+      nPixels := ((((column / cellColumns) + 1) * cellColumns) <# (lastColumn + 1)) - column
+      pPixel, rightStep, _ := hub75Bffrs.mountedPixelRun(chainIndex, nDisplayRow, column)
+      if pPixel <> hub75Bffrs.NO_PIXEL
+        copyBgrSpan(pSource, sourceStep, pPixel, rightStep, nPixels, pTable)
+      pSource += nPixels * sourceStep
+      column += nPixels
+
+PRI copyBgrSpan(pSource, sourceStep, pPixel, rightStep, nPixels, pTable)
+' Write a span of image pixels, in PASM: nPixels pixels from pSource (B, G, R bytes), sourceStep
+' bytes apart, each channel corrected through the adapter's color table, to the screen buffer
+' from pPixel, rightStep bytes apart. PR0-PR1 are scratch.
+'
+' @param pSource - address of the first source pixel's bytes
+' @param sourceStep - signed bytes from one source pixel to the next
+' @param pPixel - hub address of the first screen pixel's red byte
+' @param rightStep - signed bytes from one screen pixel to the next
+' @param nPixels - pixels to write (at least one)
+' @param pTable - the adapter's color table (colorUtils colorTableAddress())
+
+    org
+.nextPixel
+                mov     pr1, pSource
+                add     pr1, #BMP_RED_OFST
+                rdbyte  pr0, pr1
+                add     pr0, pTable
+                rdbyte  pr0, pr0
+                mov     pr1, pPixel
+                add     pr1, #pixels.RED_BYTE_OFST
+                wrbyte  pr0, pr1
+                mov     pr1, pSource
+                add     pr1, #BMP_GREEN_OFST
+                rdbyte  pr0, pr1
+                add     pr0, pTable
+                rdbyte  pr0, pr0
+                mov     pr1, pPixel
+                add     pr1, #pixels.GREEN_BYTE_OFST
+                wrbyte  pr0, pr1
+                mov     pr1, pSource
+                add     pr1, #BMP_BLUE_OFST
+                rdbyte  pr0, pr1
+                add     pr0, pTable
+                rdbyte  pr0, pr0
+                mov     pr1, pPixel
+                add     pr1, #pixels.BLUE_BYTE_OFST
+                wrbyte  pr0, pr1
+                add     pSource, sourceStep
+                add     pPixel, rightStep
+                djnz    nPixels, #.nextPixel
+    end
 
 PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader
 ' Parse and validate the .BMP file header, returning TRUE if the file is a supported format. The

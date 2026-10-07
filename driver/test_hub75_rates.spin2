@@ -156,6 +156,8 @@ CON ' ---- Test patterns (plan section 1), judged by eye ----
     #0, BAND_RED, BAND_GREEN, BAND_BLUE, BAND_WHITE, BAND_COUNT
 
     ' Levels in an 8-bit channel, and full on
+    PACKING_FORMS           = 2                             ' packedCorrectedColor() and packedCorrectedRgb()
+    PACKING_BLUE_STRIDE     = 7                             ' an odd stride, so blue follows neither red nor green
     LEVEL_COUNT             = 256
     LEVEL_MAX               = LEVEL_COUNT - 1
 
@@ -478,10 +480,46 @@ PRI runColourTableTest() | depthIdx, gammaCase, bGamma, ledIdx, nCaseMismatches,
     nMismatches += nCaseMismatches
     nCompared += LEVEL_COUNT
 
+  nCaseMismatches := comparePacking()
+  debug("RATES: colour packing (packedCorrectedColor, packedCorrectedRgb) against the channel function: ", udec_(nCaseMismatches), " mismatches of ", udec_(LEVEL_COUNT * PACKING_FORMS))
+  nMismatches += nCaseMismatches
+  nCompared += LEVEL_COUNT * PACKING_FORMS
+
   if nMismatches == 0
     debug("RATES: COLOUR TABLE PASS: ", udec_(nCompared), " entries compared with the old function, none differ")
   else
     debug("RATES: COLOUR TABLE FAIL: ", udec_(nMismatches), " of ", udec_(nCompared), " entries differ from the old function")
+
+PRI comparePacking() : nMismatches | levelIdx, red, green, blue, expected, packedByValue, packedByChannels
+' Compare colorUtils' packed conversions with correctedSingleColor(), channel by channel, for 256
+' colors whose three channels vary independently: red rises, green falls, blue steps by an odd
+' stride. Both packed forms are compared; the first difference is printed.
+'
+' @returns nMismatches - packed results that differ
+
+' Local Variables:
+' @local levelIdx - color being compared
+' @local red - its red value
+' @local green - its green value
+' @local blue - its blue value
+' @local expected - the three corrected channels, packed by hand
+' @local packedByValue - packedCorrectedColor() of the combined value
+' @local packedByChannels - packedCorrectedRgb() of the three values
+
+  nMismatches := 0
+  repeat levelIdx from 0 to LEVEL_COUNT - 1
+    red := levelIdx
+    green := (LEVEL_COUNT - 1) - levelIdx
+    blue := (levelIdx * PACKING_BLUE_STRIDE) // LEVEL_COUNT
+    expected := colorUtils.correctedSingleColor(chainIndex, colorUtils.LED_RED, red)
+    expected |= colorUtils.correctedSingleColor(chainIndex, colorUtils.LED_GREEN, green) << colorUtils.PACKED_GREEN_SHIFT
+    expected |= colorUtils.correctedSingleColor(chainIndex, colorUtils.LED_BLUE, blue) << colorUtils.PACKED_BLUE_SHIFT
+    packedByValue := colorUtils.packedCorrectedColor(chainIndex, colorUtils.cValueForRGB(red, green, blue))
+    packedByChannels := colorUtils.packedCorrectedRgb(chainIndex, red, green, blue)
+    if packedByValue <> expected or packedByChannels <> expected
+      if nMismatches == 0
+        debug("RATES: colour packing MISMATCH first at ", udec_(red), ",", udec_(green), ",", udec_(blue), ": expected ", uhex_long_(expected), ", by value ", uhex_long_(packedByValue), ", by channels ", uhex_long_(packedByChannels))
+      nMismatches += (packedByValue <> expected ? 1 : 0) + (packedByChannels <> expected ? 1 : 0)
 
 PRI compareTable(nDepthInBits, bGamma, bLive, led) : nMismatches | levelIdx, storedByte, expectedByte
 ' Compare one table with referenceStored() for every input 0-255, printing each mismatch: the
