@@ -191,7 +191,7 @@ PUB start(eHub75Adapter) : workerCog
 
   workerCog := startWithId(0, eHub75Adapter)
 
-PUB startWithId(nId, eHub75Adapter) : workerCog | scrollerIndex, dvrConfig, eChipType
+PUB startWithId(nId, eHub75Adapter) : workerCog | scrollerIndex, dvrConfig
 '' Start one HUB75 adapter's display with a debug instance ID for multi-hub75 card configurations.
 '' Same as start(), plus the debug instance identifier. Aborts (and so never returns) when the
 '' adapter's settings or wiring sentences are refused, or when no cog is free for the
@@ -204,7 +204,6 @@ PUB startWithId(nId, eHub75Adapter) : workerCog | scrollerIndex, dvrConfig, eChi
 ' Local Variables:
 ' @local scrollerIndex - loop index for scroller initialization
 ' @local dvrConfig - driver configuration flags
-' @local eChipType - chip type enumeration value (shown in the startup debug line)
 
   chainIndex := hub75Bffrs.configureAdapter(eHub75Adapter)   ' settings, wiring check, buffer pointers
   colorUtils.buildColorTable(chainIndex)                 ' this adapter's color table, from its depth and the gamma setting
@@ -223,8 +222,7 @@ PUB startWithId(nId, eHub75Adapter) : workerCog | scrollerIndex, dvrConfig, eChi
 
   debug("DSP: BFFR screen[", udec_long_(hub75Bffrs.displaySizeInLongs(chainIndex)), "] ", uhex_long_(hub75Bffrs.displayBufferAddress(chainIndex)))
 
-  dvrConfig, eChipType := hub75Bffrs.getDriverFlags(chainIndex)
-  debug("DSP: chip type ", udec_(eChipType), ", driver flags ", ubin_word(dvrConfig))
+  dvrConfig, _ := hub75Bffrs.getDriverFlags(chainIndex)          ' the chip type is not needed here
   bScan_1_4 := (dvrConfig & hwEnum.SCAN_4) <> 0
   bSwapRB := (dvrConfig & hwEnum.RB_SWAP) <> 0
   bSwapGB := (dvrConfig & hwEnum.GB_SWAP) <> 0

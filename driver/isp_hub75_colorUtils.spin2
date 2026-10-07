@@ -148,16 +148,19 @@ PUB gammaPeek(color) : adjustedColor | gammaIdx, lowColor, highColor
         repeat gammaIdx from 0 TO GAMMA_TABLE_MAX_IDX
             if BYTE[@gamma][gammaIdx] > color
                 quit
+        ' the loop leaves gammaIdx at the first entry above color, or one past the table
         if gammaIdx == 0
-            adjustedColor := 0
-        lowColor := BYTE[@gamma][gammaIdx - 1]
-        highColor := BYTE[@gamma][gammaIdx]
-        if lowColor == color
-            adjustedColor := gammaIdx - 1
-        elseif highColor == color
-            adjustedColor := gammaIdx
+            adjustedColor := 0                                  ' below the first entry
+        elseif gammaIdx > GAMMA_TABLE_MAX_IDX
+            adjustedColor := GAMMA_TABLE_MAX_IDX                ' at or above the last entry
         else
-            if color - lowColor > highColor - color
+            lowColor := BYTE[@gamma][gammaIdx - 1]
+            highColor := BYTE[@gamma][gammaIdx]
+            if lowColor == color
+                adjustedColor := gammaIdx - 1
+            elseif highColor == color
+                adjustedColor := gammaIdx
+            elseif color - lowColor > highColor - color
                 adjustedColor := gammaIdx
             else
                 adjustedColor := gammaIdx - 1
