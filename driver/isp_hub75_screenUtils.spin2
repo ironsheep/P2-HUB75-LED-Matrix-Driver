@@ -342,6 +342,82 @@ PUB fillMountedArea(nChainIdx, topRow, leftColumn, nRows, nColumns, packedColor)
                 blockLeft += blockColumns
             blockTop += blockRows
 
+PUB plotPacked(pContext, row, column, packedColor) | ctxRows, ctxColumns, ctxCellRows, ctxCellColumns, ctxGridColumns, ctxOffsets, ctxRightSteps, ctxDownSteps, ctxBuffer
+'' Write one pixel in one packed color, in PASM, through a plot context (hub75Bffrs.plotContext()):
+'' the pixel is held to the display as mounted, then its address comes from the cell address
+'' tables, exactly as pixelAddressAtRC() gives it; a pixel in a cell with no panel is not drawn.
+'' For shapes drawn pixel by pixel in one color (lines, circles): take the context and the packed
+'' color once per shape. PR0-PR7 are scratch.
+''
+'' @param pContext - hub address of a filled plot context (hub75Bffrs.PLOT_CONTEXT_LONGS LONGs)
+'' @param row - pixel row on the display, as mounted
+'' @param column - pixel column on the display, as mounted
+'' @param packedColor - the pixel's corrected bytes, packed (packedColorOf())
+
+' Local Variables:
+' @local ctxRows - display rows, as mounted (read from the context, as are the rest)
+' @local ctxColumns - display columns, as mounted
+' @local ctxCellRows - pixel rows of one mounted cell
+' @local ctxCellColumns - pixel columns of one mounted cell
+' @local ctxGridColumns - cells across the mounted grid
+' @local ctxOffsets - this adapter's cell offset table
+' @local ctxRightSteps - this adapter's right step table
+' @local ctxDownSteps - this adapter's down step table
+' @local ctxBuffer - the screen buffer address
+
+    org
+                setq    #hub75Bffrs.PLOT_CONTEXT_LONGS - 1
+                rdlong  ctxRows, pContext                   ' the whole context, in PLOT_CTX_* order
+                ' hold the pixel to the display, as mountedPixelAddress() holds it
+                fges    row, #0
+                mov     pr0, ctxRows
+                sub     pr0, #1
+                fles    row, pr0
+                fges    column, #0
+                mov     pr0, ctxColumns
+                sub     pr0, #1
+                fles    column, pr0
+                ' its cell, and its row and column within the cell
+                qdiv    row, ctxCellRows
+                getqx   pr1                                 ' cell row
+                getqy   pr2                                 ' row within the cell
+                qdiv    column, ctxCellColumns
+                getqx   pr3                                 ' cell column
+                getqy   pr4                                 ' column within the cell
+                mul     pr1, ctxGridColumns
+                add     pr1, pr3
+                shl     pr1, #BYTES_PER_LONG_SHIFT          ' the cell's entry, in bytes
+                mov     pr3, ctxOffsets
+                add     pr3, pr1
+                rdlong  pr5, pr3                            ' the cell's offset
+                cmps    pr5, #0                     wc
+    if_c        jmp     #.noPanel                           ' NO_CELL_OFFSET: no panel holds the pixel
+                mov     pr3, ctxDownSteps
+                add     pr3, pr1
+                rdlong  pr6, pr3
+                mov     pr3, ctxRightSteps
+                add     pr3, pr1
+                rdlong  pr7, pr3
+                muls    pr2, pr6                            ' row within the cell x down step
+                muls    pr4, pr7                            ' column within the cell x right step
+                add     pr5, ctxBuffer
+                add     pr5, pr2
+                add     pr5, pr4                            ' the pixel's red byte
+                mov     pr0, packedColor
+                mov     pr3, pr5
+                add     pr3, #RED_BYTE_OFST
+                wrbyte  pr0, pr3
+                mov     pr3, pr5
+                add     pr3, #GREEN_BYTE_OFST
+                shr     pr0, #PACKED_GREEN_SHIFT
+                wrbyte  pr0, pr3
+                mov     pr3, pr5
+                add     pr3, #BLUE_BYTE_OFST
+                shr     pr0, #PACKED_BLUE_SHIFT - PACKED_GREEN_SHIFT
+                wrbyte  pr0, pr3
+.noPanel
+    end
+
 PUB isRunDrawable(rgbColor) : bRun
 '' Return TRUE when pixels of rgbColor may be drawn by runs: FALSE for cRainbow (its hue follows
 '' the column, so drawPixelAtRC() draws it pixel by pixel) and, in the instrument build, while the

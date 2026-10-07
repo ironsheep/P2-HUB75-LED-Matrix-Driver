@@ -95,6 +95,12 @@ CON ' ---- Drawing Path Results ----
     ' positionAtDisplayPixel() result for a pixel that no panel holds
     NO_PANEL_POSITION       = cube.NO_PANEL_POSITION
 
+    ' plotContext(): the LONGs it fills, in this order (screenUtils plotPacked() reads them in
+    ' one block): display rows and columns as mounted, cell rows and columns, mounted grid columns,
+    ' this adapter's cell offset, right step and down step tables, and the screen buffer address
+    #0, PLOT_CTX_ROWS, PLOT_CTX_COLUMNS, PLOT_CTX_CELL_ROWS, PLOT_CTX_CELL_COLUMNS, PLOT_CTX_GRID_COLUMNS, ...
+    PLOT_CTX_OFFSETS, PLOT_CTX_RIGHT_STEPS, PLOT_CTX_DOWN_STEPS, PLOT_CTX_BUFFER, PLOT_CONTEXT_LONGS
+
 OBJ
 
     hwEnum      : "isp_hub75_hwEnums"                               ' hub75 attachment, set up constants
@@ -830,6 +836,29 @@ PUB mountedBlockRun(nChainIdx, row, column, nRows, nColumns) : pPixel, rightStep
                 rightStep := mountedCellRightStep[cellIdx]
                 downStep := mountedCellDownStep[cellIdx]
                 pPixel := LONG[@@LONG[@screenTable][layoutIdx]][ENTR_SCRN_BUFFER_ADDR_OFST] + mountedCellOffset[cellIdx] + ((row // cellRows) * downStep) + ((column // cellColumns) * rightStep)
+
+PUB plotContext(nChainIdx, pContext) | layoutIdx
+'' Fill a plot context: the PLOT_CONTEXT_LONGS LONGs at pContext (PLOT_CTX_* order) that let a
+'' PASM pixel writer apply the one address rule from the cell address tables, as
+'' mountedPixelAddress() applies it, without a call per pixel (screenUtils plotPacked()). The
+'' context holds while the layout and the buffer stay as they are: take one per shape drawn.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @param pContext - hub address of PLOT_CONTEXT_LONGS LONGs to fill
+
+' Local Variables:
+' @local layoutIdx - the chain index, checked against the adapters that exist
+
+    layoutIdx := validChainIndex(nChainIdx)
+    LONG[pContext][PLOT_CTX_ROWS] := mountedPixelRows[layoutIdx]
+    LONG[pContext][PLOT_CTX_COLUMNS] := mountedPixelColumns[layoutIdx]
+    LONG[pContext][PLOT_CTX_CELL_ROWS] := mountedCellRows[layoutIdx]
+    LONG[pContext][PLOT_CTX_CELL_COLUMNS] := mountedCellColumns[layoutIdx]
+    LONG[pContext][PLOT_CTX_GRID_COLUMNS] := mountedGridColumns[layoutIdx]
+    LONG[pContext][PLOT_CTX_OFFSETS] := @mountedCellOffset[layoutIdx * MAX_GRID_CELLS]
+    LONG[pContext][PLOT_CTX_RIGHT_STEPS] := @mountedCellRightStep[layoutIdx * MAX_GRID_CELLS]
+    LONG[pContext][PLOT_CTX_DOWN_STEPS] := @mountedCellDownStep[layoutIdx * MAX_GRID_CELLS]
+    LONG[pContext][PLOT_CTX_BUFFER] := LONG[@@LONG[@screenTable][layoutIdx]][ENTR_SCRN_BUFFER_ADDR_OFST]
 
 PUB positionAtDisplayPixel(nChainIdx, row, column) : nPanelPosn | layoutIdx
 '' Return the panel position (P) of the panel that holds display coordinates (row, column), with

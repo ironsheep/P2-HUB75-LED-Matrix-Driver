@@ -210,6 +210,8 @@ CON ' ---- Row-run self-test ----
     '  ROW_CASE_COLUMN_CLIP   - panel-centric vertical lines clipped by each panel's edges
     '  ROW_CASE_BOXES         - filled boxes narrow and tall (column runs) and wide (row runs),
     '                           an outline, a one-pixel box, and panel boxes clipped by their panel
+    '  ROW_CASE_DIAGONALS     - sloped lines: shallow and steep, both directions, across cells, ends off the display
+    '  ROW_CASE_CIRCLES       - circles across a cell corner, inside one cell, and running off the bottom right
     '  ROW_CASE_TEXT_5X7      - text in the 5x7 font, top line and the last line's end
     '  ROW_CASE_TEXT_DITHERED - the same in the dithered 5x7 font
     '  ROW_CASE_TEXT_8X8      - the same in the 8x8 font
@@ -227,7 +229,7 @@ CON ' ---- Row-run self-test ----
     '  ROW_CASE_SEGMENTS      - every 7-segment orientation, and one running off the bottom right
     '  ROW_CASE_COUNT         - number of cases
     #0, ROW_CASE_LINES, ROW_CASE_OFF_DISPLAY, ROW_CASE_PANEL_CLIP, ROW_CASE_COLUMNS, ROW_CASE_COLUMN_OFF, ...
-    ROW_CASE_COLUMN_CLIP, ROW_CASE_BOXES, ROW_CASE_TEXT_5X7, ROW_CASE_TEXT_DITHERED, ROW_CASE_TEXT_8X8, ...
+    ROW_CASE_COLUMN_CLIP, ROW_CASE_BOXES, ROW_CASE_DIAGONALS, ROW_CASE_CIRCLES, ROW_CASE_TEXT_5X7, ROW_CASE_TEXT_DITHERED, ROW_CASE_TEXT_8X8, ...
     ROW_CASE_SCROLL_LEFT, ROW_CASE_SCROLL_RIGHT, ROW_CASE_SCROLL_UP, ROW_CASE_SCROLL_DOWN, ...
     ROW_CASE_SCROLL_IN_LEFT, ROW_CASE_SCROLL_IN_RIGHT, ROW_CASE_SCROLL_IN_UP, ROW_CASE_SCROLL_IN_DOWN, ...
     ROW_CASE_FILL_PANEL, ROW_CASE_FILL_AREA, ROW_CASE_BMP, ROW_CASE_SEGMENTS, ROW_CASE_COUNT
@@ -308,6 +310,16 @@ CON ' ---- Row-run self-test ----
 
     ' Segments: placed SEGMENT_REACH before a cell's corner, SEGMENT_SPACING apart; the last one
     ' SEGMENT_EDGE_ROWS above the bottom and SEGMENT_EDGE_COLUMNS before the right edge
+    ' Sloped lines run DIAG_REACH pixels past the display's edges; the steep ones lean
+    ' DIAG_STEEP_RUN columns either side of the first cell boundary. Circles: one of
+    ' CIRCLE_SMALL_RADIUS inside the first cell, one of CIRCLE_EDGE_RADIUS centred
+    ' CIRCLE_EDGE_INSET pixels in from the bottom right, so most of it is off the display.
+    DIAG_REACH              = 5
+    DIAG_STEEP_RUN          = 9
+    CIRCLE_SMALL_RADIUS     = 6
+    CIRCLE_EDGE_RADIUS      = 9
+    CIRCLE_EDGE_INSET       = 2
+
     SEGMENT_REACH           = 4
     SEGMENT_SPACING         = 4
     SEGMENT_EDGE_ROWS       = 2
@@ -914,6 +926,15 @@ PRI drawRowRunCase(caseIdx, caseVariant) | displayRows, displayColumns, cellRows
       pixels.fillLayoutArea(chainIndex, -FILL_EDGE_REACH, layoutCellColumns - FILL_RECT_REACH, FILL_RECT_ROWS, layoutCellColumns + (FILL_RECT_REACH * BOTH_SIDES), RUN_TEST_COLOR)
       pixels.fillLayoutArea(chainIndex, layoutRows - FILL_EDGE_REACH, layoutColumns - FILL_RECT_REACH, FILL_CORNER_ROWS, FILL_CORNER_COLUMNS, RUN_TEST_COLOR)
       pixels.fillLayoutArea(chainIndex, layoutCellRows + FILL_EDGE_REACH, layoutCellColumns / CELL_HALVES, FILL_STRIP_ROWS, layoutCellColumns * (THREE_CELLS - 1), RUN_TEST_COLOR)
+    ROW_CASE_DIAGONALS:
+      display.drawLineOfColor(-DIAG_REACH, -DIAG_REACH, displayRows - 1 + DIAG_REACH, displayColumns - 1 + DIAG_REACH, RUN_TEST_COLOR)
+      display.drawLineOfColor(displayRows - 1, 0, 0, displayColumns - 1, RUN_TEST_COLOR)
+      display.drawLineOfColor(0, cellColumns - DIAG_STEEP_RUN, displayRows - 1, cellColumns + DIAG_STEEP_RUN, RUN_TEST_COLOR)
+      display.drawLineOfColor(displayRows + DIAG_REACH, cellColumns + DIAG_STEEP_RUN, -DIAG_REACH, cellColumns - DIAG_STEEP_RUN, RUN_TEST_COLOR)
+    ROW_CASE_CIRCLES:
+      display.drawCircleOfColor(cellRows, cellColumns, cellRows / CELL_HALVES, RUN_TEST_COLOR)
+      display.drawCircleOfColor(cellRows / CELL_HALVES, cellColumns / CELL_HALVES, CIRCLE_SMALL_RADIUS, RUN_TEST_COLOR)
+      display.drawCircleOfColor(displayRows - CIRCLE_EDGE_INSET, displayColumns - CIRCLE_EDGE_INSET, CIRCLE_EDGE_RADIUS, RUN_TEST_COLOR)
     ROW_CASE_BMP:
       bmpHandler.placeBMP(chainIndex, @bmpFile, LONG[@testRotations][caseVariant // ROTATION_COUNT])
     other:
@@ -1236,6 +1257,10 @@ PRI rowCaseLabel(caseIdx) : pLabel
       pLabel := string("panel-clipped columns")
     ROW_CASE_BOXES:
       pLabel := string("boxes")
+    ROW_CASE_DIAGONALS:
+      pLabel := string("sloped lines")
+    ROW_CASE_CIRCLES:
+      pLabel := string("circles")
     ROW_CASE_TEXT_5X7:
       pLabel := string("text 5x7")
     ROW_CASE_TEXT_DITHERED:

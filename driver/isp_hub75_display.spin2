@@ -1495,6 +1495,19 @@ PRI drawLineInternal(fmRow, fmColumn, toRow, toColumn, rgbColor, eDrawMode, draw
         plotLineHighInternal(fmColumn, fmRow, toColumn, toRow, rgbColor, eDrawMode, drawTarget)
 
 
+PRI isFastPlot(rgbColor, eDrawMode) : bFast
+' Return TRUE when a shape drawn pixel by pixel (a sloped line, a circle) goes through one plot
+' context in PASM (screenUtils plotPacked()): a display-centric shape in one color. cRainbow
+' changes color along a row, panel-centric pixels are clipped and face-centric pixels fold, so
+' those go through drawPixelInternal(); so does every shape while the instrument build's
+' self-test draws its reference (screenUtils isRunDrawable()).
+'
+' @param rgbColor - 24-bit RGB color value
+' @param eDrawMode - DRAW_WHOLE_DISPLAY, DRAW_CLIP_TO_PANEL or DRAW_FOLD_ON_FACE
+' @returns bFast - TRUE to plot through one context
+
+  bFast := eDrawMode == DRAW_WHOLE_DISPLAY and pixels.isRunDrawable(rgbColor) == TRUE
+
 PRI isRunLine(rgbColor, eDrawMode) : bRunLine
 ' Return TRUE when a horizontal or vertical line is drawn as one run: a display-centric or
 ' panel-centric line in one color. A face-centric line folds across the cube's edges pixel by
@@ -1554,7 +1567,7 @@ PRI drawLineRun(fixedIdx, fmIdx, toIdx, bColumn, rgbColor, eDrawMode, drawTarget
     else
       pixels.fillRowRun(chainIndex, fixedIdx, firstIdx, lastIdx - firstIdx + 1, pixels.packedColorOf(chainIndex, rgbColor))
 
-PRI plotLineLowInternal(fromColumn, fromRow, toColumn, toRow, rgbColor, eDrawMode, drawTarget) | row, column, dy, dx, decisionAccum, yi
+PRI plotLineLowInternal(fromColumn, fromRow, toColumn, toRow, rgbColor, eDrawMode, drawTarget) | row, column, dy, dx, decisionAccum, yi, bFast, packedColor, plotCtx[hub75Bffrs.PLOT_CONTEXT_LONGS]
 ' Bresenham line algorithm for shallow slopes
 '
 ' @param fromColumn - starting pixel column
@@ -1572,6 +1585,9 @@ PRI plotLineLowInternal(fromColumn, fromRow, toColumn, toRow, rgbColor, eDrawMod
 ' @local dx - delta in column
 ' @local decisionAccum - Bresenham decision accumulator
 ' @local yi - row step direction
+' @local bFast - TRUE when the line's pixels go through one plot context (display-centric, one color)
+' @local packedColor - the line color's corrected bytes, packed (bFast only)
+' @local plotCtx - the plot context (bFast only)
 
   dx := toColumn - fromColumn
   dy := toRow - fromRow
@@ -1582,15 +1598,23 @@ PRI plotLineLowInternal(fromColumn, fromRow, toColumn, toRow, rgbColor, eDrawMod
   decisionAccum := (BRESENHAM_TWO * dy) - dx
   row := fromRow
 
+  ' a display-centric line in one color: the context and the color once, each pixel in PASM
+  bFast := isFastPlot(rgbColor, eDrawMode)
+  if bFast == TRUE
+    hub75Bffrs.plotContext(chainIndex, @plotCtx)
+    packedColor := pixels.packedColorOf(chainIndex, rgbColor)
   repeat column from fromColumn to toColumn
-    drawPixelInternal(row, column, rgbColor, eDrawMode, drawTarget)
+    if bFast == TRUE
+      pixels.plotPacked(@plotCtx, row, column, packedColor)
+    else
+      drawPixelInternal(row, column, rgbColor, eDrawMode, drawTarget)
     if decisionAccum > 0
       row := row + yi
       decisionAccum := decisionAccum +(BRESENHAM_TWO * (dy - dx))
     else
       decisionAccum := decisionAccum +BRESENHAM_TWO * dy
 
-PRI plotLineHighInternal(fromColumn, fromRow, toColumn, toRow, rgbColor, eDrawMode, drawTarget) | row, column, dy, dx, decisionAccum, xi
+PRI plotLineHighInternal(fromColumn, fromRow, toColumn, toRow, rgbColor, eDrawMode, drawTarget) | row, column, dy, dx, decisionAccum, xi, bFast, packedColor, plotCtx[hub75Bffrs.PLOT_CONTEXT_LONGS]
 ' Bresenham line algorithm for steep slopes
 '
 ' @param fromColumn - starting pixel column
@@ -1608,6 +1632,9 @@ PRI plotLineHighInternal(fromColumn, fromRow, toColumn, toRow, rgbColor, eDrawMo
 ' @local dx - delta in column
 ' @local decisionAccum - Bresenham decision accumulator
 ' @local xi - column step direction
+' @local bFast - TRUE when the line's pixels go through one plot context (display-centric, one color)
+' @local packedColor - the line color's corrected bytes, packed (bFast only)
+' @local plotCtx - the plot context (bFast only)
 
   dx := toColumn - fromColumn
   dy := toRow - fromRow
@@ -1618,8 +1645,16 @@ PRI plotLineHighInternal(fromColumn, fromRow, toColumn, toRow, rgbColor, eDrawMo
   decisionAccum := (BRESENHAM_TWO * dx) - dy
   column := fromColumn
 
+  ' a display-centric line in one color: the context and the color once, each pixel in PASM
+  bFast := isFastPlot(rgbColor, eDrawMode)
+  if bFast == TRUE
+    hub75Bffrs.plotContext(chainIndex, @plotCtx)
+    packedColor := pixels.packedColorOf(chainIndex, rgbColor)
   repeat row from fromRow to toRow
-    drawPixelInternal(row, column, rgbColor, eDrawMode, drawTarget)
+    if bFast == TRUE
+      pixels.plotPacked(@plotCtx, row, column, packedColor)
+    else
+      drawPixelInternal(row, column, rgbColor, eDrawMode, drawTarget)
     if decisionAccum > 0
       column := column + xi
       decisionAccum := decisionAccum +(BRESENHAM_TWO * (dx - dy))
@@ -1776,7 +1811,7 @@ PRI fillBoxArea(topRow, leftColumn, bottomRow, rightColumn, rgbColor, eDrawMode,
   if topRow <= bottomRow and leftColumn <= rightColumn
     pixels.fillMountedArea(chainIndex, topRow, leftColumn, bottomRow - topRow + 1, rightColumn - leftColumn + 1, pixels.packedColorOf(chainIndex, rgbColor))
 
-PRI drawCircleInternal(ctrRow, ctrColumn, radius, rgbColor, eDrawMode, drawTarget) | column, row, decision
+PRI drawCircleInternal(ctrRow, ctrColumn, radius, rgbColor, eDrawMode, drawTarget) | column, row, decision, bFast, packedColor, plotCtx[hub75Bffrs.PLOT_CONTEXT_LONGS]
 ' Internal circle drawing for display-centric and face-centric circles: the one circle primitive
 ' (Bresenham's algorithm), told whether its pixels go straight to the display or fold.
 '
@@ -1791,11 +1826,19 @@ PRI drawCircleInternal(ctrRow, ctrColumn, radius, rgbColor, eDrawMode, drawTarge
 ' @local column - current column offset from center
 ' @local row - current row offset from center
 ' @local decision - Bresenham circle decision accumulator
+' @local bFast - TRUE when the circle's pixels go through one plot context (display-centric, one color)
+' @local packedColor - the circle color's corrected bytes, packed (bFast only)
+' @local plotCtx - the plot context (bFast only)
 
+  ' a display-centric circle in one color: the context and the color once, each pixel in PASM
+  bFast := isFastPlot(rgbColor, eDrawMode)
+  if bFast == TRUE
+    hub75Bffrs.plotContext(chainIndex, @plotCtx)
+    packedColor := pixels.packedColorOf(chainIndex, rgbColor)
   column := 0
   row := radius
   decision := CIRCLE_DECISION_INIT - CIRCLE_DECISION_RADIUS_MUL * radius
-  drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor, eDrawMode, drawTarget)
+  drawCirclePoints(ctrRow, ctrColumn, row, column, rgbColor, eDrawMode, drawTarget, bFast, @plotCtx, packedColor)
   repeat while (row >= column)
     column++
     ' check for decision parameter
@@ -1806,12 +1849,13 @@ PRI drawCircleInternal(ctrRow, ctrColumn, radius, rgbColor, eDrawMode, drawTarge
       decision := decision + CIRCLE_DELTA_MUL * (column - row) + CIRCLE_DELTA_DIAG_ADD
     else
       decision := decision + CIRCLE_DELTA_MUL * column + CIRCLE_DELTA_AXIS_ADD
-    drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor, eDrawMode, drawTarget)
+    drawCirclePoints(ctrRow, ctrColumn, row, column, rgbColor, eDrawMode, drawTarget, bFast, @plotCtx, packedColor)
 
-PRI drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor, eDrawMode, drawTarget)
+PRI drawCirclePoints(ctrRow, ctrColumn, row, column, rgbColor, eDrawMode, drawTarget, bFast, pPlotCtx, packedColor)
 ' Draw the eight symmetric points of a circle for the given octant offsets. A display-centric
-' pixel goes straight to the screen buffer; any other goes through the one drawing core,
-' drawPixelInternal(). The mode is tested once per eight pixels.
+' circle in one color plots through its plot context in PASM (screenUtils plotPacked()); another
+' display-centric pixel goes straight to the screen buffer; any other goes through the one drawing
+' core, drawPixelInternal(). The mode is tested once per eight pixels.
 '
 ' @param ctrRow - row number of center-point
 ' @param ctrColumn - column number of center-point
@@ -1820,12 +1864,24 @@ PRI drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor, eDrawMode,
 ' @param rgbColor - 24-bit RGB color value
 ' @param eDrawMode - DRAW_WHOLE_DISPLAY or DRAW_FOLD_ON_FACE (see drawLineInternal())
 ' @param drawTarget - DRAW_NO_TARGET, or the face (FACE_*) the coordinates are on
+' @param bFast - TRUE to plot through the plot context (isFastPlot())
+' @param pPlotCtx - hub address of the circle's plot context (bFast only)
+' @param packedColor - the circle color's corrected bytes, packed (bFast only)
 
   ' for each pixel we will
   ' draw all eight pixels
   ' NOTE: row/column here are offsets from center, not absolute coordinates
   '       The drawPixelAtRC signature is (chainIdx, row, column, color)
-  if eDrawMode == DRAW_WHOLE_DISPLAY
+  if bFast == TRUE
+    pixels.plotPacked(pPlotCtx, ctrRow+row, ctrColumn+column, packedColor)
+    pixels.plotPacked(pPlotCtx, ctrRow+row, ctrColumn-column, packedColor)
+    pixels.plotPacked(pPlotCtx, ctrRow-row, ctrColumn+column, packedColor)
+    pixels.plotPacked(pPlotCtx, ctrRow-row, ctrColumn-column, packedColor)
+    pixels.plotPacked(pPlotCtx, ctrRow+column, ctrColumn+row, packedColor)
+    pixels.plotPacked(pPlotCtx, ctrRow+column, ctrColumn-row, packedColor)
+    pixels.plotPacked(pPlotCtx, ctrRow-column, ctrColumn+row, packedColor)
+    pixels.plotPacked(pPlotCtx, ctrRow-column, ctrColumn-row, packedColor)
+  elseif eDrawMode == DRAW_WHOLE_DISPLAY
     pixels.drawPixelAtRC(chainIndex, ctrRow+row, ctrColumn+column, rgbColor)
     pixels.drawPixelAtRC(chainIndex, ctrRow+row, ctrColumn-column, rgbColor)
     pixels.drawPixelAtRC(chainIndex, ctrRow-row, ctrColumn+column, rgbColor)
