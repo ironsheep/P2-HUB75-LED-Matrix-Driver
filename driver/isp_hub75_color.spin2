@@ -3,11 +3,11 @@
 ''   File....... isp_hub75_color.spin2
 ''   Purpose.... Provide utility color routines
 ''   Authors.... Stephen M Moraco
-''               -- Copyright (c) 2020 Iron Sheep Productions, LLC
+''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 5 Nov 2022
+''   Updated.... 06 Oct 2026
 ''
 '' =================================================================================================
 
@@ -64,7 +64,7 @@ PUB null()
 '' This is not a top level object
 ''
 
-CON ' license
+CON ' ---- License ----
 
 {{
 
@@ -72,7 +72,7 @@ CON ' license
  -------------------------------------------------------------------------------------------------
   MIT License
 
-  Copyright (c) 2020 Iron Sheep Productions, LLC
+  Copyright (c) 2024 Iron Sheep Productions, LLC
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal

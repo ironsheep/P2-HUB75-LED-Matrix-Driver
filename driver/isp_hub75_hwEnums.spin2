@@ -3,11 +3,11 @@
 ''   File....... isp_hub75_hwEnums.spin2
 ''   Purpose.... Describe hardware connection constants
 ''   Authors.... Stephen M Moraco
-''               -- Copyright (c) 2022 Iron Sheep Productions, LLC
+''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Nov 2022
-''   Updated.... 10 Nov 2022
+''   Updated.... 06 Oct 2026
 ''
 '' =================================================================================================
 '
@@ -111,14 +111,7 @@ CON ' Hardware Interface Constants
 '   DEPTH_8BIT - 8 bits per color channel
     #3, DEPTH_3BIT, DEPTH_4BIT, DEPTH_5BIT, DEPTH_6BIT, DEPTH_7BIT, DEPTH_8BIT
 
-'  (8) Retired grid-table values, not used by the driver. A display with gaps (an L shape, a
-'  + shape) is now described by the wiring sentences of (10) below: NO_PANEL for an unused
-'  cable position, and a neighbour word for each panel's place. See the wiring guide.
-
-    PNL_NONE = 0        ' retired: empty grid position (no panel here)
-    PNL_FIRST = 1       ' retired: first panel (see FIRST_PANEL in (10))
-
-'  (9) Cube faces (a display with DISPn_SHAPE = SHAPE_CUBE):
+'  (7) Cube faces (a display with DISPn_SHAPE = SHAPE_CUBE):
 '
 '  Six square panels, wired as one of the 11 cube nets, form a cube. DISPn_CUBE_TOP
 '  and DISPn_CUBE_FRONT name the cable positions of the top face and the front face;
@@ -142,23 +135,16 @@ CON ' Hardware Interface Constants
 '  BACK-BOTTOM, BACK-RIGHT, LEFT-TOP, LEFT-BOTTOM, RIGHT-TOP and RIGHT-BOTTOM.
 #$50, FACE_TOP, FACE_BOTTOM, FACE_FRONT, FACE_BACK, FACE_LEFT, FACE_RIGHT
 
-' Cube image unwrap patterns: how 2D images map onto cube faces
-'   CUBE_UNWRAP_HSTRIP_LFRB - horizontal strip, faces ordered Left-Front-Right-Back
-'   CUBE_UNWRAP_HSTRIP_FRBL - horizontal strip, faces ordered Front-Right-Back-Left
-'   CUBE_UNWRAP_CROSS       - cross/cruciform unwrap layout
-'   CUBE_UNWRAP_CUSTOM      - caller-supplied custom face mapping
-#$58, CUBE_UNWRAP_HSTRIP_LFRB, CUBE_UNWRAP_HSTRIP_FRBL, CUBE_UNWRAP_CROSS, CUBE_UNWRAP_CUSTOM
-
-'  (10) Wiring words: the words of the per-panel sentences DISPn_C0 .. DISPn_C15
+'  (8) Wiring words: the words of the per-panel sentences DISPn_C0 .. DISPn_C15
 '
 '  Each sentence describes the panel at one cable position. Each word is a single
 '  bit, and each kind of word has its own bit range, so a sentence that holds two
 '  words of the same kind can always be detected:
-'   C0 .. C15   - bits 0-15:  neighbour, the cable position of the panel this one sits next to
-'   ABOVE       - bit 16:     direction, this panel sits above its neighbour
-'   BELOW       - bit 17:     direction, this panel sits below its neighbour
-'   LEFT_OF     - bit 18:     direction, this panel sits left of its neighbour
-'   RIGHT_OF    - bit 19:     direction, this panel sits right of its neighbour
+'   C0 .. C15   - bits 0-15:  neighbor, the cable position of the panel this one sits next to
+'   ABOVE       - bit 16:     direction, this panel sits above its neighbor
+'   BELOW       - bit 17:     direction, this panel sits below its neighbor
+'   LEFT_OF     - bit 18:     direction, this panel sits left of its neighbor
+'   RIGHT_OF    - bit 19:     direction, this panel sits right of its neighbor
 '   ARROW_UP    - bit 20:     arrow, this panel's identify arrow points up
 '   ARROW_DOWN  - bit 21:     arrow, this panel's identify arrow points down (mounted at 180 degrees)
 '   ARROW_LEFT  - bit 22:     arrow, this panel's identify arrow points left
@@ -176,7 +162,7 @@ CON ' Hardware Interface Constants
     FIRST_PANEL_LSB     = 24                                ' bit of FIRST_PANEL
     NO_PANEL_LSB        = 25                                ' bit of NO_PANEL
 
-    ' neighbour words: the neighbour's cable position
+    ' neighbor words: the neighbor's cable position
     C0                  = 1 << NEIGHBOR_LSB
     C1                  = C0 << 1
     C2                  = C1 << 1
@@ -194,7 +180,7 @@ CON ' Hardware Interface Constants
     C14                 = C13 << 1
     C15                 = C14 << 1
 
-    ' direction words: where this panel sits relative to its neighbour
+    ' direction words: where this panel sits relative to its neighbor
     ABOVE               = 1 << DIRECTION_LSB
     BELOW               = ABOVE << 1
     LEFT_OF             = BELOW << 1
@@ -219,7 +205,7 @@ CON ' Hardware Interface Constants
     FIRST_PANEL_MASK    = FIRST_PANEL
     NO_PANEL_MASK       = NO_PANEL
 
-'  (11) Display shape (DISPn_SHAPE):
+'  (9) Display shape (DISPn_SHAPE):
 '   SHAPE_FLAT - the panels form one flat display; DISPn_ROTATION applies
 '   SHAPE_CUBE - six square panels form a cube; DISPn_CUBE_TOP and DISPn_CUBE_FRONT apply
     #$60, SHAPE_FLAT, SHAPE_CUBE
@@ -236,7 +222,7 @@ CON ' license
  -------------------------------------------------------------------------------------------------
   MIT License
 
-  Copyright (c) 2020 Iron Sheep Productions, LLC
+  Copyright (c) 2024 Iron Sheep Productions, LLC
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal

@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 15 Jan 2024
+''   Updated.... 06 Oct 2026
 ''
 '' =================================================================================================
 
@@ -28,10 +28,13 @@ CON ' ---- Font Geometry / Sizing ----
     FONT_8X8A_BYTES_PER_CHAR      = 8
     FONT_8X8B_BYTES_PER_CHAR      = 8
     FONT_5X7_BYTES_PER_CHAR       = 7
-    ' following are words per char, hence * 2
-    '  in these two-bits define each pixel
-    FONT_5X7_DITH_BYTES_PER_CHAR  = 7 * 2
-    FONT_5X7_DITH_DCNDR_BP_CHAR   = 9 * 2
+    ' following are words per char: each row of a dithered char is one word (two bits define
+    ' each pixel), so a char takes DITH_BYTES_PER_ROW bytes for each of its rows
+    DITH_BYTES_PER_ROW            = 2
+    FONT_5X7_DITH_ROWS            = 7
+    FONT_5X7_DITH_DCNDR_ROWS      = 9
+    FONT_5X7_DITH_BYTES_PER_CHAR  = FONT_5X7_DITH_ROWS * DITH_BYTES_PER_ROW
+    FONT_5X7_DITH_DCNDR_BP_CHAR   = FONT_5X7_DITH_DCNDR_ROWS * DITH_BYTES_PER_ROW
 
     ' ASCII printable-range bounds (font tables hold $20-$7F only)
     ASCII_FIRST_PRINTABLE         = $20
@@ -50,16 +53,16 @@ PUB null()
 '' This is not a top level object
 ''
 
-PUB getGeometryOfFont(selectdFont) : nWidth, nHeight
+PUB getGeometryOfFont(selectedFont) : nWidth, nHeight
 '' Return the character width and height for the specified font.
 ''
-'' @param selectdFont - font identifier (TEXT_FONT_xxx)
+'' @param selectedFont - font identifier (TEXT_FONT_xxx)
 '' @returns nWidth - character width in pixels
 '' @returns nHeight - character height in pixels
 
   nWidth := FONT_5X7_WIDTH                                  ' default to 5x7 geometry for unknown fonts
   nHeight := FONT_5X7_HEIGHT
-  case selectdFont
+  case selectedFont
     TEXT_FONT_DEFAULT..TEXT_FONT_5X7:
       nWidth := FONT_5X7_WIDTH
       nHeight := FONT_5X7_HEIGHT
@@ -76,14 +79,14 @@ PUB getGeometryOfFont(selectdFont) : nWidth, nHeight
       nWidth := FONT_5X7_WIDTH
       nHeight := FONT_5X7_DCNDR_HEIGHT
 
-PUB getCharAddrForFont(selectdFont, cChar) : pCharBitmap
+PUB getCharAddrForFont(selectedFont, cChar) : pCharBitmap
 '' Return the address of a character bitmap from the specified font.
 ''
-'' @param selectdFont - font identifier (TEXT_FONT_xxx)
+'' @param selectedFont - font identifier (TEXT_FONT_xxx)
 '' @param cChar - ASCII character code
 '' @returns pCharBitmap - pointer to the character bitmap data
 
-  case selectdFont
+  case selectedFont
     TEXT_FONT_DEFAULT..TEXT_FONT_5X7:
       pCharBitmap := getAddrFor5x7Char(cChar)
     TEXT_FONT_8X8A:
@@ -97,13 +100,13 @@ PUB getCharAddrForFont(selectdFont, cChar) : pCharBitmap
     other:
       pCharBitmap := getAddrFor5x7Char(cChar)
 
-PUB isDitheredFont(selectdFont) : bDitheredStatus
+PUB isDitheredFont(selectedFont) : bDitheredStatus
 '' Return T/F where T means the font uses two bits per pixel.
 ''
-'' @param selectdFont - font identifier (TEXT_FONT_xxx)
+'' @param selectedFont - font identifier (TEXT_FONT_xxx)
 '' @returns bDitheredStatus - TRUE if the font is dithered
 
-  case selectdFont
+  case selectedFont
     TEXT_FONT_5X7_DITH:                                 ' font4
       bDitheredStatus := TRUE
     TEXT_FONT_5X7_DITH_DCNDR:                           ' font5
@@ -119,19 +122,19 @@ PUB getAddrFor5x7DithChar(asciiByte) : p5x7DithCharBitmap
 
   p5x7DithCharBitmap := 0
   if(asciiByte >= ASCII_FIRST_PRINTABLE && asciiByte <= ASCII_LAST_PRINTABLE)
-    ' NOTE: add + 1 to skip top blank row of char
+    ' the table holds the characters from ASCII_FIRST_PRINTABLE on, one entry per character
     p5x7DithCharBitmap := @BYTE[@font5x7dith][((asciiByte - ASCII_FIRST_PRINTABLE) * FONT_5X7_DITH_BYTES_PER_CHAR)]
 
-PUB getAddrFor5x7DithDcndrChar(asciiByte) : p8x8CharBitmap
+PUB getAddrFor5x7DithDcndrChar(asciiByte) : pDcndrCharBitmap
 '' Return the address of a 5x7 dithered descender character bitmap.
 ''
 '' @param asciiByte - ASCII character code ($20-$7F)
-'' @returns p8x8CharBitmap - pointer to the character bitmap data
+'' @returns pDcndrCharBitmap - pointer to the character bitmap data
 
-  p8x8CharBitmap := 0
+  pDcndrCharBitmap := 0
   if(asciiByte >= ASCII_FIRST_PRINTABLE && asciiByte <= ASCII_LAST_PRINTABLE)
-    ' NOTE: add + 1 to skip top blank row of char
-    p8x8CharBitmap := @BYTE[@font5x7dithDcndr][((asciiByte - ASCII_FIRST_PRINTABLE) * FONT_5X7_DITH_DCNDR_BP_CHAR)]
+    ' the table holds the characters from ASCII_FIRST_PRINTABLE on, one entry per character
+    pDcndrCharBitmap := @BYTE[@font5x7dithDcndr][((asciiByte - ASCII_FIRST_PRINTABLE) * FONT_5X7_DITH_DCNDR_BP_CHAR)]
 
 PUB getAddrFor8x8aChar(asciiByte) : p8x8CharBitmap
 '' Return the address of an 8x8 (a) character bitmap.
@@ -164,7 +167,7 @@ PUB getAddrFor5x7Char(asciiByte) : p5x7CharBitmap
   if(asciiByte >= ASCII_FIRST_PRINTABLE && asciiByte <= ASCII_LAST_PRINTABLE)
     p5x7CharBitmap := @BYTE[@font5x7][(asciiByte - ASCII_FIRST_PRINTABLE) * FONT_5X7_BYTES_PER_CHAR]
 
-DAT  ' Font Bitmaps
+DAT ' ---- Font Bitmaps ----
 
     '   font8x8  P2_Font_8x8_AIChip_tweeked.spin2 from cluso99
 '+=============================================================================+
@@ -6072,7 +6075,7 @@ font5x7dithDcndr
 
 ' +=============================================================================+
 
-CON ' license
+CON ' ---- License ----
 
 {{
 

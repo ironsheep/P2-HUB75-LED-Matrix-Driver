@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Nov 2022
-''   Updated.... 10 Jan 2024
+''   Updated.... 06 Oct 2026
 ''
 '' =================================================================================================
 '
@@ -23,10 +23,6 @@ OBJ
 
     hwEnum      : "isp_hub75_hwEnums"                               ' hub75 attachment, set up constants
     user        : "isp_hub75_hwPanelConfig"                         ' panel(s) size and layout per adapter
-
-CON ' User Panel Connection and Configuration
-
-''  User customized section allocating large screen buffers for each HUB75 adapter board
 
 DAT  ' Large Buffers for each HUB75 adapter/chain of panels
 
@@ -77,18 +73,20 @@ PUB adapterPtrs(eHub75Adapter) : pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2
 '' @returns pScrnBuffer - address of screen Buffer (2-3 bytes per pixel)
 '' @returns pPwmFrameSet1 - address of PWM Frame-Set 1 (4 bits per pixel * color depth)
 '' @returns pPwmFrameSet2 - address of PWM Frame-Set 2 (4 bits per pixel * color depth)
+''
+'' Aborts (with a DEBUG message) when eHub75Adapter is not one of the three adapter IDs.
 
-  pScrnBuffer := pPwmFrameSet1 := pPwmFrameSet2 := 0
-  case eHub75Adapter
-    hwEnum.HUB75_ADAPTER_1:
-      pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2 := chain0Ptrs()
-    hwEnum.HUB75_ADAPTER_2:
-      pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2 := chain1Ptrs()
-    hwEnum.HUB75_ADAPTER_3:
-      pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2 := chain2Ptrs()
-    other:
-      DEBUG("HUB75: adapterPtrs() no buffers for adapter id ", udec_(eHub75Adapter), " [isp_hub75_hwBuffers.spin2]")
-      abort
+    pScrnBuffer := pPwmFrameSet1 := pPwmFrameSet2 := 0
+    case eHub75Adapter
+        hwEnum.HUB75_ADAPTER_1:
+            pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2 := chain0Ptrs()
+        hwEnum.HUB75_ADAPTER_2:
+            pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2 := chain1Ptrs()
+        hwEnum.HUB75_ADAPTER_3:
+            pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2 := chain2Ptrs()
+        other:
+            DEBUG("HUB75: adapterPtrs() no buffers for adapter id ", udec_(eHub75Adapter), " [isp_hub75_hwBuffers.spin2]")
+            abort
 
 PRI chain0Ptrs() : pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2
 ' Return the pointers to the buffers for the first HUB75 adapter board.
@@ -97,12 +95,12 @@ PRI chain0Ptrs() : pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2
 ' @returns pPwmFrameSet1 - address of PWM Frame-Set 1 (4 bits per pixel * color depth)
 ' @returns pPwmFrameSet2 - address of PWM Frame-Set 2 (4 bits per pixel * color depth)
 
-  DEBUG("hwBffrs: scrnBffr bytes=", udec_long_(user.DISP0_SCRN_SIZE_IN_LONGS * 4))
-  DEBUG("hwBffrs: 2x pwmFrameBffr bytes=", udec_long_(user.DISP0_FRAMESET_SIZE_IN_LONGS * 4))
-  pScrnBuffer := @@LONG[@screenTable0][0]
-  pPwmFrameSet1 := @@LONG[@screenTable0][1]
-  pPwmFrameSet2 := @@LONG[@screenTable0][2]
-  DEBUG("hwBffrs: ", uhex_long(pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2))
+    DEBUG("hwBffrs: scrnBffr bytes=", udec_long_(user.DISP0_SCRN_SIZE_IN_LONGS * 4))
+    DEBUG("hwBffrs: 2x pwmFrameBffr bytes=", udec_long_(user.DISP0_FRAMESET_SIZE_IN_LONGS * 4))
+    pScrnBuffer := @@LONG[@screenTable0][0]
+    pPwmFrameSet1 := @@LONG[@screenTable0][1]
+    pPwmFrameSet2 := @@LONG[@screenTable0][2]
+    DEBUG("hwBffrs: ", uhex_long(pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2))
 
 PRI chain1Ptrs() : pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2
 ' Return the pointers to the buffers for the second HUB75 adapter board.

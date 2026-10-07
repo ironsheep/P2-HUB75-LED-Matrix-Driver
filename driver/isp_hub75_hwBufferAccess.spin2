@@ -7,18 +7,17 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Nov 2022
-''   Updated.... 04 Oct 2026
+''   Updated.... 06 Oct 2026
 ''
 '' =================================================================================================
-'
-'  Interface constants used to describe HUB75 panel connection and configuration
 
-' -----------------
-' User Setup Notes:
-' -----------------
-'   Nothing in this file needs editing to choose how many hub75 adapter boards are in use.  The descriptor
-'   for each of the three adapter boards is always present, and each is filled from that adapter's
-'   DISPn_ settings in isp_hub75_hwPanelConfig.spin2.
+{ Interface constants used to describe HUB75 panel connection and configuration
+
+  User Setup Notes:
+    Nothing in this file needs editing to choose how many hub75 adapter boards are in use.  The descriptor
+    for each of the three adapter boards is always present, and each is filled from that adapter's
+    DISPn_ settings in isp_hub75_hwPanelConfig.spin2.
+}
 
 CON ' ---- Interface Constant Forwarding ----
     {Spin2_Doc_CON}
@@ -56,6 +55,9 @@ CON ' ---- Driver Limits ----
     ' Hub RAM is the third limit. The compiler enforces it: the buffers are DAT
     ' arrays sized from DISPn_PANEL_COUNT, so a display too large for hub RAM does
     ' not compile.
+
+    ' number of HUB75 adapters, and so of displays (DISP0 .. DISP2)
+    ADAPTER_COUNT           = (hwEnum.HUB75_ADAPTER_3 - hwEnum.HUB75_ADAPTER_1) / hwEnum.HUB75_ADAPTER_STEP + 1
 
     ' cable positions a display can name: the wiring words C0 .. C15
     MAX_CABLE_POSITIONS     = 16
@@ -100,7 +102,7 @@ OBJ
     scrnBuffers : "isp_hub75_hwBuffers"                             ' the large buffers storing pixel data
     cube        : "isp_hub75_cube"                                  ' the cube's faces and edges (SHAPE_CUBE)
 
-DAT { Buffers and configuration values for each HUB75 adapter/chain of panels }
+DAT ' ---- Buffers and configuration values per adapter ----
 
 screenTableEnt0         ' The start of the 1st HUB75 chain descriptor table
     ' 1st HUB75 chain
@@ -142,17 +144,21 @@ screenTableEnd          ' End of the pointers table
 
     entrySizeInBytes    LONG                    (@screenTableEnt0End - @screenTableEnt0)
     tableSizeInBytes    LONG                    (@screenTableEntEnd - @screenTableEnt0)
-    numberScreens       LONG                    (@screenTableEnd - @screenTable) >> 2  ' this can't be compile-time initialized
+    numberScreens       LONG                    (@screenTableEnd - @screenTable) >> LONG_SIZE_SHIFT  ' this can't be compile-time initialized
 
     bFirstTime          LONG                    TRUE                                   ' for debug/testing use
 
-CON { PRIVATE internal constants }
+CON ' ---- Private internal constants ----
 
     NOT_INITIALIZED         = -1
     PLACEHOLDER_CHIP_TYPE   = 0
     PLACEHOLDER_PIN_BASE    = 0
     PLACEHOLDER_ADDR_LINES  = 0
     PLACEHOLDER_ADDRESS     = $0DF0ADDE
+
+    ' bytes in a LONG, and the shift that converts a byte count to a LONG count
+    BYTES_PER_LONG          = 4
+    LONG_SIZE_SHIFT         = 2
 
     ' PWM frame counts per color depth: (1 << depth) - 1
     PWM_FRAMES_3BIT         = 7
@@ -218,6 +224,9 @@ PUB configureAdapter(eHub75Adapter) : nChainIdx | pEntry, ePinBase, eChipType, e
 ''
 '' @param eHub75Adapter - the HUB75 adapter identifier (HUB75_ADAPTER_1, HUB75_ADAPTER_2 or HUB75_ADAPTER_3)
 '' @returns nChainIdx - the zero-based index of this adapter's descriptor (0, 1, or 2)
+''
+'' Aborts (with a DEBUG message) when eHub75Adapter is not an adapter ID, or when the base pin of
+'' the adapter's display is not one of the three valid 16-pin groups.
 
 ' Local Variables:
 ' @local pEntry - pointer to the chain descriptor table entry
@@ -230,62 +239,62 @@ PUB configureAdapter(eHub75Adapter) : nChainIdx | pEntry, ePinBase, eChipType, e
 ' @local pPwmFrameSet2 - address of PWM Frame-Set 2
 ' @local longsInEntry - number of LONGs in the chain descriptor tables
 
-  nChainIdx := indexForHub75ChainId(eHub75Adapter)      ' 10, 20, 30 -> 0, 1, 2 (aborts on any other value)
-  pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
-  ePinBase := eChipType := eAddrLines := 0
-  case eHub75Adapter                                    ' this adapter's display settings
-    HUB75_ADAPTER_1:
-      ePinBase := user.DISP0_ADAPTER_BASE_PIN
-      eChipType := user.DISP0_PANEL_DRIVER_CHIP
-      eAddrLines := user.DISP0_PANEL_ADDR_LINES
-    HUB75_ADAPTER_2:
-      ePinBase := user.DISP1_ADAPTER_BASE_PIN
-      eChipType := user.DISP1_PANEL_DRIVER_CHIP
-      eAddrLines := user.DISP1_PANEL_ADDR_LINES
-    HUB75_ADAPTER_3:
-      ePinBase := user.DISP2_ADAPTER_BASE_PIN
-      eChipType := user.DISP2_PANEL_DRIVER_CHIP
-      eAddrLines := user.DISP2_PANEL_ADDR_LINES
-  bValidPins := TRUE
-  case ePinBase
-    hwEnum.PIN_GROUP_P0_P15:
-    hwEnum.PIN_GROUP_P16_P31:
-    hwEnum.PIN_GROUP_P32_P47:
-    other:
-      bValidPins := FALSE                               ' only the 3 valid 16-pin groups; P48_P63 overlaps the P2's reserved pins
+    nChainIdx := indexForHub75ChainId(eHub75Adapter)      ' 10, 20, 30 -> 0, 1, 2 (aborts on any other value)
+    pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
+    ePinBase := eChipType := eAddrLines := 0
+    case eHub75Adapter                                    ' this adapter's display settings
+        HUB75_ADAPTER_1:
+            ePinBase := user.DISP0_ADAPTER_BASE_PIN
+            eChipType := user.DISP0_PANEL_DRIVER_CHIP
+            eAddrLines := user.DISP0_PANEL_ADDR_LINES
+        HUB75_ADAPTER_2:
+            ePinBase := user.DISP1_ADAPTER_BASE_PIN
+            eChipType := user.DISP1_PANEL_DRIVER_CHIP
+            eAddrLines := user.DISP1_PANEL_ADDR_LINES
+        HUB75_ADAPTER_3:
+            ePinBase := user.DISP2_ADAPTER_BASE_PIN
+            eChipType := user.DISP2_PANEL_DRIVER_CHIP
+            eAddrLines := user.DISP2_PANEL_ADDR_LINES
+    bValidPins := TRUE
+    case ePinBase
+        hwEnum.PIN_GROUP_P0_P15:
+        hwEnum.PIN_GROUP_P16_P31:
+        hwEnum.PIN_GROUP_P32_P47:
+        other:
+            bValidPins := FALSE                               ' only the 3 valid 16-pin groups; P48_P63 overlaps the P2's reserved pins
 
-  if NOT bValidPins
-    DEBUG("HUB75: configureAdapter() Invalid PinBase/PinGroup specfied: [isp_hub75_hwBufferAccess.spin2] Aborted!")
-    abort                                               ' we can't continue given this error
-  else
-    LONG[pEntry][ENTR_CHIP_TYPE_OFST] := eChipType
-    LONG[pEntry][ENTR_HUB75_PIN_BASE_OFST] := ePinBase
-    LONG[pEntry][ENTR_HPANEL_ADDR_LINES_OFST] := eAddrLines
-    if bFirstTime
-      'dbgMemDump(@"PTRs", @screenTable, numberScreens * 4)
-      'dbgMemDump(@"Entry 0", @screenTableEnt0, entrySizeInBytes)
-      bFirstTime := FALSE
-    DEBUG("HUB75: configureAdapter() idx=", udec_(nChainIdx), udec(nChainIdx), udec(ePinBase), udec(eAddrLines))
-    ' decode and check the wiring sentences, then derive the layout tables (stops on a mistake)
-    checkAndDeriveLayout(nChainIdx)
-    ' the adapter is in use: record the absolute-address of its buffers in HUB RAM
-    pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2 := scrnBuffers.adapterPtrs(eHub75Adapter)
-    LONG[pEntry][ENTR_SCRN_BUFFER_ADDR_OFST] := pScrnBuffer
-    LONG[pEntry][ENTR_FRM1_BUFFER_ADDR_OFST] := pPwmFrameSet1
-    LONG[pEntry][ENTR_FRM2_BUFFER_ADDR_OFST] := pPwmFrameSet2
-    DEBUG("HUB75: buffer pointers idx[", udec_(nChainIdx), "] ", uhex_long(pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2))
-    longsInEntry := tableSizeInBytes / 4
-    DEBUG("HUB75: chain table size=", udec_(tableSizeInBytes), " entries [0-2]", uhex_long_array(@screenTableEnt0, ENTR_ADDR_LONGS_COUNT))
-    DEBUG("HUB75: chain table values[3-13]: ", udec_long_array(@LONG[@screenTableEnt0][ENTR_ADDR_LONGS_COUNT], longsInEntry - ENTR_ADDR_LONGS_COUNT ))
+    if bValidPins == FALSE
+        DEBUG("HUB75: configureAdapter() Invalid PinBase/PinGroup specified: [isp_hub75_hwBufferAccess.spin2] Aborted!")
+        abort                                               ' we can't continue given this error
+    else
+        LONG[pEntry][ENTR_CHIP_TYPE_OFST] := eChipType
+        LONG[pEntry][ENTR_HUB75_PIN_BASE_OFST] := ePinBase
+        LONG[pEntry][ENTR_HPANEL_ADDR_LINES_OFST] := eAddrLines
+        if bFirstTime == TRUE
+            'dbgMemDump(@"PTRs", @screenTable, numberScreens * 4)
+            'dbgMemDump(@"Entry 0", @screenTableEnt0, entrySizeInBytes)
+            bFirstTime := FALSE
+        DEBUG("HUB75: configureAdapter() idx=", udec_(nChainIdx), udec(nChainIdx), udec(ePinBase), udec(eAddrLines))
+        ' decode and check the wiring sentences, then derive the layout tables (stops on a mistake)
+        checkAndDeriveLayout(nChainIdx)
+        ' the adapter is in use: record the absolute-address of its buffers in HUB RAM
+        pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2 := scrnBuffers.adapterPtrs(eHub75Adapter)
+        LONG[pEntry][ENTR_SCRN_BUFFER_ADDR_OFST] := pScrnBuffer
+        LONG[pEntry][ENTR_FRM1_BUFFER_ADDR_OFST] := pPwmFrameSet1
+        LONG[pEntry][ENTR_FRM2_BUFFER_ADDR_OFST] := pPwmFrameSet2
+        DEBUG("HUB75: buffer pointers idx[", udec_(nChainIdx), "] ", uhex_long(pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2))
+        longsInEntry := tableSizeInBytes / 4
+        DEBUG("HUB75: chain table size=", udec_(tableSizeInBytes), " entries [0-2]", uhex_long_array(@screenTableEnt0, ENTR_ADDR_LONGS_COUNT))
+        DEBUG("HUB75: chain table values[3-13]: ", udec_long_array(@LONG[@screenTableEnt0][ENTR_ADDR_LONGS_COUNT], longsInEntry - ENTR_ADDR_LONGS_COUNT ))
 
 PUB maxDisplayColumns(nChainIdx) : nMaxColumns
 '' Return the number of pixels in a horizontal display row for the nChainIdx HUB75 adapter,
 '' as the display is mounted: the width of displaySizeInPixels().
 ''
-'' @param nChainIdx - the index of the desired chain
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @returns nMaxColumns - the number of pixels horizontally in display, as mounted
 
-  _, nMaxColumns := displaySizeInPixels(nChainIdx)
+    _, nMaxColumns := displaySizeInPixels(nChainIdx)
 
 PUB maxDisplayRows(nChainIdx) : nMaxRows
 '' Return the number of pixels in a display column for the specified HUB75 adapter, as the
@@ -294,7 +303,7 @@ PUB maxDisplayRows(nChainIdx) : nMaxRows
 '' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @returns nMaxRows - total pixel rows across the full display, as mounted
 
-  nMaxRows, _ := displaySizeInPixels(nChainIdx)
+    nMaxRows, _ := displaySizeInPixels(nChainIdx)
 
 PUB displaySizeInPixels(nChainIdx) : nMaxRows, nMaxColumns | layoutIdx, eRotation
 '' Return the number of pixels in a display row and column for the nChainIdx HUB75 adapter,
@@ -302,7 +311,7 @@ PUB displaySizeInPixels(nChainIdx) : nMaxRows, nMaxColumns | layoutIdx, eRotatio
 '' sentences at startup. When the display rotation is 90 or 270 degrees, the width and height swap.
 '' Display coordinates run over this size.
 ''
-'' @param nChainIdx - the index of the desired chain
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @returns nMaxRows - the number of pixels vertically in display, as mounted
 '' @returns nMaxColumns - the number of pixels horizontally in display, as mounted
 
@@ -310,13 +319,13 @@ PUB displaySizeInPixels(nChainIdx) : nMaxRows, nMaxColumns | layoutIdx, eRotatio
 ' @local layoutIdx - the chain index, checked against the adapters that exist
 ' @local eRotation - the display rotation: how the display is mounted
 
-  layoutIdx := validChainIndex(nChainIdx)
-  eRotation := displayRotation(layoutIdx)
-  nMaxRows := layoutPixelRows[layoutIdx]
-  nMaxColumns := layoutPixelColumns[layoutIdx]
-  if (eRotation == ROT_LEFT_90) OR (eRotation == ROT_RIGHT_90)
-    nMaxRows := layoutPixelColumns[layoutIdx]
-    nMaxColumns := layoutPixelRows[layoutIdx]
+    layoutIdx := validChainIndex(nChainIdx)
+    eRotation := displayRotation(layoutIdx)
+    nMaxRows := layoutPixelRows[layoutIdx]
+    nMaxColumns := layoutPixelColumns[layoutIdx]
+    if (eRotation == ROT_LEFT_90) OR (eRotation == ROT_RIGHT_90)
+        nMaxRows := layoutPixelColumns[layoutIdx]
+        nMaxColumns := layoutPixelRows[layoutIdx]
 
 PUB layoutSizeAndRotation(nChainIdx) : nLayoutRows, nLayoutColumns, eDisplayRotation | layoutIdx, pEntry
 '' Return the size of the display as its panels are laid out (the wiring's bounding box, before
@@ -324,7 +333,7 @@ PUB layoutSizeAndRotation(nChainIdx) : nLayoutRows, nLayoutColumns, eDisplayRota
 '' coordinates over this size. It is the per-pixel read for isp_hub75_screenUtils, which runs it
 '' for every pixel drawn; other drawing code uses displaySizeInPixels() (the size as mounted).
 ''
-'' @param nChainIdx - the index of the desired chain
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @returns nLayoutRows - the number of pixels vertically in the layout
 '' @returns nLayoutColumns - the number of pixels horizontally in the layout
 '' @returns eDisplayRotation - how the display is mounted (see displayRotation())
@@ -333,11 +342,11 @@ PUB layoutSizeAndRotation(nChainIdx) : nLayoutRows, nLayoutColumns, eDisplayRota
 ' @local layoutIdx - the chain index, checked against the adapters that exist
 ' @local pEntry - pointer to the chain descriptor table entry
 
-  layoutIdx := validChainIndex(nChainIdx)
-  nLayoutRows := layoutPixelRows[layoutIdx]
-  nLayoutColumns := layoutPixelColumns[layoutIdx]
-  pEntry := @@LONG[@screenTable][layoutIdx]
-  eDisplayRotation := LONG[pEntry][ENTR_ROTATION_OFST]
+    layoutIdx := validChainIndex(nChainIdx)
+    nLayoutRows := layoutPixelRows[layoutIdx]
+    nLayoutColumns := layoutPixelColumns[layoutIdx]
+    pEntry := @@LONG[@screenTable][layoutIdx]
+    eDisplayRotation := LONG[pEntry][ENTR_ROTATION_OFST]
 
 PUB displaySizeInPanels(nChainIdx) : nPanelsPerColumn, nPanelsPerRow | layoutIdx
 '' Return the size of the display's grid of cells for the nChainIdx HUB75 adapter as its panels
@@ -346,16 +355,16 @@ PUB displaySizeInPanels(nChainIdx) : nPanelsPerColumn, nPanelsPerRow | layoutIdx
 '' can have more cells than the display has panels; maxPanels() is the panel count. At 90 and
 '' 270 degrees the display as mounted has these two numbers exchanged.
 ''
-'' @param nChainIdx - the index of the desired chain
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @returns nPanelsPerColumn - the number of cells vertically in the display's grid, as laid out
 '' @returns nPanelsPerRow - the number of cells horizontally in the display's grid, as laid out
 
 ' Local Variables:
 ' @local layoutIdx - the chain index, checked against the adapters that exist
 
-  layoutIdx := validChainIndex(nChainIdx)
-  nPanelsPerColumn := layoutGridRows[layoutIdx]
-  nPanelsPerRow := layoutGridColumns[layoutIdx]
+    layoutIdx := validChainIndex(nChainIdx)
+    nPanelsPerColumn := layoutGridRows[layoutIdx]
+    nPanelsPerRow := layoutGridColumns[layoutIdx]
 
 PUB cellSizeInPixels(nChainIdx) : nCellRows, nCellColumns | layoutIdx
 '' Return the size of one panel as the viewer sees it, in pixels, with the display as mounted:
@@ -371,9 +380,9 @@ PUB cellSizeInPixels(nChainIdx) : nCellRows, nCellColumns | layoutIdx
 ' Local Variables:
 ' @local layoutIdx - the chain index, checked against the adapters that exist
 
-  layoutIdx := validChainIndex(nChainIdx)
-  nCellRows := mountedCellRows[layoutIdx]
-  nCellColumns := mountedCellColumns[layoutIdx]
+    layoutIdx := validChainIndex(nChainIdx)
+    nCellRows := mountedCellRows[layoutIdx]
+    nCellColumns := mountedCellColumns[layoutIdx]
 
 PUB layoutCellSizeInPixels(nChainIdx) : nCellRows, nCellColumns | layoutIdx
 '' Return the size of one cell of the display's grid as its panels are laid out (display rotation
@@ -387,9 +396,9 @@ PUB layoutCellSizeInPixels(nChainIdx) : nCellRows, nCellColumns | layoutIdx
 ' Local Variables:
 ' @local layoutIdx - the chain index, checked against the adapters that exist
 
-  layoutIdx := validChainIndex(nChainIdx)
-  nCellRows := layoutCellRows[layoutIdx]
-  nCellColumns := layoutCellColumns[layoutIdx]
+    layoutIdx := validChainIndex(nChainIdx)
+    nCellRows := layoutCellRows[layoutIdx]
+    nCellColumns := layoutCellColumns[layoutIdx]
 
 PUB colorDepth(nChainIdx) : nDepthInBits | pEntry
 '' Return the number of bits for a color (red, green, or blue) [3-8 bits] for the specified HUB75 adapter.
@@ -400,8 +409,8 @@ PUB colorDepth(nChainIdx) : nDepthInBits | pEntry
 ' Local Variables:
 ' @local pEntry - pointer to the chain descriptor table entry
 
-  pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
-  nDepthInBits := LONG[pEntry][ENTR_COLOR_DEPTH]
+    pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
+    nDepthInBits := LONG[pEntry][ENTR_COLOR_DEPTH]
 
 PUB bytesPerColor(nChainIdx) : nBytes | pEntry
 '' Return the number of bytes needed to store a pixel color (r+g+b) for the specified HUB75 adapter.
@@ -412,8 +421,8 @@ PUB bytesPerColor(nChainIdx) : nBytes | pEntry
 ' Local Variables:
 ' @local pEntry - pointer to the chain descriptor table entry
 
-  pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
-  nBytes := LONG[pEntry][ENTR_BYTES_PER_COLOR_OFST]
+    pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
+    nBytes := LONG[pEntry][ENTR_BYTES_PER_COLOR_OFST]
 
 PUB displaySizeInLongs(nChainIdx) : nLongs | pEntry
 '' Return the number of LONGs needed to store an entire display image for the specified HUB75 adapter.
@@ -424,8 +433,8 @@ PUB displaySizeInLongs(nChainIdx) : nLongs | pEntry
 ' Local Variables:
 ' @local pEntry - pointer to the chain descriptor table entry
 
-  pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
-  nLongs := LONG[pEntry][ENTR_SCRN_SIZE_IN_LONGS_OFST]
+    pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
+    nLongs := LONG[pEntry][ENTR_SCRN_SIZE_IN_LONGS_OFST]
 
 PUB pwmFrameSizeInBytes(nChainIdx) : nBytes | pEntry
 '' Return the number of bytes needed to store a single PWM frame for the specified HUB75 adapter.
@@ -436,8 +445,8 @@ PUB pwmFrameSizeInBytes(nChainIdx) : nBytes | pEntry
 ' Local Variables:
 ' @local pEntry - pointer to the chain descriptor table entry
 
-  pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
-  nBytes := LONG[pEntry][ENTR_FRM_SIZE_IN_BYTES_OFST]
+    pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
+    nBytes := LONG[pEntry][ENTR_FRM_SIZE_IN_BYTES_OFST]
 
 PUB pwmFrameSizeInLongs(nChainIdx) : nLongs | nBytes
 '' Return the number of LONGs needed to store a single PWM frame for the specified HUB75 adapter.
@@ -448,8 +457,8 @@ PUB pwmFrameSizeInLongs(nChainIdx) : nLongs | nBytes
 ' Local Variables:
 ' @local nBytes - intermediate byte count from pwmFrameSizeInBytes
 
-  nBytes := pwmFrameSizeInBytes(nChainIdx)              ' count of bytes
-  nLongs := (nBytes + 3) / 4
+    nBytes := pwmFrameSizeInBytes(nChainIdx)              ' count of bytes
+    nLongs := (nBytes + BYTES_PER_LONG - 1) / BYTES_PER_LONG
 
 PUB displayRotation(nChainIdx) : eDisplayRotation | pEntry
 '' Return the display rotation of the specified HUB75 adapter: how the whole assembled display
@@ -464,8 +473,8 @@ PUB displayRotation(nChainIdx) : eDisplayRotation | pEntry
 ' Local Variables:
 ' @local pEntry - pointer to the chain descriptor table entry
 
-  pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
-  eDisplayRotation := LONG[pEntry][ENTR_ROTATION_OFST]
+    pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
+    eDisplayRotation := LONG[pEntry][ENTR_ROTATION_OFST]
 
 PUB columnsPerPanel(nChainIdx) : nPanelColumns | pEntry
 '' Return the number of pixels in a single panel row for the specified HUB75 adapter.
@@ -476,8 +485,8 @@ PUB columnsPerPanel(nChainIdx) : nPanelColumns | pEntry
 ' Local Variables:
 ' @local pEntry - pointer to the chain descriptor table entry
 
-  pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
-  nPanelColumns := LONG[pEntry][ENTR_PANEL_COLUMNS_OFST]
+    pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
+    nPanelColumns := LONG[pEntry][ENTR_PANEL_COLUMNS_OFST]
 
 PUB rowsPerPanel(nChainIdx) : nPanelRows | pEntry
 '' Return the number of pixels in a single panel column for the specified HUB75 adapter.
@@ -488,22 +497,22 @@ PUB rowsPerPanel(nChainIdx) : nPanelRows | pEntry
 ' Local Variables:
 ' @local pEntry - pointer to the chain descriptor table entry
 
-  pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
-  nPanelRows := LONG[pEntry][ENTR_PANEL_ROWS_OFST]
+    pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
+    nPanelRows := LONG[pEntry][ENTR_PANEL_ROWS_OFST]
 
 PUB panelSizeInPixels(nChainIdx) : nPanelRows, nPanelColumns | pEntry
 '' Return the number of pixels in a single panel row of pixels for the nChainIdx HUB75 adapter
 ''
-'' @param nChainIdx - the index of the desired chain
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @returns nPanelRows - pixel rows per individual panel
 '' @returns nPanelColumns - pixel columns per individual panel
 
 ' Local Variables:
 ' @local pEntry - pointer to the chain descriptor table entry
 
-  pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
-  nPanelColumns := LONG[pEntry][ENTR_PANEL_COLUMNS_OFST]
-  nPanelRows := LONG[pEntry][ENTR_PANEL_ROWS_OFST]
+    pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
+    nPanelColumns := LONG[pEntry][ENTR_PANEL_COLUMNS_OFST]
+    nPanelRows := LONG[pEntry][ENTR_PANEL_ROWS_OFST]
 
 PUB displayBufferAddress(nChainIdx) : pDisplayBuffer | pEntry
 '' Return the address of the display memory buffer for the specified HUB75 adapter.
@@ -514,8 +523,8 @@ PUB displayBufferAddress(nChainIdx) : pDisplayBuffer | pEntry
 ' Local Variables:
 ' @local pEntry - pointer to the chain descriptor table entry
 
-  pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
-  pDisplayBuffer := LONG[pEntry][ENTR_SCRN_BUFFER_ADDR_OFST]
+    pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
+    pDisplayBuffer := LONG[pEntry][ENTR_SCRN_BUFFER_ADDR_OFST]
 
 PUB pwmFrame1BufferAddress(nChainIdx) : pPwmFrm1Buffer | pEntry
 '' Return the address of the 1st PWM Frame buffer for the specified HUB75 adapter.
@@ -526,8 +535,8 @@ PUB pwmFrame1BufferAddress(nChainIdx) : pPwmFrm1Buffer | pEntry
 ' Local Variables:
 ' @local pEntry - pointer to the chain descriptor table entry
 
-  pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
-  pPwmFrm1Buffer := LONG[pEntry][ENTR_FRM1_BUFFER_ADDR_OFST]
+    pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
+    pPwmFrm1Buffer := LONG[pEntry][ENTR_FRM1_BUFFER_ADDR_OFST]
 
 PUB pwmFrame2BufferAddress(nChainIdx) : pPwmFrm2Buffer | pEntry
 '' Return the address of the 2nd PWM Frame buffer for the specified HUB75 adapter.
@@ -538,8 +547,8 @@ PUB pwmFrame2BufferAddress(nChainIdx) : pPwmFrm2Buffer | pEntry
 ' Local Variables:
 ' @local pEntry - pointer to the chain descriptor table entry
 
-  pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
-  pPwmFrm2Buffer := LONG[pEntry][ENTR_FRM2_BUFFER_ADDR_OFST]
+    pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
+    pPwmFrm2Buffer := LONG[pEntry][ENTR_FRM2_BUFFER_ADDR_OFST]
 
 PUB chipType(nChainIdx) : nChipType | pEntry
 '' Return the chip-type for the specified HUB75 adapter.
@@ -550,8 +559,8 @@ PUB chipType(nChainIdx) : nChipType | pEntry
 ' Local Variables:
 ' @local pEntry - pointer to the chain descriptor table entry
 
-  pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
-  nChipType := LONG[pEntry][ENTR_CHIP_TYPE_OFST]
+    pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
+    nChipType := LONG[pEntry][ENTR_CHIP_TYPE_OFST]
 
 PUB pinBase(nChainIdx) : nPinBase | pEntry
 '' Return the base pin for the specified HUB75 adapter.
@@ -562,8 +571,8 @@ PUB pinBase(nChainIdx) : nPinBase | pEntry
 ' Local Variables:
 ' @local pEntry - pointer to the chain descriptor table entry
 
-  pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
-  nPinBase := LONG[pEntry][ENTR_HUB75_PIN_BASE_OFST]
+    pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
+    nPinBase := LONG[pEntry][ENTR_HUB75_PIN_BASE_OFST]
 
 PUB addressLines(nChainIdx) : nAddrLines | pEntry
 '' Return the number of HUB75 address lines for the specified HUB75 adapter.
@@ -574,8 +583,8 @@ PUB addressLines(nChainIdx) : nAddrLines | pEntry
 ' Local Variables:
 ' @local pEntry - pointer to the chain descriptor table entry
 
-  pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
-  nAddrLines := LONG[pEntry][ENTR_HPANEL_ADDR_LINES_OFST]
+    pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
+    nAddrLines := LONG[pEntry][ENTR_HPANEL_ADDR_LINES_OFST]
 
 PUB targetRefreshHz(nChainIdx) : nTargetHz | pEntry
 '' Return the refresh rate the specified HUB75 adapter's refresh driver aims for: its
@@ -587,17 +596,17 @@ PUB targetRefreshHz(nChainIdx) : nTargetHz | pEntry
 ' Local Variables:
 ' @local pEntry - pointer to the chain descriptor table entry
 
-  pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
-  nTargetHz := LONG[pEntry][ENTR_TARGET_REFRESH_OFST]
+    pEntry := ptrTableEntry(nChainIdx)                    ' get ptr to table entry
+    nTargetHz := LONG[pEntry][ENTR_TARGET_REFRESH_OFST]
 
 PUB maxPanels(nChainIdx) : nMaxPanels
 '' Return the total number of panels connected to the nChainIdx HUB75 adapter: the cable
 '' positions in use in its wiring sentences. Panel positions run from 0 to this count - 1.
 ''
-'' @param nChainIdx - the index of the desired chain
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @returns nMaxPanels - total number of panels connected to the nChainIdx HUB75 adapter
 
-  nMaxPanels := layoutPanelCount[validChainIndex(nChainIdx)]
+    nMaxPanels := layoutPanelCount[validChainIndex(nChainIdx)]
 
 PUB zeroFillBuffer(nChainIdx) | pBffr, nBffrLen
 '' Zero fill the display buffer associated with the specified HUB75 adapter.
@@ -608,31 +617,33 @@ PUB zeroFillBuffer(nChainIdx) | pBffr, nBffrLen
 ' @local pBffr - pointer to the display buffer
 ' @local nBffrLen - buffer length in LONGs
 
-  nBffrLen := displaySizeInLongs(nChainIdx)
-  pBffr := displayBufferAddress(nChainIdx)
-  longfill(pBffr, 0, nBffrLen)
+    nBffrLen := displaySizeInLongs(nChainIdx)
+    pBffr := displayBufferAddress(nChainIdx)
+    longfill(pBffr, 0, nBffrLen)
 
 PUB indexForHub75ChainId(eHub75Chain) : nChainIdx | bValidChain
 '' Return the zero-based index into our table for a given HUB75 adapter identifier.
 ''
 '' @param eHub75Chain - the HUB75 adapter chain identifier (10, 20, or 30)
 '' @returns nChainIdx - zero-based index (0, 1, or 2)
+''
+'' Aborts (with a DEBUG message) when eHub75Chain is not one of the three adapter IDs.
 
 ' Local Variables:
 ' @local bValidChain - TRUE if the chain identifier is recognized
 
-  nChainIdx := 0                                        ' default to first or only panel
-  bValidChain := TRUE
-  case eHub75Chain
-    HUB75_ADAPTER_1:
-    HUB75_ADAPTER_2:
-    HUB75_ADAPTER_3:
-    other:
-      bValidChain := FALSE
-      DEBUG("ERROR: unknown chain id (", udec_(eHub75Chain), ") must be [10, 20, or 30]")
-      abort
-  if bValidChain
-    nChainIdx := (eHub75Chain / hwEnum.HUB75_ADAPTER_STEP) - 1   ' 10, 20, 30 -> 1,2,3 -> 0,1,2
+    nChainIdx := 0                                        ' default to first or only panel
+    bValidChain := TRUE
+    case eHub75Chain
+        HUB75_ADAPTER_1:
+        HUB75_ADAPTER_2:
+        HUB75_ADAPTER_3:
+        other:
+            bValidChain := FALSE
+            DEBUG("ERROR: unknown chain id (", udec_(eHub75Chain), ") must be [10, 20, or 30]")
+            abort
+    if bValidChain == TRUE
+        nChainIdx := (eHub75Chain / hwEnum.HUB75_ADAPTER_STEP) - 1   ' 10, 20, 30 -> 1,2,3 -> 0,1,2
 
 PUB pwmFrameCount(nChainIdx) : nbrPwmFrames | nColorDepth
 '' Return the number of PWM frames to display for the selected bit depth.
@@ -643,22 +654,22 @@ PUB pwmFrameCount(nChainIdx) : nbrPwmFrames | nColorDepth
 ' Local Variables:
 ' @local nColorDepth - color depth in bits per channel
 
-  nColorDepth := colorDepth(nChainIdx)
-  case nColorDepth
-    hwEnum.DEPTH_3BIT:
-      nbrPwmFrames := PWM_FRAMES_3BIT
-    hwEnum.DEPTH_4BIT:
-      nbrPwmFrames := PWM_FRAMES_4BIT
-    hwEnum.DEPTH_5BIT:
-      nbrPwmFrames := PWM_FRAMES_5BIT
-    hwEnum.DEPTH_6BIT:
-      nbrPwmFrames := PWM_FRAMES_6BIT
-    hwEnum.DEPTH_7BIT:
-      nbrPwmFrames := PWM_FRAMES_7BIT
-    hwEnum.DEPTH_8BIT:
-      nbrPwmFrames := PWM_FRAMES_8BIT
-    other:
-      nbrPwmFrames := PWM_FRAMES_4BIT                  ' default to DEPTH_4BIT if set badly
+    nColorDepth := colorDepth(nChainIdx)
+    case nColorDepth
+        hwEnum.DEPTH_3BIT:
+            nbrPwmFrames := PWM_FRAMES_3BIT
+        hwEnum.DEPTH_4BIT:
+            nbrPwmFrames := PWM_FRAMES_4BIT
+        hwEnum.DEPTH_5BIT:
+            nbrPwmFrames := PWM_FRAMES_5BIT
+        hwEnum.DEPTH_6BIT:
+            nbrPwmFrames := PWM_FRAMES_6BIT
+        hwEnum.DEPTH_7BIT:
+            nbrPwmFrames := PWM_FRAMES_7BIT
+        hwEnum.DEPTH_8BIT:
+            nbrPwmFrames := PWM_FRAMES_8BIT
+        other:
+            nbrPwmFrames := PWM_FRAMES_4BIT                  ' default to DEPTH_4BIT if set badly
 
 PUB displayPixelAddress(nChainIdx, row, column) : pPixel | layoutIdx, panelPosn, panelRow, panelCol, tableBase, pEntry, nativeRows, nativeCols, nativeRow, nativeCol
 '' Return the hub address of the pixel at display coordinates (row, column). This is the one
@@ -687,34 +698,34 @@ PUB displayPixelAddress(nChainIdx, row, column) : pPixel | layoutIdx, panelPosn,
 ' @local nativeRow - the pixel's row in native coordinates
 ' @local nativeCol - the pixel's column in native coordinates
 
-  pPixel := NO_PIXEL
-  layoutIdx := validChainIndex(nChainIdx)
-  panelPosn, panelRow, panelCol := panelCoordsAt(layoutIdx, row, column)
-  if panelPosn <> NO_POSITION
-    tableBase := layoutIdx * MAX_CABLE_POSITIONS
-    pEntry := @@LONG[@screenTable][layoutIdx]
-    nativeRows := LONG[pEntry][ENTR_PANEL_ROWS_OFST]
-    nativeCols := LONG[pEntry][ENTR_PANEL_COLUMNS_OFST]
-    ' panel rotation: panel coordinates (as the viewer sees them) -> native coordinates
-    case positionToRotation[tableBase + panelPosn]
-      hwEnum.ROT_180:
-        ' ARROW_DOWN: the panel's own top is at the viewer's bottom
-        nativeRow := (nativeRows - 1) - panelRow
-        nativeCol := (nativeCols - 1) - panelCol
-      hwEnum.ROT_LEFT_90:
-        ' ARROW_LEFT: the panel's own top is at the viewer's left, its own left at the viewer's bottom
-        nativeRow := panelCol
-        nativeCol := (nativeCols - 1) - panelRow
-      hwEnum.ROT_RIGHT_90:
-        ' ARROW_RIGHT: the panel's own top is at the viewer's right, its own left at the viewer's top
-        nativeRow := (nativeRows - 1) - panelCol
-        nativeCol := panelRow
-      other:
-        ' ARROW_UP: native coordinates are the panel coordinates
-        nativeRow := panelRow
-        nativeCol := panelCol
-    ' buffer slot: the screen buffer holds the panels one after another, in buffer-slot order
-    pPixel := LONG[pEntry][ENTR_SCRN_BUFFER_ADDR_OFST] + ((((positionToSlot[tableBase + panelPosn] * nativeRows) + nativeRow) * nativeCols) + nativeCol) * LONG[pEntry][ENTR_BYTES_PER_COLOR_OFST]
+    pPixel := NO_PIXEL
+    layoutIdx := validChainIndex(nChainIdx)
+    panelPosn, panelRow, panelCol := panelCoordsAt(layoutIdx, row, column)
+    if panelPosn <> NO_POSITION
+        tableBase := layoutIdx * MAX_CABLE_POSITIONS
+        pEntry := @@LONG[@screenTable][layoutIdx]
+        nativeRows := LONG[pEntry][ENTR_PANEL_ROWS_OFST]
+        nativeCols := LONG[pEntry][ENTR_PANEL_COLUMNS_OFST]
+        ' panel rotation: panel coordinates (as the viewer sees them) -> native coordinates
+        case positionToRotation[tableBase + panelPosn]
+            hwEnum.ROT_180:
+                ' ARROW_DOWN: the panel's own top is at the viewer's bottom
+                nativeRow := (nativeRows - 1) - panelRow
+                nativeCol := (nativeCols - 1) - panelCol
+            hwEnum.ROT_LEFT_90:
+                ' ARROW_LEFT: the panel's own top is at the viewer's left, its own left at the viewer's bottom
+                nativeRow := panelCol
+                nativeCol := (nativeCols - 1) - panelRow
+            hwEnum.ROT_RIGHT_90:
+                ' ARROW_RIGHT: the panel's own top is at the viewer's right, its own left at the viewer's top
+                nativeRow := (nativeRows - 1) - panelCol
+                nativeCol := panelRow
+            other:
+                ' ARROW_UP: native coordinates are the panel coordinates
+                nativeRow := panelRow
+                nativeCol := panelCol
+        ' buffer slot: the screen buffer holds the panels one after another, in buffer-slot order
+        pPixel := LONG[pEntry][ENTR_SCRN_BUFFER_ADDR_OFST] + ((((positionToSlot[tableBase + panelPosn] * nativeRows) + nativeRow) * nativeCols) + nativeCol) * LONG[pEntry][ENTR_BYTES_PER_COLOR_OFST]
 
 PUB positionAtDisplayPixel(nChainIdx, row, column) : nPanelPosn | layoutIdx
 '' Return the panel position (P) of the panel that holds display coordinates (row, column), with
@@ -731,10 +742,10 @@ PUB positionAtDisplayPixel(nChainIdx, row, column) : nPanelPosn | layoutIdx
 ' Local Variables:
 ' @local layoutIdx - the chain index, checked against the adapters that exist
 
-  layoutIdx := validChainIndex(nChainIdx)
-  nPanelPosn := NO_PANEL_POSITION
-  if row >= 0 and column >= 0 and row < mountedPixelRows[layoutIdx] and column < mountedPixelColumns[layoutIdx]
-    nPanelPosn := mountedCellToPosition[(layoutIdx * MAX_GRID_CELLS) + ((row / mountedCellRows[layoutIdx]) * mountedGridColumns[layoutIdx]) + (column / mountedCellColumns[layoutIdx])]
+    layoutIdx := validChainIndex(nChainIdx)
+    nPanelPosn := NO_PANEL_POSITION
+    if row >= 0 and column >= 0 and row < mountedPixelRows[layoutIdx] and column < mountedPixelColumns[layoutIdx]
+        nPanelPosn := mountedCellToPosition[(layoutIdx * MAX_GRID_CELLS) + ((row / mountedCellRows[layoutIdx]) * mountedGridColumns[layoutIdx]) + (column / mountedCellColumns[layoutIdx])]
 
 PUB positionForCable(nChainIdx, nCablePos) : nPanelPosn | layoutIdx
 '' Return the panel position (P) where the panel at cable position nCablePos sits, with the
@@ -749,10 +760,10 @@ PUB positionForCable(nChainIdx, nCablePos) : nPanelPosn | layoutIdx
 ' Local Variables:
 ' @local layoutIdx - the chain index, checked against the adapters that exist
 
-  layoutIdx := validChainIndex(nChainIdx)
-  nPanelPosn := NO_PANEL_POSITION
-  if nCablePos >= 0 and nCablePos < layoutPanelCount[layoutIdx]
-    nPanelPosn := cableToPosition[(layoutIdx * MAX_CABLE_POSITIONS) + nCablePos]
+    layoutIdx := validChainIndex(nChainIdx)
+    nPanelPosn := NO_PANEL_POSITION
+    if nCablePos >= 0 and nCablePos < layoutPanelCount[layoutIdx]
+        nPanelPosn := cableToPosition[(layoutIdx * MAX_CABLE_POSITIONS) + nCablePos]
 
 PUB offsetToPanel(nChainIdx, nPanelIndex) : offsetPixelRows, offsetPixelColumns | layoutIdx, nMaxPanels, panelPosn, tableBase
 '' Return the display coordinates of the top-left pixel of the panel at a panel position, with
@@ -761,7 +772,7 @@ PUB offsetToPanel(nChainIdx, nPanelIndex) : offsetPixelRows, offsetPixelColumns 
 '' reading order as mounted. It is read from the mounted grid, derived from the wiring sentences
 '' and the display rotation at startup; with DISPn_ROTATION = ROT_NONE it is the layout.
 ''
-'' @param nChainIdx - the index of the desired chain
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @param nPanelIndex - panel position of the panel (P0 is the top-left panel as mounted, then reading order)
 '' @returns offsetPixelRows - display row of the panel's top-left pixel, as mounted
 '' @returns offsetPixelColumns - display column of the panel's top-left pixel, as mounted
@@ -772,16 +783,16 @@ PUB offsetToPanel(nChainIdx, nPanelIndex) : offsetPixelRows, offsetPixelColumns 
 ' @local panelPosn - panel position clamped to the panels in use
 ' @local tableBase - first entry of this adapter in the per-position tables
 
-  offsetPixelRows := offsetPixelColumns := 0
-  layoutIdx := validChainIndex(nChainIdx)
-  nMaxPanels := layoutPanelCount[layoutIdx]
-  if nMaxPanels > 0
-    panelPosn := 0 #> nPanelIndex <# nMaxPanels - 1
-    if nPanelIndex <> panelPosn
-      DEBUG("* Warning invalid nPanelIndex (", udec_(nPanelIndex), ") for display! of ", udec_(nMaxPanels), " panels")
-    tableBase := layoutIdx * MAX_CABLE_POSITIONS
-    offsetPixelRows := mountedCellRow[tableBase + panelPosn] * mountedCellRows[layoutIdx]
-    offsetPixelColumns := mountedCellCol[tableBase + panelPosn] * mountedCellColumns[layoutIdx]
+    offsetPixelRows := offsetPixelColumns := 0
+    layoutIdx := validChainIndex(nChainIdx)
+    nMaxPanels := layoutPanelCount[layoutIdx]
+    if nMaxPanels > 0
+        panelPosn := 0 #> nPanelIndex <# nMaxPanels - 1
+        if nPanelIndex <> panelPosn
+            DEBUG("* Warning invalid nPanelIndex (", udec_(nPanelIndex), ") for display! of ", udec_(nMaxPanels), " panels")
+        tableBase := layoutIdx * MAX_CABLE_POSITIONS
+        offsetPixelRows := mountedCellRow[tableBase + panelPosn] * mountedCellRows[layoutIdx]
+        offsetPixelColumns := mountedCellCol[tableBase + panelPosn] * mountedCellColumns[layoutIdx]
 
 PUB layoutAreaOfPanel(nChainIdx, nPanelIndex) : nLayoutTopRow, nLayoutLeftColumn, nLayoutRows, nLayoutColumns | layoutIdx, panelPosn, tableBase, layoutPosn
 '' Return the rectangle that the panel at a panel position covers on the display as its panels
@@ -790,7 +801,7 @@ PUB layoutAreaOfPanel(nChainIdx, nPanelIndex) : nLayoutTopRow, nLayoutLeftColumn
 '' fills the panel the viewer calls P. A panel position past the panels in use is held to the
 '' last panel (offsetToPanel() reports it).
 ''
-'' @param nChainIdx - the index of the desired chain
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @param nPanelIndex - panel position of the panel (P0 is the top-left panel as mounted, then reading order)
 '' @returns nLayoutTopRow - layout row of the panel's top-left pixel
 '' @returns nLayoutLeftColumn - layout column of the panel's top-left pixel
@@ -803,16 +814,16 @@ PUB layoutAreaOfPanel(nChainIdx, nPanelIndex) : nLayoutTopRow, nLayoutLeftColumn
 ' @local tableBase - first entry of this adapter in the per-position tables
 ' @local layoutPosn - the panel's position in the layout's own reading order
 
-  nLayoutTopRow := nLayoutLeftColumn := nLayoutRows := nLayoutColumns := 0
-  layoutIdx := validChainIndex(nChainIdx)
-  if layoutPanelCount[layoutIdx] > 0
-    panelPosn := 0 #> nPanelIndex <# layoutPanelCount[layoutIdx] - 1
-    tableBase := layoutIdx * MAX_CABLE_POSITIONS
-    layoutPosn := mountedToLayout[tableBase + panelPosn]
-    nLayoutRows := layoutCellRows[layoutIdx]
-    nLayoutColumns := layoutCellColumns[layoutIdx]
-    nLayoutTopRow := positionToCellRow[tableBase + layoutPosn] * nLayoutRows
-    nLayoutLeftColumn := positionToCellCol[tableBase + layoutPosn] * nLayoutColumns
+    nLayoutTopRow := nLayoutLeftColumn := nLayoutRows := nLayoutColumns := 0
+    layoutIdx := validChainIndex(nChainIdx)
+    if layoutPanelCount[layoutIdx] > 0
+        panelPosn := 0 #> nPanelIndex <# layoutPanelCount[layoutIdx] - 1
+        tableBase := layoutIdx * MAX_CABLE_POSITIONS
+        layoutPosn := mountedToLayout[tableBase + panelPosn]
+        nLayoutRows := layoutCellRows[layoutIdx]
+        nLayoutColumns := layoutCellColumns[layoutIdx]
+        nLayoutTopRow := positionToCellRow[tableBase + layoutPosn] * nLayoutRows
+        nLayoutLeftColumn := positionToCellCol[tableBase + layoutPosn] * nLayoutColumns
 
 PUB getDriverFlags(nChainIdx) : desiredFlags, eChipType
 '' Return flags describing the compiled driver configuration for the specified adapter.
@@ -820,28 +831,30 @@ PUB getDriverFlags(nChainIdx) : desiredFlags, eChipType
 '' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @returns desiredFlags - combined driver capability flags for the chip type
 '' @returns eChipType - LED driver chip type enum value
+''
+'' Aborts (with a DEBUG message) when the chip type is not one the driver knows.
 
-  desiredFlags := eChipType := chipType(nChainIdx)
-  if eChipType == hwEnum.CHIP_FM6126A
-    desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.LAT_POSN_OVERLAP | hwEnum.LAT_STYLE_OFFSET | hwEnum.INIT_PANEL_REQUIRED
-  elseif eChipType == hwEnum.CHIP_GS6238S
-    desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.LAT_POSN_OVERLAP | hwEnum.LAT_STYLE_OFFSET | hwEnum.GB_SWAP
-  elseif eChipType == hwEnum.CHIP_DP5125D
-    desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.LAT_POSN_OVERLAP | hwEnum.LAT_STYLE_OFFSET | hwEnum.SCAN_4
-  elseif eChipType == hwEnum.CHIP_MBI5124GP
-    desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.CHIP_UNK_LAT_END_ENCL | hwEnum.SCAN_4 | hwEnum.INIT_PANEL_REQUIRED
-  elseif eChipType == hwEnum.CHIP_FM6124 OR eChipType == hwEnum.CHIP_UNK_LAT_END_ENCL
-    if eChipType == hwEnum.CHIP_FM6124
-      desiredFlags := hwEnum.CHIP_MANUAL_SPEC
-  elseif eChipType == hwEnum.CHIP_ICN2037 OR eChipType == hwEnum.CHIP_ICN2038S OR eChipType == hwEnum.CHIP_UNK_LAT_END_ENCL_SLO_CLK
-    if eChipType == hwEnum.CHIP_ICN2037
-      desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.RB_SWAP
-    elseif eChipType == hwEnum.CHIP_ICN2038S
-      desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.SCAN_4
-  elseif eChipType & CHIP_TYPE_MASK <> hwEnum.CHIP_MANUAL_SPEC
-    ' report ERROR and exit
-    DEBUG("- have unknown CHIP ", ubin_word(desiredFlags))
-    abort
+    desiredFlags := eChipType := chipType(nChainIdx)
+    if eChipType == hwEnum.CHIP_FM6126A
+        desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.LAT_POSN_OVERLAP | hwEnum.LAT_STYLE_OFFSET | hwEnum.INIT_PANEL_REQUIRED
+    elseif eChipType == hwEnum.CHIP_GS6238S
+        desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.LAT_POSN_OVERLAP | hwEnum.LAT_STYLE_OFFSET | hwEnum.GB_SWAP
+    elseif eChipType == hwEnum.CHIP_DP5125D
+        desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.LAT_POSN_OVERLAP | hwEnum.LAT_STYLE_OFFSET | hwEnum.SCAN_4
+    elseif eChipType == hwEnum.CHIP_MBI5124GP
+        desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.CHIP_UNK_LAT_END_ENCL | hwEnum.SCAN_4 | hwEnum.INIT_PANEL_REQUIRED
+    elseif eChipType == hwEnum.CHIP_FM6124 OR eChipType == hwEnum.CHIP_UNK_LAT_END_ENCL
+        if eChipType == hwEnum.CHIP_FM6124
+            desiredFlags := hwEnum.CHIP_MANUAL_SPEC
+    elseif eChipType == hwEnum.CHIP_ICN2037 OR eChipType == hwEnum.CHIP_ICN2038S OR eChipType == hwEnum.CHIP_UNK_LAT_END_ENCL_SLO_CLK
+        if eChipType == hwEnum.CHIP_ICN2037
+            desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.RB_SWAP
+        elseif eChipType == hwEnum.CHIP_ICN2038S
+            desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.SCAN_4
+    elseif eChipType & CHIP_TYPE_MASK <> hwEnum.CHIP_MANUAL_SPEC
+        ' report ERROR and exit
+        DEBUG("- have unknown CHIP ", ubin_word(desiredFlags))
+        abort
 
 PUB displayShape(nChainIdx) : eShape
 '' Return the shape of the nChainIdx display: its DISPn_SHAPE setting, hwEnum.SHAPE_FLAT or
@@ -850,9 +863,9 @@ PUB displayShape(nChainIdx) : eShape
 '' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @returns eShape - hwEnum.SHAPE_FLAT or hwEnum.SHAPE_CUBE
 
-  eShape := cubeSetting(validChainIndex(nChainIdx), CUBE_SHAPE_OFST)
+    eShape := cubeSetting(validChainIndex(nChainIdx), CUBE_SHAPE_OFST)
 
-#ifdef DBG_PWM
+#IFDEF DBG_PWM
 PUB dbgMemDump(pMessage, pBytes, lenBytes) | bytBffr, colIdx, rowIdx, maxCol, maxRow, dispLen
 '' Dump bytes in hex format to the debug() terminal.
 ''
@@ -868,34 +881,34 @@ PUB dbgMemDump(pMessage, pBytes, lenBytes) | bytBffr, colIdx, rowIdx, maxCol, ma
 ' @local maxRow - total number of rows to display
 ' @local dispLen - running count of bytes displayed so far
 
-  DEBUG("`temp '", zstr_(pMessage), ": bffr=", uhex_long_(pBytes), "(", udec_(lenBytes), ")' 13")
-  maxCol := lenBytes >= DUMP_BYTES_PER_ROW ? DUMP_MAX_COL : lenBytes
-  maxRow := (lenBytes / DUMP_BYTES_PER_ROW)
-  if maxRow * DUMP_BYTES_PER_ROW < lenBytes
-    maxRow++
-  if maxRow == 0
-    maxRow := 1
+    DEBUG("`temp '", zstr_(pMessage), ": bffr=", uhex_long_(pBytes), "(", udec_(lenBytes), ")' 13")
+    maxCol := lenBytes >= DUMP_BYTES_PER_ROW ? DUMP_MAX_COL : lenBytes
+    maxRow := (lenBytes / DUMP_BYTES_PER_ROW)
+    if maxRow * DUMP_BYTES_PER_ROW < lenBytes
+        maxRow++
+    if maxRow == 0
+        maxRow := 1
 
-  bytBffr := pBytes
-  waitus(DUMP_HDR_DELAY_US)
-  dispLen := 0
-  repeat rowIdx from 1 TO maxRow
-    if rowIdx < DUMP_SINGLE_DIGIT_LIMIT
-      DEBUG("`temp ' '")                                ' space
-    DEBUG("`temp '  ", uhex_long_(bytBffr), ": '")
-    repeat colIdx from 0 TO maxCol
-      DEBUG("`temp '", uhex_byte_(BYTE[bytBffr+colIdx]), " '")
-      dispLen++
-      if dispLen >= lenBytes
-        quit
-      if colIdx == DUMP_HALF_ROW_IDX
-        DEBUG("`temp ' '")                              ' space
+    bytBffr := pBytes
+    waitus(DUMP_HDR_DELAY_US)
+    dispLen := 0
+    repeat rowIdx from 1 TO maxRow
+        if rowIdx < DUMP_SINGLE_DIGIT_LIMIT
+            DEBUG("`temp ' '")                                ' space
+        DEBUG("`temp '  ", uhex_long_(bytBffr), ": '")
+        repeat colIdx from 0 TO maxCol
+            DEBUG("`temp '", uhex_byte_(BYTE[bytBffr+colIdx]), " '")
+            dispLen++
+            if dispLen >= lenBytes
+                quit
+            if colIdx == DUMP_HALF_ROW_IDX
+                DEBUG("`temp ' '")                              ' space
 
-    bytBffr += DUMP_BYTES_PER_ROW
-    DEBUG("`temp 13")                                   ' newline
-    waitus(DUMP_ROW_DELAY_US)                           ' 50 too short, 70 less issue, 75 better,
-  waitms(DUMP_END_DELAY_MS)
-#endif
+        bytBffr += DUMP_BYTES_PER_ROW
+        DEBUG("`temp 13")                                   ' newline
+        waitus(DUMP_ROW_DELAY_US)                           ' 50 too short, 70 less issue, 75 better,
+    waitms(DUMP_END_DELAY_MS)
+#ENDIF
 
 #IFDEF HUB75_INSTRUMENT
 CON ' ---- Test relayout results (instrument build only) ----
@@ -933,29 +946,29 @@ PUB testRelayout(nChainIdx, pSentences, eDisplayRotation) : status | layoutIdx, 
 ' @local mistakeCount - number of wiring problems found in the sentences given
 ' @local panelCount - number of cable positions in use in the sentences given
 
-  status := RELAYOUT_REFUSED
-  layoutIdx := validChainIndex(nChainIdx)
-  tableBase := layoutIdx * MAX_CABLE_POSITIONS
-  pEntry := @@LONG[@screenTable][layoutIdx]
-  if cubeSetting(layoutIdx, CUBE_SHAPE_OFST) == hwEnum.SHAPE_CUBE
-    debug("HUB75: testRelayout() refused: DISP", udec_(layoutIdx), " is a cube")
-  elseif savedChainIdx <> NOT_INITIALIZED and savedChainIdx <> layoutIdx
-    debug("HUB75: testRelayout() refused: DISP", udec_(savedChainIdx), " is relaid out; restore it first")
-  else
-    if savedChainIdx == NOT_INITIALIZED
-      longmove(@savedSentences, @wiringSentences[tableBase], MAX_CABLE_POSITIONS)
-      savedRotation := LONG[pEntry][ENTR_ROTATION_OFST]
-      savedChainIdx := layoutIdx
-    longmove(@wiringSentences[tableBase], pSentences, MAX_CABLE_POSITIONS)
-    LONG[pEntry][ENTR_ROTATION_OFST] := eDisplayRotation
-    mistakeCount, panelCount := checkSentences(layoutIdx)
-    if mistakeCount == 0 and panelCount == layoutPanelCount[layoutIdx]
-      if placePanels(layoutIdx, panelCount) == 0
-        buildLayoutTables(layoutIdx, panelCount)
-        status := RELAYOUT_DONE
-    if status <> RELAYOUT_DONE
-      debug("HUB75: testRelayout() refused: ", udec_(mistakeCount), " wiring problem(s), ", udec_(panelCount), " panels for an adapter of ", udec_(layoutPanelCount[layoutIdx]))
-      testRestoreLayout(layoutIdx)
+    status := RELAYOUT_REFUSED
+    layoutIdx := validChainIndex(nChainIdx)
+    tableBase := layoutIdx * MAX_CABLE_POSITIONS
+    pEntry := @@LONG[@screenTable][layoutIdx]
+    if cubeSetting(layoutIdx, CUBE_SHAPE_OFST) == hwEnum.SHAPE_CUBE
+        debug("HUB75: testRelayout() refused: DISP", udec_(layoutIdx), " is a cube")
+    elseif savedChainIdx <> NOT_INITIALIZED and savedChainIdx <> layoutIdx
+        debug("HUB75: testRelayout() refused: DISP", udec_(savedChainIdx), " is relaid out; restore it first")
+    else
+        if savedChainIdx == NOT_INITIALIZED
+            longmove(@savedSentences, @wiringSentences[tableBase], MAX_CABLE_POSITIONS)
+            savedRotation := LONG[pEntry][ENTR_ROTATION_OFST]
+            savedChainIdx := layoutIdx
+        longmove(@wiringSentences[tableBase], pSentences, MAX_CABLE_POSITIONS)
+        LONG[pEntry][ENTR_ROTATION_OFST] := eDisplayRotation
+        mistakeCount, panelCount := checkSentences(layoutIdx)
+        if mistakeCount == 0 and panelCount == layoutPanelCount[layoutIdx]
+            if placePanels(layoutIdx, panelCount) == 0
+                buildLayoutTables(layoutIdx, panelCount)
+                status := RELAYOUT_DONE
+        if status <> RELAYOUT_DONE
+            debug("HUB75: testRelayout() refused: ", udec_(mistakeCount), " wiring problem(s), ", udec_(panelCount), " panels for an adapter of ", udec_(layoutPanelCount[layoutIdx]))
+            testRestoreLayout(layoutIdx)
 
 PUB testRestoreLayout(nChainIdx) | layoutIdx, tableBase, pEntry, panelCount
 '' Instrument build only: put back the wiring sentences and display rotation that testRelayout()
@@ -970,43 +983,42 @@ PUB testRestoreLayout(nChainIdx) | layoutIdx, tableBase, pEntry, panelCount
 ' @local pEntry - pointer to the chain descriptor table entry
 ' @local panelCount - number of cable positions in use (unchanged by testRelayout())
 
-  layoutIdx := validChainIndex(nChainIdx)
-  if savedChainIdx == layoutIdx
-    tableBase := layoutIdx * MAX_CABLE_POSITIONS
-    pEntry := @@LONG[@screenTable][layoutIdx]
-    longmove(@wiringSentences[tableBase], @savedSentences, MAX_CABLE_POSITIONS)
-    LONG[pEntry][ENTR_ROTATION_OFST] := savedRotation
-    panelCount := layoutPanelCount[layoutIdx]
-    placePanels(layoutIdx, panelCount)                  ' the adapter's own sentences passed this at startup
-    buildLayoutTables(layoutIdx, panelCount)
-    savedChainIdx := NOT_INITIALIZED
+    layoutIdx := validChainIndex(nChainIdx)
+    if savedChainIdx == layoutIdx
+        tableBase := layoutIdx * MAX_CABLE_POSITIONS
+        pEntry := @@LONG[@screenTable][layoutIdx]
+        longmove(@wiringSentences[tableBase], @savedSentences, MAX_CABLE_POSITIONS)
+        LONG[pEntry][ENTR_ROTATION_OFST] := savedRotation
+        panelCount := layoutPanelCount[layoutIdx]
+        placePanels(layoutIdx, panelCount)                  ' the adapter's own sentences passed this at startup
+        buildLayoutTables(layoutIdx, panelCount)
+        savedChainIdx := NOT_INITIALIZED
 #ENDIF
 
 PRI ptrTableEntry(nChainIdx) : pEntry
 ' Return the hub address of the chain descriptor table entry for the given index.
 '
-' @param nChainIdx - zero-based chain index
+' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 ' @returns pEntry - pointer to the chain descriptor table entry
 
 ' debug("HUB75dbg: ", udec(nChainIdx), udec(numberScreens), udec(tableSizeInBytes), udec(entrySizeInBytes))
 
-  pEntry := @@LONG[@screenTable][validChainIndex(nChainIdx)]   ' get ptr to table entry
+    pEntry := @@LONG[@screenTable][validChainIndex(nChainIdx)]   ' get ptr to table entry
 
 PRI validChainIndex(nChainIdx) : validScreenIdx
 ' Return the chain index after checking it names an adapter that exists; stop on any other.
 '
-' @param nChainIdx - zero-based chain index
+' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 ' @returns validScreenIdx - the same index, within the valid range
+'
+' Aborts (with a DEBUG message) when nChainIdx names no adapter.
 
-  validScreenIdx := 0 #> nChainIdx <# numberScreens - 1
-  if nChainIdx <> validScreenIdx
-    DEBUG("HUB75: not enough HUB75 buffers allocated: [isp_hub75_hwBufferAccess.spin2]")
-    abort
+    validScreenIdx := 0 #> nChainIdx <# numberScreens - 1
+    if nChainIdx <> validScreenIdx
+        DEBUG("HUB75: not enough HUB75 buffers allocated: [isp_hub75_hwBufferAccess.spin2]")
+        abort
 
-CON { PRIVATE wiring check and layout constants }
-
-    ' number of HUB75 adapters, and so of displays (DISP0 .. DISP2)
-    ADAPTER_COUNT           = (hwEnum.HUB75_ADAPTER_3 - hwEnum.HUB75_ADAPTER_1) / hwEnum.HUB75_ADAPTER_STEP + 1
+CON ' ---- Private wiring check and layout constants ----
 
     ' every bit that some wiring word uses; any other bit set means words were joined with +
     WIRING_WORD_BITS        = hwEnum.NEIGHBOR_MASK | hwEnum.DIRECTION_MASK | hwEnum.ARROW_MASK | hwEnum.FIRST_PANEL_MASK | hwEnum.NO_PANEL_MASK
@@ -1017,17 +1029,13 @@ CON { PRIVATE wiring check and layout constants }
     ' the arrows of a panel turned sideways (its columns run up and down the display)
     SIDEWAYS_ARROWS         = hwEnum.ARROW_LEFT | hwEnum.ARROW_RIGHT
 
-    ' cable position of the panel the adapter plugs into
-    FIRST_CABLE_POSITION    = 0
-
-    ' grid steps from a panel's neighbour to the panel (rows grow downward, columns rightward)
-    STEP_BACK               = -1
-    STEP_NONE               = 0
-    STEP_FORWARD            = 1
-
     ' The cells of a connected display of N panels fit a grid whose rows plus columns
-    ' is at most N + 1, so 16 panels need at most 8 x 9 = 72 cells.
-    MAX_GRID_CELLS          = ((MAX_CABLE_POSITIONS + 1) / 2) * ((MAX_CABLE_POSITIONS + 2) / 2)
+    ' is at most N + 1 (the grid span), so 16 panels need at most 8 x 9 = 72 cells: the
+    ' span split into two sides, the larger side rounded up.
+    GRID_SPAN_EXTRA         = 1
+    GRID_SIDES              = 2
+    MAX_GRID_SPAN           = MAX_CABLE_POSITIONS + GRID_SPAN_EXTRA
+    MAX_GRID_CELLS          = (MAX_GRID_SPAN / GRID_SIDES) * ((MAX_GRID_SPAN + GRID_SIDES - 1) / GRID_SIDES)
 
     ' table entry for a cell that holds no panel, or for a position no panel takes
     NO_POSITION             = NO_PANEL_POSITION
@@ -1035,7 +1043,6 @@ CON { PRIVATE wiring check and layout constants }
     ' the picture printed at startup: one cell reads "[C2 v]", padded to "[C2  v]" when
     ' the display has more than ten panels; the longest line is the inverse-table line,
     ' MAX_CABLE_POSITIONS entries of " C15->P15"
-    DECIMAL_BASE            = 10
     LONGEST_ENTRY_CHARS     = 9
     PICTURE_LINE_BYTES      = MAX_CABLE_POSITIONS * LONGEST_ENTRY_CHARS + 1
     DEGREES_PER_QUARTER     = 90
@@ -1050,7 +1057,7 @@ CON { PRIVATE wiring check and layout constants }
     '  CUBE_FRONT_OFST - DISPn_CUBE_FRONT
     #0, CUBE_SHAPE_OFST, CUBE_TOP_OFST, CUBE_FRONT_OFST, CUBE_SETTING_LONGS
 
-DAT { Wiring sentences, and the layout derived from them at startup }
+DAT ' ---- Wiring sentences and derived layout ----
 
 ' The wiring sentences of every display: DISPn_C0 .. DISPn_C15, MAX_CABLE_POSITIONS per adapter.
 wiringSentences     LONG    user.DISP0_C0, user.DISP0_C1, user.DISP0_C2, user.DISP0_C3
@@ -1110,7 +1117,7 @@ pictureLine         BYTE    0[PICTURE_LINE_BYTES]               ' one line of th
 emptyCellText       BYTE    "  --  ", 0                         ' a cell that holds no panel
 emptyText           BYTE    0                                   ' nothing follows the cable number
 
-' Wiring messages printed from more than one check (the catalogue in the sprint plan quotes them)
+' Wiring messages printed from more than one check (each is reported through reportSentence())
 msgPlusCarry        BYTE    "looks like + joined a word to itself and carried into the next kind of word; join the words with | only, never +", 0
 msgC0NotFirst       BYTE    "must be FIRST_PANEL | arrow, because panels are in use", 0
 msgNoArrow          BYTE    "has no arrow word; add one of ARROW_UP, ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT", 0
@@ -1182,11 +1189,11 @@ PRI checkSentences(nChainIdx) : mistakeCount, panelCount | cablePos, sentence
             panelCount++
             mistakeCount += checkOneSentence(nChainIdx, cablePos, sentence)
             ' a gap in the numbering; C1 after an unused C0 is reported by the C0 check below
-            if cablePos > FIRST_CABLE_POSITION + 1 and wiringSentence(nChainIdx, cablePos - 1) == hwEnum.NO_PANEL
+            if cablePos > cube.FIRST_CABLE_POSITION + 1 and wiringSentence(nChainIdx, cablePos - 1) == hwEnum.NO_PANEL
                 reportSentenceRef(nChainIdx, cablePos, @"is in use, but C", cablePos - 1, @" before it is NO_PANEL; number the panels in use C0, C1, C2 ... with no gaps")
                 mistakeCount++
-    if panelCount > 0 and wiringSentence(nChainIdx, FIRST_CABLE_POSITION) == hwEnum.NO_PANEL
-        reportSentence(nChainIdx, FIRST_CABLE_POSITION, @msgC0NotFirst)
+    if panelCount > 0 and wiringSentence(nChainIdx, cube.FIRST_CABLE_POSITION) == hwEnum.NO_PANEL
+        reportSentence(nChainIdx, cube.FIRST_CABLE_POSITION, @msgC0NotFirst)
         mistakeCount++
     mistakeCount += checkArrowAxes(nChainIdx)
 
@@ -1208,10 +1215,10 @@ PRI checkArrowAxes(nChainIdx) : mistakeCount | panelRows, panelCols, firstArrow,
 
     mistakeCount := 0
     panelRows, panelCols := panelSizeInPixels(nChainIdx)
-    firstArrow := wiringSentence(nChainIdx, FIRST_CABLE_POSITION) & hwEnum.ARROW_MASK
+    firstArrow := wiringSentence(nChainIdx, cube.FIRST_CABLE_POSITION) & hwEnum.ARROW_MASK
     ' compare only arrows that are well formed; the sentence checks report the rest
     if panelRows <> panelCols and (ONES firstArrow) == ONE_WORD
-        repeat cablePos from FIRST_CABLE_POSITION + 1 to MAX_CABLE_POSITIONS - 1
+        repeat cablePos from cube.FIRST_CABLE_POSITION + 1 to MAX_CABLE_POSITIONS - 1
             sentence := wiringSentence(nChainIdx, cablePos)
             arrowBits := sentence & hwEnum.ARROW_MASK
             if (sentence & (hwEnum.NO_PANEL | !WIRING_WORD_BITS)) == 0 and (ONES arrowBits) == ONE_WORD
@@ -1247,7 +1254,7 @@ PRI checkOneSentence(nChainIdx, cablePos, sentence) : mistakeCount | nbrBits, di
     elseif (sentence & hwEnum.NO_PANEL) <> 0
         reportSentence(nChainIdx, cablePos, @"joins NO_PANEL with other words; NO_PANEL stands alone")
         mistakeCount++
-    elseif cablePos == FIRST_CABLE_POSITION
+    elseif cablePos == cube.FIRST_CABLE_POSITION
         if (sentence & hwEnum.FIRST_PANEL) == 0
             reportSentence(nChainIdx, cablePos, @msgC0NotFirst)
             mistakeCount++
@@ -1439,9 +1446,9 @@ PRI placePanels(nChainIdx, panelCount) : mistakeCount | cablePos, nbrPos, otherP
 
     mistakeCount := 0
     longfill(@cablePlaced, FALSE, MAX_CABLE_POSITIONS)
-    cableCellRow[FIRST_CABLE_POSITION] := 0
-    cableCellColumn[FIRST_CABLE_POSITION] := 0
-    cablePlaced[FIRST_CABLE_POSITION] := TRUE
+    cableCellRow[cube.FIRST_CABLE_POSITION] := 0
+    cableCellColumn[cube.FIRST_CABLE_POSITION] := 0
+    cablePlaced[cube.FIRST_CABLE_POSITION] := TRUE
     ' a neighbour may come later in the cable, so repeat until a pass places nothing
     repeat
         bPlacedOne := FALSE
@@ -1504,8 +1511,8 @@ PRI buildLayoutTables(nChainIdx, panelCount) | cablePos, minRow, maxRow, minCol,
 ' @local panelRows - pixel rows of one cell
 ' @local panelCols - pixel columns of one cell
 
-    minRow := maxRow := cableCellRow[FIRST_CABLE_POSITION]
-    minCol := maxCol := cableCellColumn[FIRST_CABLE_POSITION]
+    minRow := maxRow := cableCellRow[cube.FIRST_CABLE_POSITION]
+    minCol := maxCol := cableCellColumn[cube.FIRST_CABLE_POSITION]
     repeat cablePos from 0 to panelCount - 1
         minRow <#= cableCellRow[cablePos]
         maxRow #>= cableCellRow[cablePos]
@@ -1544,7 +1551,7 @@ PRI buildLayoutTables(nChainIdx, panelCount) | cablePos, minRow, maxRow, minCol,
     ' the cell size follows C0's arrow: a panel turned sideways shows its columns as rows
     ' (checkArrowAxes makes every arrow agree with C0's unless the panels are square)
     panelRows, panelCols := panelSizeInPixels(nChainIdx)
-    if (wiringSentence(nChainIdx, FIRST_CABLE_POSITION) & SIDEWAYS_ARROWS) <> 0
+    if (wiringSentence(nChainIdx, cube.FIRST_CABLE_POSITION) & SIDEWAYS_ARROWS) <> 0
         panelRows, panelCols := panelCols, panelRows
     layoutPanelCount[nChainIdx] := panelCount
     layoutGridRows[nChainIdx] := gridRows
@@ -1664,7 +1671,7 @@ PRI printLayout(nChainIdx) | panelCount, gridRows, gridCols, rowIdx, colIdx, pos
     gridCols := layoutGridColumns[nChainIdx]
     tableBase := nChainIdx * MAX_CABLE_POSITIONS
     cellBase := nChainIdx * MAX_GRID_CELLS
-    bWide := panelCount > DECIMAL_BASE
+    bWide := panelCount > cube.DECIMAL_BASE
     debug("HUB75: DISP", udec_(nChainIdx), " wiring: ", udec_(panelCount), " panels in a grid of ", udec_(gridRows), " rows x ", udec_(gridCols), " columns, ", udec_(layoutPixelColumns[nChainIdx]), " x ", udec_(layoutPixelRows[nChainIdx]), " pixels (columns x rows)")
     repeat rowIdx from 0 to gridRows - 1
         lineLen := 0
@@ -1707,23 +1714,23 @@ PRI appendPanelCell(lineLen, cablePos, ePanelRotation, bWide) : newLen
     pictureLine[newLen++] := "["
     pictureLine[newLen++] := "C"
     newLen := appendNumber(newLen, cablePos)
-    if bWide == TRUE and cablePos < DECIMAL_BASE
+    if bWide == TRUE and cablePos < cube.DECIMAL_BASE
         pictureLine[newLen++] := " "
     pictureLine[newLen++] := " "
     pictureLine[newLen++] := arrowCharForRotation(ePanelRotation)
     pictureLine[newLen++] := "]"
 
-PRI appendNumber(lineLen, number) : newLen
+PRI appendNumber(lineLen, labelNumber) : newLen
 ' Append a number from 0 to 99 to the picture line.
 '
 ' @param lineLen - characters written to the picture line so far
-' @param number - the number to append
+' @param labelNumber - the number to append
 ' @returns newLen - characters written to the picture line after the number
 
     newLen := lineLen
-    if number >= DECIMAL_BASE
-        pictureLine[newLen++] := "0" + number / DECIMAL_BASE
-    pictureLine[newLen++] := "0" + number // DECIMAL_BASE
+    if labelNumber >= cube.DECIMAL_BASE
+        pictureLine[newLen++] := "0" + labelNumber / cube.DECIMAL_BASE
+    pictureLine[newLen++] := "0" + labelNumber // cube.DECIMAL_BASE
 
 PRI appendText(lineLen, pText) : newLen
 ' Append a zero-terminated string to the picture line.
@@ -1798,16 +1805,16 @@ PRI cellStepForDirection(dirBits) : rowStep, colStep
 ' @returns rowStep - grid row step (rows grow downward)
 ' @returns colStep - grid column step (columns grow rightward)
 
-    rowStep := colStep := STEP_NONE
+    rowStep := colStep := cube.STEP_NONE
     case dirBits
         hwEnum.ABOVE:
-            rowStep := STEP_BACK
+            rowStep := cube.STEP_BACK
         hwEnum.BELOW:
-            rowStep := STEP_FORWARD
+            rowStep := cube.STEP_FORWARD
         hwEnum.LEFT_OF:
-            colStep := STEP_BACK
+            colStep := cube.STEP_BACK
         hwEnum.RIGHT_OF:
-            colStep := STEP_FORWARD
+            colStep := cube.STEP_FORWARD
 
 PRI rotationForArrow(arrowBits) : ePanelRotation
 ' Return the panel rotation for one arrow word: the arrow is the direction the panel's
@@ -1874,7 +1881,7 @@ PRI cubeSetting(nChainIdx, settingOfst) : settingValue
 
     settingValue := cubeSettings[(nChainIdx * CUBE_SETTING_LONGS) + settingOfst]
 
-CON { license }
+CON ' ---- License ----
 
 {{
 

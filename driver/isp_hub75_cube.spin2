@@ -7,13 +7,14 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2026
-''   Updated.... 02 Oct 2026
+''   Updated.... 06 Oct 2026
 ''
 '' =================================================================================================
-'
-'  The cube (DISPn_SHAPE = SHAPE_CUBE). isp_hub75_hwBufferAccess.spin2 reads the settings and the
-'  wiring sentences and calls foldNet() and printCube() here; the display object draws through
-'  homeFoldToDisplay() and homeOnFaceOfExtent().
+
+{ The cube (DISPn_SHAPE = SHAPE_CUBE). isp_hub75_hwBufferAccess.spin2 reads the settings and the
+  wiring sentences and calls foldNet() and printCube() here; the display object draws through
+  homeFoldToDisplay() and homeOnFaceOfExtent().
+}
 
 CON ' ---- Cube Constants ----
     {Spin2_Doc_CON}
@@ -45,7 +46,7 @@ CON ' ---- Cube Constants ----
     '  QTURN_ANTICLOCKWISE - (-column, row): up becomes left
     #0, QTURN_NONE, QTURN_CLOCKWISE, QTURN_HALF, QTURN_ANTICLOCKWISE
 
-CON { PRIVATE cube fold constants }
+CON ' ---- Private cube fold constants ----
 
     ' one cube per adapter: DISP0 .. DISP2
     MAX_CUBES               = (hwEnum.HUB75_ADAPTER_3 - hwEnum.HUB75_ADAPTER_1) / hwEnum.HUB75_ADAPTER_STEP + 1
@@ -110,7 +111,7 @@ OBJ
 
     hwEnum      : "isp_hub75_hwEnums"                           ' hub75 attachment, set up constants
 
-DAT { The cube's faces and edges, and the tables folded from its net at startup }
+DAT ' ---- Cube faces, edges and folded tables ----
 
 { The cube's faces and edges (DISPn_SHAPE = SHAPE_CUBE).
 
@@ -176,7 +177,7 @@ PUB foldNet(nChainIdx, pCellRows, pCellColumns, pCablePositions, topCable, front
 '' (each face's cable position, panel position and turn in its cell) and the edge table (all 12
 '' edges, in both directions: the neighbour across each edge of each face and the transform of
 '' coordinates across it). configureAdapter() calls it for a display with DISPn_SHAPE = SHAPE_CUBE;
-'' the fold self-test (test_hub75_cube_fold.spin2) calls it with a reference net. A net that is
+'' a fold self-test calls it with a reference net. A net that is
 '' not one of the 11 cube nets, or a front face that does not share an edge with the top face,
 '' prints its message and leaves the display without faces; the caller decides whether to stop.
 ''
@@ -325,7 +326,7 @@ PUB homeFoldToDisplay(nChainIdx, eHomeFace, homeTurn, homeAddRow, homeAddColumn,
 '' invalid face, or a display with no faces) returns NO_DISPLAY_PIXEL in both. The chain index
 '' is not checked here: it must be one the caller got from configureAdapter().
 ''
-'' @param nChainIdx - the index of the chain of panels (hub75 adapter), already known to be valid
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @param eHomeFace - the face the object is homed on (hwEnum.FACE_TOP .. hwEnum.FACE_RIGHT)
 '' @param homeTurn - clockwise quarter turns from the pixel's frame to the home frame (QTURN_NONE if not homed)
 '' @param homeAddRow - row added after that turn
@@ -463,8 +464,10 @@ PUB turnFaceCoords(turn, addRow, addColumn, row, column) : newRow, newColumn
 PRI cubeIndex(nChainIdx) : layoutIdx
 ' Return the chain index after checking it names an adapter that has a cube table; stop on any other.
 '
-' @param nChainIdx - zero-based chain index
+' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 ' @returns layoutIdx - the same index, within the valid range
+'
+' Aborts (with a DEBUG message) when nChainIdx names no adapter.
 
     layoutIdx := 0 #> nChainIdx <# MAX_CUBES - 1
     if nChainIdx <> layoutIdx
@@ -807,13 +810,13 @@ PRI edgeStep(edge) : rowStep, colStep
         EDGE_W:
             colStep := STEP_BACK
 
-PRI findByte(pTable, value) : foundIdx | candidate
+PRI findByte(pTable, byteToFind) : foundIdx | candidate
 ' Return the index of the first entry of a six-entry byte table (rollNormal or frameNormal)
 ' that holds a value. The same sentinel serves both tables: a cable position and a face index
 ' are both below NO_FACE.
 '
 ' @param pTable - address of BYTE[6]
-' @param value - the byte to find
+' @param byteToFind - the byte to find
 ' @returns foundIdx - the index (0 .. 5), or NO_FACE when no entry holds the value
 
 ' Local Variables:
@@ -821,7 +824,7 @@ PRI findByte(pTable, value) : foundIdx | candidate
 
     foundIdx := NO_FACE
     repeat candidate from 0 to CUBE_FACES - 1
-        if BYTE[pTable][candidate] == value
+        if BYTE[pTable][candidate] == byteToFind
             foundIdx := candidate
             quit
 
@@ -884,17 +887,17 @@ PRI faceNameText(faceIdx) : pName
         other:
             pName := @"NO_FACE"
 
-PRI appendNumber(lineLen, number) : newLen
+PRI appendNumber(lineLen, labelNumber) : newLen
 ' Append a number from 0 to 99 to the cube line.
 '
 ' @param lineLen - characters written to the line so far
-' @param number - the number to append
+' @param labelNumber - the number to append
 ' @returns newLen - characters written to the line after the number
 
     newLen := lineLen
-    if number >= DECIMAL_BASE
-        lineText[newLen++] := "0" + number / DECIMAL_BASE
-    lineText[newLen++] := "0" + number // DECIMAL_BASE
+    if labelNumber >= DECIMAL_BASE
+        lineText[newLen++] := "0" + labelNumber / DECIMAL_BASE
+    lineText[newLen++] := "0" + labelNumber // DECIMAL_BASE
 
 PRI appendText(lineLen, pText) : newLen
 ' Append a zero-terminated string to the cube line.
@@ -907,7 +910,7 @@ PRI appendText(lineLen, pText) : newLen
     repeat while BYTE[pText] <> 0
         lineText[newLen++] := BYTE[pText++]
 
-CON { license }
+CON ' ---- License ----
 
 {{
 
