@@ -24,6 +24,7 @@ Oct 2026 (v4.0.0 - BREAKING: the panel-layout settings and the startup call chan
 - Refresh: each bit plane is shown once and lit by /OE time, to a target refresh rate you set with `DISPx_TARGET_REFRESH_HZ` (default 60 Hz). The author's four-panel rig refreshes at 71.0 Hz at 8-bit
 - 8-bit color is the default depth; brightness is /OE time, so the image keeps its full depth at any brightness
 - A commit never shows a half-converted image, and `display.showFrameSet()` shows a frame set you built yourself
+- Commit and drawing are faster: on the four-panel rig at 8-bit a commit takes 4.09 ms (from 21.25 ms) and a full-screen fill draws in 114.0 ms (from 635.4 ms)
 - Fixes: multi-panel quarter-scan conversion, more than 9 panels, each display shows its own image, 90/270 degree display rotation, text and panel calls on any wiring
 - Upgrading from v3.x? See the new [Update to v4.0 Checklist](Checklist-v3-v4.md)
 15 Jan 2024
@@ -414,7 +415,7 @@ But let's be more specific:
 
 This is a project supporting our P2 Development Community. Please feel free to contribute to this project. You can contribute in the following ways:
 
-- File **Feature Requests** or **Issues** (describing things you are seeing while using our code) at the [Project Issue Tracking Page](https://github.com/ironsheep/P2-HUB75-LED-Matrix-Driver/issues)
+- File **Feature Requests** or **Issues** (describing things you are seeing while using our code) at the [Project Issue Tracking Page](https://github.com/ironsheep/p2-LED-Matrix-Driver/issues)
 - Fork this repo and then add your code to it. Finally, create a Pull Request to contribute your code back to this repository for inclusion with the projects code. See [CONTRIBUTING](CONTRIBUTING.md)
 
 ----
@@ -443,4 +444,4 @@ Follow these links for more information:
 
 [releases-shield]: https://img.shields.io/github/release/ironsheep/p2-LED-Matrix-Driver.svg?style=for-the-badge
 
-[releases]: https://github.com/ironsheep/P2-HUB75-LED-Matrix-Driver/releases
+[releases]: https://github.com/ironsheep/p2-LED-Matrix-Driver/releases

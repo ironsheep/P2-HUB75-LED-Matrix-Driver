@@ -198,7 +198,7 @@ Calls that name a panel (`fillPanel`, `setCursorOnPanel`, `drawPanelBox`, `drawP
 
 That's it. If you have converted your settings, replaced your startup calls and confirmed the panels with the identify screen, you are good to go.
 
-I hope you continue to enjoy using this driver. As always please feel free to report issues or discuss how you are using the driver in our Matrix driver thread [P2 Driver for HUB75 LED Matrix Panels](https://forums.parallax.com/discussion/172288/p2-driver-for-HUB75-led-matrix-panels#latest). You can also file BUG reports or feature requests at the driver repository [Issues Page](https://github.com/ironsheep/P2-HUB75-LED-Matrix-Driver/issues).
+I hope you continue to enjoy using this driver. As always please feel free to report issues or discuss how you are using the driver in our Matrix driver thread [P2 Driver for HUB75 LED Matrix Panels](https://forums.parallax.com/discussion/172288/p2-driver-for-HUB75-led-matrix-panels#latest). You can also file BUG reports or feature requests at the driver repository [Issues Page](https://github.com/ironsheep/p2-LED-Matrix-Driver/issues).
 
 *See you in the Parallax Forums and on our P2 Live Forums!*
 
