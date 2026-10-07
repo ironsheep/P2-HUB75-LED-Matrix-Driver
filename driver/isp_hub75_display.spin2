@@ -7,12 +7,17 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 04 Oct 2026
+''   Updated.... 06 Oct 2026
 ''
 '' =================================================================================================
 
-CON ' Object Interface: PUBLIC ENUMs
+CON ' ---- Object Interface: PUBLIC ENUMs ----
     {Spin2_Doc_CON}
+
+    ' scroller region index "not found":
+    '  NOT_FOUND - no scroller region was placed (the scrollFace* calls return it when the
+    '              display is not a cube)
+    NOT_FOUND                 = -1
 
     ' supported Text Fonts (forwarded from fonts object for external consumers)
     TEXT_FONT_DEFAULT         = fonts.TEXT_FONT_DEFAULT
@@ -68,14 +73,12 @@ CON ' Object Interface: PUBLIC ENUMs
     FACE_LEFT                 = hwEnum.FACE_LEFT
     FACE_RIGHT                = hwEnum.FACE_RIGHT
 
-CON ' Object Interface: PRIVATE ENUMs
+CON ' ---- Object Interface: PRIVATE ENUMs ----
 
-    NOT_FOUND                 = -1
-
-    ' FIXME: UNDONE make this user configurable
+    ' scroller regions that can be in use at once (a compile-time limit of this object)
     MAX_SCROLLING_REGIONS     = 4
 
-OBJ ' Objects Used by this Object
+OBJ ' ---- Objects Used by this Object ----
 
     hub75Bffrs                              : "isp_hub75_hwBufferAccess"
     cube                                    : "isp_hub75_cube"      ' the cube's faces, for face-centric drawing
@@ -87,7 +90,7 @@ OBJ ' Objects Used by this Object
     colorUtils                              : "isp_hub75_colorUtils"
     scroller[MAX_SCROLLING_REGIONS]         : "isp_hub75_scrollingText"
 
-VAR ' Object Instance Variables
+VAR ' ---- Object Instance Variables ----
     LONG    instanceID
     LONG    chainIndex
     LONG    currTextColor
@@ -109,7 +112,6 @@ VAR ' Object Instance Variables
     WORD rowsPerPanel
 
     BYTE    selectedTextFont
-    BYTE    bFontIsDithered
     BYTE    topOffsetInPix
     BYTE    leftOffsetInPix
     BYTE    charHeightInPix
@@ -121,15 +123,20 @@ VAR ' Object Instance Variables
     BYTE    maxPanelTextColumns
     BYTE    panelFixupOffetInPix
 
-    BYTE    bScan_1_4
-    BYTE    bSwapRB
-    BYTE    bSwapGB
+    ' booleans are LONGs: a BYTE would hold 255 for TRUE, which does not compare equal to TRUE (-1)
+    LONG    bFontIsDithered
+    LONG    bScan_1_4
+    LONG    bSwapRB
+    LONG    bSwapGB
 
     BYTE    padBuffer[MAX_PAD_BUFFER_BYTES]
 
-CON ' PRIVATE Constants
+CON ' ---- PRIVATE Constants ----
 
+    ' the pad buffer holds a padded field and its terminating zero, so a field is at most
+    ' MAX_PAD_FIELD_CHARS (29) characters
     MAX_PAD_BUFFER_BYTES  = 30
+    MAX_PAD_FIELD_CHARS   = MAX_PAD_BUFFER_BYTES - 1
 
     DEFAULT_TEXT_COLOR    = $AAAAAA           ' light-grey default text color
     PAD_CHAR_SPACE        = $20               ' ASCII space used for field padding
@@ -140,7 +147,8 @@ CON ' PRIVATE Constants
     HOME_COLUMN           = 0                 ' top-left cursor home column
 
     CENTER_DIVISOR        = 2                 ' halve free space when centering text
-    ROUND_HALF_BIAS       = 1                 ' +1 before >>1 for round-to-nearest
+    ROUND_HALF_BIAS       = 1                 ' +1 before the halving shift for round-to-nearest
+    HALVE_SHIFT           = 1                 ' right-shift that halves the unused pixels
 
     MARGIN_SIDE_COUNT     = 2                 ' left+right (or top+bottom) margins
 
@@ -155,14 +163,8 @@ CON ' PRIVATE Constants
 
     FACE_TEXT_GAP_PIX     = 1                 ' blank pixels between characters of face-centric text
 
-    ' dithered-font pixel codec (LOCAL to this file; mirrors scrollingText's vocabulary)
-    DITH_BITS_PER_PIX     = 2                 ' 2 bits per pixel in dithered font word
-    DITH_PIX_MASK         = $c000            ' mask for the top pixel in the row word
-    DITH_PIX_TOP_SHIFT    = 14                ' shift to right-align the masked top pixel
-    DITH_PIX_FULL         = 3                 ' codec value -> full brightness
-    DITH_PIX_HALF         = 1                 ' codec value -> reduced brightness
-
-    DITHER_BRIGHTNESS_PCT = 36                ' brightness arg for dithered (half) pixels
+    ' the dithered-font pixel codec and its brightness are scroller.DITH_* and
+    ' scroller.DITHER_BRIGHTNESS_PCT: the one definition lives in isp_hub75_scrollingText
 
     ' Bresenham line/circle integer coefficients (algorithm-inherent; named per FULL-STRICT)
     BRESENHAM_TWO         = 2                 ' 2*dy / 2*dx slope-error doubling
@@ -180,38 +182,38 @@ PUB start(eHub75Adapter) : workerCog
 '' Start one HUB75 adapter's display, in one call. This reads the adapter's settings and
 '' buffers, checks its wiring sentences, and starts the underlying driver(s). Each adapter in
 '' use gets its own display object instance. An adapter whose display has no panels
-'' (every DISPn_C0 .. DISPn_C15 is NO_PANEL) stops startup with a message.
+'' (every DISPn_C0 .. DISPn_C15 is NO_PANEL) stops startup with a message. Aborts (and so never
+'' returns) when the adapter's settings or wiring sentences are refused, or when no cog is free
+'' for the underlying driver.
 ''
 '' @param eHub75Adapter - the adapter to start (HUB75_ADAPTER_1, HUB75_ADAPTER_2 or HUB75_ADAPTER_3; adapter k drives display DISPn with n = k-1)
-'' @returns workerCog - cog ID or -1 on failure
+'' @returns workerCog - cog ID + 1 (never 0) of the driver cog; aborts when no cog is free
 
   workerCog := startWithId(0, eHub75Adapter)
 
 PUB startWithId(nId, eHub75Adapter) : workerCog | scrollerIndex, dvrConfig, eChipType
 '' Start one HUB75 adapter's display with a debug instance ID for multi-hub75 card configurations.
-'' Same as start(), plus the debug instance identifier.
+'' Same as start(), plus the debug instance identifier. Aborts (and so never returns) when the
+'' adapter's settings or wiring sentences are refused, or when no cog is free for the
+'' underlying driver.
 ''
 '' @param nId - debug instance identifier
 '' @param eHub75Adapter - the adapter to start (HUB75_ADAPTER_1, HUB75_ADAPTER_2 or HUB75_ADAPTER_3)
-'' @returns workerCog - cog ID or -1 on failure
+'' @returns workerCog - cog ID + 1 (never 0) of the driver cog; aborts when no cog is free
 
 ' Local Variables:
 ' @local scrollerIndex - loop index for scroller initialization
 ' @local dvrConfig - driver configuration flags
-' @local eChipType - chip type enumeration value
+' @local eChipType - chip type enumeration value (shown in the startup debug line)
 
   chainIndex := hub75Bffrs.configureAdapter(eHub75Adapter)   ' settings, wiring check, buffer pointers
   colorUtils.buildColorTable(chainIndex)                 ' this adapter's color table, from its depth and the gamma setting
   instanceID := nId
   bytefill(@padBuffer, 0, MAX_PAD_BUFFER_BYTES)
 
-  workerCog := cog := -1                                 ' mark as failed, initially
-
   DEBUG("DSP: start() #", udec_(instanceID))
+  ' panelSet.start() aborts when no cog is free, so a return here is always a started cog
   workerCog := cog := panelSet.start(instanceID, chainIndex)   ' send buffer to driver
-  if workerCog == -1
-    DEBUG("DSP: underlying drivers failed!")
-    abort
 
   ' now that we know our chainIndex for this instance, we can record geometry info
   maxDisplayRows, maxDisplayColumns := hub75Bffrs.displaySizeInPixels(chainIndex)
@@ -222,9 +224,10 @@ PUB startWithId(nId, eHub75Adapter) : workerCog | scrollerIndex, dvrConfig, eChi
   debug("DSP: BFFR screen[", udec_long_(hub75Bffrs.displaySizeInLongs(chainIndex)), "] ", uhex_long_(hub75Bffrs.displayBufferAddress(chainIndex)))
 
   dvrConfig, eChipType := hub75Bffrs.getDriverFlags(chainIndex)
-  bScan_1_4 := (dvrConfig & hwEnum.SCAN_4) > 0 ? True : False
-  bSwapRB := (dvrConfig & hwEnum.RB_SWAP) > 0 ? True : False
-  bSwapGB := (dvrConfig & hwEnum.GB_SWAP) > 0 ? True : False
+  debug("DSP: chip type ", udec_(eChipType), ", driver flags ", ubin_word(dvrConfig))
+  bScan_1_4 := (dvrConfig & hwEnum.SCAN_4) <> 0
+  bSwapRB := (dvrConfig & hwEnum.RB_SWAP) <> 0
+  bSwapGB := (dvrConfig & hwEnum.GB_SWAP) <> 0
 
   ' configure our scrollers for first use
   repeat scrollerIndex from 0 TO MAX_SCROLLING_REGIONS - 1
@@ -323,9 +326,7 @@ PUB commitScreenToPanelSet()
 '' taken by the refresh driver (within one refresh), this waits for it first.
 ''
 
-' debug("DSP: commit!")
-
-  if bScan_1_4
+  if bScan_1_4 == TRUE
     panelSet.convertScreen2PWM_14(hub75Bffrs.displayBufferAddress(chainIndex), bSwapRB, bSwapGB)
   else
     panelSet.convertScreen2PWM(hub75Bffrs.displayBufferAddress(chainIndex), bSwapRB, bSwapGB)
@@ -388,12 +389,11 @@ PUB refreshGeometry() | scrollerIndex
 CON ' --------------     Text Handling     --------------
 
 PUB setCursor(line, column)
-'' Position the text cursor to row, column on the display.
+'' Position the text cursor to row, column on the display. A line or column outside the
+'' display is held to its nearest edge, without a message.
 ''
 '' @param line - zero-based text line number
 '' @param column - zero-based text column number
-
-' TODO emit error on bad column/row?
 
   cursorLine := 0 #> line <# maxTextLines - 1
   cursorColumn := 0 #> column <# maxTextColumns - 1
@@ -450,8 +450,9 @@ PUB homeCursorOnPanel(panelIndex)
 
   setCursorOnPanel(HOME_LINE, HOME_COLUMN, panelIndex)
 
-PUB setTextFont(newFont) | scrollerIndex, hUnusedPix, vUnusedPix, heightCorrection
-'' Select the text font and recalculate the text grid size.
+PUB setTextFont(newFont) | scrollerIndex, hUnusedPix, vUnusedPix, heightCorrection, widthCorrection
+'' Select the text font and recalculate the text grid size. Aborts (after a DEBUG message) when
+'' newFont is not one of the supported fonts.
 ''
 '' @param newFont - font identifier constant (TEXT_FONT_*)
 
@@ -459,30 +460,35 @@ PUB setTextFont(newFont) | scrollerIndex, hUnusedPix, vUnusedPix, heightCorrecti
 ' @local scrollerIndex - loop index for scroller configuration
 ' @local hUnusedPix - horizontal unused pixels after text grid layout
 ' @local vUnusedPix - vertical unused pixels after text grid layout
-' @local heightCorrection - height adjustment for certain fonts
+' @local heightCorrection - pixels added to the character cell height when counting text lines
+' @local widthCorrection - pixels added to the character cell width when counting text columns
 
   ' currently we only support our 8x8 and 5x7 fonts
   panelFixupOffetInPix := 0
   heightCorrection := 0
+  widthCorrection := 0
   hBitmapOffsetInPix := 0
   case newFont
     TEXT_FONT_DEFAULT..TEXT_FONT_5x7:
       heightCorrection := FONT_CELL_PADDING
+      widthCorrection := FONT_CELL_PADDING
     TEXT_FONT_5x7_DITH:
       heightCorrection := FONT_CELL_PADDING
+      widthCorrection := FONT_CELL_PADDING
     TEXT_FONT_5x7_DITH_DCNDR:
       heightCorrection := FONT_CELL_PADDING
+      widthCorrection := FONT_CELL_PADDING
     TEXT_FONT_8x8A:
       hBitmapOffsetInPix := FONT_CELL_PADDING
     TEXT_FONT_8x8B:
     OTHER:
-      debug("*ERROR* unknown text size*")
+      debug("*ERROR* unknown text font*")
       abort
 
   selectedTextFont := newFont
   charWidthInPix, charHeightInPix := fonts.getGeometryOfFont(newFont)
   maxTextLines := (maxDisplayRows / (charHeightInPix + heightCorrection))
-  maxTextColumns := (maxDisplayColumns / (charWidthInPix + heightCorrection))
+  maxTextColumns := (maxDisplayColumns / (charWidthInPix + widthCorrection))
 
   bFontIsDithered := fonts.isDitheredFont(newFont)
 
@@ -492,8 +498,8 @@ PUB setTextFont(newFont) | scrollerIndex, hUnusedPix, vUnusedPix, heightCorrecti
   horizontalGapInPix := hUnusedPix / maxTextColumns
   vUnusedPix := maxDisplayRows - (maxTextLines * (charHeightInPix + verticalGapInPix))
   hUnusedPix := maxDisplayColumns - (maxTextColumns * (charWidthInPix + horizontalGapInPix))
-  topOffsetInPix := (vUnusedPix + ROUND_HALF_BIAS) >> 1
-  leftOffsetInPix := (hUnusedPix + ROUND_HALF_BIAS) >> 1
+  topOffsetInPix := (vUnusedPix + ROUND_HALF_BIAS) >> HALVE_SHIFT
+  leftOffsetInPix := (hUnusedPix + ROUND_HALF_BIAS) >> HALVE_SHIFT
 
   maxPanelTextLines := ((rowsPerPanel - topOffsetInPix) / (charHeightInPix + verticalGapInPix))
   maxPanelTextColumns := ((columnsPerPanel - leftOffsetInPix) / (charWidthInPix + horizontalGapInPix))
@@ -581,18 +587,20 @@ PUB centerColoredTextAtLn(line, pZString, rgbColor) | textLen, desiredCol
 ' @local desiredCol - calculated column for centering
 
   textLen := strsize(pZString)
-  desiredCol := (numberTextColumns() - textLen) / CENTER_DIVISOR     ' Calc centering value for clock
+  desiredCol := (numberTextColumns() - textLen) / CENTER_DIVISOR     ' half the free columns go on the left
   ' debug("DSP: cctal() ", udec(desiredCol), udec(textLen), zstr(pZString))
   setColoredTextAtLnCol(line, desiredCol, pZString, rgbColor)
 
-PUB setColoredTextAtLnWithAlignPad(line, pZString, rgbColor, alignment, padLen) | offset, valLen, lineWidth, paddedStr, padOffset
-'' Align and pad text on the specified line using the given color.
+PUB setColoredTextAtLnWithAlignPad(line, pZString, rgbColor, alignment, padLen) | offset, valLen, lineWidth, paddedStr, padOffset, fieldLen
+'' Align and pad text on the specified line using the given color. The padded field is built in
+'' a buffer of MAX_PAD_BUFFER_BYTES, so a field is at most 29 characters (MAX_PAD_FIELD_CHARS):
+'' a larger padLen is held to 29, and a string longer than that is placed unpadded.
 ''
 '' @param line - zero-based text line number
 '' @param pZString - pointer to zero-terminated string
 '' @param rgbColor - 24-bit RGB color value
 '' @param alignment - text alignment (ALIGN_LEFT, ALIGN_CENTER, or ALIGN_RIGHT)
-'' @param padLen - total padded field width in characters
+'' @param padLen - total padded field width in characters (held to MAX_PAD_FIELD_CHARS)
 
 ' Local Variables:
 ' @local offset - calculated column offset for alignment
@@ -600,7 +608,9 @@ PUB setColoredTextAtLnWithAlignPad(line, pZString, rgbColor, alignment, padLen) 
 ' @local lineWidth - total number of text columns on the display
 ' @local paddedStr - pointer to the padded output string
 ' @local padOffset - offset within pad buffer for string placement
+' @local fieldLen - padLen held to the pad buffer's capacity
 
+  fieldLen := padLen <# MAX_PAD_FIELD_CHARS
   paddedStr := pZString
   valLen := strsize(pZString)
 
@@ -612,34 +622,34 @@ PUB setColoredTextAtLnWithAlignPad(line, pZString, rgbColor, alignment, padLen) 
       ' pad on left
       offset := lineWidth - valLen
     ALIGN_CENTER:
-      ' 1/2 padLen on left
+      ' 1/2 of the free columns on left
       offset := (lineWidth - valLen) / CENTER_DIVISOR
     other:
-      ' ALIGN_CENTER - pad on right
+      ' ALIGN_LEFT - pad on right
       offset := 0
 
   ' if we need to pad...
-  if valLen < padLen
+  if valLen < fieldLen
     bytefill(@padBuffer, 0, MAX_PAD_BUFFER_BYTES)
     case alignment
       ALIGN_RIGHT:
         ' pad on left
-        padOffset := padLen - valLen
+        padOffset := fieldLen - valLen
         bytefill(@padBuffer, PAD_CHAR_SPACE, padOffset)
       ALIGN_CENTER:
-        ' 1/2 padLen on left
-        padOffset := (padLen - valLen) / CENTER_DIVISOR
+        ' 1/2 of the field's free space on left
+        padOffset := (fieldLen - valLen) / CENTER_DIVISOR
         bytefill(@padBuffer, PAD_CHAR_SPACE, padOffset)
       other:
-        ' ALIGN_CENTER - pad on right
-        bytefill(@padBuffer, PAD_CHAR_SPACE, padLen)
+        ' ALIGN_LEFT - pad on right
+        bytefill(@padBuffer, PAD_CHAR_SPACE, fieldLen)
         padOffset := 0
     bytemove(@BYTE[@padBuffer][padOffset], pZString, valLen)
     paddedStr := @padBuffer
 
   ' debug("               [", zstr_(paddedStr), "](", udec_(strsize(paddedStr)), ") col=", udec_(offset))
   if strsize(paddedStr) + offset > lineWidth
-    DEBUG("DSP: ERROR2: off Edge! ", udec(offset), udec(padLen), udec(valLen), zstr(pZString))
+    DEBUG("DSP: ERROR2: off Edge! ", udec(offset), udec(fieldLen), udec(valLen), zstr(pZString))
   setColoredTextAtLnCol(line, offset, paddedStr, rgbColor)
 
 PUB setCharAtCursor(cChar)
@@ -772,7 +782,7 @@ PUB scrollTextOnLine(line, pZString, direction) : indexAllocated
 '' @param line - zero-based text line number
 '' @param pZString - pointer to zero-terminated string
 '' @param direction - scroll direction (DIR_TO_LEFT, DIR_TO_RIGHT, etc.)
-'' @returns indexAllocated - scroller region index or NOT_FOUND on failure
+'' @returns indexAllocated - scroller region index; aborts when every scroller region is in use
 
   indexAllocated := scrollColoredTextOnLn(line, pZString, direction, currTextColor)
 
@@ -783,7 +793,7 @@ PUB scrollColoredTextOnLn(line, pZString, direction, rgbColor) : indexAllocated 
 '' @param pZString - pointer to zero-terminated string
 '' @param direction - scroll direction (DIR_TO_LEFT, DIR_TO_RIGHT, etc.)
 '' @param rgbColor - 24-bit RGB color value
-'' @returns indexAllocated - scroller region index or NOT_FOUND on failure
+'' @returns indexAllocated - scroller region index; aborts when every scroller region is in use
 
 ' Local Variables:
 ' @local cLineIdx - bounded line index
@@ -814,7 +824,7 @@ PUB scrollTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direction) :
 '' @param panelCount - number of panels to scroll across
 '' @param pZString - pointer to zero-terminated string
 '' @param direction - scroll direction (DIR_TO_LEFT, DIR_TO_RIGHT, etc.)
-'' @returns indexAllocated - scroller region index or NOT_FOUND on failure
+'' @returns indexAllocated - scroller region index; aborts when every scroller region is in use
 
   indexAllocated := scrollColoredTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direction, currTextColor)
 
@@ -827,7 +837,7 @@ PUB scrollColoredTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direc
 '' @param pZString - pointer to zero-terminated string
 '' @param direction - scroll direction (DIR_TO_LEFT, DIR_TO_RIGHT, etc.)
 '' @param rgbColor - 24-bit RGB color value
-'' @returns indexAllocated - scroller region index or NOT_FOUND on failure
+'' @returns indexAllocated - scroller region index; aborts when every scroller region is in use
 
 ' Local Variables:
 ' @local cLineIdx - bounded line index
@@ -862,7 +872,7 @@ PUB scrollTextAtRC(row, column, widthInChars, pZString, direction) : indexAlloca
 '' @param widthInChars - width of scrolling region in characters
 '' @param pZString - pointer to zero-terminated string
 '' @param direction - scroll direction (DIR_TO_LEFT, DIR_TO_RIGHT, etc.)
-'' @returns indexAllocated - scroller region index or NOT_FOUND on failure
+'' @returns indexAllocated - scroller region index; aborts when every scroller region is in use
 
   indexAllocated := scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, currTextColor)
 
@@ -875,7 +885,7 @@ PUB scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbCol
 '' @param pZString - pointer to zero-terminated string
 '' @param direction - scroll direction (DIR_TO_LEFT, DIR_TO_RIGHT, etc.)
 '' @param rgbColor - 24-bit RGB color value
-'' @returns indexAllocated - scroller region index or NOT_FOUND on failure
+'' @returns indexAllocated - scroller region index; aborts when every scroller region is in use
 
   indexAllocated := nextFreeScroller()
   ' debug("DSP: scrollTextAtRCOfColor() ", udec(indexAllocated))
@@ -890,7 +900,7 @@ PUB scrollFaceTextAtRC(eFace, row, column, widthInChars, pZString, direction) : 
 '' @param widthInChars - width of scrolling region in characters
 '' @param pZString - pointer to zero-terminated string
 '' @param direction - scroll direction (DIR_TO_LEFT, DIR_TO_RIGHT, etc.)
-'' @returns indexAllocated - scroller region index or NOT_FOUND when the display is not a cube
+'' @returns indexAllocated - scroller region index or NOT_FOUND when the display is not a cube; aborts when every scroller region is in use
 
   indexAllocated := scrollFaceTextAtRCOfColor(eFace, row, column, widthInChars, pZString, direction, currTextColor)
 
@@ -910,7 +920,7 @@ PUB scrollFaceTextAtRCOfColor(eFace, row, column, widthInChars, pZString, direct
 '' @param pZString - pointer to zero-terminated string
 '' @param direction - scroll direction (DIR_TO_LEFT, DIR_TO_RIGHT, etc.)
 '' @param rgbColor - 24-bit RGB color value
-'' @returns indexAllocated - scroller region index or NOT_FOUND when the display is not a cube
+'' @returns indexAllocated - scroller region index or NOT_FOUND when the display is not a cube; aborts when every scroller region is in use
 
 ' Local Variables:
 ' @local visibleChars - characters the region shows at once, as the scroller limits them
@@ -937,13 +947,11 @@ PUB isScrollingComplete() : bComplete | scrollerIndex
   ' if one or more scrollers are still moving we are not done!
   repeat scrollerIndex from 0 TO MAX_SCROLLING_REGIONS - 1
     ' is this scroller active?
-    if NOT scroller[scrollerIndex].isIdle()
-      ' is its' scrolling complete?
-      if NOT scroller[scrollerIndex].isScrollingComplete()
+    if scroller[scrollerIndex].isIdle() == FALSE
+      ' is its scrolling complete?
+      if scroller[scrollerIndex].isScrollingComplete() == FALSE
         bComplete := FALSE
         quit                                            ' outta here we have our answer
-    'if bComplete
-    '    debug("DSP: isScrollingComplete() TRUE")
 
 PUB animateScroll() | scrollerIndex
 '' Perform one scroll animation step for all active scrolling regions.
@@ -953,8 +961,8 @@ PUB animateScroll() | scrollerIndex
 ' @local scrollerIndex - loop index for each scroller
 
   repeat scrollerIndex from 0 TO MAX_SCROLLING_REGIONS - 1
-    if NOT scroller[scrollerIndex].isIdle()
-      if NOT scroller[scrollerIndex].isScrollingComplete()
+    if scroller[scrollerIndex].isIdle() == FALSE
+      if scroller[scrollerIndex].isScrollingComplete() == FALSE
         scroller[scrollerIndex].animateScroll()
 
 PUB releaseScroller(indexAllocated)
@@ -963,14 +971,14 @@ PUB releaseScroller(indexAllocated)
 '' @param indexAllocated - scroller region index returned by a scroll method
 
   if indexAllocated >= 0 AND indexAllocated < MAX_SCROLLING_REGIONS
-    ' make this once again avial for reuse
+    ' make this once again available for reuse
     scroller[indexAllocated].release()
 
 CON ' --------------     Basic Graphics     --------------
 
 PUB drawBox(topRow, leftColumn, width, height, filled)
 '' Draw box within the display outline/filled of width x height at R,C (using current text color)
-''   - use preceeding setTextColor() to set the outline color
+''   - use preceding setTextColor() to set the outline color
 ''
 '' @param topRow - row number of top left corner
 '' @param leftColumn - column number of top left corner
@@ -981,20 +989,20 @@ PUB drawBox(topRow, leftColumn, width, height, filled)
   drawBoxOfColor(topRow, leftColumn, width, height, filled, currTextColor)
 
 PUB drawBoxOfColor(topRow, leftColumn, width, height, filled, rgbColor)
-'' Draw box within the display outline/filled of width x height at R,C using rgbColor)
+'' Draw box within the display outline/filled of width x height at R,C using rgbColor.
 ''
 '' @param topRow - row number of top left corner
 '' @param leftColumn - column number of top left corner
 '' @param width - width of box in pixels (including outline)
 '' @param height - height of box in pixels
-'' @param filled - T/F where T = filled with current text color
+'' @param filled - T/F where T = filled with rgbColor
 '' @param rgbColor - the 24-bit color value to use for the box & fill
 
   drawBoxInternal(topRow, leftColumn, width, height, filled, rgbColor, DRAW_WHOLE_DISPLAY, DRAW_NO_TARGET)
 
 PUB drawPanelBox(panelIndex, topRow, leftColumn, width, height, filled)
 '' Draw a box in desired panel outline/filled of width x height at R,C (using current text color)
-''   - use preceeding setTextColor() to set the outline color
+''   - use preceding setTextColor() to set the outline color
 ''
 '' @param panelIndex - panel position of the target panel (P0 is the top-left panel as mounted)
 '' @param topRow - row number of top left corner
@@ -1006,7 +1014,7 @@ PUB drawPanelBox(panelIndex, topRow, leftColumn, width, height, filled)
   drawPanelBoxOfColor(panelIndex, topRow, leftColumn, width, height, filled, currTextColor)
 
 PUB drawPanelBoxOfColor(panelIndex, topRow, leftColumn, width, height, filled, rgbColor) | offsetPixelRows, offsetPixelColumns, panelPosn
-'' Draw a box in desired panel a box outline/filled of width x height at R,C using rgbColor.
+'' Draw a box outline/filled in desired panel of width x height at R,C using rgbColor.
 '' R,C are panel coordinates as the viewer sees the panel with the display mounted; the parts of the box that fall outside the panel are clipped,
 '' never drawn on a neighbouring panel.
 ''
@@ -1015,7 +1023,7 @@ PUB drawPanelBoxOfColor(panelIndex, topRow, leftColumn, width, height, filled, r
 '' @param leftColumn - column number of top left corner
 '' @param width - width of box in pixels (including outline)
 '' @param height - height of box in pixels
-'' @param filled - T/F where T = filled with current text color
+'' @param filled - T/F where T = filled with rgbColor
 '' @param rgbColor - the 24-bit color value to use for the box & fill
 
 ' Local Variables:
@@ -1030,7 +1038,7 @@ PUB drawPanelBoxOfColor(panelIndex, topRow, leftColumn, width, height, filled, r
 
 PUB drawFaceBox(eFace, topRow, leftColumn, width, height, filled)
 '' Draw a box on a face of the cube outline/filled of width x height at R,C (using current text color)
-''   - use preceeding setTextColor() to set the outline color
+''   - use preceding setTextColor() to set the outline color
 ''
 '' @param eFace - the face the coordinates are on (FACE_TOP, FACE_BOTTOM, FACE_FRONT, FACE_BACK, FACE_LEFT or FACE_RIGHT)
 '' @param topRow - row number of top left corner on the face (may run past the face's edges)
@@ -1185,13 +1193,13 @@ PUB drawFacePixelOfColor(eFace, row, column, rgbColor) | eHomeFace
 
 PUB drawCircle(row, column, radius)
 '' Draw circle centered at R,C of radius using current text color
-''   - use preceeding setTextColor() to set the outline color
+''   - use preceding setTextColor() to set the outline color
 ''
 '' @param row - row number of center-point
 '' @param column - column number of center-point
 '' @param radius - radius of circle
 
-    drawCircleOfColor(row, column, radius, currTextColor)
+  drawCircleOfColor(row, column, radius, currTextColor)
 
 
 PUB drawCircleOfColor(ctrRow, ctrColumn, radius, rgbColor)
@@ -1202,11 +1210,11 @@ PUB drawCircleOfColor(ctrRow, ctrColumn, radius, rgbColor)
 '' @param radius - radius of circle
 '' @param rgbColor - draw outline using this 24-bit color value
 
-    drawCircleInternal(ctrRow, ctrColumn, radius, rgbColor, DRAW_WHOLE_DISPLAY, DRAW_NO_TARGET)
+  drawCircleInternal(ctrRow, ctrColumn, radius, rgbColor, DRAW_WHOLE_DISPLAY, DRAW_NO_TARGET)
 
 PUB drawFaceCircle(eFace, row, column, radius)
 '' Draw circle on a face of the cube centered at R,C of radius using current text color
-''   - use preceeding setTextColor() to set the outline color
+''   - use preceding setTextColor() to set the outline color
 ''
 '' @param eFace - the face the coordinates are on (FACE_TOP, FACE_BOTTOM, FACE_FRONT, FACE_BACK, FACE_LEFT or FACE_RIGHT)
 '' @param row - row number of center-point on the face (may run past the face's edges)
@@ -1255,7 +1263,7 @@ PRI placeCharAtRC(cChar, sRowPixIdx, sColumnPixIdx, rgbColor, eDrawMode, drawTar
 ' @local pCharBitMap - pointer to the character bitmap data
 
   pCharBitMap := fonts.getCharAddrForFont(selectedTextFont, cChar)
-  if bFontIsDithered
+  if bFontIsDithered == TRUE
     placeDitheredCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor, eDrawMode, drawTarget)
   else
     placeCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor, eDrawMode, drawTarget)
@@ -1336,7 +1344,7 @@ PRI placeDitheredCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor, eD
 ' @local packedBlack - black's corrected bytes, packed
 ' @local runColors - one glyph row's packed colors, one LONG per pixel
 
-  ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, DITHER_BRIGHTNESS_PCT)  ' half-pixel brightness arg (36, not 50)
+  ditheredRGBColor := colorUtils.reducedBrightnessOfCValue(rgbColor, scroller.DITHER_BRIGHTNESS_PCT)  ' half-pixel brightness arg (36, not 50)
   ' debug(" COLOR PERCENT ", uhex_long_(rgbColor), " -> ", uhex_long_(ditheredRGBColor))
   bRunRows := eDrawMode == DRAW_WHOLE_DISPLAY and charWidthInPix <= pixels.GLYPH_RUN_PIXELS and pixels.isRunDrawable(rgbColor) == TRUE
   if bRunRows == TRUE
@@ -1350,27 +1358,27 @@ PRI placeDitheredCharBitmap(pCharBitMap, sRowPixIdx, sColumnPixIdx, rgbColor, eD
     ' column loop (see placeCharBitmap())
     if bRunRows == TRUE
       repeat cColOffset from 0 TO charWidthInPix - 1
-        cBitOffset := cColOffset * DITH_BITS_PER_PIX
-        pixVal := ((cRowBits << cBitOffset) & DITH_PIX_MASK) >> DITH_PIX_TOP_SHIFT
+        cBitOffset := cColOffset * scroller.DITH_BITS_PER_PIX
+        pixVal := ((cRowBits << cBitOffset) & scroller.DITH_PIX_MASK) >> scroller.DITH_PIX_TOP_SHIFT
         runColors[cColOffset] := packedFg
-        if pixVal <> DITH_PIX_FULL
-          runColors[cColOffset] := (pixVal == DITH_PIX_HALF) ? packedHalf : packedBlack  ' val == [2,0] = black
+        if pixVal <> scroller.DITH_PIX_FULL
+          runColors[cColOffset] := (pixVal == scroller.DITH_PIX_HALF) ? packedHalf : packedBlack  ' val == [2,0] = black
       pixels.copyRowRun(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx, charWidthInPix, @runColors)
     elseif eDrawMode == DRAW_WHOLE_DISPLAY
       repeat cColOffset from 0 TO charWidthInPix - 1
-        cBitOffset := cColOffset * DITH_BITS_PER_PIX
-        pixVal := ((cRowBits << cBitOffset) & DITH_PIX_MASK) >> DITH_PIX_TOP_SHIFT
+        cBitOffset := cColOffset * scroller.DITH_BITS_PER_PIX
+        pixVal := ((cRowBits << cBitOffset) & scroller.DITH_PIX_MASK) >> scroller.DITH_PIX_TOP_SHIFT
         pixColor := rgbColor
-        if pixVal <> DITH_PIX_FULL
-          pixColor := (pixVal == DITH_PIX_HALF) ? ditheredRGBColor : color.CBLACK  ' val == [2,0] = black
+        if pixVal <> scroller.DITH_PIX_FULL
+          pixColor := (pixVal == scroller.DITH_PIX_HALF) ? ditheredRGBColor : color.CBLACK  ' val == [2,0] = black
         pixels.drawPixelAtRC(chainIndex, sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor)
     else
       repeat cColOffset from 0 TO charWidthInPix - 1
-        cBitOffset := cColOffset * DITH_BITS_PER_PIX
-        pixVal := ((cRowBits << cBitOffset) & DITH_PIX_MASK) >> DITH_PIX_TOP_SHIFT
+        cBitOffset := cColOffset * scroller.DITH_BITS_PER_PIX
+        pixVal := ((cRowBits << cBitOffset) & scroller.DITH_PIX_MASK) >> scroller.DITH_PIX_TOP_SHIFT
         pixColor := rgbColor
-        if pixVal <> DITH_PIX_FULL
-          pixColor := (pixVal == DITH_PIX_HALF) ? ditheredRGBColor : color.CBLACK  ' val == [2,0] = black
+        if pixVal <> scroller.DITH_PIX_FULL
+          pixColor := (pixVal == scroller.DITH_PIX_HALF) ? ditheredRGBColor : color.CBLACK  ' val == [2,0] = black
         drawPixelInternal(sRowPixIdx + cRowOffset, sColumnPixIdx + cColOffset, pixColor, eDrawMode, drawTarget)
 
 PRI incrCursorWithWrap()
@@ -1388,7 +1396,7 @@ PRI incrCursorWithWrap()
 PRI nextFreeScroller() : scrollerIndexToUse | scrollerIndex
 ' Find and return the index of the next available idle scroller region.
 '
-' @returns scrollerIndexToUse - index of the free scroller or NOT_FOUND
+' @returns scrollerIndexToUse - index of the free scroller (aborts when every scroller region is in use)
 
 ' Local Variables:
 ' @local scrollerIndex - loop index for searching scrollers
@@ -1439,37 +1447,37 @@ PRI drawLineInternal(fmRow, fmColumn, toRow, toColumn, rgbColor, eDrawMode, draw
 ' @local row - pixel row loop index
 ' @local column - pixel column loop index
 
-    if eDrawMode == DRAW_WHOLE_DISPLAY
-        fmRow :=  0 #> fmRow <# maxDisplayRows - 1
-        fmColumn :=  0 #> fmColumn <# maxDisplayColumns - 1
-        toRow :=  0 #> toRow <# maxDisplayRows - 1
-        toColumn :=  0 #> toColumn <# maxDisplayColumns - 1
+  if eDrawMode == DRAW_WHOLE_DISPLAY
+    fmRow :=  0 #> fmRow <# maxDisplayRows - 1
+    fmColumn :=  0 #> fmColumn <# maxDisplayColumns - 1
+    toRow :=  0 #> toRow <# maxDisplayRows - 1
+    toColumn :=  0 #> toColumn <# maxDisplayColumns - 1
 
-    if fmRow == toRow
-        ' draw Horizontal Line: one row run, unless its pixels must go one by one
-        if isRunLine(rgbColor, eDrawMode) == TRUE
-            drawLineRun(fmRow, fmColumn, toColumn, FALSE, rgbColor, eDrawMode, drawTarget)
-        else
-            repeat column from fmColumn to toColumn
-                drawPixelInternal(fmRow, column, rgbColor, eDrawMode, drawTarget)
-    elseif fmColumn == toColumn
-        ' draw Vertical Line: one column run, unless its pixels must go one by one
-        if isRunLine(rgbColor, eDrawMode) == TRUE
-            drawLineRun(fmColumn, fmRow, toRow, TRUE, rgbColor, eDrawMode, drawTarget)
-        else
-            repeat row from fmRow to toRow
-                drawPixelInternal(row, fmColumn, rgbColor, eDrawMode, drawTarget)
+  if fmRow == toRow
+    ' draw Horizontal Line: one row run, unless its pixels must go one by one
+    if isRunLine(rgbColor, eDrawMode) == TRUE
+      drawLineRun(fmRow, fmColumn, toColumn, FALSE, rgbColor, eDrawMode, drawTarget)
     else
-        if abs(toRow - fmRow) < abs(toColumn - fmColumn)
-            if fmColumn > toColumn
-                plotLineLowInternal(toColumn, toRow, fmColumn, fmRow, rgbColor, eDrawMode, drawTarget)
-            else
-                plotLineLowInternal(fmColumn, fmRow, toColumn, toRow, rgbColor, eDrawMode, drawTarget)
-        else
-            if fmRow > toRow
-                plotLineHighInternal(toColumn, toRow, fmColumn, fmRow, rgbColor, eDrawMode, drawTarget)
-            else
-                plotLineHighInternal(fmColumn, fmRow, toColumn, toRow, rgbColor, eDrawMode, drawTarget)
+      repeat column from fmColumn to toColumn
+        drawPixelInternal(fmRow, column, rgbColor, eDrawMode, drawTarget)
+  elseif fmColumn == toColumn
+    ' draw Vertical Line: one column run, unless its pixels must go one by one
+    if isRunLine(rgbColor, eDrawMode) == TRUE
+      drawLineRun(fmColumn, fmRow, toRow, TRUE, rgbColor, eDrawMode, drawTarget)
+    else
+      repeat row from fmRow to toRow
+        drawPixelInternal(row, fmColumn, rgbColor, eDrawMode, drawTarget)
+  else
+    if abs(toRow - fmRow) < abs(toColumn - fmColumn)
+      if fmColumn > toColumn
+        plotLineLowInternal(toColumn, toRow, fmColumn, fmRow, rgbColor, eDrawMode, drawTarget)
+      else
+        plotLineLowInternal(fmColumn, fmRow, toColumn, toRow, rgbColor, eDrawMode, drawTarget)
+    else
+      if fmRow > toRow
+        plotLineHighInternal(toColumn, toRow, fmColumn, fmRow, rgbColor, eDrawMode, drawTarget)
+      else
+        plotLineHighInternal(fmColumn, fmRow, toColumn, toRow, rgbColor, eDrawMode, drawTarget)
 
 
 PRI isRunLine(rgbColor, eDrawMode) : bRunLine
@@ -1482,7 +1490,7 @@ PRI isRunLine(rgbColor, eDrawMode) : bRunLine
 ' @param eDrawMode - DRAW_WHOLE_DISPLAY, DRAW_CLIP_TO_PANEL or DRAW_FOLD_ON_FACE (see drawLineInternal())
 ' @returns bRunLine - TRUE to draw the line with drawLineRun(), FALSE to draw it pixel by pixel
 
-    bRunLine := eDrawMode <> DRAW_FOLD_ON_FACE and pixels.isRunDrawable(rgbColor) == TRUE
+  bRunLine := eDrawMode <> DRAW_FOLD_ON_FACE and pixels.isRunDrawable(rgbColor) == TRUE
 
 PRI drawLineRun(fixedIdx, fmIdx, toIdx, bColumn, rgbColor, eDrawMode, drawTarget) | firstIdx, lastIdx, bOnPanel, panelTopRow, panelLeftColumn, panelFixedFirst, panelFixedSize, panelAlongFirst, panelAlongSize
 ' Draw a display-centric or panel-centric horizontal (bColumn FALSE) or vertical (TRUE) line in
@@ -1511,33 +1519,33 @@ PRI drawLineRun(fixedIdx, fmIdx, toIdx, bColumn, rgbColor, eDrawMode, drawTarget
 ' @local panelAlongFirst - the panel's first column (or row) along the line
 ' @local panelAlongSize - the panel's columns (or rows) along the line
 
-    firstIdx := fmIdx <# toIdx
-    lastIdx := fmIdx #> toIdx
-    bOnPanel := TRUE
-    if eDrawMode == DRAW_CLIP_TO_PANEL
-        ' the panel's rectangle is its cell of the mounted grid: exactly the pixels whose
-        ' positionAtDisplayPixel() is the target panel
-        panelTopRow, panelLeftColumn := hub75Bffrs.offsetToPanel(chainIndex, drawTarget)
-        if bColumn == TRUE
-            panelFixedFirst, panelFixedSize, panelAlongFirst, panelAlongSize := panelLeftColumn, columnsPerPanel, panelTopRow, rowsPerPanel
-        else
-            panelFixedFirst, panelFixedSize, panelAlongFirst, panelAlongSize := panelTopRow, rowsPerPanel, panelLeftColumn, columnsPerPanel
-        bOnPanel := fixedIdx >= panelFixedFirst and fixedIdx < panelFixedFirst + panelFixedSize
-        firstIdx #>= panelAlongFirst
-        lastIdx <#= panelAlongFirst + panelAlongSize - 1
-    if bOnPanel == TRUE and firstIdx <= lastIdx
-        if bColumn == TRUE
-            pixels.fillColumnRun(chainIndex, fixedIdx, firstIdx, lastIdx - firstIdx + 1, pixels.packedColorOf(chainIndex, rgbColor))
-        else
-            pixels.fillRowRun(chainIndex, fixedIdx, firstIdx, lastIdx - firstIdx + 1, pixels.packedColorOf(chainIndex, rgbColor))
+  firstIdx := fmIdx <# toIdx
+  lastIdx := fmIdx #> toIdx
+  bOnPanel := TRUE
+  if eDrawMode == DRAW_CLIP_TO_PANEL
+    ' the panel's rectangle is its cell of the mounted grid: exactly the pixels whose
+    ' positionAtDisplayPixel() is the target panel
+    panelTopRow, panelLeftColumn := hub75Bffrs.offsetToPanel(chainIndex, drawTarget)
+    if bColumn == TRUE
+      panelFixedFirst, panelFixedSize, panelAlongFirst, panelAlongSize := panelLeftColumn, columnsPerPanel, panelTopRow, rowsPerPanel
+    else
+      panelFixedFirst, panelFixedSize, panelAlongFirst, panelAlongSize := panelTopRow, rowsPerPanel, panelLeftColumn, columnsPerPanel
+    bOnPanel := fixedIdx >= panelFixedFirst and fixedIdx < panelFixedFirst + panelFixedSize
+    firstIdx #>= panelAlongFirst
+    lastIdx <#= panelAlongFirst + panelAlongSize - 1
+  if bOnPanel == TRUE and firstIdx <= lastIdx
+    if bColumn == TRUE
+      pixels.fillColumnRun(chainIndex, fixedIdx, firstIdx, lastIdx - firstIdx + 1, pixels.packedColorOf(chainIndex, rgbColor))
+    else
+      pixels.fillRowRun(chainIndex, fixedIdx, firstIdx, lastIdx - firstIdx + 1, pixels.packedColorOf(chainIndex, rgbColor))
 
-PRI plotLineLowInternal(x0, y0, x1, y1, rgbColor, eDrawMode, drawTarget) | row, column, dy, dx, decisionAccum,yi
+PRI plotLineLowInternal(fromColumn, fromRow, toColumn, toRow, rgbColor, eDrawMode, drawTarget) | row, column, dy, dx, decisionAccum, yi
 ' Bresenham line algorithm for shallow slopes
 '
-' @param x0 - starting pixel column
-' @param y0 - starting pixel row
-' @param x1 - ending pixel column
-' @param y1 - ending pixel row
+' @param fromColumn - starting pixel column
+' @param fromRow - starting pixel row
+' @param toColumn - ending pixel column
+' @param toRow - ending pixel row
 ' @param rgbColor - 24-bit RGB color value
 ' @param eDrawMode - DRAW_WHOLE_DISPLAY, DRAW_CLIP_TO_PANEL or DRAW_FOLD_ON_FACE (see drawLineInternal())
 ' @param drawTarget - DRAW_NO_TARGET, the panel position, or the face (see drawLineInternal())
@@ -1550,16 +1558,16 @@ PRI plotLineLowInternal(x0, y0, x1, y1, rgbColor, eDrawMode, drawTarget) | row, 
 ' @local decisionAccum - Bresenham decision accumulator
 ' @local yi - row step direction
 
-  dx := x1 - x0
-  dy := y1 - y0
+  dx := toColumn - fromColumn
+  dy := toRow - fromRow
   yi := 1
   if dy < 0
     yi := -1
     dy := -dy
   decisionAccum := (BRESENHAM_TWO * dy) - dx
-  row := y0
+  row := fromRow
 
-  repeat column from x0 to x1
+  repeat column from fromColumn to toColumn
     drawPixelInternal(row, column, rgbColor, eDrawMode, drawTarget)
     if decisionAccum > 0
       row := row + yi
@@ -1567,13 +1575,13 @@ PRI plotLineLowInternal(x0, y0, x1, y1, rgbColor, eDrawMode, drawTarget) | row, 
     else
       decisionAccum := decisionAccum +BRESENHAM_TWO * dy
 
-PRI plotLineHighInternal(x0, y0, x1, y1, rgbColor, eDrawMode, drawTarget) | row, column, dy, dx, decisionAccum,xi
+PRI plotLineHighInternal(fromColumn, fromRow, toColumn, toRow, rgbColor, eDrawMode, drawTarget) | row, column, dy, dx, decisionAccum, xi
 ' Bresenham line algorithm for steep slopes
 '
-' @param x0 - starting pixel column
-' @param y0 - starting pixel row
-' @param x1 - ending pixel column
-' @param y1 - ending pixel row
+' @param fromColumn - starting pixel column
+' @param fromRow - starting pixel row
+' @param toColumn - ending pixel column
+' @param toRow - ending pixel row
 ' @param rgbColor - 24-bit RGB color value
 ' @param eDrawMode - DRAW_WHOLE_DISPLAY, DRAW_CLIP_TO_PANEL or DRAW_FOLD_ON_FACE (see drawLineInternal())
 ' @param drawTarget - DRAW_NO_TARGET, the panel position, or the face (see drawLineInternal())
@@ -1586,16 +1594,16 @@ PRI plotLineHighInternal(x0, y0, x1, y1, rgbColor, eDrawMode, drawTarget) | row,
 ' @local decisionAccum - Bresenham decision accumulator
 ' @local xi - column step direction
 
-  dx := x1 - x0
-  dy := y1 - y0
+  dx := toColumn - fromColumn
+  dy := toRow - fromRow
   xi := 1
   if dx < 0
     xi := -1
     dx := -dx
   decisionAccum := (BRESENHAM_TWO * dx) - dy
-  column := x0
+  column := fromColumn
 
-  repeat row from y0 to y1
+  repeat row from fromRow to toRow
     drawPixelInternal(row, column, rgbColor, eDrawMode, drawTarget)
     if decisionAccum > 0
       column := column + xi
@@ -1617,13 +1625,13 @@ PRI drawPixelInternal(row, column, rgbColor, eDrawMode, drawTarget)
 ' @param eDrawMode - DRAW_WHOLE_DISPLAY, DRAW_CLIP_TO_PANEL or DRAW_FOLD_ON_FACE (see drawLineInternal())
 ' @param drawTarget - DRAW_NO_TARGET, the panel position whose pixels alone are drawn, or the face (FACE_*) the coordinates are on
 
-    if eDrawMode == DRAW_WHOLE_DISPLAY
-        pixels.drawPixelAtRC(chainIndex, row, column, rgbColor)
-    elseif eDrawMode == DRAW_CLIP_TO_PANEL
-        if hub75Bffrs.positionAtDisplayPixel(chainIndex, row, column) == drawTarget
-            pixels.drawPixelAtRC(chainIndex, row, column, rgbColor)
-    else
-        drawFoldedPixel(row, column, rgbColor, drawTarget)
+  if eDrawMode == DRAW_WHOLE_DISPLAY
+    pixels.drawPixelAtRC(chainIndex, row, column, rgbColor)
+  elseif eDrawMode == DRAW_CLIP_TO_PANEL
+    if hub75Bffrs.positionAtDisplayPixel(chainIndex, row, column) == drawTarget
+      pixels.drawPixelAtRC(chainIndex, row, column, rgbColor)
+  else
+    drawFoldedPixel(row, column, rgbColor, drawTarget)
 
 PRI drawFoldedPixel(faceRow, faceColumn, rgbColor, eHomeFace) | displayRow, displayColumn
 ' Draw one face-centric pixel: carry it into its object's home frame (the home transform that
@@ -1643,9 +1651,9 @@ PRI drawFoldedPixel(faceRow, faceColumn, rgbColor, eHomeFace) | displayRow, disp
 ' @local displayRow - display row the pixel lands on, or NO_DISPLAY_PIXEL
 ' @local displayColumn - display column the pixel lands on
 
-    displayRow, displayColumn := cube.homeFoldToDisplay(chainIndex, eHomeFace, faceHomeTurn, faceHomeAddRow, faceHomeAddColumn, faceRow, faceColumn)
-    if displayRow <> cube.NO_DISPLAY_PIXEL
-        pixels.drawPixelAtRC(chainIndex, displayRow, displayColumn, rgbColor)
+  displayRow, displayColumn := cube.homeFoldToDisplay(chainIndex, eHomeFace, faceHomeTurn, faceHomeAddRow, faceHomeAddColumn, faceRow, faceColumn)
+  if displayRow <> cube.NO_DISPLAY_PIXEL
+    pixels.drawPixelAtRC(chainIndex, displayRow, displayColumn, rgbColor)
 
 PRI faceFrameOf(eFace) : eHomeFace
 ' Begin a face-centric object drawn in the frame of the face it is given: the home transform is
@@ -1654,12 +1662,12 @@ PRI faceFrameOf(eFace) : eHomeFace
 ' @param eFace - the face the object's coordinates are on (FACE_*)
 ' @returns eHomeFace - the face to draw from (eFace), or NO_FACE when the display is not a cube
 
-    eHomeFace := eFace
-    faceHomeTurn := cube.QTURN_NONE
-    faceHomeAddRow := faceHomeAddColumn := 0
-    if hub75Bffrs.displayShape(chainIndex) <> hwEnum.SHAPE_CUBE
-        DEBUG("* Warning: face-centric drawing needs DISP", udec_(chainIndex), "_SHAPE = SHAPE_CUBE")
-        eHomeFace := cube.NO_FACE
+  eHomeFace := eFace
+  faceHomeTurn := cube.QTURN_NONE
+  faceHomeAddRow := faceHomeAddColumn := 0
+  if hub75Bffrs.displayShape(chainIndex) <> hwEnum.SHAPE_CUBE
+    DEBUG("* Warning: face-centric drawing needs DISP", udec_(chainIndex), "_SHAPE = SHAPE_CUBE")
+    eHomeFace := cube.NO_FACE
 
 PRI faceHomeOf(eFace, firstRow, firstColumn, lastRow, lastColumn) : eHomeFace
 ' Home a face-centric object: the one place every face primitive finds where to draw. The home
@@ -1678,9 +1686,9 @@ PRI faceHomeOf(eFace, firstRow, firstColumn, lastRow, lastColumn) : eHomeFace
 ' @param lastColumn - last column of the object on that face (any value)
 ' @returns eHomeFace - the face that holds the object's centre, or NO_FACE for an invalid face or a display that is not a cube
 
-    eHomeFace := faceFrameOf(eFace)
-    if eHomeFace <> cube.NO_FACE
-        eHomeFace, faceHomeTurn, faceHomeAddRow, faceHomeAddColumn := cube.homeOnFaceOfExtent(chainIndex, eFace, firstRow, firstColumn, lastRow, lastColumn)
+  eHomeFace := faceFrameOf(eFace)
+  if eHomeFace <> cube.NO_FACE
+    eHomeFace, faceHomeTurn, faceHomeAddRow, faceHomeAddColumn := cube.homeOnFaceOfExtent(chainIndex, eFace, firstRow, firstColumn, lastRow, lastColumn)
 
 PRI drawBoxInternal(topRow, leftColumn, width, height, filled, rgbColor, eDrawMode, drawTarget) | rightColumn, bottomRow, rowIndex
 ' Internal box drawing for display-centric, panel-centric and face-centric boxes: the one box
@@ -1700,22 +1708,22 @@ PRI drawBoxInternal(topRow, leftColumn, width, height, filled, rgbColor, eDrawMo
 ' @local bottomRow - row number of the bottom edge
 ' @local rowIndex - row (or column) loop index when filling
 
-    rightColumn := leftColumn + width - 1
-    bottomRow := topRow + height - 1
-    if filled == TRUE
-        if width < height and width > 0 and isRunLine(rgbColor, eDrawMode) == TRUE
-            ' narrower than tall: one column run per column, so a box one pixel wide is one run,
-            ' not one run per pixel (the same pixels as row by row, in one color)
-            repeat rowIndex from 0 to width - 1
-                drawLineInternal(topRow, leftColumn + rowIndex, bottomRow, leftColumn + rowIndex, rgbColor, eDrawMode, drawTarget)    ' vert column
-        else
-            repeat rowIndex from 0 to height - 1
-                drawLineInternal(topRow + rowIndex, leftColumn, topRow + rowIndex, rightColumn, rgbColor, eDrawMode, drawTarget)    ' horiz row
+  rightColumn := leftColumn + width - 1
+  bottomRow := topRow + height - 1
+  if filled == TRUE
+    if width < height and width > 0 and isRunLine(rgbColor, eDrawMode) == TRUE
+      ' narrower than tall: one column run per column, so a box one pixel wide is one run,
+      ' not one run per pixel (the same pixels as row by row, in one color)
+      repeat rowIndex from 0 to width - 1
+        drawLineInternal(topRow, leftColumn + rowIndex, bottomRow, leftColumn + rowIndex, rgbColor, eDrawMode, drawTarget)    ' vert column
     else
-        drawLineInternal(topRow, leftColumn, topRow, rightColumn, rgbColor, eDrawMode, drawTarget)          ' horiz top
-        drawLineInternal(topRow, rightColumn, bottomRow, rightColumn, rgbColor, eDrawMode, drawTarget)      ' vert right
-        drawLineInternal(bottomRow, leftColumn, bottomRow, rightColumn, rgbColor, eDrawMode, drawTarget)    ' horiz bottom
-        drawLineInternal(topRow, leftColumn, bottomRow, leftColumn, rgbColor, eDrawMode, drawTarget)        ' vert left
+      repeat rowIndex from 0 to height - 1
+        drawLineInternal(topRow + rowIndex, leftColumn, topRow + rowIndex, rightColumn, rgbColor, eDrawMode, drawTarget)    ' horiz row
+  else
+    drawLineInternal(topRow, leftColumn, topRow, rightColumn, rgbColor, eDrawMode, drawTarget)          ' horiz top
+    drawLineInternal(topRow, rightColumn, bottomRow, rightColumn, rgbColor, eDrawMode, drawTarget)      ' vert right
+    drawLineInternal(bottomRow, leftColumn, bottomRow, rightColumn, rgbColor, eDrawMode, drawTarget)    ' horiz bottom
+    drawLineInternal(topRow, leftColumn, bottomRow, leftColumn, rgbColor, eDrawMode, drawTarget)        ' vert left
 
 PRI drawCircleInternal(ctrRow, ctrColumn, radius, rgbColor, eDrawMode, drawTarget) | column, row, decision
 ' Internal circle drawing for display-centric and face-centric circles: the one circle primitive
@@ -1733,21 +1741,21 @@ PRI drawCircleInternal(ctrRow, ctrColumn, radius, rgbColor, eDrawMode, drawTarge
 ' @local row - current row offset from center
 ' @local decision - Bresenham circle decision accumulator
 
-    column := 0
-    row := radius
-    decision := CIRCLE_DECISION_INIT - CIRCLE_DECISION_RADIUS_MUL * radius
+  column := 0
+  row := radius
+  decision := CIRCLE_DECISION_INIT - CIRCLE_DECISION_RADIUS_MUL * radius
+  drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor, eDrawMode, drawTarget)
+  repeat while (row >= column)
+    column++
+    ' check for decision parameter
+    ' and correspondingly
+    ' update decision, column, row
+    if (decision > 0)
+      row--
+      decision := decision + CIRCLE_DELTA_MUL * (column - row) + CIRCLE_DELTA_DIAG_ADD
+    else
+      decision := decision + CIRCLE_DELTA_MUL * column + CIRCLE_DELTA_AXIS_ADD
     drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor, eDrawMode, drawTarget)
-    repeat while (row >= column)
-        column++
-        ' check for decision parameter
-        ' and correspondingly
-        ' update decision, column, row
-        if (decision > 0)
-            row--
-            decision := decision + CIRCLE_DELTA_MUL * (column - row) + CIRCLE_DELTA_DIAG_ADD
-        else
-            decision := decision + CIRCLE_DELTA_MUL * column + CIRCLE_DELTA_AXIS_ADD
-        drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor, eDrawMode, drawTarget)
 
 PRI drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor, eDrawMode, drawTarget)
 ' Draw the eight symmetric points of a circle for the given octant offsets. A display-centric
@@ -1762,31 +1770,31 @@ PRI drawCirclePointsOfColor(ctrRow, ctrColumn, row, column, rgbColor, eDrawMode,
 ' @param eDrawMode - DRAW_WHOLE_DISPLAY or DRAW_FOLD_ON_FACE (see drawLineInternal())
 ' @param drawTarget - DRAW_NO_TARGET, or the face (FACE_*) the coordinates are on
 
-    ' for each pixel we will
-    ' draw all eight pixels
-    ' NOTE: row/column here are offsets from center, not absolute coordinates
-    '       The drawPixelAtRC signature is (chainIdx, row, column, color)
-    if eDrawMode == DRAW_WHOLE_DISPLAY
-        pixels.drawPixelAtRC(chainIndex, ctrRow+row, ctrColumn+column, rgbColor)
-        pixels.drawPixelAtRC(chainIndex, ctrRow+row, ctrColumn-column, rgbColor)
-        pixels.drawPixelAtRC(chainIndex, ctrRow-row, ctrColumn+column, rgbColor)
-        pixels.drawPixelAtRC(chainIndex, ctrRow-row, ctrColumn-column, rgbColor)
-        pixels.drawPixelAtRC(chainIndex, ctrRow+column, ctrColumn+row, rgbColor)
-        pixels.drawPixelAtRC(chainIndex, ctrRow+column, ctrColumn-row, rgbColor)
-        pixels.drawPixelAtRC(chainIndex, ctrRow-column, ctrColumn+row, rgbColor)
-        pixels.drawPixelAtRC(chainIndex, ctrRow-column, ctrColumn-row, rgbColor)
-    else
-        drawPixelInternal(ctrRow+row, ctrColumn+column, rgbColor, eDrawMode, drawTarget)
-        drawPixelInternal(ctrRow+row, ctrColumn-column, rgbColor, eDrawMode, drawTarget)
-        drawPixelInternal(ctrRow-row, ctrColumn+column, rgbColor, eDrawMode, drawTarget)
-        drawPixelInternal(ctrRow-row, ctrColumn-column, rgbColor, eDrawMode, drawTarget)
-        drawPixelInternal(ctrRow+column, ctrColumn+row, rgbColor, eDrawMode, drawTarget)
-        drawPixelInternal(ctrRow+column, ctrColumn-row, rgbColor, eDrawMode, drawTarget)
-        drawPixelInternal(ctrRow-column, ctrColumn+row, rgbColor, eDrawMode, drawTarget)
-        drawPixelInternal(ctrRow-column, ctrColumn-row, rgbColor, eDrawMode, drawTarget)
+  ' for each pixel we will
+  ' draw all eight pixels
+  ' NOTE: row/column here are offsets from center, not absolute coordinates
+  '       The drawPixelAtRC signature is (chainIdx, row, column, color)
+  if eDrawMode == DRAW_WHOLE_DISPLAY
+    pixels.drawPixelAtRC(chainIndex, ctrRow+row, ctrColumn+column, rgbColor)
+    pixels.drawPixelAtRC(chainIndex, ctrRow+row, ctrColumn-column, rgbColor)
+    pixels.drawPixelAtRC(chainIndex, ctrRow-row, ctrColumn+column, rgbColor)
+    pixels.drawPixelAtRC(chainIndex, ctrRow-row, ctrColumn-column, rgbColor)
+    pixels.drawPixelAtRC(chainIndex, ctrRow+column, ctrColumn+row, rgbColor)
+    pixels.drawPixelAtRC(chainIndex, ctrRow+column, ctrColumn-row, rgbColor)
+    pixels.drawPixelAtRC(chainIndex, ctrRow-column, ctrColumn+row, rgbColor)
+    pixels.drawPixelAtRC(chainIndex, ctrRow-column, ctrColumn-row, rgbColor)
+  else
+    drawPixelInternal(ctrRow+row, ctrColumn+column, rgbColor, eDrawMode, drawTarget)
+    drawPixelInternal(ctrRow+row, ctrColumn-column, rgbColor, eDrawMode, drawTarget)
+    drawPixelInternal(ctrRow-row, ctrColumn+column, rgbColor, eDrawMode, drawTarget)
+    drawPixelInternal(ctrRow-row, ctrColumn-column, rgbColor, eDrawMode, drawTarget)
+    drawPixelInternal(ctrRow+column, ctrColumn+row, rgbColor, eDrawMode, drawTarget)
+    drawPixelInternal(ctrRow+column, ctrColumn-row, rgbColor, eDrawMode, drawTarget)
+    drawPixelInternal(ctrRow-column, ctrColumn+row, rgbColor, eDrawMode, drawTarget)
+    drawPixelInternal(ctrRow-column, ctrColumn-row, rgbColor, eDrawMode, drawTarget)
 
 
-CON { license }
+CON ' license
 
 {{
 

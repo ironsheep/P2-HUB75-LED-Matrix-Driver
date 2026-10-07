@@ -3,20 +3,20 @@
 ''   File....... isp_hub75_panel.spin2
 ''   Purpose.... Manage the HUB75 panel content
 ''   Authors.... Stephen M Moraco
-''               -- Copyright (c) 2022 Iron Sheep Productions, LLC
+''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 04 Oct 2026
+''   Updated.... 06 Oct 2026
 ''
 ''  This object provides 24bit screen buffer to PWM buffers support
 '' =================================================================================================
 
-CON ' I/O PINs
+CON ' ---- I/O PINs ----
 
 ' None
 
-CON ' Magic-number vocabulary (per SPIN2-AUTHORING-GUIDE.md 5.7)
+CON ' ---- Magic-number vocabulary (the central Spin2 authoring guide, 5.7) ----
 
 ' RGB1/RGB2 plane bit values (panel BGR byte layout)
     RGB1_RED_BIT            = $01
@@ -64,6 +64,12 @@ CON ' Magic-number vocabulary (per SPIN2-AUTHORING-GUIDE.md 5.7)
 ' "Pwm0 " dump-label byte positions (frame index char, RGB2-present flag)
     MSG_PWM_INDEX_POS       = 3
     MSG_PWM_FLAG_POS        = 4
+
+' Bytes of one PWM frame the debug dumps show
+    DUMP_FRAME_BYTES        = 32
+
+' Time for the cog-start debug messages to finish printing before start() returns
+    START_MESSAGES_SETTLE_MS = 1
 
 CON ' ---- MERGEB converter (convertRowPairs) ----
 
@@ -130,12 +136,12 @@ CON ' ---- MERGEB converter (convertRowPairs) ----
 '  COLOR_BIT_0 (least significant) .. COLOR_BIT_7 (most significant, plane 0)
     #0, COLOR_BIT_0, COLOR_BIT_1, COLOR_BIT_2, COLOR_BIT_3, COLOR_BIT_4, COLOR_BIT_5, COLOR_BIT_6, COLOR_BIT_7
 
-OBJ ' Objects Needed
+OBJ ' ---- Objects Needed ----
 
     hub75Bffrs  : "isp_hub75_hwBufferAccess"
     matrix      : "isp_hub75_rgb3bit"
 
-VAR ' driver instance variables
+VAR ' ---- Driver instance variables ----
     LONG    instanceID
     LONG    cog
     LONG    chainIndex
@@ -151,10 +157,10 @@ VAR ' driver instance variables
     LONG    nColorDepth
     LONG    nPwmFrameSizeInBytes
     LONG    nPwmFrameSizeInLongs
-#ifdef DBG_PWM
+#IFDEF DBG_PWM
     BYTE    bDumpOnce
     BYTE    nPassCt
-#endif
+#ENDIF
 
     LONG    pPwmFrame1
     LONG    pPwmFrame2
@@ -175,11 +181,12 @@ PUB null()
 ''
 
 PUB start(nID, nChainIdx) : startedCog
-'' Start the backend PASM2 driver for the matrix.
+'' Start the backend PASM2 driver for the matrix. Aborts (after a DEBUG message) when no cog is
+'' free for the driver, or when the driver's own startup aborts.
 ''
 '' @param nID - panel instance identifier
 '' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
-'' @returns startedCog - cog ID on success or -1 on failure
+'' @returns startedCog - cog ID + 1 (never 0) of the driver cog; aborts when no cog is free
 
   chainIndex := nChainIdx
   instanceID := nID
@@ -197,10 +204,10 @@ PUB start(nID, nChainIdx) : startedCog
   DEBUG("- PNL: #", udec_(instanceID), " Start clk=", udec_long(clkfreq))
   DEBUG("- PNL: Grid ", udec_(nPanelsPerRow), "x", udec_(nPanelsPerColumn), " cells, ", udec_(nPanelCount), " panels, Display ", udec_(nDisplayColumns), "x", udec_(nDisplayRows))
 
-#ifdef DBG_PWM
+#IFDEF DBG_PWM
   bDumpOnce := FALSE
   nPassCt := 0
-#endif
+#ENDIF
 
   nPwmFrameSizeInLongs := hub75Bffrs.pwmFrameSizeInLongs(chainIndex)
   DEBUG("- PNL: PHYScols=", udec_long_(maxChainColumns), " PHYSrows=", udec_long_(maxChainRows))
@@ -218,12 +225,10 @@ PUB start(nID, nChainIdx) : startedCog
   longfill(pPwmFrame1, 0, nPwmFrameSizeInLongs * nColorDepth)   ' clear both PWM frame sets
   longfill(pPwmFrame2, 0, nPwmFrameSizeInLongs * nColorDepth)
 
+  ' matrix.start() aborts when no cog is free, so a return here is always a started cog
   startedCog := cog := matrix.start(instanceID, chainIndex)     ' send buffer to driver
-  if startedCog == -1
-    DEBUG("- PNL: underlying drivers failed!")
-    abort
 
-  waitms(1)                                             ' allow cog-start debug messages to finish...
+  waitms(START_MESSAGES_SETTLE_MS)                                           ' allow cog-start debug messages to finish...
 
 PUB stop()
 '' Stop the PASM2 backend driver and release the cog.
@@ -368,16 +373,16 @@ PUB convertScreen2PWM(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet
   pPwmFrameSet := frameSetToConvertInto()
   convertHalfScan(p24bitScreen, pPwmFrameSet, nPanelCount, nPanelColumns, nPanelRows, nColorDepth, bSwapRB, bSwapGB)
 
-#ifdef DBG_PWM
+#IFDEF DBG_PWM
   ' Debug code for Frame 0 MSB issue investigation (enable with -D DBG_PWM)
   nPassCt++
-  if not bDumpOnce && nPassCt == 2
+  if bDumpOnce == FALSE and nPassCt == 2
     bDumpOnce := TRUE
     debug("--- DEBUG: Frame 0 vs Frame 1 data ---")
     dumpBufferHeads(p24bitScreen, pPwmFrameSet)
-    hub75Bffrs.dbgMemDump(@frame0Msg, pPwmFrameSet, 32)
-    hub75Bffrs.dbgMemDump(@frame1Msg, pPwmFrameSet + nPwmFrameSizeInBytes, 32)
-#endif
+    hub75Bffrs.dbgMemDump(@frame0Msg, pPwmFrameSet, DUMP_FRAME_BYTES)
+    hub75Bffrs.dbgMemDump(@frame1Msg, pPwmFrameSet + nPwmFrameSizeInBytes, DUMP_FRAME_BYTES)
+#ENDIF
 
   postConvertedSet(pPwmFrameSet)
 
@@ -410,7 +415,7 @@ PUB convertHalfScan(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, pla
 
 CON ' ------------- PRIVATE (Utility) Methods -------------
 
-#ifdef DBG_PWM
+#IFDEF DBG_PWM
 ' --- PWM/frame dump diagnostics toolkit (compiled only with -D DBG_PWM) ---
 PRI dumpBufferHeads(pSCreenBuffer,pPwmBuffer)
 ' Dump the first 48 bytes of the screen and PWM buffers for debug inspection.
@@ -466,7 +471,7 @@ PRI dumpFrame(frameIdx, pFrameBuffer) | frameASCII
   else
     BYTE[@msgPwm][MSG_PWM_FLAG_POS] := ASCII_SPACE     ' space
 
-  hub75Bffrs.dbgMemDump(@msgPwm, pFrameBuffer, 32)
+  hub75Bffrs.dbgMemDump(@msgPwm, pFrameBuffer, DUMP_FRAME_BYTES)
 
 PRI emptyRgb2(pFrameBuffer) : isEmpty | byteIdx
 ' Check whether all RGB2 bits are zero in the first 32 bytes of a PWM frame.
@@ -482,7 +487,7 @@ PRI emptyRgb2(pFrameBuffer) : isEmpty | byteIdx
     if BYTE[pFrameBuffer][byteIdx] & MASK_RGB2 > 0
       isEmpty := FALSE
       quit
-#endif
+#ENDIF
 
 PRI convertRowPairs(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, swapOrder, slotGapBytes, rowStepBytes, lineZeroRowBytes) | rowBytes, halfPanelBytes, panelSkipBytes, frameBytes, groupStep
 ' The MERGEB converter both scans share (convertHalfScan(), convertQuarterScan()). It pairs each
@@ -855,7 +860,7 @@ PRI postFrameSet(pFrameSet)
   pLastPosted := pFrameSet
   matrix.cmdWritePwmBuffer(pFrameSet)
 
-#ifdef DBG_PWM
+#IFDEF DBG_PWM
 DAT  ' PWM/frame dump diagnostic message strings (compiled only with -D DBG_PWM)
 
     msgPwm          BYTE    "Pwm0 ", 0
@@ -864,7 +869,7 @@ DAT  ' PWM/frame dump diagnostic message strings (compiled only with -D DBG_PWM)
     frameMsg        BYTE    "PWM[0]",0
     frame0Msg       BYTE    "Frame0",0
     frame1Msg       BYTE    "Frame1",0
-#endif
+#ENDIF
 
 CON ' license
 
@@ -874,7 +879,7 @@ CON ' license
  -------------------------------------------------------------------------------------------------
   MIT License
 
-  Copyright (c) 2022 Iron Sheep Productions, LLC
+  Copyright (c) 2024 Iron Sheep Productions, LLC
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
