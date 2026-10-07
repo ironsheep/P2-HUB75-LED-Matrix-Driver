@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 06 Oct 2026
+''   Updated.... 07 Oct 2026
 ''
 '' =================================================================================================
 
@@ -188,7 +188,6 @@ CON ' ---- Row-address bitmask + one-row step (per pin-group x per addr-mode) --
 CON ' ---- COGINIT / inline-PASM timing + FM6126A register init ----
 
     COGINIT_FREE_COG              = 16          ' COGINIT: start in any free cog
-    COGINIT_NO_FREE_COG           = -1          ' COGINIT's result when no cog is free
     COL_GROUP_MASK                = $0F         ' 16-column-group index mask
     FM6126_REG11_NUM              = 11          ' FM6126A control register 11
     FM6126_REG12_NUM              = 12          ' FM6126A control register 12
@@ -517,9 +516,11 @@ PUB start(nID, nChainIdx) : startedCog | columnClockHz, panelCt, colorDepthPlane
   dvrShowing := NO_FRAME_SET                                                    ' nothing taken yet
   dvrCommand := CMD_DONE                                                        ' nothing posted yet
 
-  ' COGINIT returns -1 when no cog is free; the stored value is cog ID + 1 so that 0 means "not started"
+  ' when no cog is free COGINIT's result is negative: the failure flag lands in bit 31 (measured
+  ' $8000_000F on the P2, not -1), so test the sign; the stored value is cog ID + 1 so that 0
+  ' means "not started"
   rawCogId := COGINIT(COGINIT_FREE_COG, @drive_matrix, @ptrCommand)
-  if rawCogId == COGINIT_NO_FREE_COG
+  if rawCogId < 0
     DEBUG("- Matrix: pasm cog start failed!")
     abort
   cog := rawCogId + 1

@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2026
-''   Updated.... 04 Oct 2026
+''   Updated.... 07 Oct 2026
 ''
 '' =================================================================================================
 
@@ -404,7 +404,7 @@ DAT ' ---- Test State (singleton) ----
 PUB main() : ok | nCommitsBefore, bTakeCheck
 '' Start adapter 1 and the instrument, run every phase of the workload, report, and end the session.
 ''
-'' @returns ok - cog ID of the display driver or -1 on failure
+'' @returns ok - cog ID + 1 of the display driver (display.start() aborts when no cog is free)
 
 ' Local Variables:
 ' @local nCommitsBefore - commits posted before the take check started
@@ -413,26 +413,24 @@ PUB main() : ok | nCommitsBefore, bTakeCheck
   debug("RATES: ---- HUB75 rates workload ----")
 
   ok := display.start(hub75Bffrs.HUB75_ADAPTER_1)
-  if ok == -1
-    debug("RATES: display driver failed to start")
-  else
-    chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
-    colorDepth := hub75Bffrs.colorDepth(chainIndex)
-    debug("RATES: colour depth ", udec_(colorDepth), " bits, adapter base P", udec_(hub75Bffrs.pinBase(chainIndex)))
-    runColourTableTest()
-    runRowRunTest()
-    instrument.start(hub75Bffrs.pinBase(chainIndex), latchesPerRefresh())
-    nCommitsBefore := commitsPosted()
-    bTakeCheck := instrument.startTakeCheck(rowsPerRefresh() - 1)
-    runPatterns()
-    runWorkload()
-    runHandshakeTrace()
-    refuseNullFrameSet()
-    runBrightnessSteps()
-    runTearingTest()
-    if bTakeCheck == TRUE
-      reportTakeCheck(nCommitsBefore)
-    instrument.stop()
+  ' display.start() aborts with a message when no cog is free, so a return here is a started cog
+  chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
+  colorDepth := hub75Bffrs.colorDepth(chainIndex)
+  debug("RATES: colour depth ", udec_(colorDepth), " bits, adapter base P", udec_(hub75Bffrs.pinBase(chainIndex)))
+  runColourTableTest()
+  runRowRunTest()
+  instrument.start(hub75Bffrs.pinBase(chainIndex), latchesPerRefresh())
+  nCommitsBefore := commitsPosted()
+  bTakeCheck := instrument.startTakeCheck(rowsPerRefresh() - 1)
+  runPatterns()
+  runWorkload()
+  runHandshakeTrace()
+  refuseNullFrameSet()
+  runBrightnessSteps()
+  runTearingTest()
+  if bTakeCheck == TRUE
+    reportTakeCheck(nCommitsBefore)
+  instrument.stop()
   debug("END_SESSION")
 
 PRI runColourTableTest() | depthIdx, gammaCase, bGamma, ledIdx, nCaseMismatches, nMismatches, nCompared
