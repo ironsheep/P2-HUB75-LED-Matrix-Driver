@@ -215,6 +215,10 @@ CON ' ---- Row-run self-test ----
     '  ROW_CASE_SCROLL_RIGHT  - text scrolling right, dithered, the region partly past the right edge
     '  ROW_CASE_SCROLL_UP     - text scrolling up, 5x7, across a cell boundary
     '  ROW_CASE_SCROLL_DOWN   - text scrolling down, dithered, the region partly below the display
+    '  ROW_CASE_SCROLL_IN_LEFT  - text scrolling left, 5x7, the region inside one panel (each glyph one block)
+    '  ROW_CASE_SCROLL_IN_RIGHT - text scrolling right, dithered, inside one panel
+    '  ROW_CASE_SCROLL_IN_UP    - text scrolling up, 8x8, inside one panel
+    '  ROW_CASE_SCROLL_IN_DOWN  - text scrolling down, dithered, inside one panel
     '  ROW_CASE_FILL_PANEL    - one whole panel filled (display.fillPanel())
     '  ROW_CASE_FILL_AREA     - layout rectangles across cells and off the layout (fillLayoutArea())
     '  ROW_CASE_BMP           - the BMP placed with a content rotation
@@ -223,6 +227,7 @@ CON ' ---- Row-run self-test ----
     #0, ROW_CASE_LINES, ROW_CASE_OFF_DISPLAY, ROW_CASE_PANEL_CLIP, ROW_CASE_COLUMNS, ROW_CASE_COLUMN_OFF, ...
     ROW_CASE_COLUMN_CLIP, ROW_CASE_BOXES, ROW_CASE_TEXT_5X7, ROW_CASE_TEXT_DITHERED, ROW_CASE_TEXT_8X8, ...
     ROW_CASE_SCROLL_LEFT, ROW_CASE_SCROLL_RIGHT, ROW_CASE_SCROLL_UP, ROW_CASE_SCROLL_DOWN, ...
+    ROW_CASE_SCROLL_IN_LEFT, ROW_CASE_SCROLL_IN_RIGHT, ROW_CASE_SCROLL_IN_UP, ROW_CASE_SCROLL_IN_DOWN, ...
     ROW_CASE_FILL_PANEL, ROW_CASE_FILL_AREA, ROW_CASE_BMP, ROW_CASE_SEGMENTS, ROW_CASE_COUNT
 
     ' Cases run on every layout: those before the first text case
@@ -278,13 +283,14 @@ CON ' ---- Row-run self-test ----
     ' A box's inset, or a rectangle's reach, applies on both of its sides
     BOTH_SIDES              = 2
 
-    ' Scrolling: the window is SCROLL_WINDOW_CHARS wide (the text is one character longer, so the
-    ' scroll ends after one character's width); the buffers are compared after
-    ' SCROLL_COMPARE_STEPS steps, then the scroll is run to its end (at most SCROLL_FINISH_STEPS
-    ' steps) so the scroller is free again. A region partly off the display starts
-    ' SCROLL_EDGE_OVERLAP rows (columns) before the edge.
+    ' Scrolling: the window is SCROLL_WINDOW_CHARS wide (the text is three characters longer, so a
+    ' sideways scroll crosses character boundaries); the buffers are compared after
+    ' SCROLL_COMPARE_STEPS steps (past one character's width and gap sideways, and through every
+    ' row offset of a 5x7 glyph up and down), then the scroll is run to its end (at most
+    ' SCROLL_FINISH_STEPS steps) so the scroller is free again. A region partly off the display
+    ' starts SCROLL_EDGE_OVERLAP rows (columns) before the edge.
     SCROLL_WINDOW_CHARS     = 3
-    SCROLL_COMPARE_STEPS    = 2
+    SCROLL_COMPARE_STEPS    = 8
     SCROLL_FINISH_STEPS     = 64
     SCROLL_EDGE_OVERLAP     = 3
     SCROLL_CELL_REACH       = 8
@@ -398,7 +404,8 @@ DAT ' ---- Test State (singleton) ----
     captureArea     LONG    0[CAPTURE_AREA_LONGS]
     runText         BYTE    "RUN 0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz", 0
     tailText        BYTE    "END", 0
-    scrollText      BYTE    "AB12", 0                       ' SCROLL_WINDOW_CHARS + 1 characters
+    scrollText      BYTE    "AB12CD", 0                     ' SCROLL_WINDOW_CHARS + 3 characters
+    insideDirections LONG   display.DIR_TO_LEFT, display.DIR_TO_RIGHT, display.DIR_UP, display.DIR_DOWN   ' the inside-a-panel scroll cases, in case order
     emptyNote       BYTE    0                               ' no note after a case line
 
 PUB main() : ok | nCommitsBefore, bTakeCheck
@@ -839,7 +846,7 @@ PRI drawRowRunCase(caseIdx, caseVariant) | displayRows, displayColumns, cellRows
       display.setTextFont(rowCaseFont(caseIdx))
       display.setColoredTextAtLnCol(FIRST_TEXT_LINE, FIRST_TEXT_COLUMN, @runText, RUN_TEST_COLOR)
       display.setColoredTextAtLnCol(display.numberTextLines() - 1, display.numberTextColumns() - TEXT_TAIL_CHARS, @tailText, RUN_TEST_COLOR)
-    ROW_CASE_SCROLL_LEFT, ROW_CASE_SCROLL_RIGHT, ROW_CASE_SCROLL_UP, ROW_CASE_SCROLL_DOWN:
+    ROW_CASE_SCROLL_LEFT .. ROW_CASE_SCROLL_IN_DOWN:
       ' each region is placed on a panel that every layout has, so it always draws something:
       ' the last panel in reading order is in the bottom cell row, P0 is the first panel, and
       ' edgePanelRow() finds a panel in the rightmost cell column
@@ -853,6 +860,10 @@ PRI drawRowRunCase(caseIdx, caseVariant) | displayRows, displayColumns, cellRows
         ROW_CASE_SCROLL_UP:
           panelRow, panelColumn := hub75Bffrs.offsetToPanel(chainIndex, PANEL_P0)
           display.scrollTextAtRCOfColor(panelRow + cellRows - SCROLL_EDGE_OVERLAP, panelColumn + cellColumns - SCROLL_CELL_REACH, SCROLL_WINDOW_CHARS, @scrollText, display.DIR_UP, RUN_TEST_COLOR)
+        ROW_CASE_SCROLL_IN_LEFT .. ROW_CASE_SCROLL_IN_DOWN:
+          ' inside P0, so every glyph lies in one cell and is drawn as one block
+          panelRow, panelColumn := hub75Bffrs.offsetToPanel(chainIndex, PANEL_P0)
+          display.scrollTextAtRCOfColor(panelRow + RUN_INSET, panelColumn + RUN_INSET, SCROLL_WINDOW_CHARS, @scrollText, LONG[@insideDirections][caseIdx - ROW_CASE_SCROLL_IN_LEFT], RUN_TEST_COLOR)
         other:
           display.scrollTextAtRCOfColor(displayRows - SCROLL_EDGE_OVERLAP, panelColumn + RUN_INSET, SCROLL_WINDOW_CHARS, @scrollText, display.DIR_DOWN, RUN_TEST_COLOR)
       repeat SCROLL_COMPARE_STEPS
@@ -898,7 +909,7 @@ PRI finishRowRunCase(caseIdx)
 '
 ' @param caseIdx - ROW_CASE_* just compared
 
-  if caseIdx >= ROW_CASE_SCROLL_LEFT and caseIdx <= ROW_CASE_SCROLL_DOWN
+  if caseIdx >= ROW_CASE_SCROLL_LEFT and caseIdx <= ROW_CASE_SCROLL_IN_DOWN
     repeat SCROLL_FINISH_STEPS
       if display.isScrollingComplete() == TRUE
         quit
@@ -911,9 +922,9 @@ PRI rowCaseFont(caseIdx) : eFont
 ' @returns eFont - display.TEXT_FONT_* value
 
   case caseIdx
-    ROW_CASE_TEXT_DITHERED, ROW_CASE_SCROLL_RIGHT, ROW_CASE_SCROLL_DOWN:
+    ROW_CASE_TEXT_DITHERED, ROW_CASE_SCROLL_RIGHT, ROW_CASE_SCROLL_DOWN, ROW_CASE_SCROLL_IN_RIGHT, ROW_CASE_SCROLL_IN_DOWN:
       eFont := display.TEXT_FONT_5X7_DITH
-    ROW_CASE_TEXT_8X8:
+    ROW_CASE_TEXT_8X8, ROW_CASE_SCROLL_IN_UP:
       eFont := display.TEXT_FONT_8X8A
     other:
       eFont := display.TEXT_FONT_5X7
@@ -1201,6 +1212,14 @@ PRI rowCaseLabel(caseIdx) : pLabel
       pLabel := string("scroll up 5x7")
     ROW_CASE_SCROLL_DOWN:
       pLabel := string("scroll down dithered")
+    ROW_CASE_SCROLL_IN_LEFT:
+      pLabel := string("scroll left 5x7 inside a panel")
+    ROW_CASE_SCROLL_IN_RIGHT:
+      pLabel := string("scroll right dithered inside a panel")
+    ROW_CASE_SCROLL_IN_UP:
+      pLabel := string("scroll up 8x8 inside a panel")
+    ROW_CASE_SCROLL_IN_DOWN:
+      pLabel := string("scroll down dithered inside a panel")
     ROW_CASE_FILL_PANEL:
       pLabel := string("fill one panel")
     ROW_CASE_FILL_AREA:

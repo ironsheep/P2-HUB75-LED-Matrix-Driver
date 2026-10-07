@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Nov 2022
-''   Updated.... 06 Oct 2026
+''   Updated.... 07 Oct 2026
 ''
 '' =================================================================================================
 
@@ -727,6 +727,110 @@ PUB displayPixelAddress(nChainIdx, row, column) : pPixel | layoutIdx, panelPosn,
         ' buffer slot: the screen buffer holds the panels one after another, in buffer-slot order
         pPixel := LONG[pEntry][ENTR_SCRN_BUFFER_ADDR_OFST] + ((((positionToSlot[tableBase + panelPosn] * nativeRows) + nativeRow) * nativeCols) + nativeCol) * LONG[pEntry][ENTR_BYTES_PER_COLOR_OFST]
 
+PUB mountedPixelAddress(nChainIdx, row, column) : pPixel | layoutIdx, mountedRow, mountedColumn, cellRows, cellColumns, cellIdx
+'' Return the hub address of the pixel at display coordinates (row, column), with the display as
+'' mounted. The pixel is held to the mounted size first, as every drawing call holds it. This is
+'' the address rule the drawing path uses: one lookup in the cell address tables, which
+'' buildCellAddressTables() builds at startup from mountedRuleAddress() (display rotation, then
+'' displayPixelAddress()), so the rotation and arrow rules are not restated here.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @param row - pixel row on the display, as mounted
+'' @param column - pixel column on the display, as mounted
+'' @returns pPixel - hub address of the pixel's red byte, or NO_PIXEL when no panel holds the pixel
+
+' Local Variables:
+' @local layoutIdx - the chain index, checked against the adapters that exist
+' @local mountedRow - pixel row held to the mounted size
+' @local mountedColumn - pixel column held to the mounted size
+' @local cellRows - pixel rows of one mounted cell
+' @local cellColumns - pixel columns of one mounted cell
+' @local cellIdx - the pixel's cell in this adapter's cell address tables
+
+    layoutIdx := validChainIndex(nChainIdx)
+    mountedRow := 0 #> row <# mountedPixelRows[layoutIdx] - 1
+    mountedColumn := 0 #> column <# mountedPixelColumns[layoutIdx] - 1
+    cellRows := mountedCellRows[layoutIdx]
+    cellColumns := mountedCellColumns[layoutIdx]
+    cellIdx := (layoutIdx * MAX_GRID_CELLS) + ((mountedRow / cellRows) * mountedGridColumns[layoutIdx]) + (mountedColumn / cellColumns)
+    pPixel := NO_PIXEL
+    if mountedCellOffset[cellIdx] <> NO_CELL_OFFSET
+        pPixel := LONG[@@LONG[@screenTable][layoutIdx]][ENTR_SCRN_BUFFER_ADDR_OFST] + mountedCellOffset[cellIdx] + ((mountedRow // cellRows) * mountedCellDownStep[cellIdx]) + ((mountedColumn // cellColumns) * mountedCellRightStep[cellIdx])
+
+PUB mountedPixelRun(nChainIdx, row, column) : pPixel, rightStep, downStep | layoutIdx, mountedRow, mountedColumn, cellRows, cellColumns, cellIdx
+'' Return the hub address of the pixel at display coordinates (row, column), with the display as
+'' mounted, and the signed steps from it to its neighbours in the same cell: one call gives a run
+'' its start and its step. The pixel is held to the mounted size first, as in mountedPixelAddress().
+'' Within one cell (one panel) the steps are constant.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @param row - pixel row on the display, as mounted
+'' @param column - pixel column on the display, as mounted
+'' @returns pPixel - hub address of the pixel's red byte, or NO_PIXEL when no panel holds the pixel
+'' @returns rightStep - signed bytes to the pixel at its right in the same cell (0 when no panel holds the pixel)
+'' @returns downStep - signed bytes to the pixel below it in the same cell (0 when no panel holds the pixel)
+
+' Local Variables:
+' @local layoutIdx - the chain index, checked against the adapters that exist
+' @local mountedRow - pixel row held to the mounted size
+' @local mountedColumn - pixel column held to the mounted size
+' @local cellRows - pixel rows of one mounted cell
+' @local cellColumns - pixel columns of one mounted cell
+' @local cellIdx - the pixel's cell in this adapter's cell address tables
+
+    layoutIdx := validChainIndex(nChainIdx)
+    mountedRow := 0 #> row <# mountedPixelRows[layoutIdx] - 1
+    mountedColumn := 0 #> column <# mountedPixelColumns[layoutIdx] - 1
+    cellRows := mountedCellRows[layoutIdx]
+    cellColumns := mountedCellColumns[layoutIdx]
+    cellIdx := (layoutIdx * MAX_GRID_CELLS) + ((mountedRow / cellRows) * mountedGridColumns[layoutIdx]) + (mountedColumn / cellColumns)
+    pPixel := NO_PIXEL
+    rightStep := downStep := 0
+    if mountedCellOffset[cellIdx] <> NO_CELL_OFFSET
+        rightStep := mountedCellRightStep[cellIdx]
+        downStep := mountedCellDownStep[cellIdx]
+        pPixel := LONG[@@LONG[@screenTable][layoutIdx]][ENTR_SCRN_BUFFER_ADDR_OFST] + mountedCellOffset[cellIdx] + ((mountedRow // cellRows) * downStep) + ((mountedColumn // cellColumns) * rightStep)
+
+PUB mountedBlockRun(nChainIdx, row, column, nRows, nColumns) : pPixel, rightStep, downStep | layoutIdx, lastRow, lastColumn, cellRows, cellColumns, cellIdx
+'' Return where a block of pixels starts and how it steps, when the whole block lies on the
+'' display and inside one cell that holds a panel: the hub address of its top-left pixel (display
+'' coordinates, as mounted) and the signed steps to the pixel at the right and the pixel below.
+'' A block that reaches past an edge of the display, crosses a cell boundary or lies in a cell
+'' that holds no panel gives NO_PIXEL, and the caller draws it another way (its pixels would be
+'' held to the edge, or step differently in each cell).
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @param row - pixel row of the block's top-left pixel, as mounted
+'' @param column - pixel column of the block's top-left pixel, as mounted
+'' @param nRows - block height in pixels
+'' @param nColumns - block width in pixels
+'' @returns pPixel - hub address of the top-left pixel's red byte, or NO_PIXEL
+'' @returns rightStep - signed bytes to the pixel at the right (0 with NO_PIXEL)
+'' @returns downStep - signed bytes to the pixel below (0 with NO_PIXEL)
+
+' Local Variables:
+' @local layoutIdx - the chain index, checked against the adapters that exist
+' @local lastRow - the block's bottom row
+' @local lastColumn - the block's right column
+' @local cellRows - pixel rows of one mounted cell
+' @local cellColumns - pixel columns of one mounted cell
+' @local cellIdx - the block's cell in this adapter's cell address tables
+
+    layoutIdx := validChainIndex(nChainIdx)
+    pPixel := NO_PIXEL
+    rightStep := downStep := 0
+    lastRow := row + nRows - 1
+    lastColumn := column + nColumns - 1
+    if nRows > 0 and nColumns > 0 and row >= 0 and column >= 0 and lastRow < mountedPixelRows[layoutIdx] and lastColumn < mountedPixelColumns[layoutIdx]
+        cellRows := mountedCellRows[layoutIdx]
+        cellColumns := mountedCellColumns[layoutIdx]
+        if (row / cellRows) == (lastRow / cellRows) and (column / cellColumns) == (lastColumn / cellColumns)
+            cellIdx := (layoutIdx * MAX_GRID_CELLS) + ((row / cellRows) * mountedGridColumns[layoutIdx]) + (column / cellColumns)
+            if mountedCellOffset[cellIdx] <> NO_CELL_OFFSET
+                rightStep := mountedCellRightStep[cellIdx]
+                downStep := mountedCellDownStep[cellIdx]
+                pPixel := LONG[@@LONG[@screenTable][layoutIdx]][ENTR_SCRN_BUFFER_ADDR_OFST] + mountedCellOffset[cellIdx] + ((row // cellRows) * downStep) + ((column // cellColumns) * rightStep)
+
 PUB positionAtDisplayPixel(nChainIdx, row, column) : nPanelPosn | layoutIdx
 '' Return the panel position (P) of the panel that holds display coordinates (row, column), with
 '' the display as mounted: the coordinates are the ones drawing uses (display rotation not yet
@@ -1057,6 +1161,11 @@ CON ' ---- Private wiring check and layout constants ----
     '  CUBE_FRONT_OFST - DISPn_CUBE_FRONT
     #0, CUBE_SHAPE_OFST, CUBE_TOP_OFST, CUBE_FRONT_OFST, CUBE_SETTING_LONGS
 
+    ' mountedCellOffset[] entry for a mounted cell that holds no panel (a real offset is never negative)
+    NO_CELL_OFFSET          = -1
+    ' the pixels the cell address tables read the address rule at: the cell's first pixel and its neighbours
+    NEXT_PIXEL              = 1
+
 DAT ' ---- Wiring sentences and derived layout ----
 
 ' The wiring sentences of every display: DISPn_C0 .. DISPn_C15, MAX_CABLE_POSITIONS per adapter.
@@ -1108,6 +1217,15 @@ cableToPosition     BYTE    NO_POSITION[ADAPTER_COUNT * MAX_CABLE_POSITIONS]  ' 
 ' (the layout grid) or -> P (the mounted grid), or NO_POSITION for a cell that holds no panel.
 cellToPosition      BYTE    NO_POSITION[ADAPTER_COUNT * MAX_GRID_CELLS]
 mountedCellToPosition BYTE  NO_POSITION[ADAPTER_COUNT * MAX_GRID_CELLS]
+
+' The address of every cell of the mounted grid, MAX_GRID_CELLS entries per adapter, built by
+' buildCellAddressTables() from the one address rule (mountedRuleAddress()). Within one cell the
+' rule is a fixed rotation of the panel's native rows and columns, so a cell's pixel at (row,
+' column) inside the cell is at its offset + row x down step + column x right step. The offset
+' is from the start of the screen buffer (the tables are built before the buffer is assigned).
+mountedCellOffset   LONG    NO_CELL_OFFSET[ADAPTER_COUNT * MAX_GRID_CELLS]  ' bytes from the buffer start to the cell's first pixel, or NO_CELL_OFFSET
+mountedCellRightStep LONG   0[ADAPTER_COUNT * MAX_GRID_CELLS]   ' signed bytes from a pixel to the one at its right, as mounted
+mountedCellDownStep LONG    0[ADAPTER_COUNT * MAX_GRID_CELLS]   ' signed bytes from a pixel to the one below it, as mounted
 
 ' Work area for one configureAdapter() call; startup configures one adapter at a time.
 cableCellRow        LONG    0[MAX_CABLE_POSITIONS]              ' cable position -> grid row, relative to C0
@@ -1613,7 +1731,7 @@ PRI buildMountedTables(nChainIdx, panelCount) | eRotation, gridRows, gridCols, m
     bytefill(@mountedCellToPosition[cellBase], NO_POSITION, MAX_GRID_CELLS)
 
     ' first turn each panel's cell as the display is mounted, and mark it with its layout position;
-    ' this is the cell form of the pixel rule in isp_hub75_screenUtils.pixelAddressAtRC
+    ' this is the cell form of the pixel rule in mountedRuleAddress()
     repeat posn from 0 to panelCount - 1
         cellRow := positionToCellRow[tableBase + posn]
         cellCol := positionToCellCol[tableBase + posn]
@@ -1645,6 +1763,84 @@ PRI buildMountedTables(nChainIdx, panelCount) | eRotation, gridRows, gridCols, m
             cableToPosition[tableBase + (panelCount - 1 - positionToSlot[tableBase + posn])] := mountedPosn
             mountedCellToPosition[cellBase + cellIdx] := mountedPosn
             mountedPosn++
+
+    buildCellAddressTables(nChainIdx)
+
+PRI buildCellAddressTables(nChainIdx) | eRotation, gridCells, cellIdx, cellBase, cellRows, cellColumns, firstRow, firstColumn, pScreen, pFirst
+' Build the cell address tables from the one address rule: for each cell of the mounted grid that
+' holds a panel, the offset of its first pixel and the steps to the pixel at its right and the
+' pixel below it, each read from mountedRuleAddress(). Runs after buildMountedTables() has built
+' the mounted grid, at startup and at every relayout.
+'
+' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+
+' Local Variables:
+' @local eRotation - the display rotation: how the display is mounted
+' @local gridCells - cells in the mounted grid
+' @local cellIdx - cell index in the mounted grid (row x grid columns + column)
+' @local cellBase - first entry of this adapter in the grid tables
+' @local cellRows - pixel rows of one mounted cell
+' @local cellColumns - pixel columns of one mounted cell
+' @local firstRow - display row of the cell's first pixel, as mounted
+' @local firstColumn - display column of the cell's first pixel, as mounted
+' @local pScreen - the screen buffer address the rule gives addresses in
+' @local pFirst - the rule's address of the cell's first pixel
+
+    eRotation := displayRotation(nChainIdx)
+    cellBase := nChainIdx * MAX_GRID_CELLS
+    cellRows := mountedCellRows[nChainIdx]
+    cellColumns := mountedCellColumns[nChainIdx]
+    gridCells := (mountedPixelRows[nChainIdx] / cellRows) * mountedGridColumns[nChainIdx]
+    pScreen := LONG[@@LONG[@screenTable][nChainIdx]][ENTR_SCRN_BUFFER_ADDR_OFST]
+    longfill(@mountedCellOffset[cellBase], NO_CELL_OFFSET, MAX_GRID_CELLS)
+    longfill(@mountedCellRightStep[cellBase], 0, MAX_GRID_CELLS)
+    longfill(@mountedCellDownStep[cellBase], 0, MAX_GRID_CELLS)
+    repeat cellIdx from 0 to gridCells - 1
+        if mountedCellToPosition[cellBase + cellIdx] <> NO_POSITION
+            firstRow := (cellIdx / mountedGridColumns[nChainIdx]) * cellRows
+            firstColumn := (cellIdx // mountedGridColumns[nChainIdx]) * cellColumns
+            pFirst := mountedRuleAddress(nChainIdx, eRotation, firstRow, firstColumn)
+            mountedCellOffset[cellBase + cellIdx] := pFirst - pScreen
+            mountedCellRightStep[cellBase + cellIdx] := mountedRuleAddress(nChainIdx, eRotation, firstRow, firstColumn + NEXT_PIXEL) - pFirst
+            mountedCellDownStep[cellBase + cellIdx] := mountedRuleAddress(nChainIdx, eRotation, firstRow + NEXT_PIXEL, firstColumn) - pFirst
+
+PRI mountedRuleAddress(layoutIdx, eRotation, row, column) : pPixel | layoutRows, layoutColumns, layoutRow, layoutColumn
+' The one address rule, as mounted: display rotation first (mounted coordinates -> layout
+' coordinates, the display as its panels are laid out), then the one mapping, displayPixelAddress().
+' The rotation is physical: it says how the display hangs. buildMountedTables() applies the same
+' rule to whole panel cells; a change to either must be made to both. Only
+' buildCellAddressTables() calls it: the drawing path reads the tables it builds.
+'
+' @param layoutIdx - the index of the desired chain of panels (hub75 adapter), already checked
+' @param eRotation - the display rotation
+' @param row - pixel row on the display, as mounted (inside the display)
+' @param column - pixel column on the display, as mounted (inside the display)
+' @returns pPixel - hub address of the pixel's red byte, or NO_PIXEL when no panel holds the pixel
+
+' Local Variables:
+' @local layoutRows - total display rows as the panels are laid out
+' @local layoutColumns - total display columns as the panels are laid out
+' @local layoutRow - pixel row on the display as its panels are laid out (rotation undone)
+' @local layoutColumn - pixel column on the display as its panels are laid out (rotation undone)
+
+    layoutRows := layoutPixelRows[layoutIdx]
+    layoutColumns := layoutPixelColumns[layoutIdx]
+    case eRotation
+        ROT_RIGHT_90:
+            ' hung turned clockwise: the layout's left edge is the mounted top, its bottom edge the mounted left
+            layoutRow := (layoutRows - 1) - column
+            layoutColumn := row
+        ROT_LEFT_90:
+            ' hung turned counter-clockwise: the layout's right edge is the mounted top, its top edge the mounted left
+            layoutRow := column
+            layoutColumn := (layoutColumns - 1) - row
+        ROT_180:
+            layoutRow := (layoutRows - 1) - row
+            layoutColumn := (layoutColumns - 1) - column
+        other:
+            layoutRow := row
+            layoutColumn := column
+    pPixel := displayPixelAddress(layoutIdx, layoutRow, layoutColumn)
 
 PRI printLayout(nChainIdx) | panelCount, gridRows, gridCols, rowIdx, colIdx, posn, cablePos, lineLen, tableBase, cellBase, bWide, layoutPosn
 ' Print the derived picture (the layout, one line per grid row), then the lookup tables

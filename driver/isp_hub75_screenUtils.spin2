@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Nov 2020
-''   Updated.... 06 Oct 2026
+''   Updated.... 07 Oct 2026
 ''
 '' =================================================================================================
 
@@ -29,6 +29,7 @@ CON ' ---- Packed colors and runs ----
     ' of one pixel, already corrected: red in bits 0-7, green in bits 8-15, blue in bits 16-23.
     PACKED_GREEN_SHIFT  = 8
     PACKED_BLUE_SHIFT   = 16
+    BYTES_PER_LONG_SHIFT = 2                     ' a color-list index -> its byte offset (one LONG per pixel)
 
     ' widest glyph row drawn as one run (the widest font is 8 pixels); a wider one goes pixel by pixel
     GLYPH_RUN_PIXELS    = 16
@@ -108,61 +109,21 @@ PUB drawPixelAtRCwithRGB(nChainIdx, row, column, red, green, blue) | pColor
         BYTE[pColor][GREEN_BYTE_OFST] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_GREEN, green)
         BYTE[pColor][BLUE_BYTE_OFST] := colorUtils.correctedSingleColor(nChainIdx, colorUtils.LED_BLUE, blue)
 
-PUB pixelAddressAtRC(nChainIdx, row, column) : pPixel | layoutRows, layoutColumns, eRotation, mountedRows, mountedColumns, mountedRow, mountedColumn, layoutRow, layoutColumn
+PUB pixelAddressAtRC(nChainIdx, row, column) : pPixel
 '' Return the hub address of the pixel at the specified row and column (display coordinates, as
 '' the display is mounted). This is the one address rule of the drawing path: the pixel is held
-'' to the mounted size, display rotation is applied, then the pixel goes through the one mapping,
-'' hub75Bffrs.displayPixelAddress(). drawPixelAtRCwithRGB() writes through it, and the run
-'' primitives (fillRowRun(), fillColumnRun(), copyRowRun()) take from it the address of a run's
-'' first pixel in each cell and the step to the next pixel, so the rotation and arrow rules are
-'' written nowhere else.
+'' to the mounted size, then looked up in the cell address tables that hwBufferAccess builds at
+'' startup from its one rule (display rotation, then hub75Bffrs.displayPixelAddress()).
+'' drawPixelAtRCwithRGB() writes through it, and the run primitives (fillRowRun(),
+'' fillColumnRun(), copyRowRun()) take each cell's start address and step from the same tables
+'' (hub75Bffrs.mountedPixelRun()), so the rotation and arrow rules are written nowhere else.
 ''
 '' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @param row - pixel row on the display, as mounted
 '' @param column - pixel column on the display, as mounted
 '' @returns pPixel - hub address of the pixel's red byte, or hub75Bffrs.NO_PIXEL when no panel holds the pixel
 
-' Local Variables:
-' @local layoutRows - total display rows as the panels are laid out (rotation not applied)
-' @local layoutColumns - total display columns as the panels are laid out
-' @local eRotation - the display rotation: how the display is mounted
-' @local mountedRows - total display rows, as mounted (rows and columns swap at 90 and 270 degrees)
-' @local mountedColumns - total display columns, as mounted
-' @local mountedRow - pixel row held to the mounted size
-' @local mountedColumn - pixel column held to the mounted size
-' @local layoutRow - pixel row on the display as its panels are laid out (rotation undone)
-' @local layoutColumn - pixel column on the display as its panels are laid out (rotation undone)
-
-    ' one call per pixel for the size and rotation: this method runs for every pixel drawn
-    layoutRows, layoutColumns, eRotation := hub75Bffrs.layoutSizeAndRotation(nChainIdx)
-    mountedRows, mountedColumns := layoutRows, layoutColumns
-    if (eRotation == hub75Bffrs.ROT_LEFT_90) OR (eRotation == hub75Bffrs.ROT_RIGHT_90)
-        mountedRows, mountedColumns := layoutColumns, layoutRows
-    mountedRow := 0 #> row <# mountedRows - 1
-    mountedColumn := 0 #> column <# mountedColumns - 1
-
-    ' Display rotation comes first: mounted coordinates -> layout coordinates (the display as
-    ' its panels are laid out). The rotation is physical: it says how the display hangs.
-    ' hub75Bffrs.buildMountedTables() applies the same rule to whole panel cells at startup;
-    ' a change to either must be made to both.
-    case eRotation
-        hub75Bffrs.ROT_RIGHT_90:
-            ' hung turned clockwise: the layout's left edge is the mounted top, its bottom edge the mounted left
-            layoutRow := (layoutRows - 1) - mountedColumn
-            layoutColumn := mountedRow
-        hub75Bffrs.ROT_LEFT_90:
-            ' hung turned counter-clockwise: the layout's right edge is the mounted top, its top edge the mounted left
-            layoutRow := mountedColumn
-            layoutColumn := (layoutColumns - 1) - mountedRow
-        hub75Bffrs.ROT_180:
-            layoutRow := (layoutRows - 1) - mountedRow
-            layoutColumn := (layoutColumns - 1) - mountedColumn
-        other:
-            layoutRow := mountedRow
-            layoutColumn := mountedColumn
-
-    ' layout coordinates -> cell -> panel position -> panel rotation -> buffer slot -> address
-    pPixel := hub75Bffrs.displayPixelAddress(nChainIdx, layoutRow, layoutColumn)
+    pPixel := hub75Bffrs.mountedPixelAddress(nChainIdx, row, column)
 #IFDEF HUB75_CORRUPT_PIXEL_ADDRESS
   ' falsification build only: one pixel early (never before the buffer's start), so the
   ' self-test's address-rule comparison must report FAIL
@@ -336,7 +297,7 @@ PUB isPerPixelReference() : bPerPixel
     bPerPixel := bPerPixelReference
 #ENDIF
 
-PRI writeRun(nChainIdx, row, column, nPixels, eRunMode, pColors, packedColor) | sizeRows, sizeColumns, cellRows, cellColumns, crossIdx, alongIdx, firstAlongIdx, lastAlongIdx, cellPixels, cellLastIdx, pPixel, stride, colorIdx, pixelColor, lastWrittenIdx
+PRI writeRun(nChainIdx, row, column, nPixels, eRunMode, pColors, packedColor) | sizeRows, sizeColumns, cellRows, cellColumns, crossIdx, alongIdx, firstAlongIdx, lastAlongIdx, cellPixels, cellLastIdx, pPixel, stride, pixelColor, lastWrittenIdx
 ' Write a run of pixels: along a display row or down a display column as mounted, or along a row
 ' of the layout (eRunMode). The run is split at each cell boundary (a cell is one panel), and
 ' each cell's part is written with the start address and signed step that cellRunStart() takes
@@ -367,7 +328,6 @@ PRI writeRun(nChainIdx, row, column, nPixels, eRunMode, pColors, packedColor) | 
 ' @local cellLastIdx - the coordinate along the run of the last pixel in the current cell
 ' @local pPixel - pointer to the pixel being written, or NO_PIXEL for a cell with no panel
 ' @local stride - signed bytes from one pixel of the run to the next, within the current cell
-' @local colorIdx - index in the color list of the pixel being written
 ' @local pixelColor - packed color of the pixel being written
 ' @local lastWrittenIdx - color-list index, before the replacement, of the last pixel written
 
@@ -412,26 +372,15 @@ PRI writeRun(nChainIdx, row, column, nPixels, eRunMode, pColors, packedColor) | 
             cellLastIdx := ((((alongIdx / cellPixels) + 1) * cellPixels) - 1) <# lastAlongIdx
             pPixel, stride := cellRunStart(nChainIdx, crossIdx, alongIdx, eRunMode, cellLastIdx > alongIdx)
             if pPixel <> hub75Bffrs.NO_PIXEL
-                if pColors == NO_COLOR_LIST
-                    repeat cellLastIdx - alongIdx + 1
-                        writePacked(pPixel, packedColor)
-                        pPixel += stride
-                else
-                    colorIdx := alongIdx - firstAlongIdx
-                    repeat cellLastIdx - alongIdx + 1
-                        if colorIdx >= lastWrittenIdx
-                            colorIdx := nPixels - 1                   ' the last pixel written: every pixel held onto it was drawn before the run's last
-                        writePacked(pPixel, LONG[pColors][colorIdx])
-                        pPixel += stride
-                        colorIdx++
+                writeCellPart(pPixel, stride, cellLastIdx - alongIdx + 1, pColors, packedColor, alongIdx - firstAlongIdx, lastWrittenIdx, nPixels - 1)
             alongIdx := cellLastIdx + 1
 
-PRI cellRunStart(nChainIdx, crossIdx, alongIdx, eRunMode, bNeedStride) : pPixel, stride | pNextPixel
+PRI cellRunStart(nChainIdx, crossIdx, alongIdx, eRunMode, bNeedStride) : pPixel, stride | pNextPixel, rightStep, downStep
 ' Return where one cell's part of a run starts and how it steps: the address of its first pixel
-' and the signed bytes to the next pixel along the run, both from the one address rule
-' (pixelAddressAtRC() as mounted, hub75Bffrs.displayPixelAddress() along a layout row), so the
-' display rotation, the panel's arrow and the buffer slot are applied by that rule and never
-' restated. Within one cell the step is constant, because one cell is one panel and the panel's
+' and the signed bytes to the next pixel along the run. As mounted both come from one lookup in
+' the cell address tables (hub75Bffrs.mountedPixelRun(), built from the one address rule); along
+' a layout row from two hub75Bffrs.displayPixelAddress() calls. So the display rotation, the
+' panel's arrow and the buffer slot are applied by that rule and never restated. Within one cell the step is constant, because one cell is one panel and the panel's
 ' native coordinates follow its viewed coordinates by a fixed rotation: +3 or -3 bytes for a run
 ' along native rows, +/- native columns x 3 for a run along native columns.
 '
@@ -444,25 +393,25 @@ PRI cellRunStart(nChainIdx, crossIdx, alongIdx, eRunMode, bNeedStride) : pPixel,
 ' @returns stride - signed bytes from one pixel of the run to the next (0 when not needed)
 
 ' Local Variables:
-' @local pNextPixel - hub address of the second pixel of the cell part
+' @local pNextPixel - hub address of the second pixel of the cell part (along a layout row)
+' @local rightStep - signed bytes to the pixel at the right, within the cell (as mounted)
+' @local downStep - signed bytes to the pixel below, within the cell (as mounted)
 
     stride := 0
-    case eRunMode
-        RUN_DOWN_COLUMN:
-            pPixel := pixelAddressAtRC(nChainIdx, alongIdx, crossIdx)
-        RUN_ALONG_LAYOUT_ROW:
-            pPixel := hub75Bffrs.displayPixelAddress(nChainIdx, crossIdx, alongIdx)
-        other:
-            pPixel := pixelAddressAtRC(nChainIdx, crossIdx, alongIdx)
-    if bNeedStride == TRUE and pPixel <> hub75Bffrs.NO_PIXEL
-        case eRunMode
-            RUN_DOWN_COLUMN:
-                pNextPixel := pixelAddressAtRC(nChainIdx, alongIdx + 1, crossIdx)
-            RUN_ALONG_LAYOUT_ROW:
-                pNextPixel := hub75Bffrs.displayPixelAddress(nChainIdx, crossIdx, alongIdx + 1)
-            other:
-                pNextPixel := pixelAddressAtRC(nChainIdx, crossIdx, alongIdx + 1)
-        stride := pNextPixel - pPixel
+    if eRunMode == RUN_ALONG_LAYOUT_ROW
+        pPixel := hub75Bffrs.displayPixelAddress(nChainIdx, crossIdx, alongIdx)
+        if bNeedStride == TRUE and pPixel <> hub75Bffrs.NO_PIXEL
+            pNextPixel := hub75Bffrs.displayPixelAddress(nChainIdx, crossIdx, alongIdx + 1)
+            stride := pNextPixel - pPixel
+    elseif eRunMode == RUN_DOWN_COLUMN
+        ' one lookup gives the start and the step: the step down a column within the cell
+        pPixel, _, downStep := hub75Bffrs.mountedPixelRun(nChainIdx, alongIdx, crossIdx)
+        if bNeedStride == TRUE
+            stride := downStep
+    else
+        pPixel, rightStep, _ := hub75Bffrs.mountedPixelRun(nChainIdx, crossIdx, alongIdx)
+        if bNeedStride == TRUE
+            stride := rightStep
 #IFDEF HUB75_CORRUPT_ROW_RUN
     ' falsification build only: one byte short of the true step, so the row-run self-test must
     ' report FAIL (the writes stay inside the true run's span, so nothing outside it is touched)
@@ -471,6 +420,54 @@ PRI cellRunStart(nChainIdx, crossIdx, alongIdx, eRunMode, bNeedStride) : pPixel,
     else
       stride++
 #ENDIF
+
+PRI writeCellPart(pPixel, stride, nPixels, pColors, packedColor, colorIdx, lastWrittenIdx, lastColorIdx) | pixelColor, pByte, pColor
+' Write one cell's part of a run, in PASM: nPixels pixels from pPixel, stride bytes apart, each
+' three screen-buffer bytes from a packed color. With a color list, pixel i of the part takes
+' LONG[pColors][colorIdx + i], except that from color-list index lastWrittenIdx on it takes
+' LONG[pColors][lastColorIdx]: the last pixel written is the one every held pixel lands on, and
+' it ends with the run's last color (see writeRun()).
+'
+' @param pPixel - hub address of the first pixel's red byte
+' @param stride - signed bytes from one pixel to the next
+' @param nPixels - pixels to write (at least one)
+' @param pColors - hub address of the run's packed colors, or NO_COLOR_LIST
+' @param packedColor - the packed color of every pixel, when pColors is NO_COLOR_LIST
+' @param colorIdx - color-list index of the part's first pixel
+' @param lastWrittenIdx - color-list index, before the replacement, of the run's last pixel written
+' @param lastColorIdx - color-list index of the run's last pixel
+
+' Local Variables:
+' @local pixelColor - packed color of the pixel being written, shifted as each byte is written
+' @local pByte - hub address of the byte being written
+' @local pColor - hub address of the pixel's entry in the color list
+
+    org
+.nextPixel
+                mov     pixelColor, packedColor
+                tjz     pColors, #.writePixel
+                cmps    colorIdx, lastWrittenIdx    wc
+    if_nc       mov     colorIdx, lastColorIdx              ' the last pixel written takes the run's last color
+                mov     pColor, colorIdx
+                shl     pColor, #BYTES_PER_LONG_SHIFT
+                add     pColor, pColors
+                rdlong  pixelColor, pColor
+                add     colorIdx, #1
+.writePixel
+                mov     pByte, pPixel
+                add     pByte, #RED_BYTE_OFST
+                wrbyte  pixelColor, pByte
+                mov     pByte, pPixel
+                add     pByte, #GREEN_BYTE_OFST
+                shr     pixelColor, #PACKED_GREEN_SHIFT
+                wrbyte  pixelColor, pByte
+                mov     pByte, pPixel
+                add     pByte, #BLUE_BYTE_OFST
+                shr     pixelColor, #PACKED_BLUE_SHIFT - PACKED_GREEN_SHIFT
+                wrbyte  pixelColor, pByte
+                add     pPixel, stride
+                djnz    nPixels, #.nextPixel
+    end
 
 PRI writePacked(pPixel, packedColor)
 ' Write one pixel's three screen-buffer bytes from a packed color.
