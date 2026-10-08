@@ -216,6 +216,10 @@ PUB configureScrollLoopCount(loopMode, repeatCount) | bValidRequest, clampedCoun
   if loopMode <> SCROLL_FOREVER
     if loopMode == SCROLL_ONCE_TO_CLEAR
       remainingPixToScroll := (ctCharsToScroll * (charWidthInPix + horizontalGapInPix))
+      if eScrollDirection == DIR_TO_RIGHT
+        ' scrolling right the text starts charWidthInPix - 1 pixels into its first field (charHzPixOffset
+        ' starts at the field's last pixel), so the window is clear that many steps later
+        remainingPixToScroll += charWidthInPix - 1
       if eScrollDirection == DIR_UP OR eScrollDirection == DIR_DOWN
         remainingPixToScroll := charHeightInPix
     ' bench check: with TEXT_FONT_8X8A this run was once seen ending 3 characters short (not re-measured)
@@ -598,9 +602,10 @@ PRI drawEdgeColumn(windowColumn) | fieldPix, stripPix, actCharIndex, bitIdx, pCh
   bitIdx := stripPix // fieldPix
   if actCharIndex > ctCharsToScroll - 1 && eScrollMode <> SCROLL_ONCE_TO_CLEAR
     actCharIndex -= ctCharsToScroll
-  cChar := BYTE[@scrollChars][actCharIndex]
-  if actCharIndex > ctCharsToScroll - 1
-    cChar := SPACE_CHAR
+  ' before or after the text the column shows a space
+  cChar := SPACE_CHAR
+  if actCharIndex >= 0 and actCharIndex < ctCharsToScroll
+    cChar := BYTE[@scrollChars][actCharIndex]
   pChrBitmap := pixels.NO_GLYPH
   if bitIdx < charWidthInPix
     pChrBitmap := fonts.getCharAddrForFont(selectedTextFont, cChar)
@@ -713,10 +718,11 @@ PRI placeColrCharsHzOfstAtRC(row, column, charHzPxOffset, windowWidth, startChar
       tailWidthInPix := remainWindowPix
       headWidthInPix := 0                               ' kill all head display
 
-    cChar := BYTE[@scrollChars][actCharIndex]
-    ' if we are scrolling end of text off screen then chars beyond text are ' ' chars
-    if actCharIndex > ctCharsToScroll - 1
-      cChar := SPACE_CHAR                               '  TEST use $30 ' space char (zero for TESTing)
+    ' before or after the text (a window wider than the text, or the end scrolling off) a
+    ' character is a space; the buffer is never read outside the text
+    cChar := SPACE_CHAR
+    if actCharIndex >= 0 and actCharIndex < ctCharsToScroll
+      cChar := BYTE[@scrollChars][actCharIndex]
     ' get pointer to character bitmap
     pChrBitmap := fonts.getCharAddrForFont(selectedTextFont, cChar)
     ' if we've some character to show, then draw full or partial character

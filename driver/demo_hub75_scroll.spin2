@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2022
-''   Updated.... 06 Oct 2026
+''   Updated.... 07 Oct 2026
 ''
 '' =================================================================================================
 
@@ -20,7 +20,7 @@ CON ' ---- Timing ----
 
 CON ' ---- Demo Constants ----
 
-    SCROLL_PERIOD       = 20                                        ' hundredths of a second between scroll steps
+    SCROLL_PERIOD       = 3                                         ' hundredths of a second between scroll steps (about 33 pixels a second)
     MS_PER_100TH_SEC    = 10
 
 OBJ ' ---- Objects ----
@@ -55,7 +55,7 @@ PRI demoScrollingText() | scrollerID, textSize
 ' @local scrollerID - identifier for the active text scroller
 ' @local textSize - selected font size for the display text
 
-    scrollPeriod := SCROLL_PERIOD                       ' 20 * 10 mSec :: 20/100th Sec
+    scrollPeriod := SCROLL_PERIOD                       ' SCROLL_PERIOD hundredths of a second per step
 
     textSize := display.TEXT_FONT_5x7
 
