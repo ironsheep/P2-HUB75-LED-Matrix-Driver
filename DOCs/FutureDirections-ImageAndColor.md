@@ -223,7 +223,7 @@ The driver supports multiple panel types with different characteristics:
 | FM6124 | 30 MHz | 1/16 | No | Untested |
 | ICN2037/BP | 30 MHz | 1/32 | No | Tested |
 | ICN2038S | 30 MHz | disputed (see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md)) | Untested | Single-ended |
-| MBI5124GP | 25 MHz | 1/8 | Yes | Untested |
+| MBI5124GP | 25 MHz (18.9 MHz in a chain) | 1/8 | Yes | Tested (two panels) |
 | GS6238S | 30 MHz | 1/16 | No | Untested |
 | DP5125D | - | 1/8 | No | Untested |
 

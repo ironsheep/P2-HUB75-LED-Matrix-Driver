@@ -13,11 +13,11 @@ This document provides a comprehensive matrix of all driver chip characteristics
 | **FM6124C** | - | ABCDE | 1/32 | - | - | - | Standard | ⚠️ Untested |
 | **ICN2037/BP** | - | ABCDE | 1/32 | **Yes** | - | - | Enclosed | ✅ Tested |
 | **ICN2038S** | - | ABCDE | disputed* | - | - | Untested | Enclosed | N/A (single) |
-| **MBI5124GP** | Green | ABC | 1/8 | - | - | **Yes** | Enclosed | ⚠️ Untested |
+| **MBI5124GP** | Green | ABC | 1/8 | - | - | **Yes** | Enclosed | ✅ Tested (two panels) |
 | **GS6238S** | Cyan | ABCD | 1/16 | - | **Yes** | - | Offset+Overlap | ⚠️ Untested |
 | **DP5125D** | - | ABC | 1/8 | - | - | - | Offset+Overlap | ✅ Tested |
 
-The column clock is held to the chip's rated maximum, and each half of the clock pulse is at least 20 ns; the ratings are in the table below.
+The column clock is held to the chip's rated maximum (for the MBI5124GP, to its chain limit), and each half of the clock pulse is at least 20 ns; the ratings are in the table below.
 
 **Notes:**
 - ICN2037BP is the same chip as ICN2037 in SSOP24-P-150 package
@@ -34,10 +34,11 @@ This table is the one place the project states each chip's datasheet clock and /
 | **ICN2038S** | 30 MHz | 20 ns | 40 ns |
 | **FM6126A** | 30 MHz | 20 ns | 40 ns |
 | **FM6124** | 30 MHz | 20 ns | 30 ns |
-| **MBI5124GP** | 25 MHz | 20 ns | 45 ns at VDD 5.0 V, 50 ns at VDD 3.3 V |
+| **MBI5124GP** | 25 MHz one chip; 18.9 MHz in a chain (driver uses this) | 20 ns | 45 ns at VDD 5.0 V, 50 ns at VDD 3.3 V |
 
 **Notes:**
 - A 20 ns minimum pulse high and low caps the clock at 25 MHz for every chip in the table.
+- A rated clock is one chip's. Inside a panel, and from one panel to the next, each chip's SDO feeds the next chip's SDI, so a clock period must also cover the slowest CLK-to-SDO delay plus the SDI setup time. MBI5124GP: 50 ns + 3 ns = 53 ns, 18.9 MHz (datasheet pp.9-10, the 3.3 V row, as for its /OE minimum); the driver holds it there. At 22.3 MHz, two chained panels lost or gained red in the first column of each panel on some images, and it flickered. ICN2037: 35 ns + 5 ns = 40 ns, 25.0 MHz; ICN2038S: 30 ns + 5 ns = 35 ns, 28.6 MHz (V2.0 and V1.1 datasheets, switching characteristics); both are at or above the 25 MHz the 20 ns pulses already allow, so neither clock changes. The FM6124 and FM6126A datasheets in `DOCs/` do not give their text to a text extractor, so their CLK-to-SDO delays have not been read (punch list).
 - ICN2037: the V1.1 datasheet and `DOCs/ICN2037/ICN2037-timing.pdf` give a 60 ns minimum /OE pulse; the V2.0 datasheet gives 40 ns. The conservative 60 ns holds. V2.0's transition table (p.8) lists a 35 MHz clock; the rating on its pp.2 and 7, and in V1.1, is 30 MHz, which holds.
 - ICN2038S: the datasheet has FM6126A-style register commands. Whether the panels need them is untested.
 - MBI5124GP: typical and maximum /OE pulse widths are in the timing table in its section below (MBI5124GP-B_C datasheet, pp.9-10).
@@ -283,15 +284,15 @@ CHIP_MANUAL_SPEC | SCAN_4
 |----------------|-------|-------|
 | Address Lines | ABC (3) | 8 row addressing |
 | Scan Rate | 1/8 | Special scan pattern |
-| Max Clock | 25 MHz | Per MBI5124 datasheet; 20ns min clock pulse |
+| Max Clock | 25 MHz one chip; 18.9 MHz in a chain | The driver uses the chain limit: CLK-to-SDO 50 ns + SDI setup 3 ns (datasheet pp.9-10); see the ratings notes above |
 | Min /OE Pulse | 45 ns at VDD 5.0 V, 50 ns at VDD 3.3 V | Datasheet minimum; typical and maximum are in the timing table below |
 | R/B Swap | No | |
 | G/B Swap | No | |
-| Init Required | **Yes** | Special initialization |
+| Init Required | **Yes** | The driver writes each chip's configuration register at start (below) |
 | Latch Style | Enclosed (special) | Different from standard |
 | Latch Position | End-enclosed | |
-| Multi-Panel | **Untested** | Needs investigation |
-| 4.0.0 refresh core | **Verified**, one panel | 85.4 Hz at 8-bit, 698.5 Hz at 5-bit on the quarter-scan path; init sequence run (2026-10-05) |
+| Multi-Panel | **Tested**, two panels | Two panels chained end to end run as one 128x32 display (2026-10-07) |
+| 4.0.0 refresh core | **Verified**, one and two panels | At the 18.6 MHz chain clock: one panel 71.2 Hz at 8-bit, 582.7 Hz at 5-bit; two chained 70.9 Hz at 8-bit, 292.1 Hz at 5-bit (2026-10-07, measured). Configuration register written at start |
 
 **On-Board Chips:**
 | Chip | Function | Details |
@@ -316,7 +317,7 @@ CHIP_MANUAL_SPEC | CHIP_UNK_LAT_END_ENCL | SCAN_4 | INIT_PANEL_REQUIRED
 - MBI5124 has built-in ghosting elimination (pre-charge circuit)
 - Panel has both input and output HUB75 connectors (daisy-chain capable hardware)
 - Some chips hidden under plastic LED housing - cannot visually identify
-- **Multi-panel daisy-chain not yet working** - likely a timing/driver issue, not hardware
+- Multi-panel daisy-chain works once the clock is held to the chain limit. At 22.3 MHz the first column of each panel lost or gained red in some rows on some images (each panel's first stage misses the bit the stage before it hands on), and it flickered
 
 **Investigation Status:**
 - Two panels available for testing
@@ -514,232 +515,45 @@ function FM6126A_Init(panel_width):
 
 ### MBI5124 Initialization Sequence
 
-The MBI5124 (including MBI5124GP variant) has a configuration register for ghosting elimination settings. Unlike FM6126A, it uses a different command protocol based on CLK pulses while LE is HIGH.
+Source: MBI5124 datasheet V0.01 (`DOCs/MBI5124GP/MBI5124GP-B_C.pdf`), p.2 (pins), p.12 (configuration register and commands), pp.9-10 (timing). Driver: `isp_hub75_rgb3bit.spin2`, `resetPanelMBI5124()`, run once at start before the refresh cog takes the pins.
 
-#### Command Protocol
+#### Commands
 
-The MBI5124 interprets commands based on the number of CLK rising edges while LE (Latch Enable) is HIGH:
+The chip counts CLK rising edges while LE is high, and acts when LE falls:
 
-| CLK Edges (LE=HIGH) | Command | Description |
-|---------------------|---------|-------------|
-| 0 | Latch Data | Transfer shift register to output latch |
-| 1 | Latch Buffer | Transfer buffer data to output latch |
-| **4** | **Write Config** | Write shift register data to configuration register |
-| 5 | Read Config | Shift out configuration register to SDO |
-| 2, 3, >5 | No Action | Reserved/unused |
+| CLK rising edges with LE high | Command | Action when LE falls |
+|---|---|---|
+| 0 | Latch data | the serial data goes to the output latch |
+| 1 | Latch data | the serial data or buffer data goes to the output latch |
+| **4** | **Write configuration** | the serial data goes to the configuration register |
+| 5 | Read configuration | the configuration register shifts out on SDO |
+| 2, 3, more than 5 | none | not to be used |
 
-#### Configuration Register (16-bit)
+The refresh latch raises LE with CLK low, so it is always a 0-edge latch.
 
-Different configuration values are needed for each LED color channel:
+#### Configuration register (16 bits, one value per LED colour)
 
-| LED Color | Binary (MSB→LSB) | Hex |
-|-----------|------------------|-----|
-| **Red** | `0111 1101 0110 1011` | `0x7D6B` |
-| **Green** | `1111 0001 0110 1011` | `0xF16B` |
-| **Blue** | `1110 1101 0110 1011` | `0xED6B` |
+| LED colour | Bits F..0 | Hex |
+|---|---|---|
+| Red | `0111 1101 0110 1011` | `$7D6B` |
+| Green | `1111 0001 0110 1011` | `$F16B` |
+| Blue | `1110 1101 0110 1011` | `$ED6B` |
 
-**Common bits across all colors:**
-- Bits 0-5: `101011` = Common settings
-- Bits 6-9: Variable per color
+The datasheet gives these values and does not define the individual bits.
 
-#### Pre-charge Waveform
+#### What the driver sends
 
-The MBI5124's ghosting elimination works via a pre-charge circuit controlled by OE timing:
-```
-OE  _____|‾‾‾‾‾‾‾‾‾‾‾|_____
-         Pre-charge active
+The write command stores every chip's shift register at once, so all three colours are written together, each on its own data lines (R1 and R2 carry the red value, G1 and G2 green, B1 and B2 blue; with `RB_SWAP` the R and B lines exchange values):
 
-OUTn _____|‾‾‾‾‾‾‾‾‾|_______
-          LED current
-```
+1. /OE high (outputs off), LE low, CLK low.
+2. One bit per CLK rising edge, MSB first, for every shift stage on one data line of the chain: panel count x panel columns, doubled for a `SCAN_4` panel (two panels of 64 columns: 256 stages, 16 chips per line). A chain is a whole number of 16-stage chips, so repeating the 16-bit value leaves each chip holding its colour's value.
+3. LE high, four CLK rising edges, LE low: write configuration.
 
-#### Init Sequence Pseudocode
+The init runs from Spin2, so every edge is far longer than the datasheet's setup and hold times (3 ns and 5 ns for SDI, 5 ns for LE). The register cannot be read back on this hardware: the read command shifts it out on SDO, which at the end of a chain goes to the last panel's output connector, not back to the P2.
 
-```
-# Configuration values per LED color
-CONFIG_RED   = 0x7D6B  # 0111 1101 0110 1011
-CONFIG_GREEN = 0xF16B  # 1111 0001 0110 1011
-CONFIG_BLUE  = 0xED6B  # 1110 1101 0110 1011
+#### Clock limit in a chain
 
-function MBI5124_Init(panel_width):
-    # Each MBI5124 chip is 16 channels wide
-    # Number of chips per color = panel_width / 16
-    # For 64-wide panel: 4 chips per color (R, G, B = 12 chips total per half-panel)
-
-    chips_per_color = panel_width / 16
-
-    # Setup - disable outputs during init
-    OE = HIGH (outputs disabled)
-    LE = LOW
-    CLK = LOW
-
-    # === Configure RED channel driver chain ===
-    # Shift config value through all RED chips in chain
-    for chip in 0 to (chips_per_color - 1):
-        # Shift 16 bits into this chip (and push previous chips' data forward)
-        for bit in 15 downto 0:
-            # Set R1 and R2 data pins to config bit value
-            R1_DATA = (CONFIG_RED >> bit) AND 1
-            R2_DATA = (CONFIG_RED >> bit) AND 1
-            # G and B pins can be LOW during RED config
-            G1_DATA = LOW
-            G2_DATA = LOW
-            B1_DATA = LOW
-            B2_DATA = LOW
-
-            wait(~5ns)  # Setup time
-            CLK = HIGH  # Rising edge shifts data
-            wait(~20ns)
-            CLK = LOW
-            wait(~20ns)
-
-    # Write to configuration register - 4 CLK pulses while LE=HIGH
-    LE = HIGH
-    for pulse in 1 to 4:
-        CLK = HIGH
-        wait(~20ns)
-        CLK = LOW
-        wait(~20ns)
-    LE = LOW  # Falling edge commits config to all RED chips
-
-    wait(~1us)  # Delay between color configs
-
-    # === Configure GREEN channel driver chain ===
-    for chip in 0 to (chips_per_color - 1):
-        for bit in 15 downto 0:
-            R1_DATA = LOW
-            R2_DATA = LOW
-            G1_DATA = (CONFIG_GREEN >> bit) AND 1
-            G2_DATA = (CONFIG_GREEN >> bit) AND 1
-            B1_DATA = LOW
-            B2_DATA = LOW
-
-            wait(~5ns)
-            CLK = HIGH
-            wait(~20ns)
-            CLK = LOW
-            wait(~20ns)
-
-    # Write config - 4 CLK pulses while LE=HIGH
-    LE = HIGH
-    for pulse in 1 to 4:
-        CLK = HIGH
-        wait(~20ns)
-        CLK = LOW
-        wait(~20ns)
-    LE = LOW
-
-    wait(~1us)
-
-    # === Configure BLUE channel driver chain ===
-    for chip in 0 to (chips_per_color - 1):
-        for bit in 15 downto 0:
-            R1_DATA = LOW
-            R2_DATA = LOW
-            G1_DATA = LOW
-            G2_DATA = LOW
-            B1_DATA = (CONFIG_BLUE >> bit) AND 1
-            B2_DATA = (CONFIG_BLUE >> bit) AND 1
-
-            wait(~5ns)
-            CLK = HIGH
-            wait(~20ns)
-            CLK = LOW
-            wait(~20ns)
-
-    # Write config - 4 CLK pulses while LE=HIGH
-    LE = HIGH
-    for pulse in 1 to 4:
-        CLK = HIGH
-        wait(~20ns)
-        CLK = LOW
-        wait(~20ns)
-    LE = LOW
-
-    # Init complete - enable outputs
-    OE = LOW
-```
-
-#### Alternative: All Colors Simultaneously
-
-Since CLK and LE are shared across all color channels, you can configure all colors in parallel:
-
-```
-function MBI5124_Init_Parallel(panel_width):
-    chips_per_color = panel_width / 16
-
-    OE = HIGH
-    LE = LOW
-    CLK = LOW
-
-    # Shift config values to ALL color channels simultaneously
-    for chip in 0 to (chips_per_color - 1):
-        for bit in 15 downto 0:
-            # Each color gets its own config value on its data pins
-            R1_DATA = (CONFIG_RED >> bit) AND 1
-            R2_DATA = (CONFIG_RED >> bit) AND 1
-            G1_DATA = (CONFIG_GREEN >> bit) AND 1
-            G2_DATA = (CONFIG_GREEN >> bit) AND 1
-            B1_DATA = (CONFIG_BLUE >> bit) AND 1
-            B2_DATA = (CONFIG_BLUE >> bit) AND 1
-
-            wait(~5ns)
-            CLK = HIGH  # All colors shift on same clock
-            wait(~20ns)
-            CLK = LOW
-            wait(~20ns)
-
-    # Single config write applies to ALL color channels
-    LE = HIGH
-    for pulse in 1 to 4:
-        CLK = HIGH
-        wait(~20ns)
-        CLK = LOW
-        wait(~20ns)
-    LE = LOW
-
-    OE = LOW
-```
-
-**Note:** The parallel method is faster but requires that all color data pins can be set independently. Most HUB75 implementations support this.
-
-#### Clock Phase Requirement
-
-**Critical:** MBI5124 requires positive-edge clocking:
-- Data shifts on CLK **rising edge**
-- LE signal resets on CLK rising edge while HIGH
-- Set `clkphase = true` in software drivers
-
-This differs from many other HUB75 drivers that use falling-edge clocking.
-
-#### Key Timing Specifications (from Datasheet)
-
-| Parameter | Symbol | Min | Typ | Max | Unit |
-|-----------|--------|-----|-----|-----|------|
-| Clock frequency | fCLK | - | - | 25 | MHz |
-| Clock pulse width | tw(CLK) | 20 | - | - | ns |
-| LE pulse width | tw(L) | 20 | - | - | ns |
-| OE pulse width, VDD 5.0 V | tw(OE) | 45 | 55 | 65 | ns |
-| OE pulse width, VDD 3.3 V | tw(OE) | 50 | 60 | 70 | ns |
-| Setup time (SDI) | tsu(D) | 3 | - | - | ns |
-| Hold time (SDI) | th(D) | 5 | - | - | ns |
-| Setup time (LE) | tsu(L) | 5 | - | - | ns |
-| Hold time (LE) | th(L) | 5 | - | - | ns |
-
-#### Multi-Panel Considerations
-
-For MBI5124 daisy-chain operation:
-1. Each panel in chain must receive the init sequence
-2. Configuration data shifts through SDI→SDO chain
-3. All panels configured with same LE pulse (4 CLK edges)
-4. May need to shift `N × 16` bits for N chips in chain
-5. Clock integrity critical due to rising-edge sensitivity
-
-#### References
-
-- [MBI5124 Datasheet (Macroblock)](https://datasheet.lcsc.com/lcsc/1808081643_MBI-MBI5124GP-B_C256866.pdf)
-- [ESP32-HUB75-MatrixPanel-DMA MBI5124 notes](https://github.com/mrcodetastic/ESP32-HUB75-MatrixPanel-DMA)
-- Driver implementation: `isp_hub75_rgb3bit.spin2:resetPanelMBI5124()` (stub)
+SDO changes on the CLK rising edge, 28 to 50 ns after it (pp.9-10), and the next chip needs SDI 3 ns before its next rising edge. So a clock period is at least 53 ns, 18.9 MHz, below the chip's 25 MHz single-chip rating. The driver holds MBI5124GP panels to that limit (18.6 MHz at 335 MHz). The configuration register was not the cause of the first-column fault seen at 22.3 MHz: with the init written and the clock at 22.3 MHz the fault remained, and at the chain limit it was gone.
 
 ---
 

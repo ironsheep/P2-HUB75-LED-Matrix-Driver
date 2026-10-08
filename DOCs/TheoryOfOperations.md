@@ -395,7 +395,7 @@ The method is the binary-coded (bit-angle) modulation with output-enable weighti
 
 #### Pixel Clocking (HIGHEST PRIORITY)
 - **Location**: `isp_hub75_rgb3bit.spin2`, the column-clocking loop (`shiftColumns`)
-- **Requirement**: each half of the CLK pulse at least 20 ns, and the period no shorter than the chip's rated clock allows (30 MHz, or 25 MHz for the MBI5124GP); the ratings are in the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)
+- **Requirement**: each half of the CLK pulse at least 20 ns, and the period no shorter than the chip's rated clock allows (30 MHz; for the MBI5124GP its chain limit, 18.9 MHz, the CLK-to-SDO delay plus the SDI setup time); the ratings are in the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)
 - **Implementation**: Uses `rep` instruction for zero-overhead loop
 - **Timing**: on the author's rig, 15 system clocks per column at 335 MHz, with CLK high 7 clocks (20.9 ns) and low 8 (23.9 ns)
 
@@ -493,7 +493,7 @@ The startup check halts with a message if a display that is started has no panel
 | FM6124 | ABCD | Single only | |
 | DP5125D | ABC | Yes | |
 | GS6238S | ABCD | Single only | Green/Blue swap |
-| MBI5124GP | ABC | Single only | 1/8 scan |
+| MBI5124GP | ABC | Yes (two panels run) | 1/8 scan |
 
 Each chip's datasheet clock and /OE ratings are in the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings).
 

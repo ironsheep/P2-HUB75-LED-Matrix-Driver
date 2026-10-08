@@ -25,7 +25,7 @@ Oct 2026 (v4.0.0 - BREAKING: the panel-layout settings and the startup call chan
 - 8-bit color is the default depth; brightness is /OE time, so the image keeps its full depth at any brightness
 - A commit never shows a half-converted image, and `display.showFrameSet()` shows a frame set you built yourself
 - Commit and drawing are faster: on the four-panel rig at 8-bit a commit takes 4.09 ms (from 21.25 ms) and a full-screen fill draws in 114.0 ms (from 635.4 ms)
-- Fixes: multi-panel quarter-scan conversion, more than 9 panels, each display shows its own image, 90/270 degree display rotation, text and panel calls on any wiring
+- Fixes: chains of MBI5124GP panels (column clock held to what one chip can pass to the next), multi-panel quarter-scan conversion, more than 9 panels, each display shows its own image, 90/270 degree display rotation, text and panel calls on any wiring
 - Upgrading from v3.x? See the new [Update to v4.0 Checklist](Checklist-v3-v4.md)
 15 Jan 2024
 - Add support for panels using DP5125D chips
@@ -122,7 +122,7 @@ This driver works with the following chips. Other chips may well work since the 
 | ICN2037 | ABCDE | working `Multi-panel` | Chipone Technology (Beijing) Co., Ltd. | Our P2 P2 cube panels 
 | ICN2037BP | ABCDE | working `Multi-panel` |Chipone Technology (Beijing) Co., Ltd. |
 | ICN2038S | ABCDE | working `Single-panel` | Chipone Technology (Beijing) Co., Ltd. | Single-ended road-sign panel: no daisy-chain by construction |
-| MBI5124GP | ABC | working `Single-panel` | Macroblock, Inc. (Taiwan) | The driver sends the panel init sequence at start; chains of these panels have not been run
+| MBI5124GP | ABC | working `Multi-panel` | Macroblock, Inc. (Taiwan) | The driver writes each chip's configuration register at start; two panels chained end to end run as one 128x32 display
 
 Each chip's datasheet clock and /OE ratings are in the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings).
 
@@ -130,8 +130,7 @@ Each chip's datasheet clock and /OE ratings are in the [Chip Characteristics Mat
 
 Upcoming work on the driver:
 
-- Finishing work on initialization of panel chips that require it (MBI5124GP). It's working for single panels but not multiple panels in the chain. *There's a lot of information that is just not readily found on this panels making continuing this "kind of hit-or-miss".*
-- Proving the 4.0.0 display organization on more hardware: the cube on six real panels, the green MBI5124GP quarter-scan panels in a chain, a second adapter cabled at the same time, panel types not yet run (ICN2037 64x64, FM6124C, ICN2038S, GS6238S, DP5125D) and measured refresh for them. See the Known Issues in the [Change Log](ChangeLog.md).
+- Proving the 4.0.0 display organization on more hardware: the cube on six real panels, more than two MBI5124GP quarter-scan panels in a chain, a second adapter cabled at the same time, panel types not yet run (ICN2037 64x64, FM6124C, ICN2038S, GS6238S, DP5125D) and measured refresh for them. See the Known Issues in the [Change Log](ChangeLog.md).
 - I've even some fun animated clocks coming (sorry, I'm been doing software clocks of many, many, forms for a long time.)
 
 Morphing digits Matrix displays can be found at [P2 LED-Matrix Morphing Digits](https://github.com/ironsheep/P2-LED-Matrix-Morphing-Digits) Repository.

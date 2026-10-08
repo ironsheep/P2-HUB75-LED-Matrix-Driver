@@ -4,6 +4,13 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 
 ## Active
 
+### FM6124 and FM6126A: CLK-to-SDO delay not read against the chain clock (finding, 2026-10-07)
+
+- **Found:** 2026-10-07, «#110». Two chained MBI5124GP panels lost or gained red in the first column of each panel at 22.3 MHz: a chip's rated clock is one chip's, and in a chain the period must also cover the CLK-to-SDO delay plus the next chip's SDI setup. The MBI5124GP now runs at that limit (18.9 MHz; `DOCs/ChipCharacteristicsMatrix.md`, ratings notes).
+- **Checked:** ICN2037 (35 + 5 ns, 25.0 MHz) and ICN2038S (30 + 5 ns, 28.6 MHz) are within the 25 MHz the 20 ns pulses allow; no change.
+- **Not read:** the FM6124 and FM6126A datasheets (`DOCs/FM6124/`, `DOCs/FM6126A/`) are font-encoded and need a visual read of their timing tables. FM6126A chains have run correctly (multi-panel tested); the FM6124 has run only as one panel.
+- **Bears on:** FM6124 chains, and whether `MAX_CLK_HZ_FM6124` / `MAX_CLK_HZ_FM6126A` need a chain limit like the MBI5124GP's.
+
 ### `display.showFrameSet()` has run only with NULL (test written, not yet run)
 
 - **Found:** 2026-10-05, by the FRAME-RATE closeout audit (§3 verify).

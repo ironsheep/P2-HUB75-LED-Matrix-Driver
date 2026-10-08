@@ -270,3 +270,27 @@ Each hand-back adds one dated entry with three parts: tree state (scoped to
 **Verdict:** the overlapped path ends every clock pulse before waiting, like the latch-at-end path; image, refresh and lit share unchanged.
 
 **Steps completed:** «#105».
+
+### 2026-10-07 — Two MBI5124GP panels chained as one 128x32 display («#110»)
+
+**Tree:** `driver/*.spin2` at `b240a55` plus the uncommitted «#110» edits to `isp_hub75_rgb3bit.spin2` (MBI5124 configuration-register init; MBI5124GP clock held to the chain limit) and `demo_hub75_scroll.spin2` (layout by display height), committed after this entry. Bench builds in a scratch copy of `driver/` with `DISP0` = `CHIP_MBI5124GP`, `ADDR_ABC`, 64x32, `C0 = FIRST_PANEL | ARROW_UP`, `C1 = LEFT_OF | C0 | ARROW_UP` (or `C1 = NO_PANEL` for one panel); the committed config is the quad and was not changed.
+**Rig:** two green MBI5124GP 64x32 panels, landscape, end to end on P16-P31; the adapter into C0, the right-hand panel from the front. 335 MHz. Loaded with `pnut-term-ts -r <bin> -p Parw7ukt --headless --end-marker --timeout N`.
+
+**Observed:**
+- Identify (`demo_hub75_numberPanels`), first guess `C1 = RIGHT_OF C0`, arrows down: the whole image turned 180°, C0 on the right. With `C1 = LEFT_OF C0`, arrows up: upright, C1P0 left, C0P1 right (Stephen). 41.5 W, 8.2 A.
+- At 22.3 MHz (the old 25 MHz rating), the first column of each panel showed the wrong red in some rows: C0 lost red in rows 8-15 and 24-31 (the first stage of its R1 and R2 lines), C1 gained it; at first it flickered. It came and went between loads: an identify image and a cyan (G=$FA) | red split showed it; 8-row and 4-row colour bands, single-column probes and a cyan (G=$FF) | red split did not.
+- A frame-set dump of the identify image (all 8 planes, all 8 row addresses, the edge columns) held the right bytes: the converter was not the cause.
+- With the new configuration-register init, on panels power-cycled with the P2: no init, fault present; init, fault still present. So the register is not the cause.
+- Clock, same image, init present: 12.4 MHz clean twice; 22.3 MHz bad (two places per panel, the same row groups); 18.6 MHz (the chain limit, CLK-to-SDO 50 ns + SDI setup 3 ns) clean, then the identify image clean. Scroll demo clean across the seam (Stephen: "what is showing is clean"); the size-aware scroll demo showed all four directions, one per line.
+- `test_hub75_rates` at 18.6 MHz, every self-test PASS (colour table, 208 row-run cases, handshake 100 commits, take check):
+
+| Panels | Depth | Log | Refresh | Lit | b = 1 | Commit | Take check |
+|---|---|---|---|---|---|---|---|
+| 2 | 8 | `headless_261007-222532` | 70.9 Hz | 99.4% | 0.7% | 532 us | 1,531 of 1,531 at row 7 |
+| 2 | 5 | `-222821` | 292.1 Hz | 99.6% | 0.3% | 428 us | 5,957 of 5,957 at row 7 |
+| 1 | 8 | `-223108` | 71.2 Hz | 99.8% | 0.7% | 284 us | 1,537 of 1,537 at row 7 |
+| 1 | 5 | `-223352` | 582.7 Hz | 99.4% | 0.7% | 233 us | 11,769 of 11,769 at row 7 |
+
+- Clock rises at two panels, 8-bit: 1,162,230/s = 256 column clocks x 8 row addresses x 8 planes x 70.9 Hz.
+
+**Steps completed:** the chain runs as one display at the chain-limit clock, by eye and by the rates self-tests. Not run: the rates runs were not watched by eye; the quad was not re-run (Stephen: no recabling); one panel was not checked by eye at the new clock. Stephen will check the panels by eye once, at the final release gate.

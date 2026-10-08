@@ -19,14 +19,33 @@ CON ' ---- Timing ----
     ' "Datasheet Clock and /OE Ratings"): 20 ns on every chip in the table
     MIN_CLK_PULSE_NS              = 20
 
-    ' Highest clock each chip is rated for, in Hz (same table). MBI5124GP is 25 MHz, the rest 30 MHz;
-    ' the 20 ns pulses cap every chip at 25 MHz. A chip with no rating in the table uses
-    ' MAX_CLK_HZ_UNRATED, and start() says so.
-    MAX_CLK_HZ_FM6124             = 30_000_000
-    MAX_CLK_HZ_FM6126A            = 30_000_000
-    MAX_CLK_HZ_ICN2038S           = 30_000_000
-    MAX_CLK_HZ_ICN2037            = 30_000_000
-    MAX_CLK_HZ_MBI5124GP          = 25_000_000
+    ' Highest clock each chip is rated for, one chip alone, in Hz (same table). The 20 ns pulses
+    ' cap every chip at 25 MHz.
+    RATED_CLK_HZ_FM6124           = 30_000_000
+    RATED_CLK_HZ_FM6126A          = 30_000_000
+    RATED_CLK_HZ_ICN2038S         = 30_000_000
+    RATED_CLK_HZ_ICN2037          = 30_000_000
+    RATED_CLK_HZ_MBI5124GP        = 25_000_000
+
+    ' In a chain each chip's SDO feeds the next chip's SDI, so a clock period must also cover the
+    ' slowest CLK-to-SDO delay plus the SDI setup time (each chip's switching characteristics).
+    ' MBI5124 V0.01 pp.9-10, the 3.3 V row (the row its /OE minimum uses): 50 + 3 ns. Clocked
+    ' faster (22.3 MHz), a chain of two MBI5124GP panels lost the bit handed into each panel on
+    ' some images. ICN2037 V2.0: 35 + 5 ns; ICN2038S V1.1: 30 + 5 ns. The FM6124 and FM6126A
+    ' delays have not been read (DOCs/plans/PUNCH-LIST.md), so their rating alone applies.
+    ICN2037_CLK_TO_SDO_MAX_NS     = 35
+    ICN2037_SDI_SETUP_NS          = 5
+    ICN2038S_CLK_TO_SDO_MAX_NS    = 30
+    ICN2038S_SDI_SETUP_NS         = 5
+    MBI5124_CLK_TO_SDO_MAX_NS     = 50
+    MBI5124_SDI_SETUP_NS          = 3
+
+    ' Highest clock the driver uses for each chip, in Hz: its rating, or its chain limit when lower
+    MAX_CLK_HZ_FM6124             = RATED_CLK_HZ_FM6124
+    MAX_CLK_HZ_FM6126A            = RATED_CLK_HZ_FM6126A
+    MAX_CLK_HZ_ICN2038S           = RATED_CLK_HZ_ICN2038S <# (NS_PER_SECOND / (ICN2038S_CLK_TO_SDO_MAX_NS + ICN2038S_SDI_SETUP_NS))
+    MAX_CLK_HZ_ICN2037            = RATED_CLK_HZ_ICN2037 <# (NS_PER_SECOND / (ICN2037_CLK_TO_SDO_MAX_NS + ICN2037_SDI_SETUP_NS))
+    MAX_CLK_HZ_MBI5124GP          = RATED_CLK_HZ_MBI5124GP <# (NS_PER_SECOND / (MBI5124_CLK_TO_SDO_MAX_NS + MBI5124_SDI_SETUP_NS))
     MAX_CLK_HZ_UNRATED            = 20_000_000
 
     ' The column loop (shiftColumns), 7 instructions of 2 clocks each with both WAITX at D = 0.
@@ -137,6 +156,10 @@ CON ' ---- HUB75 pin layout offsets (relative to adapter base pin) ----
     PIN_OFST_LATCH                = 2           ' LATCH pin = basePin + 2
     PIN_OFST_A                    = 3           ' addr A pin = basePin + 3
     PIN_OFST_R1                   = 8           ' color R1 pin = basePin + 8
+    ' the colour pins from R1 on: R1 G1 B1 R2 G2 B2 (offsets from R1)
+    COLOR_OFST_G                  = 1           ' G1 = R1 + 1
+    COLOR_OFST_B                  = 2           ' B1 = R1 + 2
+    COLOR_OFST_RGB2               = 3           ' R2, G2, B2 = R1, G1, B1 + 3
 
     ' ADDPINS spans (count - 1 of contiguous pins in each group)
     ROW_ADDR_PINS_SPAN            = 4           ' A..E -> 5 pins
@@ -200,6 +223,16 @@ CON ' ---- COGINIT / inline-PASM timing + FM6126A register init ----
     FM6126_CLK_HIGH_TICKS         = 511         ' FM6126A clock-high wait
     FM6126_CLK_LOW_TICKS          = 500         ' FM6126A clock-low wait
     FM6126_REG_GAP_TICKS          = 50          ' delay between register loads
+
+    ' MBI5124 configuration register, one value per LED colour, MSB first (MBI5124 datasheet
+    ' V0.01, p.12 "Definition of Configuration Register"). Each chip takes 16 bits, one per output.
+    MBI5124_CFG_RED               = $7D6B       ' red LEDs
+    MBI5124_CFG_GREEN             = $F16B       ' green LEDs
+    MBI5124_CFG_BLUE              = $ED6B       ' blue LEDs
+    MBI5124_CHIP_STAGES           = 16          ' shift stages (outputs) in one chip
+    MBI5124_CHIP_STAGE_MASK       = MBI5124_CHIP_STAGES - 1   ' a stage's place within its chip
+    MBI5124_CFG_MSBIT             = MBI5124_CHIP_STAGES - 1   ' first bit shifted into each chip
+    MBI5124_WRITE_CFG_EDGES       = 4           ' CLK rising edges while LE is high: write configuration (p.12)
 
 CON ' ---- SETR self-modify encodings + pack shifts ----
 
@@ -614,13 +647,52 @@ PRI setupPins()
   PINLOW(pnlRowAddrPins)
   PINLOW(pnlColorPins)
 
-PRI resetPanelMBI5124()
-' Reset MBI5124 panel driver chips (placeholder, not yet implemented).
-'
+PRI resetPanelMBI5124() | stageCount, stageIdx, bitIdx, redPinWord, greenPinWord, bluePinWord, pinBits
+' Write the configuration register of every MBI5124 in the chain (MBI5124 datasheet V0.01,
+' p.12): shift each colour's register value into every chip on that colour's data lines, all
+' three colours at once, then raise LE for four CLK rising edges (the "write configuration"
+' command). Every chip in a chain must hold the value for its LED colour; one chip is 16 shift
+' stages, and a chain is a whole number of chips, so repeating the 16-bit value MSB first leaves
+' each chip with its own copy. Runs before the refresh cog owns the pins.
 
-' see datasheet
+' Local Variables:
+' @local stageCount - shift stages on one data line of the chain (2x the columns for SCAN_4)
+' @local stageIdx - shift stage being clocked
+' @local bitIdx - register bit being shifted (MSB first within each chip)
+' @local redPinWord - register value for the chips on the R data lines (blue's when R/B are swapped)
+' @local greenPinWord - register value for the chips on the G data lines
+' @local bluePinWord - register value for the chips on the B data lines (red's when R/B are swapped)
+' @local pinBits - the six data-pin levels for this stage: R1 G1 B1 R2 G2 B2
 
-  DEBUG("* Driver missing MBI5124 init")
+  DEBUG("* Driver MBI5124 Init")
+
+  stageCount := maxChainColumns
+  if bScan_1_4 == TRUE
+    stageCount *= hub75Bffrs.SCAN_4_COLUMN_FACTOR
+  redPinWord := MBI5124_CFG_RED
+  greenPinWord := MBI5124_CFG_GREEN
+  bluePinWord := MBI5124_CFG_BLUE
+  if bSwapRB == TRUE
+    redPinWord := MBI5124_CFG_BLUE
+    bluePinWord := MBI5124_CFG_RED
+
+  PINHIGH(pnlLedPinOE)                                  ' outputs off throughout
+  PINLOW(pnlLedPinLATCH)
+  PINLOW(pnlLedPinCLK)
+  repeat stageIdx from 0 to stageCount - 1
+    bitIdx := MBI5124_CFG_MSBIT - (stageIdx & MBI5124_CHIP_STAGE_MASK)
+    pinBits := redPinWord.[bitIdx] | (greenPinWord.[bitIdx] << COLOR_OFST_G) | (bluePinWord.[bitIdx] << COLOR_OFST_B)
+    PINWRITE(pnlColorPins, pinBits | (pinBits << COLOR_OFST_RGB2))
+    PINHIGH(pnlLedPinCLK)                               ' rising edge shifts the bit in
+    PINLOW(pnlLedPinCLK)
+
+  ' the write-configuration command: LE high across four CLK rising edges, stored when LE falls
+  PINHIGH(pnlLedPinLATCH)
+  repeat MBI5124_WRITE_CFG_EDGES
+    PINHIGH(pnlLedPinCLK)
+    PINLOW(pnlLedPinCLK)
+  PINLOW(pnlLedPinLATCH)
+  PINLOW(pnlColorPins)
 
 PRI resetPanelFM6126() | maxPhysicalCols, last11Cols, last12Cols, lPinOE, lPinLATCH, lPinCLK, lPinA, lPnlRowAddrPins, lPnlColorPins
 ' Reset FM6126A panel driver chips by writing control registers 11 and 12 via inline PASM2.

@@ -206,7 +206,7 @@ A display must pass all four limits, and the tightest decides:
 |---|---|---|---|---|---|
 | FM6126A 64x32, 1/16 scan | 64 | 1 | 8 | **8** | calculated; one panel run on the bench |
 | FM6124 64x32, 1/16 scan | 64 | 1 | 8 | **8** | calculated; one panel run on the bench |
-| MBI5124GP 64x32, 1/8 scan, quarter-scan conversion | 64 | 2 | 4 | **4** | calculated; one panel run on the bench |
+| MBI5124GP 64x32, 1/8 scan, quarter-scan conversion | 64 | 2 | 4 | **4** | calculated; two panels run on the bench |
 | GS6238S 64x32, 1/16 scan | 64 | 1 | 8 | **8** | calculated |
 | ICN2037 64x64, 1/32 scan | 64 | 1 | 8 | **8** | calculated |
 | ICN2037 128x64, 1/32 scan | 128 | 1 | 4 | **4** | calculated; checked with 4 panels on the bench |
@@ -217,7 +217,7 @@ Notes on the table:
 
 - The 4 x 128x64 ICN2037 rig sits exactly at the limit: 4 x 128 = 512 column clocks.
 - The ICN2038S has five address lines (which fits 1/32 scan and would give a limit of 8), but the driver flags the chip as quarter-scan, so the limit it enforces is 4.
-- Multi-panel use of the FM6124, MBI5124GP, GS6238S and ICN2038S has not been proven on hardware, so for those rows the number is the driver's cap, not a demonstrated working count.
+- Multi-panel use of the FM6124, GS6238S and ICN2038S has not been proven on hardware, and the MBI5124GP has been run with two panels, so for those rows the number is the driver's cap, not a demonstrated working count.
 
 ### Hub RAM
 
@@ -291,9 +291,9 @@ Single 64x32 panels, one at a time on one adapter, same target and clock. Each r
 |---|---|---|---|---|---|
 | FM6126A (overlapped latch) | 85.1 Hz | 99.6% | 688.9 Hz | 97.9% | 1.4% lit (40 ns) |
 | FM6124 | 85.3 Hz | 99.7% | 694.1 Hz | 98.6% | 1.1% lit (30 ns) |
-| MBI5124GP (1/8 scan, 128 column clocks per row address) | 85.4 Hz | 99.8% | 698.5 Hz | 99.2% | 0.8% lit (50 ns) |
+| MBI5124GP (1/8 scan, 128 column clocks per row address, 18.6 MHz chain clock) | 71.2 Hz | 99.8% | 582.7 Hz | 99.4% | 0.7% lit (50 ns) |
 
-The image was correct by eye on the test patterns on all three at both depths. Other panel types follow the same rule; their figures have not been measured.
+The image was correct by eye on the test patterns on all three at both depths; the MBI5124GP was checked by eye at its earlier 22.3 MHz clock, and its figures above are at the 18.6 MHz clock it now uses (one chip cannot hand data to the next any faster; see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)). Two MBI5124GP panels chained as one 128x32 display: 70.9 Hz at 8-bit (99.4% lit), 292.1 Hz at 5-bit (99.6% lit), image correct by eye. Other panel types follow the same rule; their figures have not been measured.
 
 #### Brightness
 

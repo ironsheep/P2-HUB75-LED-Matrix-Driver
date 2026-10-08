@@ -122,7 +122,7 @@ On a single adapter the number of panels is limited by the refresh line buffer (
 | **ICN2037** | - | ✅ Full support | Tested in chains and 2D grids |
 | **ICN2038S** | - | ⚠️ Expected | Similar to ICN2037 |
 | FM6124 | Orange | ⚠️ Untested | Similar to FM6126A |
-| MBI5124GP | Green | ⚠️ Untested | 1/8 scan |
+| MBI5124GP | Green | ✅ Tested | 1/8 scan; two panels in a chain |
 | GS6238S | Cyan | ⚠️ Untested | |
 | DP5125D | - | ⚠️ Untested | May work |
 

@@ -33,6 +33,7 @@ Each panel is described by one sentence, each adapter starts with one call, six 
 - `placeBMP(chain, file, rotation)` places an image of any size, turned by a content rotation (`ROT_NONE`, `ROT_RIGHT_90`, `ROT_LEFT_90` or `ROT_180`).
 - **Demo**: `demo_hub75_boundary.spin2` draws across panel seams and prints the time of one full draw.
 - `DISPx_TARGET_REFRESH_HZ` (default 60) sets the refresh rate to aim for. The driver picks the brightest panel timing that reaches it; a display that cannot reach it runs at its fastest rate and prints that rate at startup.
+- MBI5124GP panels are configured at start: the driver writes each chip's configuration register with the values its datasheet gives for red, green and blue LEDs.
 - `display.showFrameSet(pFrameSet)` shows a PWM frame set you built. It accepts one of the adapter's two sets, and refuses NULL or any other address with a message naming the call.
 
 #### Removed
@@ -41,6 +42,8 @@ Each panel is described by one sentence, each adapter starts with one call, six 
 
 #### Fixed
 
+- MBI5124GP panels chained on one adapter run as one display. The first column of each panel showed the wrong red in some rows, on some images, and could flicker: the column clock was faster than one chip can hand its data to the next. The clock is now held to that limit (18.6 MHz at 335 MHz).
+- `demo_hub75_scroll.spin2` lays its scrollers out for the display's height. On a 32-row display its up and down scrollers landed on the last line, on top of the left-scrolling text.
 - Chains of ten or more panels on one adapter show every panel. Chains of nine or fewer were unaffected.
 - More than one quarter-scan panel (the `SCAN_4` chips: MBI5124GP, DP5125D, ICN2038S) in one chain converts panel by panel. A single panel was unaffected.
 - Each display shows its own adapter's image. With more than one adapter, every display showed the first adapter's image; single-adapter programs were unaffected.
@@ -63,7 +66,7 @@ Each panel is described by one sentence, each adapter starts with one call, six 
 - **Refresh**: each bit plane is shown once per row address and lit by output-enable time in proportion to its bit weight. Rates by depth are in the [Wiring Guide](DOCs/WiringGuide.md#refresh-rate).
 - **Default color depth is 8-bit** (`DISPx_COLOR_DEPTH = hwEnum.DEPTH_8BIT`), full 24-bit color. A configuration whose buffers exceed hub RAM at 8-bit fails to compile with `Program requirement exceeds 512KB hub RAM`; lower the depth.
 - `setBrightness()` sets how long the panels are lit, not the color values: the image keeps its full depth at any brightness and the refresh rate does not change. The lowest lit time is the chip's shortest /OE pulse, so on the four-panel rig at 8-bit settings 1 to 11 look the same; 0 is off.
-- The column clock is held to each chip's datasheet rating, with each half of the pulse at least 20 ns (15 system clocks per column at 335 MHz on the four-panel rig). Each chip's clock and /OE ratings are in the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings); a chip with no rating in the table is held to 20 MHz and 50 ns and says so at startup.
+- The column clock is held to each chip's datasheet rating, with each half of the pulse at least 20 ns (15 system clocks per column at 335 MHz on the four-panel rig). Each chip's clock and /OE ratings are in the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings); a chip with no rating in the table is held to 20 MHz and 50 ns and says so at startup. MBI5124GP panels are held to their chain limit, 18.9 MHz, below the chip's 25 MHz rating.
 - Drawing time does not depend on color depth.
 - Panels must be a multiple of 4 columns wide (`DISPx_MAX_PANEL_COLUMNS`); every common panel width is. Any other width stops startup with a message naming the setting.
 
@@ -80,12 +83,13 @@ Measured on four ICN2037 128x64 panels (256x128 pixels) at 335 MHz.
 - ICN2037 128x64, four panels in a 2x2: verified at every depth, 71.0 Hz at 8-bit to 193.3 Hz at 3-bit
 - FM6126A 64x32, single panel: verified, 85.1 Hz at 8-bit
 - FM6124 64x32, single panel: verified, 85.3 Hz at 8-bit
-- MBI5124GP 64x32 (1/8 scan), single panel: verified, 85.4 Hz at 8-bit
+- MBI5124GP 64x32 (1/8 scan), two panels chained as one 128x32 display: verified, 70.9 Hz at 8-bit, 292.1 Hz at 5-bit
+- MBI5124GP 64x32 (1/8 scan), single panel: 71.2 Hz at 8-bit, 582.7 Hz at 5-bit (self-tests and refresh measured; image checked by eye at the earlier clock)
 
 ### Known Issues v4.0.0
 
 - The cube display (`DISPx_SHAPE = hwEnum.SHAPE_CUBE`) has not yet been run on six panels.
-- Chains of quarter-scan panels (MBI5124GP), chains of more than nine panels, and two adapters cabled at once have not yet been run on panels.
+- Chains of more than two quarter-scan panels, chains of more than nine panels, and two adapters cabled at once have not yet been run on panels.
 - The ICN2037 64x64, FM6124C, ICN2038S, GS6238S and DP5125D have not been run with this release. Panel-count limits are calculated, except for four ICN2037 128x64 panels.
 - `display.showFrameSet()` with a frame set you built has not yet been run on hardware.
 - The scan setting of the ICN2038S is disputed: the driver sets `SCAN_4` (four rows lit at once), while its five address lines suggest 1/32 scan. The panel-count limit for this chip follows the driver's setting.

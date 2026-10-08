@@ -134,9 +134,9 @@ DISP0_MAX_PANEL_ROWS = 32
 DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP     ' DISP0_C1 .. DISP0_C15 are hwEnum.NO_PANEL
 ```
 
-**Multi-Panel Status:** ❌ Single panel only (1/8 scan complexity). The 4.0.0 driver reads quarter-scan panels panel by panel for a chain, but that is proven only by a buffer-level test, not on these panels. The driver limit for this type is in the [driver limits table](WiringGuide.md#driver-limits).
+**Multi-Panel Status:** ✅ Two panels chained end to end run as one 128x32 display (2026-10-07): C0 is the right-hand panel as you face the front, `DISP0_C1 = hwEnum.LEFT_OF | hwEnum.C0 | hwEnum.ARROW_UP`. The driver writes each chip's configuration register at start and holds the column clock to the chip's chain limit (18.9 MHz; see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)). The driver limit for this type is in the [driver limits table](WiringGuide.md#driver-limits).
 
-**4.0.0 refresh core:** ✅ verified on one panel (2026-10-05) at 8-bit and 5-bit: correct image on the test patterns, refresh 85.4 Hz at 8-bit and 698.5 Hz at 5-bit; figures in the [Wiring Guide](WiringGuide.md#measured-refresh).
+**4.0.0 refresh core:** ✅ verified on one panel (2026-10-05, correct image on the test patterns) and on two chained (2026-10-07). At the 18.6 MHz chain clock: one panel 71.2 Hz at 8-bit and 582.7 Hz at 5-bit, two panels 70.9 Hz and 292.1 Hz; figures in the [Wiring Guide](WiringGuide.md#measured-refresh).
 
 ---
 
@@ -322,7 +322,7 @@ DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP     ' DISP0_C1 .. DISP0_C15 are 
 | FM6124 | Orange | ABCD | None | No | Untested |
 | ICN2037 | - | ABCDE | R/B | No | **Yes** |
 | ICN2038S | - | ABCDE | None | Untested | N/A (single-ended) |
-| MBI5124GP | Green | ABC | None | Yes | Untested |
+| MBI5124GP | Green | ABC | None | Yes | **Yes** (two panels) |
 | GS6238S | Cyan | ABCD | G/B | No | Untested |
 | DP5125D | - | ABC | None | No | Untested |
 
@@ -351,13 +351,14 @@ The following chip/panel combinations have been verified working in multi-panel 
 1. **FM6126A 64×32 (Pink)** - Tested in chains
 2. **ICN2037 64×64** - Tested in chains and grids
 3. **ICN2037 128×64** - Tested in chains and 2×2 grids
+4. **MBI5124GP 64×32 (Green)** - Two panels tested in a chain
 
 The following are expected to work but not yet verified:
 - **ICN2038S** - Similar to ICN2037 (its scan setting is disputed; see Configuration 12)
 - **FM6124 (Orange)** - Similar to FM6126A
 - **DP5125D** - Untested
 
-Not yet proven on hardware with the 4.0.0 driver: the cube on six real panels, multiple quarter-scan panels in one chain (the green MBI5124GP panels), a second adapter cabled at the same time, and any panel type other than the ICN2037 128x64. See the Known Issues in the [Change Log](../ChangeLog.md).
+Not yet proven on hardware with the 4.0.0 driver: the cube on six real panels, more than two quarter-scan panels in one chain, a second adapter cabled at the same time, and any panel type other than the ICN2037 128x64. See the Known Issues in the [Change Log](../ChangeLog.md).
 
 ---
 

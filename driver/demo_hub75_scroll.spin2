@@ -23,6 +23,27 @@ CON ' ---- Demo Constants ----
     SCROLL_PERIOD       = 3                                         ' hundredths of a second between scroll steps (about 33 pixels a second)
     MS_PER_100TH_SEC    = 10
 
+    ' the full layout uses text lines 0 to 6: two title lines, then the scrollers on lines 2, 3, 4
+    ' and 6. A display with fewer lines (a 32-row display has 4) gets the compact layout: no titles,
+    ' one scroller per line from line 0, as many as there are lines.
+    FULL_LAYOUT_LINES   = 7
+    TITLE_LINE_1        = 0
+    TITLE_LINE_2        = 1
+    FIRST_COLUMN        = 0
+    FULL_TO_RIGHT       = 2                                         ' full layout scroller lines
+    FULL_TO_LEFT        = 3
+    FULL_UP             = 4
+    FULL_DOWN           = 6
+    COMPACT_FIRST_LINE  = 0                                         ' compact layout: scroller n on line n
+    SCROLLER_COUNT      = 4                                         ' right, left, up, down
+
+DAT ' ---- Scroller Text ----
+
+    textToRight     BYTE    "First long text-123          ", 0
+    textToLeft      BYTE    "2nd shorter - ", 0
+    textUp          BYTE    "3rd  UP  -", 0
+    textDown        BYTE    "4th Down -", 0
+
 OBJ ' ---- Objects ----
 
     color           : "isp_hub75_color"
@@ -47,13 +68,19 @@ PUB main()
 
     repeat
 
-PRI demoScrollingText() | scrollerID, textSize
-' Set up and animate multiple scrolling text lines in different directions.
+PRI demoScrollingText() | textSize, textLines, pTitle1, pTitle2, scrollerIdx, line
+' Set up and animate four scrolling text regions, one per direction, laid out for the display's
+' height (full layout, or the compact one on a display with fewer than FULL_LAYOUT_LINES text
+' lines).
 '
 
 ' Local Variables:
-' @local scrollerID - identifier for the active text scroller
 ' @local textSize - selected font size for the display text
+' @local textLines - text lines the display holds in that font
+' @local pTitle1 - first title line's text
+' @local pTitle2 - second title line's text
+' @local scrollerIdx - scroller being started: 0 right, 1 left, 2 up, 3 down
+' @local line - text line of that scroller
 
     scrollPeriod := SCROLL_PERIOD                       ' SCROLL_PERIOD hundredths of a second per step
 
@@ -61,30 +88,30 @@ PRI demoScrollingText() | scrollerID, textSize
 
     display.clearScreen()
     display.setTextFont(textSize)                       ' font size
-    display.setCursor(0, 0)                             ' start at top left, with one pixel of spacing
-    ' show some static text on 64x32 display
-    if textSize == display.TEXT_FONT_5x7
-        display.setColoredTextAtLnCol(0,0, string("Iron Sheep"), color.cMaroon)
-        display.setColoredTextAtLnCol(1,0, string("ScrollDemo"), color.cOrange)
-    else
-        display.setColoredTextAtLnCol(0,0, string("SHEEP"), color.cMaroon)
-        display.setColoredTextAtLnCol(1,0, string("scroll"), color.cOrange)
-    ' show a region of scrolling text
-    scrollerID := display.scrollColoredTextOnLn(2, string("First long text-123          "), display.DIR_TO_RIGHT, color.cBlue)
-    ' configure it for one time scroll then stop when last bit arrives on screen
-    display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE_TO_CLEAR)
+    display.setCursor(TITLE_LINE_1, FIRST_COLUMN)       ' start at top left, with one pixel of spacing
+    textLines := display.numberTextLines()
+    debug("scroll demo: ", udec(textLines), " text lines")
+    if textLines >= FULL_LAYOUT_LINES
+        ' show some static text above the scrollers
+        pTitle1 := string("Iron Sheep")
+        pTitle2 := string("ScrollDemo")
+        if textSize <> display.TEXT_FONT_5x7
+            pTitle1 := string("SHEEP")
+            pTitle2 := string("scroll")
+        display.setColoredTextAtLnCol(TITLE_LINE_1, FIRST_COLUMN, pTitle1, color.cMaroon)
+        display.setColoredTextAtLnCol(TITLE_LINE_2, FIRST_COLUMN, pTitle2, color.cOrange)
 
-    scrollerID := display.scrollColoredTextOnLn(3, string("2nd shorter - "), display.DIR_TO_LEFT, color.cLime)
-    ' configure it for one time scroll then stop when last bit arrives on screen
-    display.configureScrollLoopMode(scrollerID, display.SCROLL_FOREVER)
-
-    scrollerID := display.scrollColoredTextOnLn(4, string("3rd  UP  -"), display.DIR_UP, color.cCyan)
-    ' configure it for one time scroll then stop when last bit arrives on screen
-    display.configureScrollLoopMode(scrollerID, display.SCROLL_FOREVER)
-
-    scrollerID := display.scrollColoredTextOnLn(6, string("4th Down -"), display.DIR_DOWN, color.cYellow)
-    ' configure it for one time scroll then stop when last bit arrives on screen
-    display.configureScrollLoopMode(scrollerID, display.SCROLL_FOREVER)
+    ' the first scroller crosses once and stops; the others scroll forever. A line past the
+    ' last is skipped: the driver would clamp it onto the last line, on top of the scroller there.
+    repeat scrollerIdx from 0 to SCROLLER_COUNT - 1
+        line := COMPACT_FIRST_LINE + scrollerIdx
+        if textLines >= FULL_LAYOUT_LINES
+            line := lookupz(scrollerIdx : FULL_TO_RIGHT, FULL_TO_LEFT, FULL_UP, FULL_DOWN)
+        if line < textLines
+            startScroller(line, lookupz(scrollerIdx : @textToRight, @textToLeft, @textUp, @textDown), ...
+                          lookupz(scrollerIdx : display.DIR_TO_RIGHT, display.DIR_TO_LEFT, display.DIR_UP, display.DIR_DOWN), ...
+                          lookupz(scrollerIdx : color.cBlue, color.cLime, color.cCyan, color.cYellow), ...
+                          lookupz(scrollerIdx : display.SCROLL_ONCE_TO_CLEAR, display.SCROLL_FOREVER, display.SCROLL_FOREVER, display.SCROLL_FOREVER))
 
     ' update our screen
     display.commitScreenToPanelSet()
@@ -101,6 +128,21 @@ PRI demoScrollingText() | scrollerID, textSize
 
         ' delay while we stare wide-eyed at the new...
         wait100thSecs(scrollPeriod)
+
+PRI startScroller(line, pZString, direction, rgbColor, loopMode) | scrollerID
+' Start one scrolling text region on a text line, in a direction, colour and loop mode.
+'
+' @param line - zero-based text line number
+' @param pZString - pointer to zero-terminated string
+' @param direction - display.DIR_TO_RIGHT, DIR_TO_LEFT, DIR_UP or DIR_DOWN
+' @param rgbColor - 24-bit RGB color value
+' @param loopMode - display.SCROLL_ONCE_TO_CLEAR (stop when the last of the text arrives) or SCROLL_FOREVER
+
+' Local Variables:
+' @local scrollerID - identifier of the new scroller
+
+    scrollerID := display.scrollColoredTextOnLn(line, pZString, direction, rgbColor)
+    display.configureScrollLoopMode(scrollerID, loopMode)
 
 PRI wait100thSecs(count)
 ' Wait for N hundredths of a second.
