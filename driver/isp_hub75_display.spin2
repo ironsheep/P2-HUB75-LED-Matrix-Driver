@@ -589,8 +589,10 @@ PUB centerColoredTextAtLn(line, pZString, rgbColor) | textLen, desiredCol
   ' debug("DSP: cctal() ", udec(desiredCol), udec(textLen), zstr(pZString))
   setColoredTextAtLnCol(line, desiredCol, pZString, rgbColor)
 
-PUB setColoredTextAtLnWithAlignPad(line, pZString, rgbColor, alignment, padLen) | offset, valLen, lineWidth, paddedStr, padOffset, fieldLen
-'' Align and pad text on the specified line using the given color. The padded field is built in
+PUB setColoredTextAtLnWithAlignPad(line, pZString, rgbColor, alignment, padLen) | offset, valLen, lineWidth, paddedStr, padOffset, fieldLen, drawnLen
+'' Align and pad text on the specified line using the given color: the string is placed in a
+'' field padLen characters wide (aligned within it, the rest spaces), and the field is aligned on
+'' the line, so a longer value drawn there before is blanked. The padded field is built in
 '' a buffer of MAX_PAD_BUFFER_BYTES, so a field is at most 29 characters (MAX_PAD_FIELD_CHARS):
 '' a larger padLen is held to 29, and a string longer than that is placed unpadded.
 ''
@@ -607,6 +609,7 @@ PUB setColoredTextAtLnWithAlignPad(line, pZString, rgbColor, alignment, padLen) 
 ' @local paddedStr - pointer to the padded output string
 ' @local padOffset - offset within pad buffer for string placement
 ' @local fieldLen - padLen held to the pad buffer's capacity
+' @local drawnLen - characters placed on the line: the padded field, or the string when it is not padded
 
   fieldLen := padLen <# MAX_PAD_FIELD_CHARS
   paddedStr := pZString
@@ -614,14 +617,15 @@ PUB setColoredTextAtLnWithAlignPad(line, pZString, rgbColor, alignment, padLen) 
 
   ' debug("sctalwap: ln=", udec_(line), " [", zstr_(pZString), "](", udec_(valLen), ") ", udec(alignment), udec(padLen))
   lineWidth := numberTextColumns()
-  ' calc padded string offset
+  ' the field is aligned on the line: the padded field when the string is shorter than it
+  drawnLen := valLen #> fieldLen
   case alignment
     ALIGN_RIGHT:
-      ' pad on left
-      offset := lineWidth - valLen
+      ' the field ends at the line's end
+      offset := lineWidth - drawnLen
     ALIGN_CENTER:
       ' 1/2 of the free columns on left
-      offset := (lineWidth - valLen) / CENTER_DIVISOR
+      offset := (lineWidth - drawnLen) / CENTER_DIVISOR
     other:
       ' ALIGN_LEFT - pad on right
       offset := 0
@@ -635,9 +639,9 @@ PUB setColoredTextAtLnWithAlignPad(line, pZString, rgbColor, alignment, padLen) 
         padOffset := fieldLen - valLen
         bytefill(@padBuffer, PAD_CHAR_SPACE, padOffset)
       ALIGN_CENTER:
-        ' 1/2 of the field's free space on left
+        ' 1/2 of the field's free space on left, the rest on right
         padOffset := (fieldLen - valLen) / CENTER_DIVISOR
-        bytefill(@padBuffer, PAD_CHAR_SPACE, padOffset)
+        bytefill(@padBuffer, PAD_CHAR_SPACE, fieldLen)
       other:
         ' ALIGN_LEFT - pad on right
         bytefill(@padBuffer, PAD_CHAR_SPACE, fieldLen)

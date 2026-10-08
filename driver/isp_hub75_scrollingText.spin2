@@ -222,7 +222,6 @@ PUB configureScrollLoopCount(loopMode, repeatCount) | bValidRequest, clampedCoun
         remainingPixToScroll += charWidthInPix - 1
       if eScrollDirection == DIR_UP OR eScrollDirection == DIR_DOWN
         remainingPixToScroll := charHeightInPix
-    ' bench check: with TEXT_FONT_8X8A this run was once seen ending 3 characters short (not re-measured)
     elseif loopMode == SCROLL_N_TIMES
       remainingPixToScroll := (((ctCharsToScroll * (charWidthInPix + horizontalGapInPix)) * scrollNbrTimes) - horizontalGapInPix) - windowWidthInPix
       if eScrollDirection == DIR_UP OR eScrollDirection == DIR_DOWN
@@ -231,7 +230,6 @@ PUB configureScrollLoopCount(loopMode, repeatCount) | bValidRequest, clampedCoun
       remainingPixToScroll := ((ctCharsToScroll * (charWidthInPix + horizontalGapInPix)) - horizontalGapInPix) - windowWidthInPix
       if eScrollDirection == DIR_UP OR eScrollDirection == DIR_DOWN
         remainingPixToScroll := charHeightInPix + BLANK_ROW_PIX                 ' blank row of pixels between rows
-            ' bench check: with TEXT_FONT_8X8A this run was once seen ending 1 character short (not re-measured)
     'debug("stx:scrlTxt() ", udec(instanceID), ", ", udec(remainingPixToScroll), udec(ctCharsToScroll), udec(maxVisibleChars), udec(charWidthInPix), udec(horizontalGapInPix))
 
 PUB scrollTextAtRCOfColor(row, column, widthInChars, pZString, direction, rgbColor)

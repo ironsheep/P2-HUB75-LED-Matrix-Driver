@@ -50,6 +50,7 @@ Each panel is described by one sentence, each adapter starts with one call, six 
 - `commitScreenToPanelSet()` converts into the PWM frame set that is not on display, so a commit never shows part of the new image with part of the old.
 - `releaseScroller(0)` releases the first scroller region; index 0 was ignored.
 - A new scrolling region starts in the default loop mode. It used to keep the mode of whatever last scrolled on the same scroller, so a region set to `SCROLL_FOREVER`, once released, made the next region given that scroller scroll forever too.
+- `setColoredTextAtLnWithAlignPad()` with `ALIGN_RIGHT` or `ALIGN_CENTER` places the padded field on the line; it was placed by the length of the text alone, so a padded right-aligned field ran past the line's end. A centred field is padded on both sides; its right side was left undrawn.
 - Text scrolling right with `SCROLL_ONCE_TO_CLEAR` scrolls until its region is clear; it stopped with the first character's left edge still showing. A region wider than its text shows spaces before the text; it read the bytes in front of the text buffer.
 - Text scrolling sideways no longer draws a black column just right of its region. On every step where the text sat on a character boundary, the gap after the last character landed one pixel outside the region.
 - An adapter on pins P0-P15 no longer has its colour lines toggled by the timing marks on P8-P11. Adapters on P16-P31 or P32-P47 were unaffected. The marks now exist only in a `HUB75_INSTRUMENT` build.
