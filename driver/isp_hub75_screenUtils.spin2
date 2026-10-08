@@ -94,6 +94,7 @@ PUB drawPixelAtRC(nChainIdx, row, column, rgbColor) | xlatedColor, pPixel
     pPixel := pixelAddressAtRC(nChainIdx, row, column)
     if pPixel <> hub75Bffrs.NO_PIXEL
         writePacked(pPixel, colorUtils.packedCorrectedColor(nChainIdx, xlatedColor))
+        hub75Bffrs.noteDrawn(nChainIdx, row, column, row, column)
 
 PUB drawPixelAtRCwithRGB(nChainIdx, row, column, red, green, blue) | pColor
 '' Place an r,g,b color pixel at the specified row and column (display coordinates, as the
@@ -115,6 +116,7 @@ PUB drawPixelAtRCwithRGB(nChainIdx, row, column, red, green, blue) | pColor
     pColor := pixelAddressAtRC(nChainIdx, row, column)
     if pColor <> hub75Bffrs.NO_PIXEL
         writePacked(pColor, colorUtils.packedCorrectedRgb(nChainIdx, red, green, blue))
+        hub75Bffrs.noteDrawn(nChainIdx, row, column, row, column)
 
 PUB pixelAddressAtRC(nChainIdx, row, column) : pPixel
 '' Return the hub address of the pixel at the specified row and column (display coordinates, as
@@ -237,6 +239,7 @@ PUB fillLayoutArea(nChainIdx, topRow, leftColumn, nRows, nColumns, rgbColor) | x
 ' @local bByPixel - TRUE to fill pixel by pixel (cRainbow, an empty rectangle, or the self-test's reference)
 ' @local packedColor - the fill color's corrected bytes, packed (row runs)
 
+    hub75Bffrs.noteAllDrawn(nChainIdx)                                      ' layout coordinates: not placed as mounted
     ' an empty rectangle keeps the pixel loop's behaviour exactly (a repeat from..to with to < from steps down)
     bByPixel := rgbColor == color.cRainbow or nRows < MIN_RUN_PIXELS or nColumns < MIN_RUN_PIXELS
 #IFDEF HUB75_INSTRUMENT
@@ -264,20 +267,20 @@ PUB fillLayoutArea(nChainIdx, topRow, leftColumn, nRows, nColumns, rgbColor) | x
           BYTE[pColor][GREEN_BYTE_OFST] := green
           BYTE[pColor][BLUE_BYTE_OFST] := blue
 
-PUB copyGlyphBlock(nChainIdx, row, column, nRows, nPixels, pGlyph, bDithered, charWidth, firstBit, vtOffset, packedFg, packedHalf, packedBlack) : bDrawn | pPixel, rightStep, downStep
+PUB copyGlyphBlock(nChainIdx, row, column, nRows, nPixels, pGlyph, bDithered, charWidth, firstBit, vtOffset, packedFg, packedHalf, packedBlack) : bDrawn
 '' Draw a glyph as one block when the whole block lies on the display inside one cell
-'' (hub75Bffrs.mountedBlockRun()): one address lookup, then each row in PASM. Block row r shows
-'' glyph row (r + vtOffset) +// (nRows + GLYPH_BLANK_ROWS), the last of which is blank; pixel i of a
-'' row shows bit firstBit + i, decided as the text paths decide it pixel by pixel (one bit per
-'' pixel, or the dithered codec in fonts). pGlyph NO_GLYPH draws every pixel black. It writes
-'' exactly the bytes the row-by-row path writes. Returns FALSE, drawing nothing, when the block
-'' reaches past an edge or crosses a cell boundary; the caller then draws it row by row. The rows
-'' are written by one PASM call (blitGlyphBlock()), which uses PR0-PR7 as scratch.
+'' (hub75Bffrs.mountedBlockRun()): one address lookup, then all its rows in one PASM call. Block
+'' row r shows glyph row (r + vtOffset) +// (nRows + GLYPH_BLANK_ROWS), the last of which is blank;
+'' pixel i of a row shows bit firstBit + i, decided as the text paths decide it pixel by pixel (one
+'' bit per pixel, or the dithered codec in fonts). pGlyph NO_GLYPH draws every pixel black. It
+'' writes exactly the bytes the row-by-row path writes. Returns FALSE, drawing nothing, when the
+'' block reaches past an edge or crosses a cell boundary; the caller then draws it row by row.
+'' The same as copyGlyphRows() with as many block rows as glyph rows.
 ''
 '' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @param row - top row of the block, as mounted
 '' @param column - left column of the block, as mounted
-'' @param nRows - glyph rows (the font's character height)
+'' @param nRows - glyph rows (the font's character height), and rows of the block
 '' @param nPixels - pixels in each row of the block
 '' @param pGlyph - hub address of the glyph's rows (BYTE rows, or WORD rows when dithered), or NO_GLYPH
 '' @param bDithered - TRUE for a dithered font
@@ -289,15 +292,152 @@ PUB copyGlyphBlock(nChainIdx, row, column, nRows, nPixels, pGlyph, bDithered, ch
 '' @param packedBlack - black's corrected bytes, packed
 '' @returns bDrawn - TRUE when the block was drawn
 
+    bDrawn := copyGlyphRows(nChainIdx, row, column, nRows, nPixels, pGlyph, bDithered, charWidth, nRows, firstBit, vtOffset, packedFg, packedHalf, packedBlack)
+
+PUB copyGlyphRows(nChainIdx, row, column, nBlockRows, nPixels, pGlyph, bDithered, charWidth, nGlyphRows, firstBit, firstGlyphRow, packedFg, packedHalf, packedBlack) : bDrawn | pPixel, rightStep, downStep
+'' Draw nBlockRows rows of a glyph as one block when the whole block lies on the display inside one
+'' cell: block row r shows glyph row (r + firstGlyphRow) +// (nGlyphRows + GLYPH_BLANK_ROWS), the
+'' last of which is blank, each pixel decided as copyGlyphBlock() decides it. A scrolling region
+'' uses it to draw the one new row of a step. Returns FALSE, drawing nothing, when the block
+'' reaches past an edge or crosses a cell boundary. The rows are written by one PASM call
+'' (blitGlyphBlock()), which uses PR0-PR7 as scratch.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @param row - top row of the block, as mounted
+'' @param column - left column of the block, as mounted
+'' @param nBlockRows - rows of the block
+'' @param nPixels - pixels in each row of the block
+'' @param pGlyph - hub address of the glyph's rows (BYTE rows, or WORD rows when dithered), or NO_GLYPH
+'' @param bDithered - TRUE for a dithered font
+'' @param charWidth - the font's character width in pixels
+'' @param nGlyphRows - the font's character height
+'' @param firstBit - bit index (from the glyph's left edge) of each row's first pixel
+'' @param firstGlyphRow - glyph row shown in the block's first row (before the wrap)
+'' @param packedFg - the full-brightness color's corrected bytes, packed
+'' @param packedHalf - the reduced-brightness color's corrected bytes, packed (dithered fonts)
+'' @param packedBlack - black's corrected bytes, packed
+'' @returns bDrawn - TRUE when the block was drawn
+
 ' Local Variables:
 ' @local pPixel - hub address of the block's top-left pixel
 ' @local rightStep - signed bytes to the pixel at the right
 ' @local downStep - signed bytes to the pixel below
 
-    pPixel, rightStep, downStep := hub75Bffrs.mountedBlockRun(nChainIdx, row, column, nRows, nPixels)
+    pPixel, rightStep, downStep := hub75Bffrs.mountedBlockRun(nChainIdx, row, column, nBlockRows, nPixels)
     bDrawn := pPixel <> hub75Bffrs.NO_PIXEL
     if bDrawn == TRUE
-        blitGlyphBlock(pPixel, rightStep, downStep, nRows, nPixels, pGlyph, bDithered, charWidth, firstBit, vtOffset, packedFg, packedHalf, packedBlack)
+        hub75Bffrs.noteDrawn(nChainIdx, row, column, row + nBlockRows - 1, column + nPixels - 1)
+        blitGlyphBlock(pPixel, rightStep, downStep, nBlockRows, nPixels, pGlyph, bDithered, charWidth, firstBit, nGlyphRows, firstGlyphRow, packedFg, packedHalf, packedBlack)
+
+PUB shiftRowLeft(nChainIdx, row, firstColumn, lastColumn) | cellColumns, column, cellEdge, nPixels, pPixel, rightStep
+'' Move the pixels of one display row (display coordinates, as mounted) one place left: pixel c
+'' takes pixel c + 1's bytes for c from firstColumn to lastColumn - 1; pixel lastColumn is left
+'' as it was. Written cell by cell in PASM (copyPixels()); the pixel at a cell's right edge comes
+'' from the next cell. The span must lie on panels of the display (hub75Bffrs.watchWindow()).
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @param row - display row, as mounted
+'' @param firstColumn - leftmost column of the span
+'' @param lastColumn - rightmost column of the span
+
+' Local Variables:
+' @local cellColumns - pixel columns of one mounted cell
+' @local column - column being written
+' @local cellEdge - last column of the cell that holds column
+' @local nPixels - pixels moved within that cell
+' @local pPixel - hub address of the column's pixel
+' @local rightStep - signed bytes to the pixel at the right, within the cell
+
+    hub75Bffrs.noteDrawn(nChainIdx, row, firstColumn, row, lastColumn)
+    _, cellColumns := hub75Bffrs.cellSizeInPixels(nChainIdx)
+    column := firstColumn
+    repeat while column < lastColumn
+        cellEdge := (((column / cellColumns) + 1) * cellColumns) - 1
+        if cellEdge > column
+            ' column .. (cellEdge or lastColumn) - 1 take their right neighbour in the same cell
+            nPixels := (cellEdge <# lastColumn) - column
+            pPixel, rightStep, _ := hub75Bffrs.mountedPixelRun(nChainIdx, row, column)
+            copyPixels(pPixel + rightStep, rightStep, pPixel, rightStep, nPixels)
+            column += nPixels
+        else
+            ' the cell's last column takes the next cell's first
+            copyPixels(pixelAddressAtRC(nChainIdx, row, column + 1), 0, pixelAddressAtRC(nChainIdx, row, column), 0, ONE_PIXEL)
+            column++
+
+PUB shiftRowRight(nChainIdx, row, firstColumn, lastColumn) | cellColumns, column, cellEdge, nPixels, pPixel, rightStep
+'' Move the pixels of one display row one place right: pixel c takes pixel c - 1's bytes for c
+'' from lastColumn down to firstColumn + 1; pixel firstColumn is left as it was. As shiftRowLeft(),
+'' mirrored.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @param row - display row, as mounted
+'' @param firstColumn - leftmost column of the span
+'' @param lastColumn - rightmost column of the span
+
+' Local Variables:
+' @local cellColumns - pixel columns of one mounted cell
+' @local column - column being written
+' @local cellEdge - first column of the cell that holds column
+' @local nPixels - pixels moved within that cell
+' @local pPixel - hub address of the column's pixel
+' @local rightStep - signed bytes to the pixel at the right, within the cell
+
+    hub75Bffrs.noteDrawn(nChainIdx, row, firstColumn, row, lastColumn)
+    _, cellColumns := hub75Bffrs.cellSizeInPixels(nChainIdx)
+    column := lastColumn
+    repeat while column > firstColumn
+        cellEdge := (column / cellColumns) * cellColumns
+        if cellEdge < column
+            ' column down to (cellEdge or firstColumn) + 1 take their left neighbour in the same cell
+            nPixels := column - (cellEdge #> firstColumn)
+            pPixel, rightStep, _ := hub75Bffrs.mountedPixelRun(nChainIdx, row, column)
+            copyPixels(pPixel - rightStep, -rightStep, pPixel, -rightStep, nPixels)
+            column -= nPixels
+        else
+            ' the cell's first column takes the previous cell's last
+            copyPixels(pixelAddressAtRC(nChainIdx, row, column - 1), 0, pixelAddressAtRC(nChainIdx, row, column), 0, ONE_PIXEL)
+            column--
+
+PUB shiftRowsUp(nChainIdx, topRow, bottomRow, firstColumn, lastColumn) | row, cellColumns
+'' Move a rectangle of the display one row up: row r takes row r + 1 for r from topRow to
+'' bottomRow - 1, over columns firstColumn to lastColumn; row bottomRow is left as it was. The
+'' rectangle must lie on panels of the display (hub75Bffrs.watchWindow()).
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @param topRow - top row of the rectangle, as mounted
+'' @param bottomRow - bottom row of the rectangle
+'' @param firstColumn - left column of the rectangle
+'' @param lastColumn - right column of the rectangle
+
+' Local Variables:
+' @local row - row being written
+' @local cellColumns - pixel columns of one mounted cell
+
+    hub75Bffrs.noteDrawn(nChainIdx, topRow, firstColumn, bottomRow, lastColumn)
+    _, cellColumns := hub75Bffrs.cellSizeInPixels(nChainIdx)
+    if bottomRow > topRow                                                   ' a repeat from..to with to < from would step down
+        repeat row from topRow to bottomRow - 1
+            copyRowSpan(nChainIdx, cellColumns, row + 1, row, firstColumn, lastColumn)
+
+PUB shiftRowsDown(nChainIdx, topRow, bottomRow, firstColumn, lastColumn) | row, cellColumns
+'' Move a rectangle of the display one row down: row r takes row r - 1 for r from bottomRow down
+'' to topRow + 1; row topRow is left as it was. As shiftRowsUp(), mirrored.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @param topRow - top row of the rectangle, as mounted
+'' @param bottomRow - bottom row of the rectangle
+'' @param firstColumn - left column of the rectangle
+'' @param lastColumn - right column of the rectangle
+
+' Local Variables:
+' @local row - row being written
+' @local cellColumns - pixel columns of one mounted cell
+
+    hub75Bffrs.noteDrawn(nChainIdx, topRow, firstColumn, bottomRow, lastColumn)
+    _, cellColumns := hub75Bffrs.cellSizeInPixels(nChainIdx)
+    if bottomRow > topRow                                                   ' a repeat from..to with to > from would step up
+        repeat row from bottomRow to topRow + 1
+            copyRowSpan(nChainIdx, cellColumns, row - 1, row, firstColumn, lastColumn)
 
 PUB fillMountedArea(nChainIdx, topRow, leftColumn, nRows, nColumns, packedColor) | sizeRows, sizeColumns, cellRows, cellColumns, blockTop, blockLeft, blockRows, blockColumns, pPixel, rightStep, downStep
 '' Fill a rectangle of the display (display coordinates, as mounted) with one packed color: one
@@ -329,6 +469,7 @@ PUB fillMountedArea(nChainIdx, topRow, leftColumn, nRows, nColumns, packedColor)
     sizeRows, sizeColumns := hub75Bffrs.displaySizeInPixels(nChainIdx)
     cellRows, cellColumns := hub75Bffrs.cellSizeInPixels(nChainIdx)
     if nRows > 0 and nColumns > 0 and topRow >= 0 and leftColumn >= 0 and topRow + nRows <= sizeRows and leftColumn + nColumns <= sizeColumns
+        hub75Bffrs.noteDrawn(nChainIdx, topRow, leftColumn, topRow + nRows - 1, leftColumn + nColumns - 1)
         blockTop := topRow
         repeat while blockTop < topRow + nRows
             ' rows from blockTop to the end of its cell, or of the rectangle when sooner
@@ -490,6 +631,14 @@ PRI writeRun(nChainIdx, row, column, nPixels, eRunMode, pColors, packedColor) | 
 ' @local pixelColor - packed color of the pixel being written
 ' @local lastWrittenIdx - color-list index, before the replacement, of the last pixel written
 
+    ' tell the window watch what this run writes (held to the display there, as the run is held here)
+    if nPixels > 0
+        if eRunMode == RUN_ALONG_LAYOUT_ROW
+            hub75Bffrs.noteAllDrawn(nChainIdx)                              ' layout coordinates: not placed as mounted
+        elseif eRunMode == RUN_DOWN_COLUMN
+            hub75Bffrs.noteDrawn(nChainIdx, row, column, row + nPixels - 1, column)
+        else
+            hub75Bffrs.noteDrawn(nChainIdx, row, column, row, column + nPixels - 1)
     if nPixels == ONE_PIXEL and eRunMode <> RUN_ALONG_LAYOUT_ROW
         ' one pixel: the address rule holds it to the display; no cell walk
         pPixel := pixelAddressAtRC(nChainIdx, row, column)
@@ -628,9 +777,9 @@ PRI writeCellPart(pPixel, stride, nPixels, pColors, packedColor, colorIdx, lastW
                 djnz    nPixels, #.nextPixel
     end
 
-PRI blitGlyphBlock(pPixel, rightStep, downStep, nRows, nPixels, pGlyph, bDithered, charWidth, firstBit, vtOffset, packedFg, packedHalf, packedBlack) | rowIdx, glyphRow
-' Write a glyph block, in PASM: nRows rows from pPixel, downStep bytes apart, each of nPixels
-' pixels rightStep bytes apart. Row r shows glyph row (r + vtOffset) // (nRows + GLYPH_BLANK_ROWS),
+PRI blitGlyphBlock(pPixel, rightStep, downStep, nBlockRows, nPixels, pGlyph, bDithered, charWidth, firstBit, nGlyphRows, firstGlyphRow, packedFg, packedHalf, packedBlack) | rowIdx, glyphRow
+' Write a glyph block, in PASM: nBlockRows rows from pPixel, downStep bytes apart, each of nPixels
+' pixels rightStep bytes apart. Row r shows glyph row (r + firstGlyphRow) // (nGlyphRows + GLYPH_BLANK_ROWS),
 ' 0 bits for the blank row or for NO_GLYPH; pixel i shows bit firstBit + i as the row-by-row path
 ' decides it. One bit per pixel: bit (charWidth - 1 - index), held to its low five bits as
 ' Spin2's << holds a shift, set means packedFg. Dithered (two bits per pixel from the top): value
@@ -640,13 +789,14 @@ PRI blitGlyphBlock(pPixel, rightStep, downStep, nRows, nPixels, pGlyph, bDithere
 ' @param pPixel - hub address of the top-left pixel's red byte
 ' @param rightStep - signed bytes from one pixel to the next along a row
 ' @param downStep - signed bytes from one row to the next
-' @param nRows - glyph rows (at least one)
+' @param nBlockRows - rows of the block (at least one)
 ' @param nPixels - pixels in each row (at least one)
 ' @param pGlyph - hub address of the glyph's rows, or NO_GLYPH
 ' @param bDithered - TRUE for a dithered font (WORD rows)
 ' @param charWidth - the font's character width in pixels
 ' @param firstBit - bit index (from the glyph's left edge) of each row's first pixel
-' @param vtOffset - rows the glyph is turned up by
+' @param nGlyphRows - the font's character height
+' @param firstGlyphRow - glyph row shown in the block's first row (before the wrap)
 ' @param packedFg - the full-brightness color's corrected bytes, packed
 ' @param packedHalf - the reduced-brightness color's corrected bytes, packed
 ' @param packedBlack - black's corrected bytes, packed
@@ -660,14 +810,14 @@ PRI blitGlyphBlock(pPixel, rightStep, downStep, nRows, nPixels, pGlyph, bDithere
 .nextRow
                 ' which glyph row this block row shows (the last of the period is blank)
                 mov     glyphRow, rowIdx
-                add     glyphRow, vtOffset
-                mov     pr0, nRows
+                add     glyphRow, firstGlyphRow
+                mov     pr0, nGlyphRows
                 add     pr0, #GLYPH_BLANK_ROWS
                 qdiv    glyphRow, pr0
                 getqy   glyphRow
                 mov     pr4, #0                             ' row bits: 0 for the blank row or a gap
                 tjz     pGlyph, #.haveRowBits
-                cmp     glyphRow, nRows             wc
+                cmp     glyphRow, nGlyphRows        wc
     if_nc       jmp     #.haveRowBits
                 mov     pr0, pGlyph
                 tjz     bDithered, #.byteRow
@@ -721,7 +871,7 @@ PRI blitGlyphBlock(pPixel, rightStep, downStep, nRows, nPixels, pGlyph, bDithere
                 djnz    pr6, #.nextPixel
                 add     pPixel, downStep
                 add     rowIdx, #1
-                cmp     rowIdx, nRows               wz
+                cmp     rowIdx, nBlockRows          wz
     if_nz       jmp     #.nextRow
     end
 
@@ -761,6 +911,70 @@ PRI fillBlock(pPixel, rightStep, downStep, nRows, nColumns, packedColor) | rowsL
                 djnz    pr1, #.nextPixel
                 add     pPixel, downStep
                 djnz    rowsLeft, #.nextRow
+    end
+
+PRI copyRowSpan(nChainIdx, cellColumns, sourceRow, row, firstColumn, lastColumn) | column, nPixels, pSource, sourceStep, pPixel, rightStep
+' Copy columns firstColumn to lastColumn of one display row onto another, cell by cell in PASM
+' (copyPixels()): the two rows can lie in different cells, each with its own step.
+'
+' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+' @param cellColumns - pixel columns of one mounted cell (hub75Bffrs.cellSizeInPixels())
+' @param sourceRow - display row copied from, as mounted
+' @param row - display row copied to, as mounted
+' @param firstColumn - leftmost column copied
+' @param lastColumn - rightmost column copied
+
+' Local Variables:
+' @local column - first column of the part being copied
+' @local nPixels - pixels of the part (to the end of its cell, or of the span when sooner)
+' @local pSource - hub address of the part's first source pixel
+' @local sourceStep - signed bytes to the next source pixel
+' @local pPixel - hub address of the part's first destination pixel
+' @local rightStep - signed bytes to the next destination pixel
+
+    column := firstColumn
+    repeat while column <= lastColumn
+        nPixels := ((((column / cellColumns) + 1) * cellColumns) <# (lastColumn + 1)) - column
+        pSource, sourceStep, _ := hub75Bffrs.mountedPixelRun(nChainIdx, sourceRow, column)
+        pPixel, rightStep, _ := hub75Bffrs.mountedPixelRun(nChainIdx, row, column)
+        copyPixels(pSource, sourceStep, pPixel, rightStep, nPixels)
+        column += nPixels
+
+PRI copyPixels(pSource, sourceStep, pPixel, pixelStep, nPixels)
+' Copy screen pixels, in PASM: nPixels pixels' three bytes from pSource (sourceStep bytes apart) to
+' pPixel (pixelStep bytes apart), first pixel first, so a span copied onto itself shifted by one
+' pixel reads each pixel before it is overwritten when the steps point the way of the shift.
+' PR0-PR1 are scratch.
+'
+' @param pSource - hub address of the first source pixel's red byte
+' @param sourceStep - signed bytes from one source pixel to the next
+' @param pPixel - hub address of the first destination pixel's red byte
+' @param pixelStep - signed bytes from one destination pixel to the next
+' @param nPixels - pixels to copy (at least one)
+
+    org
+.nextPixel
+                mov     pr1, pSource
+                add     pr1, #RED_BYTE_OFST
+                rdbyte  pr0, pr1
+                mov     pr1, pPixel
+                add     pr1, #RED_BYTE_OFST
+                wrbyte  pr0, pr1
+                mov     pr1, pSource
+                add     pr1, #GREEN_BYTE_OFST
+                rdbyte  pr0, pr1
+                mov     pr1, pPixel
+                add     pr1, #GREEN_BYTE_OFST
+                wrbyte  pr0, pr1
+                mov     pr1, pSource
+                add     pr1, #BLUE_BYTE_OFST
+                rdbyte  pr0, pr1
+                mov     pr1, pPixel
+                add     pr1, #BLUE_BYTE_OFST
+                wrbyte  pr0, pr1
+                add     pSource, sourceStep
+                add     pPixel, pixelStep
+                djnz    nPixels, #.nextPixel
     end
 
 PRI writePacked(pPixel, packedColor)

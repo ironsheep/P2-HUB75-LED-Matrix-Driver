@@ -111,6 +111,13 @@ VAR ' ---- Instance Variables ----
     BYTE    eScrollDirection                                        ' configure before use!
     BYTE    instanceID
 
+' moving the last frame instead of drawing it again (see animateScroll())
+    LONG    windowSlot                                              ' the watched window (hub75Bffrs.watchWindow()), or NO_WINDOW_SLOT
+    LONG    bHasFrame                                               ' TRUE when the window holds the frame drawn last
+    LONG    lastFirstVisCharIndex                                   ' firstVisCharIndex the last frame was drawn with
+    LONG    lastCharHzPixOffset                                     ' charHzPixOffset the last frame was drawn with
+    LONG    lastCharVtPixOffset                                     ' charVtPixOffset the last frame was drawn with
+
 PUB null()
 '' This is NOT a top level object
 ''
@@ -125,6 +132,8 @@ PUB initialize(nChainIdx)
   eScrollMode := SCROLL_UNKNOWN
   scrollNbrTimes := 0
   instanceID := ++instanceNumber
+  windowSlot := hub75Bffrs.NO_WINDOW_SLOT
+  bHasFrame := FALSE
   remainingPixToScroll := 0
   maxDisplayColumns := hub75Bffrs.maxDisplayColumns(chainIndex)
   eFaceHome := cube.NO_FACE
@@ -152,6 +161,7 @@ PUB setFontInfo(nbrTextColumns, charWidth, charHeight, leadingGap, horizontalGap
   hBitmapOffsetInPix := hBitmapOffset
   selectedTextFont := textFont
   bFontIsDithered := fonts.isDitheredFont(selectedTextFont)
+  bHasFrame := FALSE                                                ' the next step draws the whole window in the new font
 
 PUB isIdle() : bIdle
 '' Return T/F where T means this scroller instance is idle.
@@ -166,6 +176,7 @@ PUB release()
 ''
 
   ctCharsToScroll := 0
+  stopWatching()
 
 PUB configureScrollLoopMode(loopMode)
 '' Specify scrolling text duration using a default count of zero.
@@ -272,9 +283,16 @@ PUB animateScroll()
     'if instanceID == 0
     'debug("stx:as(", udec_(instanceID), ") ", udec(charHzPixOffset), udec(firstVisCharIndex), udec(remainingPixToScroll))
 
-    ' place char bits
+    ' place char bits: move the last frame one pixel and draw the new edge when that gives the
+    ' same pixels as drawing the whole window, else draw the whole window
+    hub75Bffrs.setDrawingOwner(chainIndex, windowSlot)
+    if isShiftStep() == TRUE
+      shiftStep()
+    else
+      drawWholeWindow(eScrollDirection)
+    noteFrameDrawn()
+    hub75Bffrs.setDrawingOwner(chainIndex, hub75Bffrs.NO_WINDOW_SLOT)
     if eScrollDirection == DIR_TO_LEFT
-      placeColrCharsHzOfstAtRC(topRow, leftColumn, charHzPixOffset, windowWidthInPix, firstVisCharIndex, scrollTextColor)
       charHzPixOffset++                                 ' we showed one just now
       ' if finished scrolling first char offscreen then reset to show head of next char
       if charHzPixOffset > charWidthInPix + horizontalGapInPix - 1
@@ -283,7 +301,6 @@ PUB animateScroll()
         if firstVisCharIndex > ctCharsToScroll - 1 && eScrollMode <> SCROLL_ONCE_TO_CLEAR
           firstVisCharIndex := 0
     elseif eScrollDirection == DIR_TO_RIGHT
-      placeColrCharsHzOfstAtRC(topRow, leftColumn, charHzPixOffset, windowWidthInPix, firstVisCharIndex, scrollTextColor)
       charHzPixOffset--                                 ' we showed one just now
       ' if finished scrolling first char offscreen then reset to show head of next char
       if charHzPixOffset < 0
@@ -292,13 +309,11 @@ PUB animateScroll()
         if firstVisCharIndex < 0 && eScrollMode <> SCROLL_ONCE_TO_CLEAR
           firstVisCharIndex := ctCharsToScroll - 1
     elseif eScrollDirection == DIR_UP
-      placeColrCharsVtOfstAtRC(topRow, leftColumn, charVtPixOffset, windowWidthInPix, scrollTextColor)
       charVtPixOffset++                                 ' we showed one just now
       if charVtPixOffset >= charHeightInPix - 1 + BLANK_ROW_PIX  ' blank row of pixels between rows
         charVtPixOffset := 0
 
     elseif eScrollDirection == DIR_DOWN
-      placeColrCharsVtOfstAtRC(topRow, leftColumn, charVtPixOffset, windowWidthInPix, scrollTextColor)
       charVtPixOffset--                                 ' we showed one just now
       if charVtPixOffset < 0
         charVtPixOffset := charHeightInPix - 1 + BLANK_ROW_PIX  ' blank row of pixels between rows
@@ -308,6 +323,7 @@ PUB animateScroll()
         remainingPixToScroll--
         if remainingPixToScroll == 0
           ctCharsToScroll := 0  ' force IDLE to report true now
+          stopWatching()
             ' debug("stx:AS ", udec(remainingPixToScroll))
 
 PUB isScrollingComplete() : bComplete
@@ -333,6 +349,7 @@ PUB refreshGeometry()
 ''
 
   maxDisplayColumns := hub75Bffrs.maxDisplayColumns(chainIndex)
+  stopWatching()                                                    ' the layout changed: draw the whole window next step
 #ENDIF
 
 CON ' -----------  PRIVATE Methods  -----------
@@ -369,6 +386,11 @@ PRI beginScroll(eHomeFace, homeTurn, homeAddRow, homeAddColumn, row, column, wid
 
   if isIdle() == TRUE
     DEBUG("stx:starcoc() #", udec_(instanceID), " [", zstr_(pZString), "](", udec_(widthInChars), ")")
+    stopWatching()
+    ' a new scroll starts in the default mode: the region may last have scrolled for another line
+    ' (display picks a free scroller), and its mode is set after this start (configureScrollLoopMode())
+    eScrollMode := SCROLL_UNKNOWN
+    scrollNbrTimes := 0
     scrollTextColor := rgbColor
 
     ' where the pixels go: display coordinates are held to the display's right edge; face
@@ -420,28 +442,221 @@ PRI beginScroll(eHomeFace, homeTurn, homeAddRow, homeAddColumn, row, column, wid
           DEBUG("stx:bad scroll direction, abort")
           abort
     '
-    ' place window chars on screen
+    ' place window chars on screen, and watch the window so later steps can move this frame
     '
+    if direction == DIR_TO_LEFT or direction == DIR_TO_RIGHT or direction == DIR_UP or direction == DIR_DOWN
+      if ctCharsToScroll > 0
+        startWatching()
+      hub75Bffrs.setDrawingOwner(chainIndex, windowSlot)
+      drawWholeWindow(direction)
+      noteFrameDrawn()
+      hub75Bffrs.setDrawingOwner(chainIndex, hub75Bffrs.NO_WINDOW_SLOT)
     ' reset scroll offset to beginning
     if direction == DIR_TO_LEFT
-      placeColrCharsHzOfstAtRC(topRow, leftColumn, charHzPixOffset, windowWidthInPix, firstVisCharIndex, scrollTextColor)
       charHzPixOffset++                                 ' we showed first window content just now
     elseif direction == DIR_TO_RIGHT
-      placeColrCharsHzOfstAtRC(topRow, leftColumn, charHzPixOffset, windowWidthInPix, firstVisCharIndex, scrollTextColor)
       charHzPixOffset--                                 ' we showed first window content just now
       if charHzPixOffset < 0
         charHzPixOffset := charWidthInPix + horizontalGapInPix - 1
         firstVisCharIndex--
     elseif direction == DIR_UP
-      placeColrCharsVtOfstAtRC(topRow, leftColumn, charVtPixOffset, windowWidthInPix, scrollTextColor)
       charVtPixOffset++                                 ' we showed first window content just now
     elseif direction == DIR_DOWN
-      placeColrCharsVtOfstAtRC(topRow, leftColumn, charVtPixOffset, windowWidthInPix, scrollTextColor)
       charVtPixOffset--                                 ' we showed first window content just now
       if charVtPixOffset < 0
         charVtPixOffset := charHeightInPix - 1 + BLANK_ROW_PIX  ' blank row of pixels between rows
   else
     DEBUG("stx:scrollTxAtRCOfClr() - NOT IDLE!")
+
+PRI drawWholeWindow(direction)
+' Draw every pixel of the window from the text, at the scroll state as it stands: the drawing
+' every step did before frames were moved, and still the reference for a moved frame.
+'
+' @param direction - DIR_TO_LEFT, DIR_TO_RIGHT, DIR_UP or DIR_DOWN
+
+  if direction == DIR_TO_LEFT or direction == DIR_TO_RIGHT
+    placeColrCharsHzOfstAtRC(topRow, leftColumn, charHzPixOffset, windowWidthInPix, firstVisCharIndex, scrollTextColor)
+  elseif direction == DIR_UP or direction == DIR_DOWN
+    placeColrCharsVtOfstAtRC(topRow, leftColumn, charVtPixOffset, windowWidthInPix, scrollTextColor)
+
+PRI startWatching() | lastColumn
+' Watch the pixels this region draws (hub75Bffrs.watchWindow()), so a later step can move the
+' frame it drew instead of drawing it again, and draws it again whenever something else wrote
+' there. Only a display-centric region whose glyph rows are drawn as runs (isGlyphRun()) is
+' watched, and only when its pixels lie on panels of the display; any other draws every step.
+' Sideways the pixels are the window; up and down they are maxVisibleChars + 1 characters, side by
+' side, cut at the display's right edge (placeColrCharsVtOfstAtRC()).
+
+' Local Variables:
+' @local lastColumn - the rightmost column the region draws
+
+  stopWatching()
+  if isGlyphRun(scrollTextColor) == TRUE
+    if eScrollDirection == DIR_UP or eScrollDirection == DIR_DOWN
+      lastColumn := verticalLastColumn()
+    else
+      lastColumn := leftColumn + windowWidthInPix - 1
+    windowSlot := hub75Bffrs.watchWindow(chainIndex, topRow, leftColumn, topRow + charHeightInPix - 1, lastColumn)
+
+PRI verticalLastColumn() : lastColumn
+' Return the rightmost column an up or down region draws: maxVisibleChars + 1 characters side by
+' side from leftColumn, cut at the display's right edge (placeColrCharsVtOfstAtRC()).
+'
+' @returns lastColumn - the rightmost column the region draws
+
+  lastColumn := ((leftColumn + ((maxVisibleChars + 1) * charWidthInPix)) <# maxDisplayColumns) - 1
+
+PRI stopWatching()
+' Stop watching this region's pixels (startWatching()), and forget the frame drawn last.
+
+  hub75Bffrs.unwatchWindow(windowSlot)
+  windowSlot := hub75Bffrs.NO_WINDOW_SLOT
+  bHasFrame := FALSE
+
+PRI noteFrameDrawn()
+' Record that the window now holds the frame for the scroll state as it stands: the state is kept
+' to tell whether the next step moves it by one pixel (isShiftStep()), and the window is clean.
+
+  lastFirstVisCharIndex := firstVisCharIndex
+  lastCharHzPixOffset := charHzPixOffset
+  lastCharVtPixOffset := charVtPixOffset
+  bHasFrame := TRUE
+  hub75Bffrs.markWindowClean(windowSlot)
+
+PRI isShiftStep() : bShift | fieldPix
+' Return TRUE when this step can move the last frame by one pixel and draw only the new edge:
+' the window is watched and clean (nothing else wrote into it since the last frame), and the
+' scroll state is exactly one pixel on from the state that frame was drawn with. A step that
+' wraps the text or the glyph rows, the first step after a font change, and any step after
+' something wrote into the window draw the whole window instead (drawWholeWindow()).
+'
+' @returns bShift - TRUE to move the frame
+
+' Local Variables:
+' @local fieldPix - pixels from one character's left edge to the next (width and gap)
+
+  bShift := FALSE
+  if bHasFrame == TRUE and hub75Bffrs.isWindowClean(windowSlot) == TRUE
+    fieldPix := charWidthInPix + horizontalGapInPix
+    case eScrollDirection
+      DIR_TO_LEFT:
+        bShift := (charHzPixOffset == lastCharHzPixOffset + 1 and firstVisCharIndex == lastFirstVisCharIndex) or (charHzPixOffset == 0 and lastCharHzPixOffset == fieldPix - 1 and firstVisCharIndex == lastFirstVisCharIndex + 1)
+      DIR_TO_RIGHT:
+        bShift := (charHzPixOffset == lastCharHzPixOffset - 1 and firstVisCharIndex == lastFirstVisCharIndex) or (charHzPixOffset == fieldPix - 1 and lastCharHzPixOffset == 0 and firstVisCharIndex == lastFirstVisCharIndex - 1)
+      DIR_UP:
+        bShift := charVtPixOffset == lastCharVtPixOffset + 1
+      DIR_DOWN:
+        bShift := charVtPixOffset == lastCharVtPixOffset - 1
+
+PRI shiftStep() | rowIdx, lastColumn
+' Move the last frame one pixel the way the text moves and draw the one new column (sideways) or
+' row (up and down) from the text: the same pixels drawWholeWindow() would draw for this state.
+
+' Local Variables:
+' @local rowIdx - window row being moved
+' @local lastColumn - the rightmost column the region draws
+
+  case eScrollDirection
+    DIR_TO_LEFT:
+      repeat rowIdx from 0 TO charHeightInPix - 1
+        pixels.shiftRowLeft(chainIndex, topRow + rowIdx, leftColumn, leftColumn + windowWidthInPix - 1)
+      drawEdgeColumn(windowWidthInPix - 1)
+    DIR_TO_RIGHT:
+      repeat rowIdx from 0 TO charHeightInPix - 1
+        pixels.shiftRowRight(chainIndex, topRow + rowIdx, leftColumn, leftColumn + windowWidthInPix - 1)
+      drawEdgeColumn(0)
+    DIR_UP:
+      lastColumn := verticalLastColumn()
+      pixels.shiftRowsUp(chainIndex, topRow, topRow + charHeightInPix - 1, leftColumn, lastColumn)
+      drawEdgeRow(charHeightInPix - 1)
+    DIR_DOWN:
+      lastColumn := verticalLastColumn()
+      pixels.shiftRowsDown(chainIndex, topRow, topRow + charHeightInPix - 1, leftColumn, lastColumn)
+      drawEdgeRow(0)
+
+PRI drawEdgeColumn(windowColumn) | fieldPix, stripPix, actCharIndex, bitIdx, pChrBitmap, packedFg, packedHalf, packedBlack
+' Draw one column of the window from the text, as placeColrCharsHzOfstAtRC() draws it for this
+' state: window column x shows pixel charHzPixOffset + x of the characters from
+' firstVisCharIndex on, each character's width then its gap; the character index wraps once past
+' the text (except SCROLL_ONCE_TO_CLEAR), and past the text it is a space.
+'
+' @param windowColumn - column within the window (0 at its left)
+
+' Local Variables:
+' @local fieldPix - pixels from one character's left edge to the next (width and gap)
+' @local stripPix - pixel of the characters from firstVisCharIndex on that the column shows
+' @local actCharIndex - the character the column falls in
+' @local bitIdx - the column within that character's field (a gap when past its width)
+' @local pChrBitmap - that character's bitmap, or pixels.NO_GLYPH in a gap
+' @local packedFg - the full-brightness color's corrected bytes, packed
+' @local packedHalf - the reduced-brightness color's corrected bytes, packed
+' @local packedBlack - black's corrected bytes, packed
+
+  fieldPix := charWidthInPix + horizontalGapInPix
+  stripPix := charHzPixOffset + windowColumn
+  actCharIndex := (stripPix / fieldPix) + firstVisCharIndex
+  bitIdx := stripPix // fieldPix
+  if actCharIndex > ctCharsToScroll - 1 && eScrollMode <> SCROLL_ONCE_TO_CLEAR
+    actCharIndex -= ctCharsToScroll
+  cChar := BYTE[@scrollChars][actCharIndex]
+  if actCharIndex > ctCharsToScroll - 1
+    cChar := SPACE_CHAR
+  pChrBitmap := pixels.NO_GLYPH
+  if bitIdx < charWidthInPix
+    pChrBitmap := fonts.getCharAddrForFont(selectedTextFont, cChar)
+  _, packedFg, packedHalf, packedBlack, _ := glyphSetup(scrollTextColor)
+  drawGlyphSlice(topRow, leftColumn + windowColumn, charHeightInPix, 1, pChrBitmap, bitIdx, 0, packedFg, packedHalf, packedBlack)
+
+PRI drawEdgeRow(windowRow) | charIdx, column, nPixels, pChrBitmap, packedFg, packedHalf, packedBlack
+' Draw one row of the region from the text, as placeColrCharsVtOfstAtRC() draws it for this state:
+' characters 0 .. maxVisibleChars side by side, charWidthInPix apart and cut at the display's right
+' edge, each showing glyph row (windowRow + charVtPixOffset) +// (charHeightInPix + BLANK_ROW_PIX).
+'
+' @param windowRow - row within the region (0 at its top)
+
+' Local Variables:
+' @local charIdx - character slot being drawn
+' @local column - its left column
+' @local nPixels - its pixels on the display
+' @local pChrBitmap - its bitmap
+' @local packedFg - the full-brightness color's corrected bytes, packed
+' @local packedHalf - the reduced-brightness color's corrected bytes, packed
+' @local packedBlack - black's corrected bytes, packed
+
+  _, packedFg, packedHalf, packedBlack, _ := glyphSetup(scrollTextColor)
+  repeat charIdx from 0 TO maxVisibleChars
+    column := leftColumn + (charIdx * charWidthInPix)
+    nPixels := charWidthInPix <# (maxDisplayColumns - column)
+    if nPixels > 0
+      cChar := BYTE[@scrollChars][charIdx]
+      if charIdx > ctCharsToScroll - 1
+        cChar := SPACE_CHAR
+      pChrBitmap := fonts.getCharAddrForFont(selectedTextFont, cChar)
+      drawGlyphSlice(topRow + windowRow, column, 1, nPixels, pChrBitmap, 0, (windowRow + charVtPixOffset) +// (charHeightInPix + BLANK_ROW_PIX), packedFg, packedHalf, packedBlack)
+
+PRI drawGlyphSlice(row, column, nBlockRows, nPixels, pChrBitmap, firstBit, firstGlyphRow, packedFg, packedHalf, packedBlack) | blockRow, pixelIdx
+' Draw part of a glyph (screenUtils copyGlyphRows()): one block when it lies inside one cell, else
+' pixel by pixel as one-pixel blocks, which never cross a cell.
+'
+' @param row - top row of the part, as mounted
+' @param column - left column of the part, as mounted
+' @param nBlockRows - rows of the part
+' @param nPixels - pixels in each row of the part
+' @param pChrBitmap - the glyph, or pixels.NO_GLYPH for black
+' @param firstBit - bit index (from the glyph's left edge) of each row's first pixel
+' @param firstGlyphRow - glyph row shown in the part's first row
+' @param packedFg - the full-brightness color's corrected bytes, packed
+' @param packedHalf - the reduced-brightness color's corrected bytes, packed
+' @param packedBlack - black's corrected bytes, packed
+
+' Local Variables:
+' @local blockRow - row of the part drawn pixel by pixel
+' @local pixelIdx - pixel of that row
+
+  if pixels.copyGlyphRows(chainIndex, row, column, nBlockRows, nPixels, pChrBitmap, bFontIsDithered, charWidthInPix, charHeightInPix, firstBit, firstGlyphRow, packedFg, packedHalf, packedBlack) == FALSE
+    repeat blockRow from 0 TO nBlockRows - 1
+      repeat pixelIdx from 0 TO nPixels - 1
+        pixels.copyGlyphRows(chainIndex, row + blockRow, column + pixelIdx, 1, 1, pChrBitmap, bFontIsDithered, charWidthInPix, charHeightInPix, firstBit + pixelIdx, firstGlyphRow + blockRow, packedFg, packedHalf, packedBlack)
 
 PRI plotFacePixel(faceRow, faceColumn, rgbColor) | displayRow, displayColumn
 ' Draw one pixel of a face-centric region: carry it into the region's home frame, fold it across
@@ -477,6 +692,8 @@ PRI placeColrCharsHzOfstAtRC(row, column, charHzPxOffset, windowWidth, startChar
 
   maxCharIndex := (charHzPxOffset > 0) ? maxVisibleChars : maxVisibleChars - 1
   headWidthInPix := charWidthInPix + horizontalGapInPix - charHzPxOffset
+  if maxCharIndex == 0
+    headWidthInPix := charWidthInPix                    ' a one-character window: its only character has no gap after it
   tailWidthInPix := 0
   remainWindowPix := windowWidth
   endColumn := column
@@ -510,7 +727,8 @@ PRI placeColrCharsHzOfstAtRC(row, column, charHzPxOffset, windowWidth, startChar
       ' count this many pix placed
       remainWindowPix -= headWidthInPix
       ' form here on (until last char) we do full char width placements
-      headWidthInPix := (charIndex == maxCharIndex) ? charWidthInPix : charWidthInPix + horizontalGapInPix
+      ' the window's last character has no gap after it (the gap would land outside the window)
+      headWidthInPix := (charIndex + 1 == maxCharIndex) ? charWidthInPix : charWidthInPix + horizontalGapInPix
       hzInsetInPix := 0                                 ' reset this to full char
     if tailWidthInPix > 0
       ' place partial last char

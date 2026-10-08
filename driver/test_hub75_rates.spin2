@@ -223,6 +223,8 @@ CON ' ---- Row-run self-test ----
     '  ROW_CASE_SCROLL_IN_RIGHT - text scrolling right, dithered, inside one panel
     '  ROW_CASE_SCROLL_IN_UP    - text scrolling up, 8x8, inside one panel
     '  ROW_CASE_SCROLL_IN_DOWN  - text scrolling down, dithered, inside one panel
+    '  ROW_CASE_SCROLL_OVERDRAW - text scrolling left inside one panel while a box is drawn over its
+    '                             window and the buffer is cleared between steps (the window watch)
     '  ROW_CASE_FILL_PANEL    - one whole panel filled (display.fillPanel())
     '  ROW_CASE_FILL_AREA     - layout rectangles across cells and off the layout (fillLayoutArea())
     '  ROW_CASE_BMP           - the BMP placed with a content rotation
@@ -231,7 +233,7 @@ CON ' ---- Row-run self-test ----
     #0, ROW_CASE_LINES, ROW_CASE_OFF_DISPLAY, ROW_CASE_PANEL_CLIP, ROW_CASE_COLUMNS, ROW_CASE_COLUMN_OFF, ...
     ROW_CASE_COLUMN_CLIP, ROW_CASE_BOXES, ROW_CASE_DIAGONALS, ROW_CASE_CIRCLES, ROW_CASE_TEXT_5X7, ROW_CASE_TEXT_DITHERED, ROW_CASE_TEXT_8X8, ...
     ROW_CASE_SCROLL_LEFT, ROW_CASE_SCROLL_RIGHT, ROW_CASE_SCROLL_UP, ROW_CASE_SCROLL_DOWN, ...
-    ROW_CASE_SCROLL_IN_LEFT, ROW_CASE_SCROLL_IN_RIGHT, ROW_CASE_SCROLL_IN_UP, ROW_CASE_SCROLL_IN_DOWN, ...
+    ROW_CASE_SCROLL_IN_LEFT, ROW_CASE_SCROLL_IN_RIGHT, ROW_CASE_SCROLL_IN_UP, ROW_CASE_SCROLL_IN_DOWN, ROW_CASE_SCROLL_OVERDRAW, ...
     ROW_CASE_FILL_PANEL, ROW_CASE_FILL_AREA, ROW_CASE_BMP, ROW_CASE_SEGMENTS, ROW_CASE_COUNT
 
     ' Cases run on every layout: those before the first text case
@@ -290,11 +292,12 @@ CON ' ---- Row-run self-test ----
     ' Scrolling: the window is SCROLL_WINDOW_CHARS wide (the text is three characters longer, so a
     ' sideways scroll crosses character boundaries); the buffers are compared after
     ' SCROLL_COMPARE_STEPS steps (past one character's width and gap sideways, and through every
-    ' row offset of a 5x7 glyph up and down), then the scroll is run to its end (at most
+    ' row offset of a glyph up and down, ending on a step that moves the frame rather than one
+    ' that draws the whole window after a wrap), then the scroll is run to its end (at most
     ' SCROLL_FINISH_STEPS steps) so the scroller is free again. A region partly off the display
     ' starts SCROLL_EDGE_OVERLAP rows (columns) before the edge.
     SCROLL_WINDOW_CHARS     = 3
-    SCROLL_COMPARE_STEPS    = 8
+    SCROLL_COMPARE_STEPS    = 9
     SCROLL_FINISH_STEPS     = 64
     SCROLL_EDGE_OVERLAP     = 3
     SCROLL_CELL_REACH       = 8
@@ -314,6 +317,13 @@ CON ' ---- Row-run self-test ----
     ' DIAG_STEEP_RUN columns either side of the first cell boundary. Circles: one of
     ' CIRCLE_SMALL_RADIUS inside the first cell, one of CIRCLE_EDGE_RADIUS centred
     ' CIRCLE_EDGE_INSET pixels in from the bottom right, so most of it is off the display.
+    ' The overdraw scroll case: OVERDRAW_STEPS steps between its interruptions; the box is
+    ' OVERDRAW_BOX_SIZE pixels square, OVERDRAW_BOX_INSET pixels into the window, in OVERDRAW_COLOR
+    OVERDRAW_STEPS          = 3
+    OVERDRAW_BOX_INSET      = 2
+    OVERDRAW_BOX_SIZE       = 4
+    OVERDRAW_COLOR          = $40_FF_40
+
     DIAG_REACH              = 5
     DIAG_STEEP_RUN          = 9
     CIRCLE_SMALL_RADIUS     = 6
@@ -388,6 +398,7 @@ DAT ' ---- Test State (singleton) ----
     textMessage     BYTE    "HUB75 RATES 0123456789",0
     labelLine       BYTE    0[LABEL_LINE_CHARS + 1]         ' label line being built, zero-terminated
     labelLength     LONG    0                               ' characters in labelLine so far
+    scrollCaseRegion LONG   0                               ' the scroller an inside-a-panel scroll case started
     bmpFile         FILE    "TstBG-Up.bmp"
 
     chainIndex      LONG    0                               ' descriptor index of adapter 1
@@ -896,7 +907,7 @@ PRI drawRowRunCase(caseIdx, caseVariant) | displayRows, displayColumns, cellRows
       display.setTextFont(rowCaseFont(caseIdx))
       display.setColoredTextAtLnCol(FIRST_TEXT_LINE, FIRST_TEXT_COLUMN, @runText, RUN_TEST_COLOR)
       display.setColoredTextAtLnCol(display.numberTextLines() - 1, display.numberTextColumns() - TEXT_TAIL_CHARS, @tailText, RUN_TEST_COLOR)
-    ROW_CASE_SCROLL_LEFT .. ROW_CASE_SCROLL_IN_DOWN:
+    ROW_CASE_SCROLL_LEFT .. ROW_CASE_SCROLL_OVERDRAW:
       ' each region is placed on a panel that every layout has, so it always draws something:
       ' the last panel in reading order is in the bottom cell row, P0 is the first panel, and
       ' edgePanelRow() finds a panel in the rightmost cell column
@@ -913,11 +924,30 @@ PRI drawRowRunCase(caseIdx, caseVariant) | displayRows, displayColumns, cellRows
         ROW_CASE_SCROLL_IN_LEFT .. ROW_CASE_SCROLL_IN_DOWN:
           ' inside P0, so every glyph lies in one cell and is drawn as one block
           panelRow, panelColumn := hub75Bffrs.offsetToPanel(chainIndex, PANEL_P0)
-          display.scrollTextAtRCOfColor(panelRow + RUN_INSET, panelColumn + RUN_INSET, SCROLL_WINDOW_CHARS, @scrollText, LONG[@insideDirections][caseIdx - ROW_CASE_SCROLL_IN_LEFT], RUN_TEST_COLOR)
+          scrollCaseRegion := display.scrollTextAtRCOfColor(panelRow + RUN_INSET, panelColumn + RUN_INSET, SCROLL_WINDOW_CHARS, @scrollText, LONG[@insideDirections][caseIdx - ROW_CASE_SCROLL_IN_LEFT], RUN_TEST_COLOR)
+          if caseIdx == ROW_CASE_SCROLL_IN_UP
+            ' an up scroll ends after one glyph height, on the step that wraps the rows and draws
+            ' the whole window; scrolling on, the comparison lands on a step that moves the frame
+            display.configureScrollLoopMode(scrollCaseRegion, display.SCROLL_FOREVER)
+        ROW_CASE_SCROLL_OVERDRAW:
+          ' steps that move the frame, then a box drawn over the window and a cleared buffer: each
+          ' must make the next step draw the whole window again
+          panelRow, panelColumn := hub75Bffrs.offsetToPanel(chainIndex, PANEL_P0)
+          display.scrollTextAtRCOfColor(panelRow + RUN_INSET, panelColumn + RUN_INSET, SCROLL_WINDOW_CHARS, @scrollText, display.DIR_TO_LEFT, RUN_TEST_COLOR)
+          repeat OVERDRAW_STEPS
+            display.animateScroll()
+          display.drawBoxOfColor(panelRow + RUN_INSET + OVERDRAW_BOX_INSET, panelColumn + RUN_INSET + OVERDRAW_BOX_INSET, OVERDRAW_BOX_SIZE, OVERDRAW_BOX_SIZE, TRUE, OVERDRAW_COLOR)
+          repeat OVERDRAW_STEPS
+            display.animateScroll()
+          display.clearScreenBuffer()
         other:
           display.scrollTextAtRCOfColor(displayRows - SCROLL_EDGE_OVERLAP, panelColumn + RUN_INSET, SCROLL_WINDOW_CHARS, @scrollText, display.DIR_DOWN, RUN_TEST_COLOR)
       repeat SCROLL_COMPARE_STEPS
         display.animateScroll()
+      if caseIdx == ROW_CASE_SCROLL_IN_UP
+        ' it scrolls forever: free it now (its pixels stay for the comparison), so the next
+        ' drawing of this case, and every later case, starts with no scroller running
+        display.releaseScroller(scrollCaseRegion)
     ROW_CASE_FILL_PANEL:
       display.fillPanel(caseVariant // hub75Bffrs.maxPanels(chainIndex), RUN_TEST_COLOR)
     ROW_CASE_FILL_AREA:
@@ -964,11 +994,12 @@ PRI edgePanelRow(displayColumns, cellColumns) : panelRow | panelIdx, rowOffset, 
 
 PRI finishRowRunCase(caseIdx)
 ' Finish a case after its comparison: a scrolling case is run to its end, so its scroller is free
-' for the next. Other cases need nothing.
+' for the next (the inside-a-panel up scroll, which scrolls forever, was released as it was
+' drawn). Other cases need nothing.
 '
 ' @param caseIdx - ROW_CASE_* just compared
 
-  if caseIdx >= ROW_CASE_SCROLL_LEFT and caseIdx <= ROW_CASE_SCROLL_IN_DOWN
+  if caseIdx >= ROW_CASE_SCROLL_LEFT and caseIdx <= ROW_CASE_SCROLL_OVERDRAW
     repeat SCROLL_FINISH_STEPS
       if display.isScrollingComplete() == TRUE
         quit
@@ -1283,6 +1314,8 @@ PRI rowCaseLabel(caseIdx) : pLabel
       pLabel := string("scroll up 8x8 inside a panel")
     ROW_CASE_SCROLL_IN_DOWN:
       pLabel := string("scroll down dithered inside a panel")
+    ROW_CASE_SCROLL_OVERDRAW:
+      pLabel := string("scroll left with a box drawn over it and the buffer cleared")
     ROW_CASE_FILL_PANEL:
       pLabel := string("fill one panel")
     ROW_CASE_FILL_AREA:

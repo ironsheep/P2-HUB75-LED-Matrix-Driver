@@ -49,10 +49,14 @@ Each panel is described by one sentence, each adapter starts with one call, six 
 - Panel-centric calls land on the panel they name on that same layout: `fillPanel(0)` fills the top-left panel, and a panel-centric line stops at its panel's edge instead of spilling onto a neighbour.
 - `commitScreenToPanelSet()` converts into the PWM frame set that is not on display, so a commit never shows part of the new image with part of the old.
 - `releaseScroller(0)` releases the first scroller region; index 0 was ignored.
+- A new scrolling region starts in the default loop mode. It used to keep the mode of whatever last scrolled on the same scroller, so a region set to `SCROLL_FOREVER`, once released, made the next region given that scroller scroll forever too.
+- Text scrolling sideways no longer draws a black column just right of its region. On every step where the text sat on a character boundary, the gap after the last character landed one pixel outside the region.
 - An adapter on pins P0-P15 no longer has its colour lines toggled by the timing marks on P8-P11. Adapters on P16-P31 or P32-P47 were unaffected. The marks now exist only in a `HUB75_INSTRUMENT` build.
 
 #### Changed
 
+- **Drawing speed**: every drawing call finds its pixels from a table built at startup, one lookup per panel instead of the full address rule per pixel, and writes them in PASM. On the four-panel 256x128 rig at 8-bit: one full-width line of scrolling text steps in 1.3 ms sideways (was 45 ms) and 3.3 to 4.1 ms up or down (was 41 ms), so it keeps up with the 71 Hz refresh; an 8-digit 7-segment step takes at most 11.5 ms (was 24 ms); `fillScreen()` 4.7 ms (was 20 ms); a full screen of 5x7 text 43 ms (was 291 ms); a sloped line or circle about 1 ms (was 6 ms).
+- **Scrolling moves the last frame**: a step moves the region's pixels one place and draws only the new edge. Anything drawn over the region through the driver, and any clear or fill of the screen, makes the next step draw the whole region again, so what you see is unchanged. A program that writes the screen buffer directly, not through the driver's calls, calls `hub75Bffrs.noteAllDrawn(chainIndex)` afterwards so the regions draw again.
 - Buffers are sized by the number of panels in use, not by the display's bounding box. A display with a gap (an L shape) holds no memory for the gap.
 - **Refresh**: each bit plane is shown once per row address and lit by output-enable time in proportion to its bit weight. Rates by depth are in the [Wiring Guide](DOCs/WiringGuide.md#refresh-rate).
 - **Default color depth is 8-bit** (`DISPx_COLOR_DEPTH = hwEnum.DEPTH_8BIT`), full 24-bit color. A configuration whose buffers exceed hub RAM at 8-bit fails to compile with `Program requirement exceeds 512KB hub RAM`; lower the depth.

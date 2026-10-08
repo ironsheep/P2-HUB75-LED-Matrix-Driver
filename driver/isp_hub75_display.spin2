@@ -1603,6 +1603,7 @@ PRI plotLineLowInternal(fromColumn, fromRow, toColumn, toRow, rgbColor, eDrawMod
   if bFast == TRUE
     hub75Bffrs.plotContext(chainIndex, @plotCtx)
     packedColor := pixels.packedColorOf(chainIndex, rgbColor)
+    hub75Bffrs.noteDrawn(chainIndex, fromRow, fromColumn, toRow, toColumn)   ' the line's bounding box, for the window watch
   repeat column from fromColumn to toColumn
     if bFast == TRUE
       pixels.plotPacked(@plotCtx, row, column, packedColor)
@@ -1650,6 +1651,7 @@ PRI plotLineHighInternal(fromColumn, fromRow, toColumn, toRow, rgbColor, eDrawMo
   if bFast == TRUE
     hub75Bffrs.plotContext(chainIndex, @plotCtx)
     packedColor := pixels.packedColorOf(chainIndex, rgbColor)
+    hub75Bffrs.noteDrawn(chainIndex, fromRow, fromColumn, toRow, toColumn)   ' the line's bounding box, for the window watch
   repeat row from fromRow to toRow
     if bFast == TRUE
       pixels.plotPacked(@plotCtx, row, column, packedColor)
@@ -1835,6 +1837,7 @@ PRI drawCircleInternal(ctrRow, ctrColumn, radius, rgbColor, eDrawMode, drawTarge
   if bFast == TRUE
     hub75Bffrs.plotContext(chainIndex, @plotCtx)
     packedColor := pixels.packedColorOf(chainIndex, rgbColor)
+    hub75Bffrs.noteDrawn(chainIndex, ctrRow - radius, ctrColumn - radius, ctrRow + radius, ctrColumn + radius)   ' the circle's bounding box, for the window watch
   column := 0
   row := radius
   decision := CIRCLE_DECISION_INIT - CIRCLE_DECISION_RADIUS_MUL * radius

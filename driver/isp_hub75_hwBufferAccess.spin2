@@ -98,6 +98,14 @@ CON ' ---- Drawing Path Results ----
     ' plotContext(): the LONGs it fills, in this order (screenUtils plotPacked() reads them in
     ' one block): display rows and columns as mounted, cell rows and columns, mounted grid columns,
     ' this adapter's cell offset, right step and down step tables, and the screen buffer address
+    ' watchWindow() result when a window cannot be watched (no free slot, or the window is not
+    ' wholly on panels of the display); every other watch call ignores it
+    NO_WINDOW_SLOT          = -1
+
+    ' windows watched at once, over all adapters (three adapters of four scrolling regions each,
+    ' and room to spare)
+    MAX_WATCHED_WINDOWS     = 16
+
     #0, PLOT_CTX_ROWS, PLOT_CTX_COLUMNS, PLOT_CTX_CELL_ROWS, PLOT_CTX_CELL_COLUMNS, PLOT_CTX_GRID_COLUMNS, ...
     PLOT_CTX_OFFSETS, PLOT_CTX_RIGHT_STEPS, PLOT_CTX_DOWN_STEPS, PLOT_CTX_BUFFER, PLOT_CONTEXT_LONGS
 
@@ -626,6 +634,7 @@ PUB zeroFillBuffer(nChainIdx) | pBffr, nBffrLen
     nBffrLen := displaySizeInLongs(nChainIdx)
     pBffr := displayBufferAddress(nChainIdx)
     longfill(pBffr, 0, nBffrLen)
+    noteAllDrawn(nChainIdx)                                 ' every watched window was overwritten
 
 PUB indexForHub75ChainId(eHub75Chain) : nChainIdx | bValidChain
 '' Return the zero-based index into our table for a given HUB75 adapter identifier.
@@ -859,6 +868,138 @@ PUB plotContext(nChainIdx, pContext) | layoutIdx
     LONG[pContext][PLOT_CTX_RIGHT_STEPS] := @mountedCellRightStep[layoutIdx * MAX_GRID_CELLS]
     LONG[pContext][PLOT_CTX_DOWN_STEPS] := @mountedCellDownStep[layoutIdx * MAX_GRID_CELLS]
     LONG[pContext][PLOT_CTX_BUFFER] := LONG[@@LONG[@screenTable][layoutIdx]][ENTR_SCRN_BUFFER_ADDR_OFST]
+
+PUB watchWindow(nChainIdx, topRow, leftColumn, bottomRow, rightColumn) : slot | layoutIdx, slotIdx
+'' Start watching a window of the screen buffer (display coordinates, as mounted): from now on
+'' every drawing call that writes into it marks it dirty (noteDrawn(), noteAllDrawn()), except
+'' the drawing of its owner (setDrawingOwner()). A scrolling region watches its window so that it
+'' can move the pixels it drew last time instead of drawing them again, and draws them again
+'' whenever something else wrote there. The window must lie on the display and every cell it
+'' covers must hold a panel; otherwise, or when every slot is in use, nothing is watched and the
+'' result is NO_WINDOW_SLOT. A new window starts clean.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @param topRow - top row of the window, as mounted
+'' @param leftColumn - left column of the window, as mounted
+'' @param bottomRow - bottom row of the window, as mounted
+'' @param rightColumn - right column of the window, as mounted
+'' @returns slot - the window's slot, or NO_WINDOW_SLOT
+
+' Local Variables:
+' @local layoutIdx - the chain index, checked against the adapters that exist
+' @local slotIdx - slot being looked at
+
+    layoutIdx := validChainIndex(nChainIdx)
+    slot := NO_WINDOW_SLOT
+    if isAreaOnPanels(layoutIdx, topRow, leftColumn, bottomRow, rightColumn) == TRUE
+        repeat slotIdx from 0 to MAX_WATCHED_WINDOWS - 1
+            if windowChain[slotIdx] == NO_WINDOW_SLOT
+                slot := slotIdx
+                quit
+    if slot <> NO_WINDOW_SLOT
+        windowTop[slot] := topRow
+        windowLeft[slot] := leftColumn
+        windowBottom[slot] := bottomRow
+        windowRight[slot] := rightColumn
+        windowDirty[slot] := FALSE
+        windowChain[slot] := layoutIdx
+        watchedWindowCount++
+
+PUB unwatchWindow(slot) | layoutIdx
+'' Stop watching a window (watchWindow()); NO_WINDOW_SLOT is ignored.
+''
+'' @param slot - the window's slot, or NO_WINDOW_SLOT
+
+' Local Variables:
+' @local layoutIdx - adapter whose drawing owner is checked
+
+    if slot +< MAX_WATCHED_WINDOWS
+        if windowChain[slot] <> NO_WINDOW_SLOT
+            windowChain[slot] := NO_WINDOW_SLOT
+            watchedWindowCount--
+            repeat layoutIdx from 0 to ADAPTER_COUNT - 1
+                if drawingOwner[layoutIdx] == slot
+                    drawingOwner[layoutIdx] := NO_WINDOW_SLOT
+
+PUB isWindowClean(slot) : bClean
+'' Return TRUE when a watched window holds what its owner last drew: nothing else has written
+'' into it since markWindowClean(). FALSE for NO_WINDOW_SLOT.
+''
+'' @param slot - the window's slot, or NO_WINDOW_SLOT
+'' @returns bClean - TRUE when the window is watched and clean
+
+    bClean := FALSE
+    if slot +< MAX_WATCHED_WINDOWS
+        bClean := windowChain[slot] <> NO_WINDOW_SLOT and windowDirty[slot] == FALSE
+
+PUB markWindowClean(slot)
+'' Mark a watched window clean: its owner has just drawn all of it. NO_WINDOW_SLOT is ignored.
+''
+'' @param slot - the window's slot, or NO_WINDOW_SLOT
+
+    if slot +< MAX_WATCHED_WINDOWS
+        windowDirty[slot] := FALSE
+
+PUB setDrawingOwner(nChainIdx, slot)
+'' Name the watched window whose owner is drawing now (NO_WINDOW_SLOT for none): its own drawing
+'' does not mark it dirty. Every other watched window it writes into is marked dirty as usual.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @param slot - the owner's window slot, or NO_WINDOW_SLOT
+
+    drawingOwner[validChainIndex(nChainIdx)] := slot
+
+PUB noteDrawn(nChainIdx, topRow, leftColumn, bottomRow, rightColumn) | layoutIdx, maxRow, maxColumn, slotIdx, heldTop, heldLeft, heldBottom, heldRight
+'' Tell the window watch that a rectangle of the screen buffer (display coordinates, as mounted,
+'' held to the display as every drawing call holds its pixels) has been written: every watched
+'' window of this adapter that it meets, other than the drawing owner's, is marked dirty. Costs
+'' one compare when no window is watched. The rectangle may be larger than what was written:
+'' a window marked dirty only draws itself again.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+'' @param topRow - top row written
+'' @param leftColumn - left column written
+'' @param bottomRow - bottom row written
+'' @param rightColumn - right column written
+
+' Local Variables:
+' @local layoutIdx - the chain index, checked against the adapters that exist
+' @local maxRow - the display's last row, as mounted
+' @local maxColumn - the display's last column, as mounted
+' @local slotIdx - slot being looked at
+' @local heldTop - the rectangle's top row, held to the display
+' @local heldLeft - its left column, held to the display
+' @local heldBottom - its bottom row, held to the display
+' @local heldRight - its right column, held to the display
+
+    if watchedWindowCount > 0
+        layoutIdx := validChainIndex(nChainIdx)
+        maxRow := mountedPixelRows[layoutIdx] - 1
+        maxColumn := mountedPixelColumns[layoutIdx] - 1
+        heldTop := 0 #> (topRow <# bottomRow) <# maxRow
+        heldBottom := 0 #> (topRow #> bottomRow) <# maxRow
+        heldLeft := 0 #> (leftColumn <# rightColumn) <# maxColumn
+        heldRight := 0 #> (leftColumn #> rightColumn) <# maxColumn
+        repeat slotIdx from 0 to MAX_WATCHED_WINDOWS - 1
+            if windowChain[slotIdx] == layoutIdx and slotIdx <> drawingOwner[layoutIdx]
+                if heldTop <= windowBottom[slotIdx] and heldBottom >= windowTop[slotIdx] and heldLeft <= windowRight[slotIdx] and heldRight >= windowLeft[slotIdx]
+                    windowDirty[slotIdx] := TRUE
+
+PUB noteAllDrawn(nChainIdx) | layoutIdx, slotIdx
+'' Tell the window watch that the whole screen buffer (or an area it cannot place) has been
+'' written: every watched window of this adapter, other than the drawing owner's, is marked dirty.
+''
+'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
+
+' Local Variables:
+' @local layoutIdx - the chain index, checked against the adapters that exist
+' @local slotIdx - slot being looked at
+
+    if watchedWindowCount > 0
+        layoutIdx := validChainIndex(nChainIdx)
+        repeat slotIdx from 0 to MAX_WATCHED_WINDOWS - 1
+            if windowChain[slotIdx] == layoutIdx and slotIdx <> drawingOwner[layoutIdx]
+                windowDirty[slotIdx] := TRUE
 
 PUB positionAtDisplayPixel(nChainIdx, row, column) : nPanelPosn | layoutIdx
 '' Return the panel position (P) of the panel that holds display coordinates (row, column), with
@@ -1255,6 +1396,17 @@ mountedCellToPosition BYTE  NO_POSITION[ADAPTER_COUNT * MAX_GRID_CELLS]
 mountedCellOffset   LONG    NO_CELL_OFFSET[ADAPTER_COUNT * MAX_GRID_CELLS]  ' bytes from the buffer start to the cell's first pixel, or NO_CELL_OFFSET
 mountedCellRightStep LONG   0[ADAPTER_COUNT * MAX_GRID_CELLS]   ' signed bytes from a pixel to the one at its right, as mounted
 mountedCellDownStep LONG    0[ADAPTER_COUNT * MAX_GRID_CELLS]   ' signed bytes from a pixel to the one below it, as mounted
+
+' The window watch (watchWindow()): one slot per watched window, any adapter. A free slot's
+' windowChain is NO_WINDOW_SLOT. drawingOwner names, per adapter, the window whose owner is drawing.
+windowChain         LONG    NO_WINDOW_SLOT[MAX_WATCHED_WINDOWS] ' the adapter the window is on, or NO_WINDOW_SLOT (free)
+windowTop           LONG    0[MAX_WATCHED_WINDOWS]
+windowLeft          LONG    0[MAX_WATCHED_WINDOWS]
+windowBottom        LONG    0[MAX_WATCHED_WINDOWS]
+windowRight         LONG    0[MAX_WATCHED_WINDOWS]
+windowDirty         LONG    FALSE[MAX_WATCHED_WINDOWS]          ' TRUE when something other than its owner wrote into it
+watchedWindowCount  LONG    0
+drawingOwner        LONG    NO_WINDOW_SLOT[ADAPTER_COUNT]
 
 ' Work area for one configureAdapter() call; startup configures one adapter at a time.
 cableCellRow        LONG    0[MAX_CABLE_POSITIONS]              ' cable position -> grid row, relative to C0
@@ -1794,6 +1946,28 @@ PRI buildMountedTables(nChainIdx, panelCount) | eRotation, gridRows, gridCols, m
             mountedPosn++
 
     buildCellAddressTables(nChainIdx)
+
+PRI isAreaOnPanels(layoutIdx, topRow, leftColumn, bottomRow, rightColumn) : bOnPanels | cellRow, cellColumn
+' Return TRUE when a rectangle (display coordinates, as mounted) lies on the display and every
+' cell of the mounted grid it covers holds a panel.
+'
+' @param layoutIdx - the index of the desired chain of panels (hub75 adapter), already checked
+' @param topRow - top row of the rectangle
+' @param leftColumn - left column of the rectangle
+' @param bottomRow - bottom row of the rectangle
+' @param rightColumn - right column of the rectangle
+' @returns bOnPanels - TRUE when the whole rectangle is on panels
+
+' Local Variables:
+' @local cellRow - mounted grid row being looked at
+' @local cellColumn - mounted grid column being looked at
+
+    bOnPanels := topRow >= 0 and leftColumn >= 0 and topRow <= bottomRow and leftColumn <= rightColumn and bottomRow < mountedPixelRows[layoutIdx] and rightColumn < mountedPixelColumns[layoutIdx]
+    if bOnPanels == TRUE
+        repeat cellRow from topRow / mountedCellRows[layoutIdx] to bottomRow / mountedCellRows[layoutIdx]
+            repeat cellColumn from leftColumn / mountedCellColumns[layoutIdx] to rightColumn / mountedCellColumns[layoutIdx]
+                if mountedCellOffset[(layoutIdx * MAX_GRID_CELLS) + (cellRow * mountedGridColumns[layoutIdx]) + cellColumn] == NO_CELL_OFFSET
+                    bOnPanels := FALSE
 
 PRI buildCellAddressTables(nChainIdx) | eRotation, gridCells, cellIdx, cellBase, cellRows, cellColumns, firstRow, firstColumn, pScreen, pFirst
 ' Build the cell address tables from the one address rule: for each cell of the mounted grid that

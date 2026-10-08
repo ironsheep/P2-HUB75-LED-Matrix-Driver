@@ -161,6 +161,7 @@ PRI loadBitmap(pBitmapFile, eContentRotation) : bLoaded | nImageWidth, nImageHei
 
     if bRun == TRUE
       ' each display row is one span of the image: written cell by cell in PASM (placeRowSpan())
+      hub75Bffrs.noteAllDrawn(chainIndex)                       ' the image may cover any of the display, for the window watch
       repeat maxRowPixels with nDisplayRow
         placeRowSpan(nDisplayRow, eContentRotation, nImageWidth, nImageHeight, bTopDown, nRowStride)
     else

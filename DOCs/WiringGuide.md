@@ -310,17 +310,17 @@ At every depth, 128 gave half of the lit share of 256 with the refresh rate unch
 
 #### Commit and draw time
 
-Measured on the same four-panel rig (256x128 pixels), drawing a flat fill, fanned lines, lines of text or a full-screen BMP, then committing:
+Measured on the same four-panel rig (256x128 pixels), drawing a flat fill, fanned lines, lines of text or a 64x32 BMP placed in the centre, then committing:
 
 | Step | 8-bit | 5-bit |
 |---|---|---|
 | Commit | 4.09 ms | 3.26 ms |
-| Draw: flat fill | 114.0 ms | 114.0 ms |
-| Draw: lines | 116.8 ms | 116.8 ms |
-| Draw: text | 300.9 ms | 300.9 ms |
-| Draw: BMP | 188.4 ms | 188.4 ms |
+| Draw: flat fill | 4.7 ms | not re-measured |
+| Draw: lines | 12.8 ms | not re-measured |
+| Draw: text | 24.6 ms | not re-measured |
+| Draw: BMP | 3.8 ms | not re-measured |
 
-Draw time does not depend on the colour depth. A commit converts the screen buffer into the PWM frame set that is not on display and posts it; the refresh cog switches to it at its next frame start, so the panels never show a half-converted image (see [Theory of Operations](TheoryOfOperations.md#23-screen-commit-operation)).
+The draw times were 114.0, 116.8, 300.9 and 188.4 ms (8-bit and 5-bit alike) before every drawing call took its pixels from the cell address tables and wrote them in PASM (see [Theory of Operations](TheoryOfOperations.md#22-pixel-write-operation)). Draw time did not depend on the colour depth then: the screen buffer holds three bytes per pixel at every depth. A commit converts the screen buffer into the PWM frame set that is not on display and posts it; the refresh cog switches to it at its next frame start, so the panels never show a half-converted image (see [Theory of Operations](TheoryOfOperations.md#23-screen-commit-operation)).
 
 ## Startup messages
 
