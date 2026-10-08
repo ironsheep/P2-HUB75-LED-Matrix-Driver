@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 06 Oct 2026
+''   Updated.... 08 Oct 2026
 ''
 '' =================================================================================================
 
@@ -69,9 +69,9 @@ VAR ' ---- Digit State ----
     LONG    currRgbColor
     LONG    topY
     LONG    leftX
+    LONG    isSetup                                                 ' TRUE once the seven segments are placed
 
     BYTE    shownSegments                                           ' bit per segment (bit n is segment index n): the segments lit, or sliding on
-    BYTE    isSetup
 
 PUB null()
 '' This is NOT a top level object.
@@ -88,8 +88,12 @@ PUB placeDigit(nChainIdx, row, column, digit, rgbColor) | maxRowPixels, maxColPi
 '' @param digit - digit value to display (0-9 or DIGIT_HIDDEN)
 '' @param rgbColor - 24-bit RGB color for the digit segments
 
+' Local Variables:
+' @local maxRowPixels - height of the chain's display in pixels
+' @local maxColPixels - width of the chain's display in pixels
+
   chainIndex := nChainIdx
-  ' now we can inform segements of their own locations
+  ' now we can inform segments of their own locations
   'debug("7s:placeDigit rc=(", udec_(row), ",", udec_(column),"), dgt=(", udec_(digit), "), RGB=(", uhex_long_(rgbColor),")")
   maxRowPixels, maxColPixels := hub75Bffrs.displaySizeInPixels(chainIndex)
   isSetup := FALSE
@@ -123,7 +127,10 @@ PUB incrementValue(shouldWrap) | nextValue
 ' Local Variables:
 ' @local nextValue - the computed next digit value
 
-  nextValue := currValue + 1
+  if currValue < MIN_DIGIT_VALUE                        ' nothing showing yet (or hidden): counting starts at the first digit
+    nextValue := MIN_DIGIT_VALUE
+  else
+    nextValue := currValue + 1
   if nextValue > MAX_DIGIT_VALUE
     if shouldWrap <> WITH_WRAP
       nextValue := MAX_DIGIT_VALUE
@@ -220,7 +227,7 @@ PRI reconfigureForDigit(digit) | BYTE toSegments, segmentBit, bitIndex
 ' always starts from what the digit actually shows, whatever came before it. Aborts, as the
 ' segment's moveSegmentToState() does, when a segment that has to change is still moving.
 '
-' @param digit - new digit value to display (0-9 or DIGIT_HIDDEN)
+' @param digit - digit value to display (0-9 or DIGIT_HIDDEN)
 
 ' Local Variables:
 ' @local toSegments - bitmask of segments that should show for the new digit
@@ -231,7 +238,7 @@ PRI reconfigureForDigit(digit) | BYTE toSegments, segmentBit, bitIndex
 
   if currValue <> digit
     toSegments := 0
-    if digit >= MIN_DIGIT_VALUE AND digit <= MAX_DIGIT_VALUE
+    if digit >= MIN_DIGIT_VALUE && digit <= MAX_DIGIT_VALUE
       toSegments := BYTE[@segmentsByDigit][digit]                               ' digit [0-9]
     ' debug(" -- table:",ubin(shownSegments),ubin(toSegments))
     ' hide some segments, show others, leave the rest as they are
@@ -245,7 +252,7 @@ PRI reconfigureForDigit(digit) | BYTE toSegments, segmentBit, bitIndex
         shownSegments ^= segmentBit                                             ' commanded: now shown (or on its way)
     currValue := digit
 
-CON ' license
+CON ' ---- License ----
 
 {{
 

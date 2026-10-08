@@ -3,27 +3,28 @@
 ''   File....... isp_dummy_flash.spin2
 ''   Purpose.... Flash image that announces a reboot from flash: not part of the HUB75 driver
 ''   Authors.... Stephen M Moraco
-''               -- Copyright (c) 2022 Iron Sheep Productions, LLC
+''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Mar 2022
-''   Updated.... 02 Oct 2026
+''   Updated.... 08 Oct 2026
 ''
 '' =================================================================================================
-''
-'' This program is flashed onto every P2 Edge board used for development. Demos and tests are
-'' loaded into RAM and run from there; if a RAM-loaded run crashes and the board resets, it
-'' boots from flash instead, and this program prints its greeting on the debug port. Seeing
-'' "* Hi! from FLASH *" in a log therefore means the RAM-loaded program died and the board
-'' rebooted. It is kept in this repository so it is compile-checked with everything else.
-''
 
-CON { timing }
+{
+  This program is flashed onto every P2 Edge board used for development. Demos and tests are
+  loaded into RAM and run from there; if a RAM-loaded run crashes and the board resets, it
+  boots from flash instead, and this program prints its greeting on the debug port. Seeing
+  "* Hi! from FLASH *" in a log therefore means the RAM-loaded program died and the board
+  rebooted. It is kept in this repository so it is compile-checked with everything else.
+}
+
+CON ' ---- Timing ----
 
   CLK_FREQ = 270_000_000                                        ' system freq as a constant
   _clkfreq = CLK_FREQ                                           ' set system clock
 
-CON { fixed io pins }
+CON ' ---- Fixed I/O Pins (reference only: this program uses none of them) ----
 
   RX1      = 63  { I }                                          ' programming / debug
   TX1      = 62  { O }
@@ -35,19 +36,20 @@ CON { fixed io pins }
 
 PUB main()
 '' Announce that the board has booted from flash, then hold.
+''
 
     debug("* Hi! from FLASH *")
 
     repeat                                                      ' hold here; nothing else runs
 
 
-CON { license }
+CON ' ---- License ----
 {{
 
  -------------------------------------------------------------------------------------------------
   MIT License
 
-  Copyright (c) 2022 Iron Sheep Productions, LLC
+  Copyright (c) 2024 Iron Sheep Productions, LLC
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal

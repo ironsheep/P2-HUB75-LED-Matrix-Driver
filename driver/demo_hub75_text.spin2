@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 06 Oct 2026
+''   Updated.... 08 Oct 2026
 ''
 '' =================================================================================================
 
@@ -28,6 +28,11 @@ CON ' ---- Demo Constants ----
     MS_PER_SECOND       = 1000
     MS_PER_100TH_SEC    = 10
     SCROLL_PERIOD       = 0                                         ' hundredths of a second between scroll steps (0 = no delay)
+    FIRST_COLUMN        = 0                                         ' text lines start at the left edge
+    LINE_0              = 0                                         ' text line numbers, counted from the top
+    LINE_1              = 1
+    LINE_2              = 2
+    LINE_3              = 3
 
 OBJ ' ---- Objects ----
 
@@ -44,7 +49,6 @@ DAT ' ---- String Data ----
 VAR ' ---- Per-instance State ----
 
     LONG    chainIndex
-    LONG    scrollPeriod
 
 PUB main()
 '' Run demo displaying text and graphics in various ways.
@@ -53,7 +57,7 @@ PUB main()
   chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
   ' startup our backend COG(s): one call per adapter (aborts if no cog is free)
-  display.start(hub75Bffrs.HUB75_ADAPTER_1)
+  display.start(display.HUB75_ADAPTER_1)
 
   demoText()
 
@@ -63,42 +67,33 @@ PUB main()
 
   repeat
 
-PRI demoScrollingText() | scrollerID, textSize
+PRI demoScrollingText() | scrollerID
 ' Display scrolling text demonstration on the LED matrix.
 '
 
 ' Local Variables:
 ' @local scrollerID - ID of the active scroll region
-' @local textSize - selected font size for display
-
-  scrollPeriod := SCROLL_PERIOD                         ' hundredths of a second between scroll steps
-
-  textSize := display.TEXT_FONT_5x7
 
   display.clearScreen()
-  display.setTextFont(textSize)                         ' font size
+  display.setTextFont(display.TEXT_FONT_5x7)            ' font size
   display.setCursor(0, 0)                               ' start at top left, with one pixel of spacing
   ' show some static text on 64x32 display
-  if textSize == display.TEXT_FONT_5x7
-    display.setColoredTextAtLnCol(0,0, string("Iron Sheep"), color.cMaroon)
-    display.setColoredTextAtLnCol(1,0, string("ScrollDemo"), color.cOrange)
-  else
-    display.setColoredTextAtLnCol(0,0, string("SHEEP"), color.cMaroon)
-    display.setColoredTextAtLnCol(1,0, string("scroll"), color.cOrange)
+  display.setColoredTextAtLnCol(LINE_0, FIRST_COLUMN, string("Iron Sheep"), color.cMaroon)
+  display.setColoredTextAtLnCol(LINE_1, FIRST_COLUMN, string("ScrollDemo"), color.cOrange)
   ' show a region of scrolling text
-  scrollerID := display.scrollColoredTextOnLn(2, string("First long text-123          "), display.DIR_TO_LEFT, color.cBlue)
+  scrollerID := display.scrollColoredTextOnLn(LINE_2, string("First long text-123          "), display.DIR_TO_LEFT, color.cBlue)
   ' configure it for one time scroll then stop when last bit arrives on screen
   display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE_TO_CLEAR)
 
-  scrollerID := display.scrollColoredTextOnLn(3, string("2nd shorter - "), display.DIR_TO_LEFT, color.cLime)
-  ' configure it for one time scroll then stop when last bit arrives on screen
+  scrollerID := display.scrollColoredTextOnLn(LINE_3, string("2nd shorter - "), display.DIR_TO_LEFT, color.cLime)
+  ' configure it to scroll forever
   display.configureScrollLoopMode(scrollerID, display.SCROLL_FOREVER)
 
   ' update our screen
   display.commitScreenToPanelSet()
 
   ' now loop while scrolling finishes
-  wait100thSecs(scrollPeriod)
+  wait100thSecs(SCROLL_PERIOD)
 
   ' while scrolling not done...
   repeat while display.isScrollingComplete() == FALSE
@@ -108,7 +103,7 @@ PRI demoScrollingText() | scrollerID, textSize
     display.commitScreenToPanelSet()
 
     ' delay while we stare wide-eyed at the new...
-    wait100thSecs(scrollPeriod)
+    wait100thSecs(SCROLL_PERIOD)
 
 PRI demoText() | frameCount
 ' Display static text and panel info on the LED matrix.
@@ -120,7 +115,7 @@ PRI demoText() | frameCount
   display.clearScreen()
   display.setTextFont(display.TEXT_FONT_5x7)            ' font size
   display.setCursor(0, 0)                               ' start at top left, with one pixel of spacing
-  display.setColoredTextAtLnCol(0,0, string("iron sheep"), color.cMaroon)
+  display.setColoredTextAtLnCol(LINE_0, FIRST_COLUMN, string("iron sheep"), color.cMaroon)
 
   frameCount := hub75Bffrs.pwmFrameCount(chainIndex)
   case hub75Bffrs.colorDepth(chainIndex)
@@ -138,9 +133,9 @@ PRI demoText() | frameCount
       pwmMsg.BYTE[2] := ASCII_ZERO + (frameCount // DECIMAL_BASE)
   bitCt.BYTE[0] := hub75Bffrs.colorDepth(chainIndex) + ASCII_ZERO
 
-  display.setColoredTextAtLnCol(1,0, @bitMsg, color.cOrange)
-  display.setColoredTextAtLnCol(2,0, @pwmMsg, color.cMagenta)
-  display.setColoredTextAtLnCol(3,0, string("led matrix"), color.cWhite)
+  display.setColoredTextAtLnCol(LINE_1, FIRST_COLUMN, @bitMsg, color.cOrange)
+  display.setColoredTextAtLnCol(LINE_2, FIRST_COLUMN, @pwmMsg, color.cMagenta)
+  display.setColoredTextAtLnCol(LINE_3, FIRST_COLUMN, string("led matrix"), color.cWhite)
   display.commitScreenToPanelSet()
 
 PRI waitSec(countSeconds)
@@ -151,12 +146,12 @@ PRI waitSec(countSeconds)
   repeat countSeconds
     waitms(MS_PER_SECOND)
 
-PRI wait100thSecs(count)
+PRI wait100thSecs(hundredths)
 ' Wait for N hundredths of a second.
 '
-' @param count - number of 1/100th second intervals to wait
+' @param hundredths - number of 1/100th second intervals to wait
 
-  repeat count
+  repeat hundredths
     waitms(MS_PER_100TH_SEC)
 
 CON ' ---- License ----

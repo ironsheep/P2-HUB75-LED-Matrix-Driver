@@ -7,14 +7,11 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 06 Oct 2026
+''   Updated.... 08 Oct 2026
 ''
-''  This object provides 24bit screen buffer to PWM buffers support
 '' =================================================================================================
 
-CON ' ---- I/O PINs ----
-
-' None
+{ This object provides 24bit screen buffer to PWM buffers support }
 
 CON ' ---- Magic-number vocabulary (the central Spin2 authoring guide, 5.7) ----
 
@@ -32,19 +29,12 @@ CON ' ---- Magic-number vocabulary (the central Spin2 authoring guide, 5.7) ----
     MASK_RGB12              = $3F
 
 ' Scan-geometry split divisors
-    HALF_DIVISOR            = 2
     QUARTER_DIVISOR         = 4
 
 ' Byte/long geometry
     MSBIT_OF_BYTE           = 7
-    BITS_PER_BYTE           = 8
-    BYTES_PER_LONG          = 4
 
-' ASCII digit/letter build
-    ASCII_SPACE             = $20
-    ASCII_DIGIT_ZERO        = $30
-    ASCII_UPPER_A           = $41
-    MAX_DECIMAL_DIGIT       = 9
+' Decimal base: the divisor that reduces the two-decimal remainder of an x100 value to one decimal
     DECIMAL_BASE            = 10
 
 ' Color byte indices within a 24-bit RGB long
@@ -55,15 +45,8 @@ CON ' ---- Magic-number vocabulary (the central Spin2 authoring guide, 5.7) ----
 ' Debug-dump head byte count
     DUMP_HEAD_BYTES         = 48
 
-' RGB2 empty-check scan span (first 32 bytes)
-    RGB2_CHECK_BYTE_COUNT   = 32
-
 ' Test sentinel
     ALL_ONES                = $ffffffff
-
-' "Pwm0 " dump-label byte positions (frame index char, RGB2-present flag)
-    MSG_PWM_INDEX_POS       = 3
-    MSG_PWM_FLAG_POS        = 4
 
 ' Bytes of one PWM frame the debug dumps show
     DUMP_FRAME_BYTES        = 32
@@ -107,7 +90,7 @@ CON ' ---- MERGEB converter (convertRowPairs) ----
 ' width is a multiple of the group (hwBufferAccess checkPanelLimit()).
     COLUMN_GROUP_SHIFT          = ENCOD hub75Bffrs.CONVERTER_COLUMN_GROUP
     GROUP_SCREEN_BYTES          = hub75Bffrs.CONVERTER_COLUMN_GROUP * PACKED_PIXEL_BYTES
-    GROUP_SCREEN_LONGS          = GROUP_SCREEN_BYTES / BYTES_PER_LONG
+    GROUP_SCREEN_LONGS          = GROUP_SCREEN_BYTES / hub75Bffrs.BYTES_PER_LONG
 
 ' four packed pixels p0..p3 in the three longs of a group (byte 0 first):
 '   long 0: p0 R, p0 G, p0 B, p1 R      long 1: p1 G, p1 B, p2 R, p2 G      long 2: p2 B, p3 R, p3 G, p3 B
@@ -139,11 +122,12 @@ CON ' ---- MERGEB converter (convertRowPairs) ----
 OBJ ' ---- Objects Needed ----
 
     hub75Bffrs  : "isp_hub75_hwBufferAccess"
+    hwEnum      : "isp_hub75_hwEnums"
     matrix      : "isp_hub75_rgb3bit"
 
 VAR ' ---- Driver instance variables ----
     LONG    instanceID
-    LONG    cog
+    LONG    cog                                         ' driver cog ID + matrix.COG_HANDLE_BIAS, or matrix.COG_NOT_STARTED
     LONG    chainIndex
     LONG    maxChainRows
     LONG    maxChainColumns
@@ -177,14 +161,14 @@ VAR ' ---- Driver instance variables ----
 ' ----------------------------------------------------------
 
 PUB null()
-'' Placeholder to prevent this object from being used as a top-level file.
+'' Prevent this object from being used as a top-level file.
 ''
 
 PUB start(nID, nChainIdx) : startedCog
-'' Start the backend PASM2 driver for the matrix. Aborts (after a DEBUG message) when no cog is
+'' Start the backend PASM2 driver for the matrix. Aborts (after a debug message) when no cog is
 '' free for the driver, or when the driver's own startup aborts.
 ''
-'' @param nID - panel instance identifier
+'' @param nID - instance identifier, shown in debug messages
 '' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @returns startedCog - cog ID + 1 (never 0) of the driver cog; aborts when no cog is free
 
@@ -201,8 +185,8 @@ PUB start(nID, nChainIdx) : startedCog
   maxChainRows := nPanelRows
   maxChainColumns := nPanelCount * nPanelColumns
 
-  DEBUG("- PNL: #", udec_(instanceID), " Start clk=", udec_long(clkfreq))
-  DEBUG("- PNL: Grid ", udec_(nPanelsPerRow), "x", udec_(nPanelsPerColumn), " cells, ", udec_(nPanelCount), " panels, Display ", udec_(nDisplayColumns), "x", udec_(nDisplayRows))
+  debug("- PNL: #", udec_(instanceID), " Start clk=", udec_long(clkfreq))
+  debug("- PNL: Grid ", udec_(nPanelsPerRow), "x", udec_(nPanelsPerColumn), " cells, ", udec_(nPanelCount), " panels, Display ", udec_(nDisplayColumns), "x", udec_(nDisplayRows))
 
 #IFDEF DBG_PWM
   bDumpOnce := FALSE
@@ -210,10 +194,10 @@ PUB start(nID, nChainIdx) : startedCog
 #ENDIF
 
   nPwmFrameSizeInLongs := hub75Bffrs.pwmFrameSizeInLongs(chainIndex)
-  DEBUG("- PNL: PHYScols=", udec_long_(maxChainColumns), " PHYSrows=", udec_long_(maxChainRows))
-  DEBUG("- PNL: maxPwmBuffers=", udec_long_(nColorDepth), " PwmBufferSizeInLongs=", udec_long_(nPwmFrameSizeInLongs))
-  DEBUG("- PNL: BFFR pwm[1][", udec_long_(nPwmFrameSizeInLongs), "] ", uhex_long_(pPwmFrame1))
-  DEBUG("- PNL: BFFR pwm[2][", udec_long_(nPwmFrameSizeInLongs), "] ", uhex_long_(pPwmFrame2))
+  debug("- PNL: PHYScols=", udec_long_(maxChainColumns), " PHYSrows=", udec_long_(maxChainRows))
+  debug("- PNL: maxPwmBuffers=", udec_long_(nColorDepth), " PwmBufferSizeInLongs=", udec_long_(nPwmFrameSizeInLongs))
+  debug("- PNL: BFFR pwm[1][", udec_long_(nPwmFrameSizeInLongs), "] ", uhex_long_(pPwmFrame1))
+  debug("- PNL: BFFR pwm[2][", udec_long_(nPwmFrameSizeInLongs), "] ", uhex_long_(pPwmFrame2))
 
   pLastPosted := matrix.NO_FRAME_SET                    ' nothing posted yet: the first commit has no earlier post to wait for
 #IFDEF HUB75_INSTRUMENT
@@ -234,9 +218,9 @@ PUB stop()
 '' Stop the PASM2 backend driver and release the cog.
 ''
 
-  if cog
+  if cog <> matrix.COG_NOT_STARTED
     matrix.stop()
-    cog := 0
+    cog := matrix.COG_NOT_STARTED
 
 PUB fillScreenNoPWM(threeBitColor) | pFrameSet
 '' Fill screen with a solid 3-bit color without PWM (for testing the underlying driver). Every
@@ -247,7 +231,7 @@ PUB fillScreenNoPWM(threeBitColor) | pFrameSet
 '' @param threeBitColor - 3-bit RGB color value to fill
 
 ' Local Variables:
-' @local pFrameSet - the frame set that is not on display, which the fill writes
+' @local pFrameSet - hub address of the PWM frame set that is not on display, which the fill writes
 
   pFrameSet := frameSetToConvertInto()                  ' waits for the previous post to be taken
   bytefill(pFrameSet, matrix.fillByteForColor(threeBitColor), nPwmFrameSizeInBytes * nColorDepth)
@@ -268,44 +252,46 @@ PUB getBrightness() : nBrightness
 
   nBrightness := matrix.getBrightness()
 
-PUB showFrameSet(pFrameSet) : accepted
+PUB showFrameSet(pFrameSet) : status
 '' Post a PWM frame set to the refresh driver, the way a commit does. Only one of this adapter's
 '' two frame sets is accepted, so the set a converter writes stays the one that is not on
 '' display. If the previous post has not been taken yet, this waits for it first, so no post is
 '' overwritten before the driver has seen it. A refused address prints a message and posts nothing.
 ''
-'' @param pFrameSet - hub address of one of the adapter's two PWM frame sets
-'' @returns accepted - TRUE if the set was posted, FALSE if the address was refused
+'' @param pFrameSet - hub address of the PWM frame set to post (one of the adapter's two)
+'' @returns status - hwEnum.SUCCESS if the set was posted, hwEnum.E_FRAMESET_NULL if the address was NULL,
+''                   hwEnum.E_FRAMESET_FOREIGN if it is not one of this adapter's two frame sets
 
-  accepted := FALSE
   if pFrameSet == matrix.NO_FRAME_SET
+    status := hwEnum.E_FRAMESET_NULL
     debug("HUB75: DISP", udec_(chainIndex), ": showFrameSet(NULL) refused: no frame set given; give one of this adapter's two PWM frame sets, ", uhex_long_(pPwmFrame1), " or ", uhex_long_(pPwmFrame2))
   elseif pFrameSet <> pPwmFrame1 and pFrameSet <> pPwmFrame2
+    status := hwEnum.E_FRAMESET_FOREIGN
     debug("HUB75: DISP", udec_(chainIndex), ": showFrameSet(", uhex_long_(pFrameSet), ") refused: not one of this adapter's two PWM frame sets, ", uhex_long_(pPwmFrame1), " or ", uhex_long_(pPwmFrame2))
   else
     waitPostedSetTaken()
     postFrameSet(pFrameSet)
-    accepted := TRUE
+    status := hwEnum.SUCCESS
 
 #IFDEF HUB75_INSTRUMENT
 PUB commitTrace() : pConverted, pShownAtPost, pShownNow
-'' Instrument build only: what the latest commit did, for the frame-set handshake trace.
+'' Return what the latest commit did, for the frame-set handshake trace (instrument build only).
 ''
-'' @returns pConverted - the frame set the latest commit converted into
-'' @returns pShownAtPost - the frame set on display when that conversion was done (never equal to pConverted)
-'' @returns pShownNow - the frame set on display at this call
+'' @returns pConverted - hub address of the PWM frame set the latest commit converted into
+'' @returns pShownAtPost - hub address of the PWM frame set on display when that conversion was done (never equal to pConverted)
+'' @returns pShownNow - hub address of the PWM frame set on display at this call
 
   pConverted := pTraceConverted
   pShownAtPost := pTraceShownAtPost
   pShownNow := matrix.showingFrameSet()
 
 PUB commitTotals() : nCommits, nWaited, nBad, pFirstShown
-'' Instrument build only: totals since start for the frame-set handshake trace.
+'' Return the totals since start for the frame-set handshake trace (instrument build only).
 ''
 '' @returns nCommits - commits posted
 '' @returns nWaited - posts that waited for the previous post to be taken
-'' @returns nBad - commits that converted into the frame set on display (must be 0)
-'' @returns pFirstShown - the frame set on display when the first commit posted (matrix.NO_FRAME_SET at the first commit after start)
+'' @returns nBad - commits that converted into the PWM frame set on display (must be 0)
+'' @returns pFirstShown - hub address of the PWM frame set on display when the first commit posted (matrix.NO_FRAME_SET at the first commit after start)
 
   nCommits := nTraceCommits
   nWaited := nTraceWaited
@@ -323,13 +309,13 @@ PUB convertScreen2PWM_14(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet
 '' @param bSwapGB - TRUE to swap green and blue channels
 
 ' Local Variables:
-' @local pPwmFrameSet - pointer to the PWM frame set that is not on display (converted into, then posted)
+' @local pPwmFrameSet - hub address of the PWM frame set that is not on display (converted into, then posted)
 
   pPwmFrameSet := frameSetToConvertInto()
   convertQuarterScan(p24bitScreen, pPwmFrameSet, nPanelCount, nPanelColumns, nPanelRows, nColorDepth, bSwapRB, bSwapGB)
   postConvertedSet(pPwmFrameSet)
 
-PUB convertQuarterScan(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, bSwapRB, bSwapGB) | lineBytes
+PUB convertQuarterScan(p24bitScreen, pFrameSet, panelCount, panelCols, panelRows, planeCount, bSwapRB, bSwapGB) | lineBytes
 '' Convert a 24-bit screen buffer into a PWM frame set for panels that light four rows at once
 '' (1/8 scan on a 64x32 panel, chip flag SCAN_4), using inline PASM (convertRowPairs()). It
 '' writes only the buffers it is given and posts nothing: the commit (convertScreen2PWM_14())
@@ -343,10 +329,10 @@ PUB convertQuarterScan(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, 
 ''
 '' @param p24bitScreen - pointer to 24-bit screen buffer
 '' @param pFrameSet - hub address of the PWM frame set to write
-'' @param panelCnt - panels on the adapter (buffer slots)
+'' @param panelCount - panels on the adapter (buffer slots)
 '' @param panelCols - pixel columns per panel
 '' @param panelRows - pixel rows per panel
-'' @param planeCnt - bit planes in the frame set: the colour depth (hwEnum.DEPTH_3BIT .. DEPTH_8BIT)
+'' @param planeCount - bit planes in the frame set: the colour depth (hwEnum.DEPTH_3BIT .. DEPTH_8BIT)
 '' @param bSwapRB - TRUE to swap red and blue channels
 '' @param bSwapGB - TRUE to swap green and blue channels
 
@@ -354,8 +340,8 @@ PUB convertQuarterScan(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, 
 ' @local lineBytes - frame bytes in one line of one panel (the other line of a slot's pair is the gap)
 
   lineBytes := panelCols * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
-  convertRowPairs(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, channelOrder(bSwapRB, bSwapGB), ...
-                  lineBytes, hub75Bffrs.SCAN_4_COLUMN_FACTOR * panelCnt * lineBytes, (panelRows / QUARTER_DIVISOR) * panelCols * PACKED_PIXEL_BYTES)
+  convertRowPairs(p24bitScreen, pFrameSet, panelCount, panelCols, panelRows, planeCount, channelOrder(bSwapRB, bSwapGB), ...
+                  lineBytes, hub75Bffrs.SCAN_4_COLUMN_FACTOR * panelCount * lineBytes, (panelRows / QUARTER_DIVISOR) * panelCols * PACKED_PIXEL_BYTES)
 
 ' -----------------------------------------------------------------------------
 
@@ -368,7 +354,7 @@ PUB convertScreen2PWM(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet
 '' @param bSwapGB - TRUE to swap green and blue channels
 
 ' Local Variables:
-' @local pPwmFrameSet - pointer to the PWM frame set that is not on display (converted into, then posted)
+' @local pPwmFrameSet - hub address of the PWM frame set that is not on display (converted into, then posted)
 
   pPwmFrameSet := frameSetToConvertInto()
   convertHalfScan(p24bitScreen, pPwmFrameSet, nPanelCount, nPanelColumns, nPanelRows, nColorDepth, bSwapRB, bSwapGB)
@@ -386,7 +372,7 @@ PUB convertScreen2PWM(p24bitScreen, bSwapRB, bSwapGB) | pPwmFrameSet
 
   postConvertedSet(pPwmFrameSet)
 
-PUB convertHalfScan(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, bSwapRB, bSwapGB)
+PUB convertHalfScan(p24bitScreen, pFrameSet, panelCount, panelCols, panelRows, planeCount, bSwapRB, bSwapGB)
 '' Convert a 24-bit screen buffer into a PWM frame set for panels that light two rows at once
 '' (1/16 and 1/32 scan), using inline PASM (convertRowPairs()). It writes only the buffers it
 '' is given and posts nothing: the commit (convertScreen2PWM()) calls it, and so does the
@@ -395,101 +381,38 @@ PUB convertHalfScan(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, pla
 ''
 '' The screen buffer holds the panels one after another, in buffer-slot order (row-major within
 '' each panel). One row along the cable is the same scan row of every slot, slot 0 first, and
-'' the scan rows follow one another in the frame. The frame set is planeCnt frames of one byte
+'' the scan rows follow one another in the frame. The frame set is planeCount frames of one byte
 '' per column clock, plane 0 first (the most significant colour bit); each byte carries the
 '' top-half pixel (RGB1) in bits 0-2 and the pixel half a panel below it (RGB2) in bits 3-5.
 ''
 '' @param p24bitScreen - pointer to 24-bit screen buffer
 '' @param pFrameSet - hub address of the PWM frame set to write
-'' @param panelCnt - panels on the adapter (buffer slots)
+'' @param panelCount - panels on the adapter (buffer slots)
 '' @param panelCols - pixel columns per panel
 '' @param panelRows - pixel rows per panel
-'' @param planeCnt - bit planes in the frame set: the colour depth (hwEnum.DEPTH_3BIT .. DEPTH_8BIT)
+'' @param planeCount - bit planes in the frame set: the colour depth (hwEnum.DEPTH_3BIT .. DEPTH_8BIT)
 '' @param bSwapRB - TRUE to swap red and blue channels
 '' @param bSwapGB - TRUE to swap green and blue channels
 
-  convertRowPairs(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, channelOrder(bSwapRB, bSwapGB), ...
-                  NO_SLOT_GAP_BYTES, panelCnt * panelCols * hub75Bffrs.BYTES_PER_COLUMN_CLOCK, FIRST_SCAN_ROW_BYTES)
+  convertRowPairs(p24bitScreen, pFrameSet, panelCount, panelCols, panelRows, planeCount, channelOrder(bSwapRB, bSwapGB), ...
+                  NO_SLOT_GAP_BYTES, panelCount * panelCols * hub75Bffrs.BYTES_PER_COLUMN_CLOCK, FIRST_SCAN_ROW_BYTES)
 
 ' -----------------------------------------------------------------------------
 
-CON ' ------------- PRIVATE (Utility) Methods -------------
-
 #IFDEF DBG_PWM
-' --- PWM/frame dump diagnostics toolkit (compiled only with -D DBG_PWM) ---
-PRI dumpBufferHeads(pSCreenBuffer,pPwmBuffer)
-' Dump the first 48 bytes of the screen and PWM buffers for debug inspection.
+' --- PWM/frame dump diagnostics (compiled only with -D DBG_PWM) ---
+PRI dumpBufferHeads(pScreenBuffer, pPwmBuffer)
+' Dump the first DUMP_HEAD_BYTES bytes of the screen and PWM buffers for debug inspection.
 '
-' @param pSCreenBuffer - pointer to screen buffer
+' @param pScreenBuffer - pointer to screen buffer
 ' @param pPwmBuffer - pointer to PWM buffer
 
-  hub75Bffrs.dbgMemDump(@bufferMsg, pSCreenBuffer, DUMP_HEAD_BYTES)
+  hub75Bffrs.dbgMemDump(@bufferMsg, pScreenBuffer, DUMP_HEAD_BYTES)
   hub75Bffrs.dbgMemDump(@frameMsg, pPwmBuffer, DUMP_HEAD_BYTES)
 
-PRI dumpFrameAddrs(pPwmFrameSet) | pFrameBuffer, frameIndex
-' Display the hub address of each PWM frame in the frame set.
-'
-' @param pPwmFrameSet - pointer to the PWM frame set
-
-' Local Variables:
-' @local pFrameBuffer - computed address of current PWM frame
-' @local frameIndex - loop index over PWM frames
-
-  repeat frameIndex from 0 to nColorDepth - 1
-    pFrameBuffer := @LONG[pPwmFrameSet][frameIndex * nPwmFrameSizeInLongs]
-    debug("PNL: PWM", udec_(frameIndex), ": ", uhex_long_(pFrameBuffer))
-
-PRI dumpFrameSet(pPwmFrameSet) | pFrameBuffer, frameIndex
-' Dump memory contents of all PWM frames in the frame set.
-'
-' @param pPwmFrameSet - pointer to the PWM frame set
-
-' Local Variables:
-' @local pFrameBuffer - computed address of current PWM frame
-' @local frameIndex - loop index over PWM frames
-
-  repeat frameIndex from 0 to nColorDepth - 1
-    pFrameBuffer := @LONG[pPwmFrameSet][frameIndex * nPwmFrameSizeInLongs]
-    dumpFrame(frameIndex, pFrameBuffer)
-
-PRI dumpFrame(frameIdx, pFrameBuffer) | frameASCII
-' Dump one PWM frame with an ASCII label indicating its index.
-'
-' @param frameIdx - zero-based PWM frame index
-' @param pFrameBuffer - pointer to the PWM frame buffer
-
-' Local Variables:
-' @local frameASCII - ASCII character representing the frame index
-
-  frameASCII := frameIdx | ASCII_DIGIT_ZERO
-  if frameIdx > MAX_DECIMAL_DIGIT
-    frameASCII := frameIdx - DECIMAL_BASE + ASCII_UPPER_A
-  BYTE[@msgPwm][MSG_PWM_INDEX_POS] := frameASCII
-
-  if emptyRgb2(pFrameBuffer)
-    BYTE[@msgPwm][MSG_PWM_FLAG_POS] := "*"
-  else
-    BYTE[@msgPwm][MSG_PWM_FLAG_POS] := ASCII_SPACE     ' space
-
-  hub75Bffrs.dbgMemDump(@msgPwm, pFrameBuffer, DUMP_FRAME_BYTES)
-
-PRI emptyRgb2(pFrameBuffer) : isEmpty | byteIdx
-' Check whether all RGB2 bits are zero in the first 32 bytes of a PWM frame.
-'
-' @param pFrameBuffer - pointer to the PWM frame buffer
-' @returns isEmpty - TRUE if no RGB2 bits are set, FALSE otherwise
-
-' Local Variables:
-' @local byteIdx - loop index over frame bytes
-
-  isEmpty := TRUE
-  repeat byteIdx from 0 TO RGB2_CHECK_BYTE_COUNT - 1
-    if BYTE[pFrameBuffer][byteIdx] & MASK_RGB2 > 0
-      isEmpty := FALSE
-      quit
 #ENDIF
 
-PRI convertRowPairs(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, planeCnt, swapOrder, slotGapBytes, rowStepBytes, lineZeroRowBytes) | rowBytes, halfPanelBytes, panelSkipBytes, frameBytes, groupStep
+PRI convertRowPairs(p24bitScreen, pFrameSet, panelCount, panelCols, panelRows, planeCount, swapOrder, slotGapBytes, rowStepBytes, lineZeroRowBytes) | rowBytes, halfPanelBytes, panelSkipBytes, frameBytes, groupStep
 ' The MERGEB converter both scans share (convertHalfScan(), convertQuarterScan()). It pairs each
 ' top-half row m of every panel with row m + half a panel (RGB1 with RGB2), reads the screen
 ' buffer slot by slot, and writes one plane byte per column clock into each plane of the frame
@@ -501,10 +424,10 @@ PRI convertRowPairs(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, pla
 '
 ' @param p24bitScreen - pointer to 24-bit screen buffer (packed 3-byte pixels, long aligned)
 ' @param pFrameSet - hub address of the PWM frame set to write (long aligned)
-' @param panelCnt - panels on the adapter (buffer slots)
+' @param panelCount - panels on the adapter (buffer slots)
 ' @param panelCols - pixel columns per panel (a multiple of hub75Bffrs.CONVERTER_COLUMN_GROUP)
 ' @param panelRows - pixel rows per panel
-' @param planeCnt - bit planes in the frame set: the colour depth (hwEnum.DEPTH_3BIT .. DEPTH_8BIT)
+' @param planeCount - bit planes in the frame set: the colour depth (hwEnum.DEPTH_3BIT .. DEPTH_8BIT)
 ' @param swapOrder - MOVBYTS byte order that applies the channel swaps (channelOrder())
 ' @param slotGapBytes - frame bytes between one slot's line and the next slot's line in a row
 ' @param rowStepBytes - frame bytes from one top-half row's line to the next row's line
@@ -521,10 +444,10 @@ PRI convertRowPairs(p24bitScreen, pFrameSet, panelCnt, panelCols, panelRows, pla
 '  --> 15/16 used
 
   rowBytes        := panelCols * PACKED_PIXEL_BYTES
-  halfPanelBytes  := (panelRows / HALF_DIVISOR) * rowBytes
+  halfPanelBytes  := (panelRows / matrix.HALF_DIVISOR) * rowBytes
   panelSkipBytes  := (panelRows - 1) * rowBytes
-  frameBytes      := (panelRows / HALF_DIVISOR) * panelCnt * panelCols * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
-  groupStep       := planeCnt * frameBytes + hub75Bffrs.CONVERTER_COLUMN_GROUP * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
+  frameBytes      := (panelRows / matrix.HALF_DIVISOR) * panelCount * panelCols * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
+  groupStep       := planeCount * frameBytes + hub75Bffrs.CONVERTER_COLUMN_GROUP * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
 
   { Per group of four columns (P2KB p2kbPasm2Rdlong, p2kbPasm2Setq, p2kbPasm2Movbyts,
     p2kbPasm2Setbyte, p2kbPasm2Mergeb, p2kbPasm2Rolnib, p2kbPasm2Rolbyte, p2kbPasm2Rolword,
@@ -585,9 +508,10 @@ groupCtr            LONG    0                               ' column groups left
 
 startRowPairs
                     ' write pattern: skip the write steps of the colour bits below the depth,
-                    ' which come first
-                    mov     bitsBelowDepth, #BITS_PER_BYTE
-                    sub     bitsBelowDepth, planeCnt
+                    ' which come first. Each pattern is n ones built as (1 << n) - 1; that 1 is
+                    ' the idiom's own, not a tunable value.
+                    mov     bitsBelowDepth, #matrix.BITS_PER_BYTE
+                    sub     bitsBelowDepth, planeCount
                     mov     skipCount, bitsBelowDepth
                     mul     skipCount, #WRITE_STEP_INSTRUCTIONS
                     mov     writeSkip, #1
@@ -600,7 +524,7 @@ startRowPairs
                     mov     columnSkip, #1
                     shl     columnSkip, skipCount
                     sub     columnSkip, #1
-                    mov     skipCount, planeCnt
+                    mov     skipCount, planeCount
                     mul     skipCount, #MERGE_STEP_INSTRUCTIONS
                     add     skipCount, #PREP_INSTRUCTIONS
                     shl     columnSkip, skipCount
@@ -623,7 +547,7 @@ nextPairRow
                     mov     pTopPixel, pRowStart
                     mov     pBottomPixel, pRowStart
                     add     pBottomPixel, halfPanelBytes
-                    mov     panelCtr, panelCnt
+                    mov     panelCtr, panelCount
 nextPairPanel
                     mov     groupCtr, panelCols
                     shr     groupCtr, #COLUMN_GROUP_SHIFT
@@ -639,7 +563,7 @@ nextPairGroup
                     movbyts topPixel, swapOrder                 ' bytes 0-2: what the R, G, B pins show
                     movbyts bottomPixel, swapOrder
                     setbyte topPixel, bottomPixel, #TOP_SPARE_BYTE_IDX ' byte 3: the bottom pixel's R-pin byte
-                    shr     bottomPixel, #BITS_PER_BYTE         ' bytes 0-1: the bottom G-pin and B-pin bytes
+                    shr     bottomPixel, #matrix.BITS_PER_BYTE  ' bytes 0-1: the bottom G-pin and B-pin bytes
                     zerox   bottomPixel, #BOTTOM_GB_MSBIT       ' bytes 2-3: zero
                     mergeb  topPixel                            ' nibble n: bit n of {Rb, Bt, Gt, Rt}
                     mergeb  bottomPixel                         ' nibble n: bit n of {0, 0, Bb, Gb}
@@ -668,7 +592,7 @@ nextPairGroup
                     movbyts topPixel, swapOrder                 ' bytes 0-2: what the R, G, B pins show
                     movbyts bottomPixel, swapOrder
                     setbyte topPixel, bottomPixel, #TOP_SPARE_BYTE_IDX ' byte 3: the bottom pixel's R-pin byte
-                    shr     bottomPixel, #BITS_PER_BYTE         ' bytes 0-1: the bottom G-pin and B-pin bytes
+                    shr     bottomPixel, #matrix.BITS_PER_BYTE  ' bytes 0-1: the bottom G-pin and B-pin bytes
                     zerox   bottomPixel, #BOTTOM_GB_MSBIT       ' bytes 2-3: zero
                     mergeb  topPixel                            ' nibble n: bit n of {Rb, Bt, Gt, Rt}
                     mergeb  bottomPixel                         ' nibble n: bit n of {0, 0, Bb, Gb}
@@ -697,7 +621,7 @@ nextPairGroup
                     movbyts topPixel, swapOrder                 ' bytes 0-2: what the R, G, B pins show
                     movbyts bottomPixel, swapOrder
                     setbyte topPixel, bottomPixel, #TOP_SPARE_BYTE_IDX ' byte 3: the bottom pixel's R-pin byte
-                    shr     bottomPixel, #BITS_PER_BYTE         ' bytes 0-1: the bottom G-pin and B-pin bytes
+                    shr     bottomPixel, #matrix.BITS_PER_BYTE  ' bytes 0-1: the bottom G-pin and B-pin bytes
                     zerox   bottomPixel, #BOTTOM_GB_MSBIT       ' bytes 2-3: zero
                     mergeb  topPixel                            ' nibble n: bit n of {Rb, Bt, Gt, Rt}
                     mergeb  bottomPixel                         ' nibble n: bit n of {0, 0, Bb, Gb}
@@ -719,14 +643,14 @@ nextPairGroup
                     rolnib  planesOfBit0, topPixel, #COLOR_BIT_0
                     ' column 3
                     mov     topPixel, topGroup2
-                    shr     topPixel, #BITS_PER_BYTE            ' pixel 3: R, G, B in bytes 0-2
+                    shr     topPixel, #matrix.BITS_PER_BYTE     ' pixel 3: R, G, B in bytes 0-2
                     mov     bottomPixel, bottomGroup2
-                    shr     bottomPixel, #BITS_PER_BYTE         ' pixel 3: R, G, B in bytes 0-2
+                    shr     bottomPixel, #matrix.BITS_PER_BYTE  ' pixel 3: R, G, B in bytes 0-2
                     skipf   columnSkip
                     movbyts topPixel, swapOrder                 ' bytes 0-2: what the R, G, B pins show
                     movbyts bottomPixel, swapOrder
                     setbyte topPixel, bottomPixel, #TOP_SPARE_BYTE_IDX ' byte 3: the bottom pixel's R-pin byte
-                    shr     bottomPixel, #BITS_PER_BYTE         ' bytes 0-1: the bottom G-pin and B-pin bytes
+                    shr     bottomPixel, #matrix.BITS_PER_BYTE  ' bytes 0-1: the bottom G-pin and B-pin bytes
                     zerox   bottomPixel, #BOTTOM_GB_MSBIT       ' bytes 2-3: zero
                     mergeb  topPixel                            ' nibble n: bit n of {Rb, Bt, Gt, Rt}
                     mergeb  bottomPixel                         ' nibble n: bit n of {0, 0, Bb, Gb}
@@ -792,7 +716,7 @@ nextPairGroup
 #IFDEF HUB75_CORRUPT_CONVERTER
   ' converter-test FAIL limb only (test_hub75_converter.spin2): one wrong bit, in the last byte
   ' of the last plane, for both scans
-  BYTE[pFrameSet + planeCnt * frameBytes - hub75Bffrs.BYTES_PER_COLUMN_CLOCK] ^= RGB2_BLUE_BIT
+  BYTE[pFrameSet + planeCount * frameBytes - hub75Bffrs.BYTES_PER_COLUMN_CLOCK] ^= RGB2_BLUE_BIT
 #ENDIF
 
 PRI channelOrder(bSwapRB, bSwapGB) : swapOrder
@@ -814,11 +738,11 @@ PRI channelOrder(bSwapRB, bSwapGB) : swapOrder
 
 PRI waitPostedSetTaken()
 ' Wait until the refresh driver has taken the frame set posted last, that is, until the set it
-' shows (dvrShowing) is that set. Nothing is waited for before the first post, or after the
+' shows (driverShowing) is that set. Nothing is waited for before the first post, or after the
 ' driver cog has been stopped.
 '
 
-  if pLastPosted <> matrix.NO_FRAME_SET and cog <> 0
+  if pLastPosted <> matrix.NO_FRAME_SET and cog <> matrix.COG_NOT_STARTED
 #IFDEF HUB75_INSTRUMENT
     if matrix.showingFrameSet() <> pLastPosted
       nTraceWaited++
@@ -830,7 +754,7 @@ PRI frameSetToConvertInto() : pFrameSet
 ' for the previous post to be taken, so the set on display is the set posted last and the other
 ' set is free; before anything has been taken, neither set is on display and set 1 is free.
 '
-' @returns pFrameSet - hub address of the frame set that is not on display
+' @returns pFrameSet - hub address of the PWM frame set that is not on display
 
   waitPostedSetTaken()
   pFrameSet := (matrix.showingFrameSet() == pPwmFrame1) ? pPwmFrame2 : pPwmFrame1
@@ -839,7 +763,7 @@ PRI postConvertedSet(pFrameSet)
 ' Post the frame set a commit has just converted into. In the instrument build the commit is
 ' recorded first: a set that is on display when its conversion is done is counted as bad.
 '
-' @param pFrameSet - hub address of the frame set the commit converted into
+' @param pFrameSet - hub address of the PWM frame set the commit converted into
 
 #IFDEF HUB75_INSTRUMENT
   pTraceConverted := pFrameSet
@@ -855,15 +779,13 @@ PRI postConvertedSet(pFrameSet)
 PRI postFrameSet(pFrameSet)
 ' Post a frame set to the refresh driver and remember it as the set posted last.
 '
-' @param pFrameSet - hub address of the frame set to show
+' @param pFrameSet - hub address of the PWM frame set to show
 
   pLastPosted := pFrameSet
   matrix.cmdWritePwmBuffer(pFrameSet)
 
 #IFDEF DBG_PWM
-DAT  ' PWM/frame dump diagnostic message strings (compiled only with -D DBG_PWM)
-
-    msgPwm          BYTE    "Pwm0 ", 0
+DAT ' ---- PWM dump strings (compiled only with -D DBG_PWM) ----
 
     bufferMsg       BYTE    "SCREEN",0
     frameMsg        BYTE    "PWM[0]",0
@@ -871,7 +793,7 @@ DAT  ' PWM/frame dump diagnostic message strings (compiled only with -D DBG_PWM)
     frame1Msg       BYTE    "Frame1",0
 #ENDIF
 
-CON ' license
+CON ' ---- License ----
 
 {{
 

@@ -133,7 +133,7 @@ OBJ
 PUB main() | chainIndex
     ' v4.x (new)
     chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)   ' only if you call hub75Bffrs.* methods
-    display.start(hub75Bffrs.HUB75_ADAPTER_1)
+    display.start(display.HUB75_ADAPTER_1)
 ```
 
 `display.start()` reads the adapter's settings, checks your wiring sentences, derives the layout, hands the adapter its buffers and starts the driver. If a sentence is wrong, or no cog is free for the driver, it prints a `HUB75:` message and stops the program; every wiring message is listed in the Wiring Guide's [startup messages](DOCs/WiringGuide.md#startup-messages). It returns only when the driver started (the returned value is the driver's cog ID plus one, never 0 or -1), so a v3.x check of its result for failure can be taken out. The calls `configure`, `setWireConfig` and `setBufferPointers` are gone, and your program no longer calls the buffers object's pointer methods (the start call fetches the pointers by adapter).
@@ -154,8 +154,8 @@ CON
     BACK_PANEL = 1
 
 PUB main()
-    display[FRONT_PANEL].startWithId(FRONT_PANEL, hub75Bffrs.HUB75_ADAPTER_1)
-    display[BACK_PANEL].startWithId(BACK_PANEL, hub75Bffrs.HUB75_ADAPTER_2)
+    display[FRONT_PANEL].startWithId(FRONT_PANEL, display.HUB75_ADAPTER_1)
+    display[BACK_PANEL].startWithId(BACK_PANEL, display.HUB75_ADAPTER_2)
 
     ' with more than one adapter, all your calls are display[FRONT_PANEL].method() or
     ' display[BACK_PANEL].method(), and each display commits its own screen to its own panels
@@ -200,7 +200,9 @@ Programs that draw only through the display object need nothing here.
 - **Panel width must be a multiple of 4.** `DISPx_MAX_PANEL_COLUMNS` of 32, 64, 80 or 128 is fine; startup stops with a message otherwise.
 - **Refresh target.** The new `DISPx_TARGET_REFRESH_HZ` (default 60) is the refresh rate you want; the driver picks the brightest timing that reaches it. See [refresh rate](DOCs/WiringGuide.md#refresh-rate).
 - **Brightness is lit time.** `setBrightness()` now sets how long each bit plane is lit, so the image keeps its full color depth at any brightness.
-- **Showing a frame set.** `display.showFrameSet()` shows a frame set you built yourself.
+- **Showing a frame set.** `display.showFrameSet()` shows a frame set you built yourself and returns `display.SUCCESS`, or an error code saying why it refused.
+- **Image calls report what happened.** `bmp.fillScreenFromBMP()` and the new `bmp.placeBMP()` return `bmp.SUCCESS`, or `bmp.E_BAD_ROTATION` / `bmp.E_BMP_NOT_24BIT` when nothing was drawn. A v3.x call that ignores the result still compiles unchanged.
+- **Spare adapters have their own pins.** In a fresh `isp_hub75_hwPanelConfig.spin2`, `DISP1_` defaults to pins P32-P47 and `DISP2_` to P0-P15, so enabling one never collides with `DISP0_` on P16-P31.
 
 That's it. If you have converted your settings, replaced your startup calls and confirmed the panels with the identify screen, you are good to go.
 

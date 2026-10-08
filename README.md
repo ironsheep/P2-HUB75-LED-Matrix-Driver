@@ -143,7 +143,7 @@ Morphing digits Matrix displays can be found at [P2 LED-Matrix Morphing Digits](
 
 Once you have the driver downloaded and the source files added to your project you configure the driver by adjusting the constants which describe your panel(s) in one file: **isp\_hub75_hwPanelConfig.spin2**. It has a group of settings for each of the three hub75 adapters the driver supports on a single P2; a group left with `NO_PANEL` everywhere costs no memory. No other driver file is edited per setup, and nothing is commented in or out to add a second or third adapter.
 
-Your program then starts each adapter it uses with one call, for example `display.start(hub75Bffrs.HUB75_ADAPTER_1)`. Adapter *k* drives the display configured by the `DISP(k-1)_` settings (see the [glossary](THEOPS.md#glossary)).
+Your program then starts each adapter it uses with one call, for example `display.start(display.HUB75_ADAPTER_1)`. Adapter *k* drives the display configured by the `DISP(k-1)_` settings (see the [glossary](THEOPS.md#glossary)).
 
 ### Updating from v3.x?
 
@@ -237,7 +237,7 @@ Now let's look at examples as would be specified in the panel configuration file
     ' \-------------------------------------------
 ```
 
-Here's an example for **twin 64x32 panels**, which uses the third adapter's group (`DISP2_`), so the program starts it with `display.start(hub75Bffrs.HUB75_ADAPTER_3)`:
+Here's an example for **twin 64x32 panels**, which uses the third adapter's group (`DISP2_`), so the program starts it with `display.start(display.HUB75_ADAPTER_3)`:
 
 (Within the file **isp\_hub75_hwPanelConfig.spin2**)
 

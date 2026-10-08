@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2026
-''   Updated.... 02 Oct 2026
+''   Updated.... 08 Oct 2026
 ''
 '' =================================================================================================
 
@@ -55,17 +55,17 @@
             those enumerations produce, picked by hand, and the rig confirms the rest.
 }
 
-CON ' timing
+CON ' ---- Timing ----
 
     CLK_FREQ = 335_000_000                                        ' system freq as a constant
     _clkfreq = CLK_FREQ                                           ' set system clock
 
-CON ' DEBUG PINs
+CON ' ---- Debug Pins ----
 
     DEBUG_COGS = %11111111
     DEBUG_BAUD = 2_000_000
 
-CON ' reference cube
+CON ' ---- Reference Cube ----
 
     TEST_CHAIN          = 0                                       ' fold into adapter 1's tables; nothing configures them here
     FACE_SIZE           = 8                                       ' pixel rows (and columns) of one face of the reference cube
@@ -78,7 +78,7 @@ CON ' reference cube
     ' two display pixels are neighbours when |row step| + |column step| is this
     DISPLAY_NEIGHBOURS  = 1
 
-CON ' case records
+CON ' ---- Case Records ----
 
     ' a net case (group N):
     '  NET_LABEL    - label letter
@@ -100,10 +100,20 @@ CON ' case records
     #0, FOLD_LABEL, FOLD_NUMBER, FOLD_FACE, FOLD_ROW, FOLD_COL, FOLD_EXP_FACE, FOLD_EXP_ROW, FOLD_EXP_COL, ...
         FOLD_EXP_PANEL, FOLD_EXP_PANEL_ROW, FOLD_EXP_PANEL_COL, FOLD_CASE_LONGS
 
-    ' a seam pair (group V): the last pixel on a face (A) and the first one past its edge (B)
+    ' a seam pair (group V): the last pixel on a face (A) and the first one past its edge (B):
+    '  PAIR_LABEL .. PAIR_NUMBER           - label letter and number
+    '  PAIR_FACE_A, PAIR_ROW_A, PAIR_COL_A - the last pixel on the face: face and face coordinates
+    '  PAIR_FACE_B, PAIR_ROW_B, PAIR_COL_B - the first pixel past its edge: face and face coordinates
+    '  PAIR_CASE_LONGS                     - longs in one record
     #0, PAIR_LABEL, PAIR_NUMBER, PAIR_FACE_A, PAIR_ROW_A, PAIR_COL_A, PAIR_FACE_B, PAIR_ROW_B, PAIR_COL_B, PAIR_CASE_LONGS
 
-    ' a home case (group h): an object's centre, and its expected home face and transform
+    ' a home case (group h): an object's centre, and its expected home face and transform:
+    '  HOME_LABEL .. HOME_NUMBER           - label letter and number
+    '  HOME_FACE, HOME_ROW, HOME_COL       - the object's centre: face and face coordinates
+    '  HOME_EXP_FACE                       - the face the object must be homed on
+    '  HOME_EXP_TURN                       - the quarter turns into the home frame
+    '  HOME_EXP_ADD_ROW, HOME_EXP_ADD_COL  - the row and column added after the turn
+    '  HOME_CASE_LONGS                     - longs in one record
     #0, HOME_LABEL, HOME_NUMBER, HOME_FACE, HOME_ROW, HOME_COL, HOME_EXP_FACE, HOME_EXP_TURN, HOME_EXP_ADD_ROW, HOME_EXP_ADD_COL, HOME_CASE_LONGS
 
     ' an extent case (groups b, o, s, q, t): an object that spans a rectangle of pixels on a face,
@@ -117,12 +127,9 @@ CON ' case records
     #0, EXT_LABEL, EXT_NUMBER, EXT_FACE, EXT_FIRST_ROW, EXT_FIRST_COL, EXT_LAST_ROW, EXT_LAST_COL, ...
         EXT_PROBE_ROW, EXT_PROBE_COL, EXT_EXP_HOME, EXT_EXP_ROW, EXT_EXP_COL, EXT_CASE_LONGS
 
-    BYTES_PER_LONG      = 4
-
-CON ' printed lines
+CON ' ---- Printed Lines ----
 
     LINE_BYTES          = 160                                     ' the longest line is a fold FAIL line, about 110 characters
-    DECIMAL_BASE        = 10
     ONES_PLACE          = 1
 
 OBJ
@@ -392,13 +399,13 @@ invalidFaceCases
     LONG    "I", 2, hwEnum.FACE_RIGHT + 1, 1, 1,  cube.NO_FACE, 0, 0,  cube.NO_PANEL_POSITION, 0, 0
 invalidFaceCasesEnd
 
-VAR
+DAT ' ---- Test State (singleton) ----
 
-    LONG    caseCount                                             ' cases run so far
-    LONG    passCount                                             ' cases that passed
-    LONG    failCount                                             ' cases that failed
-    LONG    textLen                                               ' characters written to the line so far
-    BYTE    lineText[LINE_BYTES]                                  ' one printed line
+caseCount       LONG    0                                         ' cases run so far
+passCount       LONG    0                                         ' cases that passed
+failCount       LONG    0                                         ' cases that failed
+textLen         LONG    0                                         ' characters written to the line so far
+lineText        BYTE    0[LINE_BYTES]                             ' one printed line
 
 PUB main()
 '' Fold the reference net, run every case, print one PASS or FAIL line per case, then the
@@ -451,7 +458,7 @@ PRI runNetCases(pFirst, pEnd) | pCase, mistakeCount, bPass
       addText(@" expected ")
       addNumber(LONG[pCase][NET_EXPECTED])
     finishLine(bPass)
-    pCase += NET_CASE_LONGS * BYTES_PER_LONG
+    pCase += NET_CASE_LONGS * hwEnum.BYTES_PER_LONG
 
 PRI runFoldCases(pFirst, pEnd) | pCase, eFace, faceRow, faceColumn, panelPosn, panelRow, panelColumn, displayRow, displayColumn, expDisplayRow, expDisplayColumn, bPass
 ' Push each case's face coordinates through the fold and compare where they land (face, face
@@ -465,11 +472,11 @@ PRI runFoldCases(pFirst, pEnd) | pCase, eFace, faceRow, faceColumn, panelPosn, p
 ' @local eFace - the face the pixel landed on
 ' @local faceRow - the pixel's row on that face
 ' @local faceColumn - the pixel's column on that face
-' @local panelPosn - the panel position the pixel landed on
+' @local panelPosn - the panel position (P0 .. P5), or NO_PANEL_POSITION
 ' @local panelRow - the pixel's row on that panel
 ' @local panelColumn - the pixel's column on that panel
-' @local displayRow - the pixel's display row
-' @local displayColumn - the pixel's display column
+' @local displayRow - the display row the pixel landed on
+' @local displayColumn - the display column the pixel landed on
 ' @local expDisplayRow - the expected display row (from the hand table of panel origins)
 ' @local expDisplayColumn - the expected display column
 ' @local bPass - TRUE when the case passed
@@ -490,7 +497,7 @@ PRI runFoldCases(pFirst, pEnd) | pCase, eFace, faceRow, faceColumn, panelPosn, p
       addText(@" expected ")
       addLanding(LONG[pCase][FOLD_EXP_FACE], LONG[pCase][FOLD_EXP_ROW], LONG[pCase][FOLD_EXP_COL], LONG[pCase][FOLD_EXP_PANEL], LONG[pCase][FOLD_EXP_PANEL_ROW], LONG[pCase][FOLD_EXP_PANEL_COL], expDisplayRow, expDisplayColumn)
     finishLine(bPass)
-    pCase += FOLD_CASE_LONGS * BYTES_PER_LONG
+    pCase += FOLD_CASE_LONGS * hwEnum.BYTES_PER_LONG
 
 PRI runPairCases(pFirst, pEnd) | pCase, panelA, rowA, columnA, panelB, rowB, columnB, bPass
 ' For each edge the flat picture shows, check that the last pixel on a face and the first one
@@ -529,7 +536,7 @@ PRI runPairCases(pFirst, pEnd) | pCase, panelA, rowA, columnA, panelB, rowB, col
     else
       addText(@": NOT display neighbours")
     finishLine(bPass)
-    pCase += PAIR_CASE_LONGS * BYTES_PER_LONG
+    pCase += PAIR_CASE_LONGS * hwEnum.BYTES_PER_LONG
 
 PRI runHomeCases(pFirst, pEnd) | pCase, eHomeFace, homeTurn, homeAddRow, homeAddColumn, bPass
 ' Find each object centre's home and compare the home face and transform with the hand answer.
@@ -539,7 +546,7 @@ PRI runHomeCases(pFirst, pEnd) | pCase, eHomeFace, homeTurn, homeAddRow, homeAdd
 
 ' Local Variables:
 ' @local pCase - address of the case being run
-' @local eHomeFace - the face that holds the centre
+' @local eHomeFace - the face the object is homed on
 ' @local homeTurn - quarter turns into the home frame
 ' @local homeAddRow - row added after the turn
 ' @local homeAddColumn - column added after the turn
@@ -558,7 +565,7 @@ PRI runHomeCases(pFirst, pEnd) | pCase, eHomeFace, homeTurn, homeAddRow, homeAdd
       addText(@" expected ")
       addHome(LONG[pCase][HOME_EXP_FACE], LONG[pCase][HOME_EXP_TURN], LONG[pCase][HOME_EXP_ADD_ROW], LONG[pCase][HOME_EXP_ADD_COL])
     finishLine(bPass)
-    pCase += HOME_CASE_LONGS * BYTES_PER_LONG
+    pCase += HOME_CASE_LONGS * hwEnum.BYTES_PER_LONG
 
 PRI runExtentCases(pFirst, pEnd) | pCase, eHomeFace, homeTurn, homeAddRow, homeAddColumn, displayRow, displayColumn, bPass
 ' For each probe pixel of a face-centric object, do what the display does to draw it: home the
@@ -597,12 +604,12 @@ PRI runExtentCases(pFirst, pEnd) | pCase, eHomeFace, homeTurn, homeAddRow, homeA
       addText(@" expected ")
       addExtentLanding(LONG[pCase][EXT_EXP_HOME], LONG[pCase][EXT_EXP_ROW], LONG[pCase][EXT_EXP_COL])
     finishLine(bPass)
-    pCase += EXT_CASE_LONGS * BYTES_PER_LONG
+    pCase += EXT_CASE_LONGS * hwEnum.BYTES_PER_LONG
 
 PRI expectedDisplay(panelPosn, panelRow, panelColumn) : displayRow, displayColumn
 ' Return the display coordinates of panel coordinates, from the hand table of panel origins.
 '
-' @param panelPosn - panel position (P0 .. P5), or NO_PANEL_POSITION
+' @param panelPosn - the panel position (P0 .. P5), or NO_PANEL_POSITION
 ' @param panelRow - row on that panel
 ' @param panelColumn - column on that panel
 ' @returns displayRow - display row, or 0 when there is no panel
@@ -650,11 +657,11 @@ PRI addLanding(eFace, faceRow, faceColumn, panelPosn, panelRow, panelColumn, dis
 ' @param eFace - the face (hwEnum.FACE_*), or NO_FACE
 ' @param faceRow - row on that face
 ' @param faceColumn - column on that face
-' @param panelPosn - the panel position, or NO_PANEL_POSITION
+' @param panelPosn - the panel position (P0 .. P5), or NO_PANEL_POSITION
 ' @param panelRow - row on that panel
 ' @param panelColumn - column on that panel
-' @param displayRow - display row
-' @param displayColumn - display column
+' @param displayRow - display row, or NO_DISPLAY_PIXEL
+' @param displayColumn - display column, or NO_DISPLAY_PIXEL
 
   addFaceAt(eFace, faceRow, faceColumn)
   addText(@" P")
@@ -681,7 +688,7 @@ PRI addExtentLanding(eHomeFace, displayRow, displayColumn)
 PRI addHome(eHomeFace, homeTurn, homeAddRow, homeAddColumn)
 ' Append an object's home: "TOP turn 0 add (8,0)".
 '
-' @param eHomeFace - the home face (hwEnum.FACE_*), or NO_FACE
+' @param eHomeFace - the face the object is homed on (hwEnum.FACE_*), or NO_FACE
 ' @param homeTurn - quarter turns into the home frame
 ' @param homeAddRow - row added after the turn
 ' @param homeAddColumn - column added after the turn
@@ -723,23 +730,23 @@ PRI addText(pText)
   repeat while BYTE[pText] <> 0
     lineText[textLen++] := BYTE[pText++]
 
-PRI addNumber(value) | divisor
+PRI addNumber(number) | divisor
 ' Append a signed decimal number to the line.
 '
-' @param value - the number
+' @param number - the number
 
 ' Local Variables:
 ' @local divisor - the place value of the digit being written
 
-  if value < 0
+  if number < 0
     lineText[textLen++] := "-"
-    value := -value
+    number := -number
   divisor := ONES_PLACE
-  repeat while value / divisor >= DECIMAL_BASE
-    divisor *= DECIMAL_BASE
+  repeat while number / divisor >= cube.DECIMAL_BASE
+    divisor *= cube.DECIMAL_BASE
   repeat while divisor >= ONES_PLACE
-    lineText[textLen++] := "0" + (value / divisor) // DECIMAL_BASE
-    divisor /= DECIMAL_BASE
+    lineText[textLen++] := "0" + (number / divisor) // cube.DECIMAL_BASE
+    divisor /= cube.DECIMAL_BASE
 
 PRI faceText(eFace) : pName
 ' Return the name of a face.
@@ -765,7 +772,7 @@ PRI faceText(eFace) : pName
     other:
       pName := @"NOT_A_FACE"
 
-CON { license }
+CON ' ---- License ----
 
 {{
 

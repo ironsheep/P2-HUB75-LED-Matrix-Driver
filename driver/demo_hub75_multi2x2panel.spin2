@@ -7,14 +7,13 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Apr 2021
-''   Updated.... 06 Oct 2026
+''   Updated.... 08 Oct 2026
 ''
 '' =================================================================================================
 
 CON ' ---- Timing ----
 
     CLK_FREQ = 335_000_000                                        ' system freq as a constant 2.985 nSec
-    'CLK_FREQ = 250_000_000                                        ' system freq as a constant 2.985 nSec
     _clkfreq = CLK_FREQ                                           ' set system clock
 
     DEBUG_COGS = %11111111
@@ -50,9 +49,8 @@ CON ' ---- Orientation Test Layout ----
 
 OBJ ' ---- Objects ----
 
-    color       :   "isp_hub75_color"
-    hub75Bffrs  :   "isp_hub75_hwBufferAccess"
-    display     :   "isp_hub75_display"
+    color       : "isp_hub75_color"
+    display     : "isp_hub75_display"
 
 DAT ' ---- Panel Orientation Labels ----
 
@@ -62,19 +60,12 @@ DAT ' ---- Panel Orientation Labels ----
     lbl3          BYTE    "3", 0
     lblArrow      BYTE    "^", 0
 
-VAR ' ---- Per-instance State ----
-
-    LONG    chainIndex
-    LONG    textSize
-
 PUB main()
 '' Start underlying drivers and run the panel orientation test on a 2x2 grid of panels.
 ''
 
-  chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
-
   ' startup our backend COG(s): one call per adapter (aborts if no cog is free)
-  display.start(hub75Bffrs.HUB75_ADAPTER_1)
+  display.start(display.HUB75_ADAPTER_1)
 
   ' ============================================
   ' PANEL ORIENTATION TEST
@@ -84,8 +75,6 @@ PUB main()
   testPanelOrientation()
 
   display.stop()
-
-CON ' ---- Private Methods ----
 
 PRI testPanelOrientation()
 ' Test pattern using BOTH coordinate systems:
@@ -109,8 +98,7 @@ PRI testPanelOrientation()
   display.setBrightness(DISPLAY_BRIGHTNESS)
 
   ' Set up text
-  textSize := display.TEXT_FONT_8x8A
-  display.setTextFont(textSize)
+  display.setTextFont(display.TEXT_FONT_8x8A)
 
   ' ========================================
   ' PANEL-SPECIFIC DRAWING (panel-local coordinates)
@@ -119,9 +107,9 @@ PRI testPanelOrientation()
   ' Panel 0 (display top-left): Blue background
   display.fillPanel(PNL_TOP_LT, color.cBlue)
   display.setTextColor(color.cWhite)
-  display.setCursorOnPanel(ARROW_LINE, PANEL_TEXT_COLUMN, PNL_TOP_LT)    ' Panel-local: line 3, col 7
+  display.setCursorOnPanel(ARROW_LINE, PANEL_TEXT_COLUMN, PNL_TOP_LT)
   display.setTextAtCursor(@lblArrow)
-  display.setCursorOnPanel(LABEL_LINE, PANEL_TEXT_COLUMN, PNL_TOP_LT)    ' Panel-local: line 4, col 7
+  display.setCursorOnPanel(LABEL_LINE, PANEL_TEXT_COLUMN, PNL_TOP_LT)
   display.setTextAtCursor(@lbl0)
   ' Small yellow box in top-left corner of panel 0 (panel-local coords)
   display.drawPanelBoxOfColor(PNL_TOP_LT, MARK_ROW, MARK_COLUMN, MARK_SIZE, MARK_SIZE, TRUE, color.cYellow)
@@ -161,23 +149,22 @@ PRI testPanelOrientation()
   ' ========================================
 
   ' Cyan circle at display center (where all 4 panels meet)
-  ' Display center: row=64, col=128
   display.drawCircleOfColor(CENTER_ROW, CENTER_COLUMN, CIRCLE_RADIUS, color.cCyan)
 
   ' White crosshairs through the display center (display coordinates)
-  ' Horizontal line: row 64, from col 0 to col 255
+  ' Horizontal line: the center row, across the full width
   display.drawLineOfColor(CENTER_ROW, 0, CENTER_ROW, LAST_COLUMN, color.cWhite)
-  ' Vertical line: col 128, from row 0 to row 127
+  ' Vertical line: the center column, down the full height
   display.drawLineOfColor(0, CENTER_COLUMN, LAST_ROW, CENTER_COLUMN, color.cWhite)
 
   ' Navy corner markers using display coordinates (dark, contrasts with yellow panel boxes)
-  ' Top-left corner of display (0,0)
+  ' Top-left corner of display
   display.drawBoxOfColor(0, 0, CORNER_SIZE, CORNER_SIZE, TRUE, color.cNavy)
-  ' Top-right corner of display (0, 248)
+  ' Top-right corner of display
   display.drawBoxOfColor(0, CORNER_COLUMN, CORNER_SIZE, CORNER_SIZE, TRUE, color.cNavy)
-  ' Bottom-left corner of display (120, 0)
+  ' Bottom-left corner of display
   display.drawBoxOfColor(CORNER_ROW, 0, CORNER_SIZE, CORNER_SIZE, TRUE, color.cNavy)
-  ' Bottom-right corner of display (120, 248)
+  ' Bottom-right corner of display
   display.drawBoxOfColor(CORNER_ROW, CORNER_COLUMN, CORNER_SIZE, CORNER_SIZE, TRUE, color.cNavy)
 
   display.commitScreenToPanelSet()

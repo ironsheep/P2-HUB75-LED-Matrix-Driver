@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Nov 2022
-''   Updated.... 07 Oct 2026
+''   Updated.... 08 Oct 2026
 ''
 '' =================================================================================================
 
@@ -26,18 +26,26 @@ CON ' ---- LED Color Channel IDs ----
     PACKED_GREEN_SHIFT      = 8
     PACKED_BLUE_SHIFT       = 16
 
+CON ' ---- Color Ranges and Channel Places ----
+    {Spin2_Doc_CON}
+
+    ' Ranges other objects use when they scale a color or a hue
+    MAX_COLOR_VALUE         = 255           ' 8-bit channel full-scale
+    SOURCE_COLOR_BITS       = 8             ' 8-bit input depth
+    DEGREES_PER_CIRCLE      = 360           ' degrees in a full turn of the hue wheel
+    PERCENT_SCALE           = 100           ' percent in a whole
+
+    ' channel places in a 24-bit $RRGGBB color
+    RED_SHIFT               = 16            ' red channel bit position
+    GREEN_SHIFT             = 8             ' green channel bit position
+
 CON ' ---- Color Scaling / Masks / Shifts ----
 
-    MAX_COLOR_VALUE         = 255           ' 8-bit channel full-scale
     CHANNEL_MASK            = $ff           ' single 8-bit channel
     RED_MASK                = $ff0000       ' red channel within combined RGB
     GREEN_MASK              = $ff00         ' green channel within combined RGB
-    RED_SHIFT               = 16            ' red channel bit position
-    GREEN_SHIFT             = 8             ' green channel bit position (== BITS_PER_CHANNEL)
-    BITS_PER_CHANNEL        = 8             ' bits in a single color channel
 
     ' bit-width remap / gamma table
-    SOURCE_COLOR_BITS       = 8             ' 8-bit input depth
     GAMMA_TABLE_MAX_IDX     = 255           ' 256-entry table last index
     COLOR_LEVELS            = MAX_COLOR_VALUE + 1   ' entries in one adapter's color table (one per 8-bit input)
 
@@ -47,10 +55,8 @@ CON ' ---- Color Scaling / Masks / Shifts ----
     CORRUPT_XOR_BITS        = 1
 
     ' HSV hue-wheel math
-    DEGREES_PER_CIRCLE      = 360
     DEGREES_PER_HUE_SEGMENT = 60            ' 6 sextants
     HUE_SEGMENT_MAX_IDX     = 59            ' 60-step segment last index
-    PERCENT_SCALE           = 100
     PERCENT_SCALE_F         = 100.0
     HUE_SEXTANT_1           = 1 * DEGREES_PER_HUE_SEGMENT   ' 60  - red->yellow
     HUE_SEXTANT_2           = 2 * DEGREES_PER_HUE_SEGMENT   ' 120 - yellow->green
@@ -63,9 +69,11 @@ OBJ
 
     hub75Bffrs  :   "isp_hub75_hwBufferAccess"
 
-DAT ' ---- Driver controls for testing ----
+DAT ' ---- Gamma setting ----
 
-    bGammaEnable    LONG    FALSE           ' a LONG so that TRUE (-1) compares equal
+    ' Gamma correction switch. Nothing writes it: it is constant FALSE, so the color tables are built
+    ' without the gamma curve. It is a LONG so that TRUE (-1) would compare equal.
+    bGammaEnable    LONG    FALSE
 
 DAT ' ---- Per-adapter color tables ----
 
@@ -78,9 +86,10 @@ PUB null()
 ''
 
 PUB isGammaEnabled() : bIsEnabled
-'' Return T/F where T means gamma correction is compiled in.
+'' Return T/F where T means the color tables are built with the gamma curve. The setting is a
+'' constant FALSE in this driver (nothing changes it at run time).
 ''
-'' @returns bIsEnabled - TRUE if gamma correction is enabled
+'' @returns bIsEnabled - TRUE if gamma correction is enabled, FALSE otherwise
 
     bIsEnabled := bGammaEnable
 
@@ -177,12 +186,12 @@ PUB packedCorrectedRgb(nChainIdx, red, green, blue) : packedColor | pTable
     packedColor |= BYTE[pTable][green & CHANNEL_MASK] << PACKED_GREEN_SHIFT
     packedColor |= BYTE[pTable][blue & CHANNEL_MASK] << PACKED_BLUE_SHIFT
 
-PUB correctedSingleColor(nChainIdx, led, colorValue) : adjustedColor
+PUB correctedSingleColor(nChainIdx, led, channelLevel) : adjustedColor
 '' Correct the color for a specific LED (R, G, or B): one read of the adapter's color table
 ''
 '' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @param led - LED color channel identifier (LED_RED, LED_GREEN, or LED_BLUE)
-'' @param colorValue - raw color value for the channel (0-255)
+'' @param channelLevel - raw level for the channel (0-255)
 '' @returns adjustedColor - gamma-corrected, bit-width-adjusted color (brightness is not applied
 ''  here: the refresh driver applies it to the /OE time)
 ''
@@ -191,44 +200,46 @@ PUB correctedSingleColor(nChainIdx, led, colorValue) : adjustedColor
     if led < LED_RED or led > LED_BLUE or nChainIdx +>= hub75Bffrs.ADAPTER_COUNT
         abort
 
-    adjustedColor := BYTE[@colorTable][(nChainIdx * COLOR_LEVELS) + (colorValue & CHANNEL_MASK)]
+    adjustedColor := BYTE[@colorTable][(nChainIdx * COLOR_LEVELS) + (channelLevel & CHANNEL_MASK)]
 
-PUB gammaPeek(color) : adjustedColor | gammaIdx, lowColor, highColor
-'' Return the index of the gamma table entry nearest to a color value (the inverse of the gamma
-'' curve), or the color value itself when gamma correction is not enabled.
+PUB gammaPeek(channelLevel) : adjustedLevel | searchIdx, aboveIdx, lowLevel, highLevel
+'' Return the index of the gamma table entry nearest to a channel level (the inverse of the gamma
+'' curve), or the channel level itself when gamma correction is not enabled.
 ''
-'' @param color - color value to look up
-'' @returns adjustedColor - index of the nearest gamma table entry, or color when gamma is disabled
+'' @param channelLevel - channel level (0-255) to look up
+'' @returns adjustedLevel - index of the nearest gamma table entry, or channelLevel when gamma is disabled
 
 ' Local Variables:
-' @local gammaIdx - current search index into gamma table
-' @local lowColor - gamma value below the target
-' @local highColor - gamma value above the target
+' @local searchIdx - current search index into gamma table
+' @local aboveIdx - index of the first table entry above channelLevel, or COLOR_LEVELS when none is
+' @local lowLevel - gamma value below the target
+' @local highLevel - gamma value above the target
 
     if bGammaEnable == TRUE
-        repeat gammaIdx from 0 TO GAMMA_TABLE_MAX_IDX
-            if BYTE[@gamma][gammaIdx] > color
+        aboveIdx := COLOR_LEVELS                                ' none above, until the search finds one
+        repeat searchIdx from 0 to GAMMA_TABLE_MAX_IDX
+            if BYTE[@gamma][searchIdx] > channelLevel
+                aboveIdx := searchIdx
                 quit
-        ' the loop leaves gammaIdx at the first entry above color, or one past the table
-        if gammaIdx == 0
-            adjustedColor := 0                                  ' below the first entry
-        elseif gammaIdx > GAMMA_TABLE_MAX_IDX
-            adjustedColor := GAMMA_TABLE_MAX_IDX                ' at or above the last entry
+        if aboveIdx == 0
+            adjustedLevel := 0                                  ' below the first entry
+        elseif aboveIdx > GAMMA_TABLE_MAX_IDX
+            adjustedLevel := GAMMA_TABLE_MAX_IDX                ' at or above the last entry
         else
-            lowColor := BYTE[@gamma][gammaIdx - 1]
-            highColor := BYTE[@gamma][gammaIdx]
-            if lowColor == color
-                adjustedColor := gammaIdx - 1
-            elseif highColor == color
-                adjustedColor := gammaIdx
-            elseif color - lowColor > highColor - color
-                adjustedColor := gammaIdx
+            lowLevel := BYTE[@gamma][aboveIdx - 1]
+            highLevel := BYTE[@gamma][aboveIdx]
+            if lowLevel == channelLevel
+                adjustedLevel := aboveIdx - 1
+            elseif highLevel == channelLevel
+                adjustedLevel := aboveIdx
+            elseif channelLevel - lowLevel > highLevel - channelLevel
+                adjustedLevel := aboveIdx
             else
-                adjustedColor := gammaIdx - 1
+                adjustedLevel := aboveIdx - 1
     else
-        adjustedColor := color
+        adjustedLevel := channelLevel
 
-PUB rgbColorFromDegrees(degrees) : rgbColor | offset60, fract60, red, green, blue
+PUB rgbColorFromDegrees(degrees) : rgbColor | offset60, red, green, blue
 '' Convert a hue angle (0-359 degrees) to a combined RGB color value.
 ''
 '' @param degrees - hue angle in degrees
@@ -236,7 +247,6 @@ PUB rgbColorFromDegrees(degrees) : rgbColor | offset60, fract60, red, green, blu
 
 ' Local Variables:
 ' @local offset60 - offset within the current 60-degree segment
-' @local fract60 - fractional scaling factor per 60-degree segment
 ' @local red - computed red component
 ' @local green - computed green component
 ' @local blue - computed blue component
@@ -244,33 +254,31 @@ PUB rgbColorFromDegrees(degrees) : rgbColor | offset60, fract60, red, green, blu
     degrees := degrees // DEGREES_PER_CIRCLE              ' ensure 0-359
     red := green := blue := 0
     offset60 := degrees // DEGREES_PER_HUE_SEGMENT        ' 0-59
-    fract60 := HUE_FRACT_SCALE
     if degrees >= HUE_SEXTANT_5
         red := MAX_COLOR_VALUE
-        blue := ((HUE_SEGMENT_MAX_IDX - offset60) * fract60) / PERCENT_SCALE
+        blue := ((HUE_SEGMENT_MAX_IDX - offset60) * HUE_FRACT_SCALE) / PERCENT_SCALE
     elseif degrees >= HUE_SEXTANT_4
         blue := MAX_COLOR_VALUE
-        red := (offset60 * fract60) / PERCENT_SCALE
+        red := (offset60 * HUE_FRACT_SCALE) / PERCENT_SCALE
     elseif degrees >= HUE_SEXTANT_3
         blue := MAX_COLOR_VALUE
-        green := ((HUE_SEGMENT_MAX_IDX - offset60) * fract60) / PERCENT_SCALE
+        green := ((HUE_SEGMENT_MAX_IDX - offset60) * HUE_FRACT_SCALE) / PERCENT_SCALE
     elseif degrees >= HUE_SEXTANT_2
         green := MAX_COLOR_VALUE
-        blue := (offset60 * fract60) / PERCENT_SCALE
+        blue := (offset60 * HUE_FRACT_SCALE) / PERCENT_SCALE
     elseif degrees >= HUE_SEXTANT_1
         green := MAX_COLOR_VALUE
-        red := ((HUE_SEGMENT_MAX_IDX - offset60) * fract60) / PERCENT_SCALE
+        red := ((HUE_SEGMENT_MAX_IDX - offset60) * HUE_FRACT_SCALE) / PERCENT_SCALE
     else
         red := MAX_COLOR_VALUE
-        green := (offset60 * fract60) / PERCENT_SCALE
+        green := (offset60 * HUE_FRACT_SCALE) / PERCENT_SCALE
 
     rgbColor := cValueForRGB(red, green, blue)
-        ' debug("- degrees=", udec_(degrees), ", color=", uhex_long_(rgbColor), " RGB=", udec_(red), ", ", udec_(green), ", ", udec_(blue), ")" )
 
-PUB reducedBrightnessOfCValue(combinedValue, percent): reducedCValue | red, green, blue, adjPercent, fPercent
+PUB reducedBrightnessOfCValue(rgbColor, percent) : reducedCValue | red, green, blue, adjPercent, fPercent
 '' Return a color value reduced to the given percentage of brightness.
 ''
-'' @param combinedValue - combined RGB color value
+'' @param rgbColor - combined RGB color value
 '' @param percent - brightness percentage (0-100)
 '' @returns reducedCValue - brightness-reduced combined RGB color value
 
@@ -279,40 +287,42 @@ PUB reducedBrightnessOfCValue(combinedValue, percent): reducedCValue | red, gree
 ' @local green - extracted green component
 ' @local blue - extracted blue component
 ' @local adjPercent - clamped percentage value
-' @local fPercent - floating-point percentage divisor
+' @local fPercent - the clamped percentage as a 0.0 - 1.0 fraction
 
     adjPercent := 0 #> percent <# PERCENT_SCALE
-    red, green, blue := rgbForCValue(combinedValue)
+    red, green, blue := rgbForCValue(rgbColor)
     fPercent := float(adjPercent) /. PERCENT_SCALE_F
     red := trunc(float(red) *. fPercent)
     green := trunc(float(green) *. fPercent)
     blue := trunc(float(blue) *. fPercent)
     reducedCValue := cValueForRGB(red, green, blue)
 
-PUB rgbForCValue(combinedValue) : red, green, blue
+PUB rgbForCValue(rgbColor) : red, green, blue
 '' Convert a combined RGB color value to separate red, green, and blue components.
 ''
-'' @param combinedValue - combined RGB color value
+'' @param rgbColor - combined RGB color value
 '' @returns red - red component (0-255)
 '' @returns green - green component (0-255)
 '' @returns blue - blue component (0-255)
 
-    red := (combinedValue & RED_MASK) >> RED_SHIFT
-    green := (combinedValue & GREEN_MASK) >> GREEN_SHIFT
-    blue := (combinedValue & CHANNEL_MASK)
+    red := (rgbColor & RED_MASK) >> RED_SHIFT
+    green := (rgbColor & GREEN_MASK) >> GREEN_SHIFT
+    blue := (rgbColor & CHANNEL_MASK)
 
-PUB cValueForRGB(red, green, blue) : combinedValue
+PUB cValueForRGB(red, green, blue) : rgbColor
 '' Convert separate red, green, and blue components to a combined RGB color value.
 ''
 '' @param red - red component (0-255)
 '' @param green - green component (0-255)
 '' @param blue - blue component (0-255)
-'' @returns combinedValue - combined RGB color value
+'' @returns rgbColor - combined RGB color value
 
-    combinedValue := ((red & CHANNEL_MASK) << RED_SHIFT) | ((green & CHANNEL_MASK) << GREEN_SHIFT) | (blue & CHANNEL_MASK)
+    rgbColor := ((red & CHANNEL_MASK) << RED_SHIFT) | ((green & CHANNEL_MASK) << GREEN_SHIFT) | (blue & CHANNEL_MASK)
 
-PUB gammaPtrs(): pGammaRed, pGammaGreen, pGammaBlue
-'' Return pointers to the gamma tables for each color channel.
+PUB gammaPtrs() : pGammaRed, pGammaGreen, pGammaBlue
+'' Return pointers to the gamma tables for each color channel. All three channels share the one
+'' curve, so the three pointers are the same address (kept as three for callers that treat the
+'' channels separately; the rates test reads the table through them).
 ''
 '' @returns pGammaRed - pointer to the red gamma lookup table
 '' @returns pGammaGreen - pointer to the green gamma lookup table

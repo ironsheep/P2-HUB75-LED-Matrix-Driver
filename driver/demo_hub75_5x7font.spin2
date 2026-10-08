@@ -61,7 +61,7 @@ PUB main() | vertPixelCount
   chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
   ' startup our backend COG(s): one call per adapter (aborts if no cog is free)
-  display.start(hub75Bffrs.HUB75_ADAPTER_1)
+  display.start(display.HUB75_ADAPTER_1)
 
   initCharacterSet()
 
@@ -125,7 +125,7 @@ PRI demoFont64x32() | textSize, nRow, nScreenRow
     nScreenRow := 0
     display.clearScreenBuffer()
     repeat nRow from DIGITS_ROW TO SCREEN_B_LAST_ROW
-      display.setColoredTextAtLnCol(nScreenRow, 0, @BYTE[@charSet][(nRow) * BYTES_PER_ROW], color.cOrange)
+      display.setColoredTextAtLnCol(nScreenRow, 0, @BYTE[@charSet][nRow * BYTES_PER_ROW], color.cOrange)
       nScreenRow++
 
     ' update our screen
@@ -135,10 +135,10 @@ PRI demoFont64x32() | textSize, nRow, nScreenRow
     nScreenRow := SCREEN_C_DIGITS_LN
     display.clearScreenBuffer()
     nRow := DIGITS_ROW
-    display.setColoredTextAtLnCol(nScreenRow, 0, @BYTE[@charSet][(nRow) * BYTES_PER_ROW], color.cOrange)
+    display.setColoredTextAtLnCol(nScreenRow, 0, @BYTE[@charSet][nRow * BYTES_PER_ROW], color.cOrange)
     nScreenRow := SCREEN_C_FIRST_LN
     repeat nRow from SCREEN_C_FIRST_ROW TO SCREEN_C_LAST_ROW
-      display.setColoredTextAtLnCol(nScreenRow, 0, @BYTE[@charSet][(nRow) * BYTES_PER_ROW], color.cOrange)
+      display.setColoredTextAtLnCol(nScreenRow, 0, @BYTE[@charSet][nRow * BYTES_PER_ROW], color.cOrange)
       nScreenRow++
 
     ' update our screen
@@ -172,7 +172,7 @@ PRI demoFont64x64() | textSize, nRow, nRows1stScreen
 
     display.clearScreenBuffer()
     repeat nRow from nRows1stScreen TO NBR_ROWS_64 - 1
-      display.setColoredTextAtLnCol(nRow - nRows1stScreen, 0, @BYTE[@charSet][(nRow) * BYTES_PER_ROW], color.cOrange)
+      display.setColoredTextAtLnCol(nRow - nRows1stScreen, 0, @BYTE[@charSet][nRow * BYTES_PER_ROW], color.cOrange)
 
     ' update our screen
     display.commitScreenToPanelSet()

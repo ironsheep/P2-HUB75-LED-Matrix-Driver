@@ -139,7 +139,7 @@ Your program never sees cables, arrows or the way the display was mounted; the w
 
 ### Turning an image: content rotation
 
-Turning an image is separate from mounting. The image-placing call, `placeBMP`, takes a content rotation (`ROT_NONE`, `ROT_RIGHT_90` for clockwise, `ROT_LEFT_90` or `ROT_180`). The image is turned about the centre of the display as it is placed; the part that falls off the display is simply not shown, and nothing is wrapped or moved. Placing again with another rotation re-places the picture from the source, so nothing is lost. Content rotation works for an image of any size, composes with mounting, and does not affect text or shapes you draw (a drawn display already follows the display's geometry). A cube has no face-aware image call: `placeBMP` places the image on the flat layout of the net, not carried across the folded edges.
+Turning an image is separate from mounting. The image-placing call, `placeBMP`, takes a content rotation (`bmp.ROT_NONE`, `bmp.ROT_RIGHT_90` for clockwise, `bmp.ROT_LEFT_90` or `bmp.ROT_180`). The image is turned about the centre of the display as it is placed; the part that falls off the display is simply not shown, and nothing is wrapped or moved. Placing again with another rotation re-places the picture from the source, so nothing is lost. Content rotation works for an image of any size, composes with mounting, and does not affect text or shapes you draw (a drawn display already follows the display's geometry). A cube has no face-aware image call: `placeBMP` places the image on the flat layout of the net, not carried across the folded edges.
 
 ## The cube
 

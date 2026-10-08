@@ -7,14 +7,13 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Apr 2021
-''   Updated.... 06 Oct 2026
+''   Updated.... 08 Oct 2026
 ''
 '' =================================================================================================
 
 CON ' ---- Timing ----
 
     CLK_FREQ  = 335_000_000                                         ' system freq as a constant 2.985 nSec
-    ' CLK_FREQ = 250_000_000                                        ' system freq as a constant 2.985 nSec
     _CLKFREQ  = CLK_FREQ                                            ' set system clock
 
     DEBUG_COGS  = %11111111
@@ -22,10 +21,12 @@ CON ' ---- Timing ----
 
 CON ' ---- Demo Info ----
 
-    ' DEMO_COUNT is how many of the demos in main()'s case run, in order (1 to 4):
-    '  1 - demoPanelColors, 2 - demoTopBottomScroll, 3 - demoRandomPanelColors
-    '  4 - demoPanelFillColors (set DEMO_COUNT to 4 to include it)
-    DEMO_COUNT  = 3
+    ' the demos main() runs, in order, numbered from 1
+    #1, DEMO_PANEL_COLORS, DEMO_TOP_BOTTOM_SCROLL, DEMO_RANDOM_COLORS, DEMO_FILL_COLORS
+
+    ' DEMO_COUNT is how many of those demos run, in order from the first
+    ' (set DEMO_COUNT to DEMO_FILL_COLORS to include the fill demo)
+    DEMO_COUNT  = DEMO_RANDOM_COLORS
 
     ' Panel positions P0 .. P5 of a six-panel flat display, in reading order from the
     ' top-left panel as the display is mounted. The names are labels for this demo's
@@ -49,19 +50,30 @@ CON ' ---- Demo Info ----
     FILL_LONG_SECONDS   = 4
     MS_PER_SECOND       = 1000
 
-    ' hue arithmetic (a hue is a 0..HUE_SPAN position around the colour circle)
-    HUE_SPAN            = 256
-    RANDOM_HUE_RANGE    = 254                                       ' random hue is RANDOM_HUE_MIN .. RANDOM_HUE_MIN + this - 1
-    RANDOM_HUE_MIN      = 1
+    ' hue arithmetic (a hue is an angle, 0 to colorUtils.DEGREES_PER_CIRCLE - 1, around the colour circle)
     BOX_HUE_OFFSET      = 3                                         ' the box hue is this many panels past the panel's own
     PANEL_HUE_OFFSET    = 1                                         ' the panel hue is this many panels past its index
-    ASCII_ZERO          = $30                                       ' the character '0'
+    ASCII_ZERO          = $30                                       ' the character '0' (panel numbers are one digit: up to 10 panels)
 
     ' the coloured box drawn inside each panel
     BOX_TOP_ROW         = 17
     BOX_LEFT_COLUMN     = 10
     BOX_WIDTH           = 40
     BOX_HEIGHT          = 34
+
+    ' text positions (panel-local line and column), for the 8x8 font
+    ID_LINE             = 1                                         ' panel number
+    ID_COLUMN           = 1
+    CAP_LABEL_LINE      = 4                                         ' "Top" and "Bot"
+    CAP_LABEL_COLUMN    = 3
+    SIDE_LABEL_LINE     = 7                                         ' "Front", "Right", "Back", "Left"
+    LONG_LABEL_COLUMN   = 1                                         ' the five-letter labels
+    SHORT_LABEL_COLUMN  = 2                                         ' the four-letter labels
+
+    ' the scrolling text: its line, the panels it crosses and how often it repeats
+    SCROLL_LINE         = 4
+    SCROLL_PANELS       = 4
+    SCROLL_REPEATS      = 2
 
 OBJ ' ---- Objects ----
 
@@ -84,8 +96,6 @@ DAT ' ---- Panel Messages ----
 VAR ' ---- Per-instance State ----
 
     LONG    chainIndex
-    LONG    demoPausePeriod
-    LONG    textSize
 
 PUB main() | demoIndex
 '' Start underlying drivers and run the multi-panel demo sequence.
@@ -97,19 +107,17 @@ PUB main() | demoIndex
   chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
   ' startup our backend COG(s): one call per adapter (aborts if no cog is free)
-  display.start(hub75Bffrs.HUB75_ADAPTER_1)
-
-  demoPausePeriod := DEMO_PAUSE_SECONDS
+  display.start(display.HUB75_ADAPTER_1)
 
   repeat DEMO_PASSES
-    repeat demoIndex from 0 TO DEMO_COUNT - 1
-      case demoIndex + 1
-        1: demoPanelColors()
-        2: demoTopBottomScroll()
-        3: demoRandomPanelColors()
-        4: demoPanelFillColors()
+    repeat demoIndex from 1 TO DEMO_COUNT
+      case demoIndex
+        DEMO_PANEL_COLORS: demoPanelColors()
+        DEMO_TOP_BOTTOM_SCROLL: demoTopBottomScroll()
+        DEMO_RANDOM_COLORS: demoRandomPanelColors()
+        DEMO_FILL_COLORS: demoPanelFillColors()
 
-      waitSec(demoPausePeriod)
+      waitSec(DEMO_PAUSE_SECONDS)
 
   display.stop()
 
@@ -148,7 +156,7 @@ PRI demoRandomPanelColors() | panelIndex, panelHue, panelColor
   display.clearScreenBuffer()
   repeat RANDOM_PASSES
     repeat panelIndex from 0 TO hub75Bffrs.maxPanels(chainIndex) - 1
-      panelHue := (GETRND() +// RANDOM_HUE_RANGE) + RANDOM_HUE_MIN
+      panelHue := GETRND() +// colorUtils.DEGREES_PER_CIRCLE
       panelColor := colorUtils.rgbColorFromDegrees(panelHue)
       display.fillPanel(panelIndex, panelColor)
     ' update our screen
@@ -161,42 +169,40 @@ PRI demoTopBottomScroll() | scrollerID
 ' Local Variables:
 ' @local scrollerID - identifier for the active text scroller
 
-  textSize := display.TEXT_FONT_8x8A
-  ' textSize := display.TEXT_FONT_8x8B
-  display.setTextFont(textSize)                         ' font size
+  display.setTextFont(display.TEXT_FONT_8x8A)           ' font size
   display.setTextColor(color.cBlueViolet)
 
   ' start with blank screen on which to draw
   display.clearScreenBuffer()
 
   display.fillPanel(PNL_TOP, color.cGreen)
-  display.setCursorOnPanel(4, 3, PNL_TOP)
+  display.setCursorOnPanel(CAP_LABEL_LINE, CAP_LABEL_COLUMN, PNL_TOP)
   display.setTextAtCursor(@lblTop)
 
   display.fillPanel(PNL_BOTTOM, color.cRed)
-  display.setCursorOnPanel(4, 3, PNL_BOTTOM)
+  display.setCursorOnPanel(CAP_LABEL_LINE, CAP_LABEL_COLUMN, PNL_BOTTOM)
   display.setTextAtCursor(@lblBot)
 
   display.fillPanel(PNL_FRONT, color.cYellow)
-  display.setCursorOnPanel(7, 1, PNL_FRONT)
+  display.setCursorOnPanel(SIDE_LABEL_LINE, LONG_LABEL_COLUMN, PNL_FRONT)
   display.setTextAtCursor(@lblFrnt)
 
   display.fillPanel(PNL_RIGHT, color.cCyan)
-  display.setCursorOnPanel(7, 1, PNL_RIGHT)
+  display.setCursorOnPanel(SIDE_LABEL_LINE, LONG_LABEL_COLUMN, PNL_RIGHT)
   display.setTextAtCursor(@lblRight)
 
   display.fillPanel(PNL_BACK, color.cOrange)
-  display.setCursorOnPanel(7, 2, PNL_BACK)
+  display.setCursorOnPanel(SIDE_LABEL_LINE, SHORT_LABEL_COLUMN, PNL_BACK)
   display.setTextAtCursor(@lblBack)
 
   display.fillPanel(PNL_LEFT, color.cLime)
-  display.setCursorOnPanel(7, 2, PNL_LEFT)
+  display.setCursorOnPanel(SIDE_LABEL_LINE, SHORT_LABEL_COLUMN, PNL_LEFT)
   display.setTextAtCursor(@lblLeft)
 
   ' get scroller initialized with text to scroll and direction
-  scrollerID := display.scrollColoredTextOnLnOfNPanels(4, PNL_FRONT, 4, string("Multi-panel long test scroll   "), display.DIR_TO_LEFT, color.cBlue)
+  scrollerID := display.scrollColoredTextOnLnOfNPanels(SCROLL_LINE, PNL_FRONT, SCROLL_PANELS, string("Multi-panel long test scroll   "), display.DIR_TO_LEFT, color.cBlue)
   ' configure scroll repeat count
-  display.configureScrollLoopCount(scrollerID, display.SCROLL_N_TIMES, 2)
+  display.configureScrollLoopCount(scrollerID, display.SCROLL_N_TIMES, SCROLL_REPEATS)
 
   ' update our screen
   display.commitScreenToPanelSet()
@@ -219,18 +225,15 @@ PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, boxColor, hueInde
 ' @local boxColor - RGB color for the box drawn inside the panel
 ' @local hueIndex - computed hue index for color selection
 
-  panelHueWidth := HUE_SPAN / hub75Bffrs.maxPanels(chainIndex)
+  panelHueWidth := colorUtils.DEGREES_PER_CIRCLE / hub75Bffrs.maxPanels(chainIndex)
 
   ' set up text subsystem
-  textSize := display.TEXT_FONT_8x8A
-  display.setTextFont(textSize)                         ' font size
+  display.setTextFont(display.TEXT_FONT_8x8A)           ' font size
   display.setTextColor(color.cBlueViolet)
   display.setCursor(0, 0)                               ' start at top left, with one pixel of spacing
 
   ' start with blank screen on which to draw
   display.clearScreenBuffer()
-
-  panelIndex := 0
 
   repeat panelIndex from 0 TO hub75Bffrs.maxPanels(chainIndex) - 1
     ' color the panel
@@ -240,7 +243,7 @@ PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, boxColor, hueInde
     panelColor := colorUtils.rgbColorFromDegrees(panelHueWidth * hueIndex)
     display.fillPanel(panelIndex, panelColor)
     ' number the panel
-    display.setCursorOnPanel(1,1, panelIndex)
+    display.setCursorOnPanel(ID_LINE, ID_COLUMN, panelIndex)
     BYTE [@panelIdMessage][1] := panelIndex + ASCII_ZERO
     display.setTextAtCursor(@panelIdMessage)
     ' draw a colored box in panel (don't use panel color)

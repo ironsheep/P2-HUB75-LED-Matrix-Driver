@@ -7,17 +7,43 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Dec 2020
-''   Updated.... 07 Oct 2026
+''   Updated.... 08 Oct 2026
 ''
-''  This object adds .bmp file loading support: an image of any size is placed on the display,
-''  centred, optionally turned by a content rotation (see placeBMP).
 '' =================================================================================================
+
+{ This object adds .bmp file loading support: an image of any size is placed on the display,
+  centred, optionally turned by a content rotation (see placeBMP).
+}
+
+CON ' ---- Values of the Interface Methods ----
+    {Spin2_Doc_CON}
+
+    ' content rotations, taken by placeBMP() (forwarded from hwEnum, which defines them; the
+    ' names are aliases of hwEnum's ROT_0, ROT_90 and ROT_270, kept as the content-rotation words):
+    '  ROT_NONE     - the image is not turned
+    '  ROT_RIGHT_90 - the image is turned 90 degrees clockwise
+    '  ROT_LEFT_90  - the image is turned 90 degrees counter-clockwise
+    '  ROT_180      - the image is turned 180 degrees
+    ROT_NONE                = hwEnum.ROT_NONE
+    ROT_RIGHT_90            = hwEnum.ROT_RIGHT_90
+    ROT_LEFT_90             = hwEnum.ROT_LEFT_90
+    ROT_180                 = hwEnum.ROT_180
+
+    ' status codes returned by placeBMP() and fillScreenFromBMP() (forwarded from hwEnum, which defines them):
+    '  SUCCESS         - the image was placed
+    '  E_BAD_ROTATION  - the content rotation was refused
+    '  E_BMP_NOT_24BIT - the file is not an uncompressed 24-bit image
+    SUCCESS                 = hwEnum.SUCCESS
+    E_BAD_ROTATION          = hwEnum.E_BAD_ROTATION
+    E_BMP_NOT_24BIT         = hwEnum.E_BMP_NOT_24BIT
 
 CON ' ---- .bmp File-Format Constants ----
 
     ' BMP file-type signature bytes ("BM")
     BMP_SIG_B               = $42         ' 'B'
-    BMP_SIG_M               = $4d         ' 'M'
+    BMP_SIG_M               = $4D         ' 'M'
+    BMP_SIG_B_POSN          = 0           ' position of the 'B' in the two-byte bfType field
+    BMP_SIG_M_POSN          = 1           ' position of the 'M' in the two-byte bfType field
 
     ' BMP header sizes (bytes)
     BMP_HEADER_SIZE         = 54          ' BITMAPFILEHEADER + BITMAPINFOHEADER
@@ -44,11 +70,11 @@ CON ' ---- .bmp File-Format Constants ----
     BMP_BYTES_PER_PIXEL     = 3           ' bytes per 24-bit pixel
     BMP_ROW_ALIGN_BYTES     = 4           ' each pixel row of the file is padded to this multiple
 
-
     ' placement arithmetic: positions are kept in half-pixel units from the centre
     BMP_HALF_PIXEL_SCALE    = 2           ' half-pixel units per pixel
     BMP_HALF_PIXEL_SHIFT    = 1           ' the same factor as a shift: halves a half-pixel position
     BMP_LAST_INDEX_OFFSET   = 1           ' a count less this is the index of its last member
+    BMP_NEXT_INDEX_OFFSET   = 1           ' an index plus this is the next member (a last index plus this is the count)
 
     ' smallest valid image width in pixels
     BMP_MIN_IMAGE_WIDTH     = 1
@@ -56,6 +82,7 @@ CON ' ---- .bmp File-Format Constants ----
 OBJ ' ---- Objects Used ----
 
     hub75Bffrs  :   "isp_hub75_hwBufferAccess"
+    hwEnum      :   "isp_hub75_hwEnums"
     pixels      :   "isp_hub75_screenUtils"
     colorUtils  :   "isp_hub75_colorUtils"                          ' the color table, for rows written in PASM
 
@@ -70,17 +97,17 @@ PUB null()
 '' This is NOT a top level object.
 ''
 
-PUB fillScreenFromBMP(nChainIdx, pBmpFile) : bPlaced
+PUB fillScreenFromBMP(nChainIdx, pBmpFile) : status
 '' Load a 24-bit .bmp file image onto the display, centred and not turned. This is placeBMP()
 '' at ROT_NONE: a display-sized image lands exactly on the display, any other size is centred.
 ''
 '' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @param pBmpFile - pointer to the in-memory .bmp file data
-'' @returns bPlaced - TRUE if the image was placed, FALSE if the file was rejected
+'' @returns status - SUCCESS if the image was placed, E_BMP_NOT_24BIT if the file was rejected
 
-  bPlaced := placeBMP(nChainIdx, pBmpFile, hub75Bffrs.ROT_NONE)
+  status := placeBMP(nChainIdx, pBmpFile, hwEnum.ROT_NONE)
 
-PUB placeBMP(nChainIdx, pBmpFile, eContentRotation) : bPlaced
+PUB placeBMP(nChainIdx, pBmpFile, eContentRotation) : status
 '' Place a 24-bit uncompressed .bmp image of any size on the display, centred, turned by a content
 '' rotation. The image is turned as it is placed, from the file as it sits in memory; the file
 '' and the screen buffer are never turned in place, so placing again at another rotation starts
@@ -91,19 +118,23 @@ PUB placeBMP(nChainIdx, pBmpFile, eContentRotation) : bPlaced
 '' pixels.copyRowRun(), so display mounting and the buffer mapping apply. Drawing is
 '' not committed: call commitScreenToPanelSet() afterwards.
 '' An invalid rotation value, or a file that is not an uncompressed 24-bit .bmp, draws nothing,
-'' returns FALSE and reports a debug message (in DEBUG builds).
+'' returns an error code and reports a debug message (in DEBUG builds).
 ''
 '' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @param pBmpFile - pointer to the in-memory .bmp file data
-'' @param eContentRotation - how the image is turned: hub75Bffrs.ROT_NONE, ROT_RIGHT_90 (clockwise), ROT_LEFT_90 or ROT_180
-'' @returns bPlaced - TRUE if the image was placed, FALSE if the rotation or the file was rejected
+'' @param eContentRotation - how the image is turned: ROT_NONE, ROT_RIGHT_90 (clockwise), ROT_LEFT_90 or ROT_180
+'' @returns status - SUCCESS if the image was placed, E_BAD_ROTATION if the rotation was refused,
+''                   E_BMP_NOT_24BIT if the file was rejected
 
   chainIndex := nChainIdx
   maxRowPixels, maxColPixels := hub75Bffrs.displaySizeInPixels(chainIndex)
-  bPlaced := FALSE
   if isValidContentRotation(eContentRotation) == TRUE
-    bPlaced := loadBitmap(pBmpFile, eContentRotation)
+    if loadBitmap(pBmpFile, eContentRotation) == TRUE
+      status := hwEnum.SUCCESS
+    else
+      status := hwEnum.E_BMP_NOT_24BIT
   else
+    status := hwEnum.E_BAD_ROTATION
     debug("- ERROR placeBMP() invalid content rotation value [", udec_(eContentRotation), "], nothing drawn")
 
 PRI isValidContentRotation(eContentRotation) : bIsValid
@@ -113,7 +144,7 @@ PRI isValidContentRotation(eContentRotation) : bIsValid
 ' @returns bIsValid - TRUE if the value is ROT_NONE, ROT_RIGHT_90, ROT_LEFT_90 or ROT_180
 
   case eContentRotation
-    hub75Bffrs.ROT_NONE, hub75Bffrs.ROT_RIGHT_90, hub75Bffrs.ROT_LEFT_90, hub75Bffrs.ROT_180:
+    hwEnum.ROT_NONE, hwEnum.ROT_RIGHT_90, hwEnum.ROT_LEFT_90, hwEnum.ROT_180:
       bIsValid := TRUE
     other:
       bIsValid := FALSE
@@ -195,13 +226,13 @@ PRI sourcePixelOf(eContentRotation, nRowOffset2, nColumnOffset2, nImageWidth, nI
 ' @local nSourceY2 - twice the row distance of the source pixel from the image centre
 
   case eContentRotation
-    hub75Bffrs.ROT_RIGHT_90:
+    hwEnum.ROT_RIGHT_90:
       nSourceX2 := nRowOffset2
       nSourceY2 := -nColumnOffset2
-    hub75Bffrs.ROT_LEFT_90:
+    hwEnum.ROT_LEFT_90:
       nSourceX2 := -nRowOffset2
       nSourceY2 := nColumnOffset2
-    hub75Bffrs.ROT_180:
+    hwEnum.ROT_180:
       nSourceX2 := -nColumnOffset2
       nSourceY2 := -nRowOffset2
     other:
@@ -226,10 +257,10 @@ PRI sourceAddressOf(nImageColumn, nImageRow, nImageHeight, bTopDown, nRowStride)
   if bTopDown == TRUE
     nFileRow := nImageRow
   else
-    nFileRow := (nImageHeight - 1) - nImageRow                 ' bottom-up file: first stored row is the image bottom
+    nFileRow := (nImageHeight - BMP_LAST_INDEX_OFFSET) - nImageRow  ' bottom-up file: first stored row is the image bottom
   pPixel := @BYTE[pBitmapFileInMemory][bfOffBits] + (nFileRow * nRowStride) + (nImageColumn * BMP_BYTES_PER_PIXEL)
 
-PRI placeRowSpan(nDisplayRow, eContentRotation, nImageWidth, nImageHeight, bTopDown, nRowStride) | nRowOffset2, nImageColumn, nImageRow, bVaryRow, nVaryStep, nFixed, nFixedSize, nVary0, nVarySize, firstColumn, lastColumn, pSource, sourceStep, column, cellColumns, nPixels, pPixel, rightStep, pTable
+PRI placeRowSpan(nDisplayRow, eContentRotation, nImageWidth, nImageHeight, bTopDown, nRowStride) | nRowOffset2, nImageColumn, nImageRow, bVaryRow, nVaryStep, nFixed, nFixedSize, nVary0, nVarySize, nFirstColumn, nLastColumn, pSource, nSourceStep, nColumn, nCellColumns, nPixels, pPixel, nRightStep, pTable
 ' Write one display row of the image: the display pixels it covers are one span, and along it
 ' exactly one image coordinate changes, by one per display column (the column for ROT_NONE and
 ' ROT_180, the row for the quarter turns), so the source bytes step by a constant amount. The
@@ -254,25 +285,26 @@ PRI placeRowSpan(nDisplayRow, eContentRotation, nImageWidth, nImageHeight, bTopD
 ' @local nFixedSize - the image's size along that coordinate
 ' @local nVary0 - the changing image coordinate at display column 0
 ' @local nVarySize - the image's size along the changing coordinate
-' @local firstColumn - first display column the image covers on this row
-' @local lastColumn - last display column the image covers on this row
+' @local nFirstColumn - first display column the image covers on this row
+' @local nLastColumn - last display column the image covers on this row
 ' @local pSource - address of the source bytes of the pixel being written
-' @local sourceStep - signed bytes from one source pixel to the next along the span
-' @local column - display column of the span part being written
-' @local cellColumns - pixel columns of one mounted cell
+' @local nSourceStep - signed bytes from one source pixel to the next along the span
+' @local nColumn - display column of the span part being written
+' @local nCellColumns - pixel columns of one mounted cell
 ' @local nPixels - pixels of the span in the current cell
 ' @local pPixel - hub address of the part's first pixel, or NO_PIXEL for a cell with no panel
-' @local rightStep - signed bytes to the pixel at the right, within the cell
+' @local nRightStep - signed bytes to the pixel at the right, within the cell
+' @local pTable - the adapter's color table
 
   nRowOffset2 := (BMP_HALF_PIXEL_SCALE * nDisplayRow) - (maxRowPixels - BMP_LAST_INDEX_OFFSET)
   ' the image pixel at display column 0; along the row one coordinate moves by nVaryStep per column
   nImageColumn, nImageRow := sourcePixelOf(eContentRotation, nRowOffset2, -(maxColPixels - BMP_LAST_INDEX_OFFSET), nImageWidth, nImageHeight)
   case eContentRotation
-    hub75Bffrs.ROT_RIGHT_90:
+    hwEnum.ROT_RIGHT_90:
       bVaryRow, nVaryStep := TRUE, -1
-    hub75Bffrs.ROT_LEFT_90:
+    hwEnum.ROT_LEFT_90:
       bVaryRow, nVaryStep := TRUE, 1
-    hub75Bffrs.ROT_180:
+    hwEnum.ROT_180:
       bVaryRow, nVaryStep := FALSE, -1
     other:
       bVaryRow, nVaryStep := FALSE, 1
@@ -282,42 +314,42 @@ PRI placeRowSpan(nDisplayRow, eContentRotation, nImageWidth, nImageHeight, bTopD
     nFixed, nFixedSize, nVary0, nVarySize := nImageRow, nImageHeight, nImageColumn, nImageWidth
   ' the display columns whose changing coordinate lies inside the image
   if nVaryStep > 0
-    firstColumn := 0 #> -nVary0
-    lastColumn := (maxColPixels - 1) <# (nVarySize - 1 - nVary0)
+    nFirstColumn := 0 #> -nVary0
+    nLastColumn := (maxColPixels - BMP_LAST_INDEX_OFFSET) <# (nVarySize - BMP_LAST_INDEX_OFFSET - nVary0)
   else
-    firstColumn := 0 #> (nVary0 - (nVarySize - 1))
-    lastColumn := (maxColPixels - 1) <# nVary0
-  if nFixed +< nFixedSize and firstColumn <= lastColumn
+    nFirstColumn := 0 #> (nVary0 - (nVarySize - BMP_LAST_INDEX_OFFSET))
+    nLastColumn := (maxColPixels - BMP_LAST_INDEX_OFFSET) <# nVary0
+  if nFixed +< nFixedSize and nFirstColumn <= nLastColumn
     if bVaryRow == TRUE
-      nImageRow := nVary0 + (nVaryStep * firstColumn)
-      sourceStep := nVaryStep * nRowStride
+      nImageRow := nVary0 + (nVaryStep * nFirstColumn)
+      nSourceStep := nVaryStep * nRowStride
       if bTopDown == FALSE
-        sourceStep := -sourceStep                               ' bottom-up file: a lower image row is an earlier stored row
+        nSourceStep := -nSourceStep  ' bottom-up file: a lower image row is an earlier stored row
     else
-      nImageColumn := nVary0 + (nVaryStep * firstColumn)
-      sourceStep := nVaryStep * BMP_BYTES_PER_PIXEL
+      nImageColumn := nVary0 + (nVaryStep * nFirstColumn)
+      nSourceStep := nVaryStep * BMP_BYTES_PER_PIXEL
     pSource := sourceAddressOf(nImageColumn, nImageRow, nImageHeight, bTopDown, nRowStride)
     pTable := colorUtils.colorTableAddress(chainIndex)
-    _, cellColumns := hub75Bffrs.cellSizeInPixels(chainIndex)
-    column := firstColumn
-    repeat while column <= lastColumn
+    _, nCellColumns := hub75Bffrs.cellSizeInPixels(chainIndex)
+    nColumn := nFirstColumn
+    repeat while nColumn <= nLastColumn
       ' the pixels from column to the end of its cell, or of the span when sooner
-      nPixels := ((((column / cellColumns) + 1) * cellColumns) <# (lastColumn + 1)) - column
-      pPixel, rightStep, _ := hub75Bffrs.mountedPixelRun(chainIndex, nDisplayRow, column)
+      nPixels := ((((nColumn / nCellColumns) + BMP_NEXT_INDEX_OFFSET) * nCellColumns) <# (nLastColumn + BMP_NEXT_INDEX_OFFSET)) - nColumn
+      pPixel, nRightStep, _ := hub75Bffrs.mountedPixelRun(chainIndex, nDisplayRow, nColumn)
       if pPixel <> hub75Bffrs.NO_PIXEL
-        copyBgrSpan(pSource, sourceStep, pPixel, rightStep, nPixels, pTable)
-      pSource += nPixels * sourceStep
-      column += nPixels
+        copyBgrSpan(pSource, nSourceStep, pPixel, nRightStep, nPixels, pTable)
+      pSource += nPixels * nSourceStep
+      nColumn += nPixels
 
-PRI copyBgrSpan(pSource, sourceStep, pPixel, rightStep, nPixels, pTable)
-' Write a span of image pixels, in PASM: nPixels pixels from pSource (B, G, R bytes), sourceStep
+PRI copyBgrSpan(pSource, nSourceStep, pPixel, nRightStep, nPixels, pTable)
+' Write a span of image pixels, in PASM: nPixels pixels from pSource (B, G, R bytes), nSourceStep
 ' bytes apart, each channel corrected through the adapter's color table, to the screen buffer
-' from pPixel, rightStep bytes apart. PR0-PR1 are scratch.
+' from pPixel, nRightStep bytes apart. PR0-PR1 are scratch.
 '
 ' @param pSource - address of the first source pixel's bytes
-' @param sourceStep - signed bytes from one source pixel to the next
+' @param nSourceStep - signed bytes from one source pixel to the next
 ' @param pPixel - hub address of the first screen pixel's red byte
-' @param rightStep - signed bytes from one screen pixel to the next
+' @param nRightStep - signed bytes from one screen pixel to the next
 ' @param nPixels - pixels to write (at least one)
 ' @param pTable - the adapter's color table (colorUtils colorTableAddress())
 
@@ -347,8 +379,8 @@ PRI copyBgrSpan(pSource, sourceStep, pPixel, rightStep, nPixels, pTable)
                 mov     pr1, pPixel
                 add     pr1, #pixels.BLUE_BYTE_OFST
                 wrbyte  pr0, pr1
-                add     pSource, sourceStep
-                add     pPixel, rightStep
+                add     pSource, nSourceStep
+                add     pPixel, nRightStep
                 djnz    nPixels, #.nextPixel
     end
 
@@ -363,15 +395,16 @@ PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader
 ' @local pFileHeader - moving pointer through header fields during parsing
 
   bValidStatus := TRUE
-  'analyze bitmap image
+
+  ' read the header fields into the work area, one block at a time
   pFileHeader := pBmpFileImage
-  bytemove(@bfType, pFileHeader, BMP_TYPE_BYTES) 'read bmp header
+  bytemove(@bfType, pFileHeader, BMP_TYPE_BYTES)
   pFileHeader += BMP_TYPE_BYTES
-  bytemove(@bfSize, pFileHeader, BMP_LONG_FIELD_BYTES) 'read bmp header
+  bytemove(@bfSize, pFileHeader, BMP_LONG_FIELD_BYTES)
   pFileHeader += BMP_LONG_FIELD_BYTES
-  bytemove(@bfReserved1, pFileHeader, BMP_RESERVED_BYTES) 'read bmp header
+  bytemove(@bfReserved1, pFileHeader, BMP_RESERVED_BYTES)
   pFileHeader += BMP_RESERVED_BYTES
-  bytemove(@bfOffBits, pFileHeader, BMP_OFFBITS_BLOCK_BYTES) 'read bmp header
+  bytemove(@bfOffBits, pFileHeader, BMP_OFFBITS_BLOCK_BYTES)
   pFileHeader += BMP_OFFBITS_BLOCK_BYTES
   bytemove(@biPlanes, pFileHeader, BMP_LONG_FIELD_BYTES)
   pFileHeader += BMP_LONG_FIELD_BYTES
@@ -383,7 +416,7 @@ PRI validateBmpFile(pBmpFileImage) : bValidStatus | pFileHeader
   if biBitCount <> BMP_BIT_COUNT_24
     bValidStatus := FALSE
 
-  if BYTE[@bfType][0] <> BMP_SIG_B || BYTE[@bfType][1] <> BMP_SIG_M ' B, M
+  if BYTE[@bfType][BMP_SIG_B_POSN] <> BMP_SIG_B or BYTE[@bfType][BMP_SIG_M_POSN] <> BMP_SIG_M
     bValidStatus := FALSE
 
   if biCompression <> BMP_COMPRESSION_NONE
@@ -397,7 +430,7 @@ DAT ' ---- .bmp file work area ----
                     ALIGNL
                     BYTE 0  ' fill aligning header to avoid gaps
                     BYTE 0
-BMPHeader     'Mostly using info from here:  http://www.fortunecity.com/skyscraper/windows/364/bmpffrmt.html
+BMPHeader                                   ' BITMAPFILEHEADER then BITMAPINFOHEADER, as the file lays them out
 bfType              BYTE "B","M"
 bfSize              LONG 0
 bfReserved1         WORD 0
@@ -405,7 +438,7 @@ bfReserved2         WORD 0
 bfOffBits           LONG BMP_HEADER_SIZE
 biSize              LONG BMP_DIB_HEADER_SIZE
 biWidth             LONG 0
-biHeight            LONG 10
+biHeight            LONG 0
 biPlanes            WORD BMP_PLANES
 biBitCount          WORD BMP_BIT_COUNT_24
 biCompression       LONG BMP_COMPRESSION_NONE
@@ -417,7 +450,7 @@ biYPelsPerMeter     LONG 0
 biClrUsed           LONG 0
 biClrImportant      LONG 0
 
-CON ' license
+CON ' ---- License ----
 
 {{
 
@@ -445,5 +478,4 @@ CON ' license
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
   SOFTWARE.
  =================================================================================================
-
 }}

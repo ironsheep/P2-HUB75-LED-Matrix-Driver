@@ -7,10 +7,9 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2026
-''   Updated.... 06 Oct 2026
+''   Updated.... 08 Oct 2026
 ''
 '' =================================================================================================
-
 
 CON ' ---- Timing ----
 
@@ -24,7 +23,6 @@ CON ' ---- Debug Settings ----
 
 CON ' ---- Boundary Test Geometry ----
 
-    CENTER_DIVISOR = 2                                            ' half of a span
     BOX_MARGIN_PIX = 4                                            ' gap between the spanning box and the display edge
     BOX_MARGIN_SIDES = 2                                          ' the margin is left on both sides of each span
     TEXT_LINE_DIVISOR = 8                                         ' text line = (number of text lines) / this
@@ -57,7 +55,7 @@ PUB main()
   chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
   ' startup our backend COG(s): one call per adapter (aborts if no cog is free)
-  display.start(hub75Bffrs.HUB75_ADAPTER_1)
+  display.start(display.HUB75_ADAPTER_1)
 
   demoBoundary()
   debug("END_SESSION")
@@ -90,8 +88,8 @@ PRI drawCrosshair() | centerRow, centerColumn, lastRow, lastColumn
 
   lastRow := hub75Bffrs.maxDisplayRows(chainIndex) - 1
   lastColumn := hub75Bffrs.maxDisplayColumns(chainIndex) - 1
-  centerRow := hub75Bffrs.maxDisplayRows(chainIndex) / CENTER_DIVISOR
-  centerColumn := hub75Bffrs.maxDisplayColumns(chainIndex) / CENTER_DIVISOR
+  centerRow := hub75Bffrs.maxDisplayRows(chainIndex) / display.CENTER_DIVISOR
+  centerColumn := hub75Bffrs.maxDisplayColumns(chainIndex) / display.CENTER_DIVISOR
 
   display.drawLineOfColor(centerRow, FIRST_COLUMN, centerRow, lastColumn, color.cWhite)
   display.drawLineOfColor(FIRST_ROW, centerColumn, lastRow, centerColumn, color.cWhite)
@@ -118,9 +116,9 @@ PRI drawCenterCircle() | centerRow, centerColumn, radius
 ' @local centerColumn - display column of the circle centre
 ' @local radius - circle radius in pixels
 
-  centerRow := hub75Bffrs.maxDisplayRows(chainIndex) / CENTER_DIVISOR
-  centerColumn := hub75Bffrs.maxDisplayColumns(chainIndex) / CENTER_DIVISOR
-  radius := hub75Bffrs.rowsPerPanel(chainIndex) / CENTER_DIVISOR
+  centerRow := hub75Bffrs.maxDisplayRows(chainIndex) / display.CENTER_DIVISOR
+  centerColumn := hub75Bffrs.maxDisplayColumns(chainIndex) / display.CENTER_DIVISOR
+  radius := hub75Bffrs.rowsPerPanel(chainIndex) / display.CENTER_DIVISOR
 
   display.drawCircleOfColor(centerRow, centerColumn, radius, color.cCyan)
 
@@ -136,7 +134,7 @@ PRI drawSeamText() | textLine, textColumn
   display.setTextColor(color.cGreen)
 
   textLine := display.numberTextLines() / TEXT_LINE_DIVISOR
-  textColumn := (display.numberTextColumns() - strsize(@seamMessage)) / CENTER_DIVISOR
+  textColumn := (display.numberTextColumns() - strsize(@seamMessage)) / display.CENTER_DIVISOR
 
   display.setCursor(textLine, textColumn)
   display.setTextAtCursor(@seamMessage)
@@ -154,8 +152,8 @@ PRI drawPanelLineOverEdge() | panelRows, panelColumns, lineRow, fromColumn, toCo
 
   panelRows, panelColumns := hub75Bffrs.cellSizeInPixels(chainIndex)
   lineRow := panelRows / PANEL_LINE_ROW_DIVISOR
-  fromColumn := panelColumns / CENTER_DIVISOR
-  toColumn := panelColumns + (panelColumns / CENTER_DIVISOR)
+  fromColumn := panelColumns / display.CENTER_DIVISOR
+  toColumn := panelColumns + (panelColumns / display.CENTER_DIVISOR)
 
   display.drawPanelLineOfColor(TEST_PANEL, lineRow, fromColumn, lineRow, toColumn, color.cRed)
 

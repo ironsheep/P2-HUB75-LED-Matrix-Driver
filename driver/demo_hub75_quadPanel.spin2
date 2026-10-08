@@ -1,21 +1,19 @@
 '' =================================================================================================
 ''
 ''   File....... demo_hub75_quadPanel.spin2
-''   Purpose.... Top-level Demonstration - showing off our HUB75 morganization of a quad-panel display
+''   Purpose.... Top-level Demonstration - showing off our HUB75 organization of a quad-panel display
 ''   Authors.... Stephen M Moraco
 ''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Feb 2025
-''   Updated.... 06 Oct 2026
+''   Updated.... 08 Oct 2026
 ''
 '' =================================================================================================
-
 
 CON ' ---- Timing ----
 
     CLK_FREQ = 335_000_000                                        ' system freq as a constant 2.985 nSec
-    'CLK_FREQ = 250_000_000                                        ' system freq as a constant 2.985 nSec
     _clkfreq = CLK_FREQ                                           ' set system clock
 
 CON ' ---- Debug Settings ----
@@ -25,9 +23,8 @@ CON ' ---- Debug Settings ----
 
 CON ' ---- Panel ID Layout ----
 
-    HUE_SPAN = 256                                                ' a hue is a 0..HUE_SPAN position around the colour circle
     PANEL_HUE_OFFSET = 1                                          ' each panel's hue is this many panels past its index
-    ASCII_ZERO = $30                                              ' the character '0'
+    ASCII_ZERO = $30                                              ' the character '0' (panel IDs are one digit: up to 10 panels)
     ARROW_ROW = 2                                                 ' panel text row of the up arrow
     ARROW_COLUMN = 7                                              ' panel text column of the up arrow
     ID_ROW = 4                                                    ' panel text row of the panel ID "Pn"
@@ -48,7 +45,6 @@ DAT ' ---- Panel Messages ----
 VAR ' ---- Per-instance State ----
 
     LONG    chainIndex
-    LONG    textSize
 
 PUB main()
 '' Start underlying drivers and run the panel identification demo.
@@ -59,7 +55,7 @@ PUB main()
   chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
   ' startup our backend COG(s): one call per adapter (aborts if no cog is free)
-  display.start(hub75Bffrs.HUB75_ADAPTER_1)
+  display.start(display.HUB75_ADAPTER_1)
 
   ' Run panel identification demo with centered numbers
   demoPanelColors()
@@ -76,25 +72,19 @@ PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, hueIndex
 ' @local panelColor - RGB color value for panel fill
 ' @local hueIndex - adjusted hue index for color selection
 
-  panelHueWidth := HUE_SPAN / hub75Bffrs.maxPanels(chainIndex)
+  panelHueWidth := colorUtils.DEGREES_PER_CIRCLE / hub75Bffrs.maxPanels(chainIndex)
 
   ' set up text subsystem
-  'textSize := display.TEXT_FONT_5x7
-  textSize := display.TEXT_FONT_8x8A
-  'textSize := display.TEXT_FONT_8x8B
-  display.setTextFont(textSize)                                   ' font size
+  display.setTextFont(display.TEXT_FONT_8x8A)                     ' font size
   display.setTextColor(color.cWhite)
   display.setCursor(0, 0)                                         ' start at top left, with one pixel of spacing
 
   ' start with blank screen on which to draw
   display.clearScreenBuffer()
 
-  panelIndex := 0
-
   ' color individual panels with CENTERED panel ID and up arrow
-  ' For 128x64 panel with 8x8 font: 16 chars wide, 8 chars tall
-  ' Center "Pn" (2 chars) at row 4, col 7
-  ' Arrow "^" above at row 2, col 7 (centered above the "P")
+  ' For a 128x64 panel with the 8x8 font: 16 chars wide, 8 chars tall, so the two-character
+  ' "Pn" sits at ID_COLUMN and the arrow "^" goes above the "P"
   repeat panelIndex from 0 to hub75Bffrs.maxPanels(chainIndex) - 1
     ' color the panel with distinct colors
     hueIndex := panelIndex + PANEL_HUE_OFFSET
@@ -103,11 +93,11 @@ PRI demoPanelColors() | panelIndex, panelHueWidth, panelColor, hueIndex
     panelColor := colorUtils.rgbColorFromDegrees(panelHueWidth * hueIndex)
     display.fillPanel(panelIndex, panelColor)
 
-    ' Draw up arrow CENTERED above panel number (row 2, col 7)
+    ' Draw up arrow CENTERED above panel number
     display.setCursorOnPanel(ARROW_ROW, ARROW_COLUMN, panelIndex)
     display.setTextAtCursor(@panelArrow)
 
-    ' Number the panel CENTERED (row 4, col 7 for "Pn")
+    ' Number the panel CENTERED
     display.setCursorOnPanel(ID_ROW, ID_COLUMN, panelIndex)
     BYTE [@panelIdMessage][1] := panelIndex + ASCII_ZERO
     display.setTextAtCursor(@panelIdMessage)

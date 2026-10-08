@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2026
-''   Updated.... 04 Oct 2026
+''   Updated.... 08 Oct 2026
 ''
 '' =================================================================================================
 
@@ -23,7 +23,9 @@
    The converters under test are the ones the driver runs, the MERGEB converters
    isp_hub75_panel.convertHalfScan() and convertQuarterScan(). The references are the converters
    they replaced, copied below unchanged (referenceHalfScan(), referenceQuarterScan()) and
-   called with the same geometry, depth and swaps.
+   called with the same geometry, depth and swaps. Their parameter and local names (lPanelCount,
+   panelCnt, lPhyRows and the like) are the old converters' own, kept as they were on purpose:
+   a renamed copy could no longer be called unchanged.
 
    Groups, each run for the half-scan geometries and then the quarter-scan ones:
      1 - every geometry, at depths 3-8, with no swap, RB swap, GB swap and both swaps: new
@@ -45,30 +47,28 @@
 '#DEFINE HUB75_CORRUPT_CONVERTER
 '#PRAGMA EXPORTDEF HUB75_CORRUPT_CONVERTER
 
-CON ' timing
+CON ' ---- Timing ----
 
     CLK_FREQ = 335_000_000                                        ' system freq as a constant
     _clkfreq = CLK_FREQ                                           ' set system clock
 
-CON ' DEBUG PINs
+CON ' ---- Debug Pins ----
 
     DEBUG_COGS = %11111111
     DEBUG_BAUD = 2_000_000
 
-CON ' test buffers
-
-    BYTES_PER_LONG          = 4
+CON ' ---- Test Buffers ----
 
     ' the largest geometry in the tables below (1x128x64, 4x64x32, 16x32x16)
     MAX_CASE_PIXELS         = 8192
 
     ' the reference converters RDLONG each pixel, so the last pixel's read runs past it
     RDLONG_OVERRUN_BYTES    = 4
-    SCREEN_LONGS            = (MAX_CASE_PIXELS * panel.PACKED_PIXEL_BYTES + RDLONG_OVERRUN_BYTES) / BYTES_PER_LONG
+    SCREEN_LONGS            = (MAX_CASE_PIXELS * panel.PACKED_PIXEL_BYTES + RDLONG_OVERRUN_BYTES) / hub75Bffrs.BYTES_PER_LONG
 
     ' one frame holds one byte per column clock, and each byte carries two pixels
-    MAX_FRAME_BYTES         = MAX_CASE_PIXELS / panel.HALF_DIVISOR * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
-    MAX_SET_BYTES           = MAX_FRAME_BYTES * hwEnum.DEPTH_8BIT
+    MAX_FRAME_BYTES         = MAX_CASE_PIXELS / matrix.HALF_DIVISOR * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
+    MAX_SET_BYTES           = MAX_FRAME_BYTES * hub75Bffrs.DEPTH_8BIT
 
     ' bytes checked on each side of the frame set under test for stray writes
     GUARD_BYTES             = 64
@@ -80,13 +80,14 @@ CON ' test buffers
     ' compareSets() first-difference result when the sets match
     NO_DIFFERENCE           = -1
 
-CON ' case records
+CON ' ---- Case Records ----
 
     ' a geometry (one row of a geometry table):
     '  GEO_SCAN    - SCAN_HALF or SCAN_QUARTER: which converter pair runs
     '  GEO_PANELS  - panels on the adapter (buffer slots)
     '  GEO_COLUMNS - pixel columns per panel
     '  GEO_ROWS    - pixel rows per panel
+    '  GEO_LONGS   - longs in one geometry record
     #0, GEO_SCAN, GEO_PANELS, GEO_COLUMNS, GEO_ROWS, GEO_LONGS
 
     ' scan kinds:
@@ -116,7 +117,7 @@ CON ' case records
     ' the old quarter-scan set-up: three quarters of the panel rows
     QUARTERS_IN_THREE_QUARTERS = 3
 
-CON ' pseudo-random image (xorshift32)
+CON ' ---- Pseudo-random Image (xorshift32) ----
 
     RANDOM_SEED             = $2545_F491
     XORSHIFT_LEFT_FIRST     = 13
@@ -127,7 +128,7 @@ OBJ
 
     panel       : "isp_hub75_panel"
     hub75Bffrs  : "isp_hub75_hwBufferAccess"
-    hwEnum      : "isp_hub75_hwEnums"
+    matrix      : "isp_hub75_rgb3bit"
 
 DAT ' ---- geometries ----
 
@@ -171,12 +172,12 @@ refFrameSet     BYTE    0[MAX_SET_BYTES]                          ' the referenc
 guardBefore     BYTE    0[GUARD_BYTES]                            ' must stay NEW_FILL: just before the set under test
 newFrameSet     BYTE    0[MAX_SET_BYTES + GUARD_BYTES]            ' the frame set under test, then room for its guard
 
-VAR
+DAT ' ---- Test State (singleton) ----
 
-    LONG    caseCount                                             ' cases run so far
-    LONG    passCount                                             ' cases that passed
-    LONG    failCount                                             ' cases that failed
-    LONG    randomState                                           ' xorshift32 state
+caseCount       LONG    0                                         ' cases run so far
+passCount       LONG    0                                         ' cases that passed
+failCount       LONG    0                                         ' cases that failed
+randomState     LONG    0                                         ' xorshift32 state
 
 PUB main()
 '' Fill the image, run every case, print one PASS or FAIL line per case, then the total, the
@@ -223,14 +224,14 @@ PRI runEquivalenceCases(pFirst, pEnd) | pGeometry, planeCnt, swapMode, eReferenc
 
   pGeometry := pFirst
   repeat while pGeometry < pEnd
-    repeat planeCnt from hwEnum.DEPTH_3BIT to hwEnum.DEPTH_8BIT
+    repeat planeCnt from hub75Bffrs.DEPTH_3BIT to hub75Bffrs.DEPTH_8BIT
       repeat swapMode from SWAP_NONE to SWAP_BOTH
         if swapMode == SWAP_BOTH
           eReference := SRC_EXPECTED                            ' the old converter is wrong with both swaps
         else
           eReference := SRC_OLD
         runCase(pGeometry, planeCnt, swapMode, SRC_NEW, eReference)
-    pGeometry += GEO_LONGS * BYTES_PER_LONG
+    pGeometry += GEO_LONGS * hub75Bffrs.BYTES_PER_LONG
 
 PRI runBuilderChecks(pFirst, pEnd) | pGeometry, swapMode
 ' Group 2: run the expected-set builder on each geometry at depth 8, with each single swap and
@@ -246,8 +247,8 @@ PRI runBuilderChecks(pFirst, pEnd) | pGeometry, swapMode
   pGeometry := pFirst
   repeat while pGeometry < pEnd
     repeat swapMode from SWAP_NONE to SWAP_GB
-      runCase(pGeometry, hwEnum.DEPTH_8BIT, swapMode, SRC_EXPECTED, SRC_OLD)
-    pGeometry += GEO_LONGS * BYTES_PER_LONG
+      runCase(pGeometry, hub75Bffrs.DEPTH_8BIT, swapMode, SRC_EXPECTED, SRC_OLD)
+    pGeometry += GEO_LONGS * hub75Bffrs.BYTES_PER_LONG
 
 PRI runCase(pGeometry, planeCnt, swapMode, eTested, eReference) | frameBytes, setBytes, diffCount, outsideCount, firstDiff, bPass
 ' Run one case: the reference into refFrameSet, the source under test into newFrameSet, then
@@ -286,7 +287,7 @@ PRI runCase(pGeometry, planeCnt, swapMode, eTested, eReference) | frameBytes, se
     printCase(pGeometry, planeCnt, swapMode, eTested, eReference, bPass, diffCount, outsideCount)
     if firstDiff <> NO_DIFFERENCE
       printFirstDifference(firstDiff, frameBytes, eTested, eReference)
-  if bPass
+  if bPass == TRUE
     passCount++
   else
     failCount++
@@ -334,7 +335,7 @@ PRI compareSets(setBytes) : diffCount, firstDiff | offset
 ' Compare the frame set under test with the reference set, byte for byte.
 '
 ' @param setBytes - bytes in the frame set of this case
-' @returns diffCount - bytes that differ
+' @returns diffCount - bytes of the set that differ
 ' @returns firstDiff - offset of the first differing byte, or NO_DIFFERENCE
 
 ' Local Variables:
@@ -352,7 +353,7 @@ PRI countOutside(setBytes) : outsideCount | offset
 ' Count the guard bytes on each side of the frame set under test that are no longer NEW_FILL.
 '
 ' @param setBytes - bytes in the frame set of this case
-' @returns outsideCount - guard bytes changed
+' @returns outsideCount - guard bytes the source under test changed
 
 ' Local Variables:
 ' @local offset - offset of the guard byte being checked
@@ -384,7 +385,7 @@ PRI printCase(pGeometry, planeCnt, swapMode, eTested, eReference, bPass, diffCou
 ' @local pReference - name of the reference source
 
   pVerdict := @"FAIL"
-  if bPass
+  if bPass == TRUE
     pVerdict := @"PASS"
   pScan := scanText(LONG[pGeometry][GEO_SCAN])
   pSwap := swapText(swapMode)
@@ -437,7 +438,7 @@ PRI buildExpected(pScreen, pFrameSet, eScan, panelCnt, panelCols, panelRows, pla
 ' @local pinIdx - pin being built (R, G, B)
 ' @local srcIdx - channel byte the pin shows
 
-  halfRows := panelRows / panel.HALF_DIVISOR
+  halfRows := panelRows / matrix.HALF_DIVISOR
   frameBytes := halfRows * panelCnt * panelCols * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
   rowBytes := panelCols * panel.PACKED_PIXEL_BYTES
   repeat scanRow from 0 to halfRows - 1
@@ -517,7 +518,7 @@ PRI referenceHalfScan(p24bitScreen, pPwmFrameSet, lPanelCount, lPanelCols, lPane
 ' NOTE: 16 longs total avail to inline pasm: params + return + local
 '  --> 14/16 used
 
-  lHalfPanelRows          := lPanelRows / panel.HALF_DIVISOR
+  lHalfPanelRows          := lPanelRows / matrix.HALF_DIVISOR
   lPanelRowBytes          := lPanelCols * lDisplayBytesPerColor
   lHalfPanelBytes         := lHalfPanelRows * lPanelRowBytes
   lPanelSkipBytes         := (lPanelRows - 1) * lPanelRowBytes
@@ -687,7 +688,7 @@ PRI referenceQuarterScan(p24bitScreen, pPwmFrameSet, lPanelCount, lPanelCols, lP
 '  --> 16/16 used
 
   lOne4thLineCt           := lPhyRows / panel.QUARTER_DIVISOR
-  lOneHalfLineCt          := lPhyRows / panel.HALF_DIVISOR
+  lOneHalfLineCt          := lPhyRows / matrix.HALF_DIVISOR
   lThree4thsLineCt        := (lPhyRows / panel.QUARTER_DIVISOR) * QUARTERS_IN_THREE_QUARTERS
   lPanelSkipBytes         := (lPhyRows - 1) * lPanelCols * lDisplayBytesPerColor
   lPwmAddrRowBytes        := hub75Bffrs.SCAN_4_COLUMN_FACTOR * lPanelCount * lPanelCols * hub75Bffrs.BYTES_PER_COLUMN_CLOCK ' as the refresh core sizes one row address
@@ -922,15 +923,15 @@ PRI frameBytesOf(pGeometry) : frameBytes
 ' Return the bytes in one frame (bit plane) of a geometry: one byte per column clock, for half
 ' the panel rows of every panel (the configuration's DISPn_PWM_FRAME_SIZE_IN_BYTES).
 '
-' @param pGeometry - address of the geometry
+' @param pGeometry - address of the case's geometry
 ' @returns frameBytes - bytes in one frame
 
-  frameBytes := pixelsOf(pGeometry) / panel.HALF_DIVISOR * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
+  frameBytes := pixelsOf(pGeometry) / matrix.HALF_DIVISOR * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
 
 PRI pixelsOf(pGeometry) : pixelCount
 ' Return the pixels on all the panels of a geometry.
 '
-' @param pGeometry - address of the geometry
+' @param pGeometry - address of the case's geometry
 ' @returns pixelCount - panels x columns x rows
 
   pixelCount := LONG[pGeometry][GEO_PANELS] * LONG[pGeometry][GEO_COLUMNS] * LONG[pGeometry][GEO_ROWS]
@@ -993,7 +994,7 @@ PRI sourceText(eSource) : pName
     other:
       pName := @"unknown"
 
-CON { license }
+CON ' ---- License ----
 
 {{
 

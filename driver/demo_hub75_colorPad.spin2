@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Apr 2022
-''   Updated.... 06 Oct 2026
+''   Updated.... 08 Oct 2026
 ''
 '' =================================================================================================
 
@@ -27,6 +27,14 @@ CON ' ---- Demo Timing ----
     PARALLAX_TRIM       = 1                                         ' seconds the Parallax screen is held for less than a pause
     PAD_HOLD_PAUSES     = 20                                        ' the RGB pads are held for this many pauses
     MS_PER_SECOND       = 1000
+
+CON ' ---- Text Layout ----
+
+    LINE_0              = 0                                         ' text line numbers, counted from the top
+    LINE_1              = 1
+    LINE_2              = 2
+    LINE_3              = 3
+    FIRST_COLUMN        = 0                                         ' text lines start at the left edge
 
 CON ' ---- RGB Pads Layout ----
 
@@ -51,7 +59,7 @@ CON ' ---- Colour Arithmetic ----
 
     CHANNEL_MAX         = 255                                       ' full brightness of one colour channel
     DECIMAL_BASE        = 10
-    HUNDRED             = 100                                       ' divisor for the hundreds digit of a frame count
+    HUNDREDS_PLACE      = 100                                       ' place value of the hundreds digit of a frame count
     ASCII_SPACE         = $20
     ASCII_ZERO          = $30                                       ' the character '0'
 
@@ -72,8 +80,8 @@ CON ' ---- Test Pattern Layout ----
     BW_SKIP_ROWS        = 3                                         ' rows of the grey ramp left black
     BW_RAMP_STEP        = 2                                         ' grey level step along the ramp
     BW_ROW_WIDTH        = 10                                        ' pixels per row of the grey ramp
-    KROW_HEIGHT_IN_PIX  = 11                                        ' mini panel row spacing
-    KCOL_WIDTH_IN_PIX   = 16                                        ' mini panel column spacing
+    MINI_ROW_HEIGHT     = 11                                        ' mini panel row spacing
+    MINI_COL_WIDTH      = 16                                        ' mini panel column spacing
 
     SWEEP_FIRST_ROW     = 2                                         ' top row of the first colour sweep
 
@@ -94,7 +102,6 @@ DAT ' ---- Demo Data ----
 VAR ' ---- Per-instance State ----
 
     LONG    chainIndex
-    LONG    demoPausePeriod
 
 PUB main()
 '' Start underlying drivers and run demo.
@@ -103,18 +110,14 @@ PUB main()
   chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
   ' startup our backend COG(s): one call per adapter (aborts if no cog is free)
-  display.start(hub75Bffrs.HUB75_ADAPTER_1)
-
-  demoPausePeriod := DEMO_PAUSE_SECONDS                 ' seconds (time for current meas. to settle)
+  display.start(display.HUB75_ADAPTER_1)
 
   ' NOTE: for focused testing of some aspect of the driver/panel, call any of these in place of
   '  the demo below, followed by "repeat": demoColorPalette12Panels(), demoText(),
   '  showFullColorSweep(), show18scanColorCheck5() or show18scanColorCheck().
 
   demoParallax()
-  waitSec(demoPausePeriod - PARALLAX_TRIM)
-
-  display.clearScreen()
+  waitSec(DEMO_PAUSE_SECONDS - PARALLAX_TRIM)
 
   ' put up the RGB pads
   display.clearScreen()
@@ -130,7 +133,7 @@ PUB main()
 
   display.commitScreenToPanelSet()
 
-  waitSec(demoPausePeriod * PAD_HOLD_PAUSES)
+  waitSec(DEMO_PAUSE_SECONDS * PAD_HOLD_PAUSES)
 
   display.stop()
 
@@ -170,8 +173,8 @@ PRI demoParallax() | rtCol, ltCol, topRow, botRow, panelRows, panelColumns
   display.drawLineOfColor(topRow, ltCol, botRow, ltCol, color.cRed)             ' left line
   display.drawLineOfColor(topRow, rtCol, botRow, rtCol, color.cMagenta)         ' right line
   display.drawLineOfColor(botRow, ltCol, botRow, rtCol, color.cGreen)           ' bottom Line
-  display.setColoredTextAtLnCol(1, 0, string(" Parallax"), color.cBlue)
-  display.setColoredTextAtLnCol(2, 0, string("Propeller2"), color.cBlue)
+  display.setColoredTextAtLnCol(LINE_1, FIRST_COLUMN, string(" Parallax"), color.cBlue)
+  display.setColoredTextAtLnCol(LINE_2, FIRST_COLUMN, string("Propeller2"), color.cBlue)
   display.commitScreenToPanelSet()
 
 PRI demoText() | frameCount
@@ -185,7 +188,7 @@ PRI demoText() | frameCount
 
   display.setTextFont(display.TEXT_FONT_5x7)            ' font size
   display.setCursor(0, 0)                               ' start at top left, with one pixel of spacing
-  display.setColoredTextAtLnCol(0,0, string("iron sheep"), color.cMaroon)
+  display.setColoredTextAtLnCol(LINE_0, FIRST_COLUMN, string("iron sheep"), color.cMaroon)
 
   frameCount := hub75Bffrs.pwmFrameCount(chainIndex)
   case hub75Bffrs.colorDepth(chainIndex)
@@ -194,18 +197,18 @@ PRI demoText() | frameCount
       pwmMsg.BYTE[1] := ASCII_SPACE
       pwmMsg.BYTE[2] := ASCII_ZERO + frameCount
     hub75Bffrs.DEPTH_7BIT,hub75Bffrs.DEPTH_8BIT:
-      pwmMsg.BYTE[0] := ASCII_ZERO + (frameCount / HUNDRED)
-      pwmMsg.BYTE[1] := ASCII_ZERO + ((frameCount // HUNDRED) / DECIMAL_BASE)
-      pwmMsg.BYTE[2] := ASCII_ZERO + ((frameCount // HUNDRED) // DECIMAL_BASE)
+      pwmMsg.BYTE[0] := ASCII_ZERO + (frameCount / HUNDREDS_PLACE)
+      pwmMsg.BYTE[1] := ASCII_ZERO + ((frameCount // HUNDREDS_PLACE) / DECIMAL_BASE)
+      pwmMsg.BYTE[2] := ASCII_ZERO + ((frameCount // HUNDREDS_PLACE) // DECIMAL_BASE)
     other:
       pwmMsg.BYTE[0] := ASCII_SPACE
       pwmMsg.BYTE[1] := ASCII_ZERO + (frameCount / DECIMAL_BASE)
       pwmMsg.BYTE[2] := ASCII_ZERO + (frameCount // DECIMAL_BASE)
   bitCt.BYTE[0] := hub75Bffrs.colorDepth(chainIndex) + ASCII_ZERO
 
-  display.setColoredTextAtLnCol(1,0, @bitMsg, color.cOrange)
-  display.setColoredTextAtLnCol(2,0, @pwmMsg, color.cRainbow)
-  display.setColoredTextAtLnCol(3,0, string("led matrix"), color.cWhite)
+  display.setColoredTextAtLnCol(LINE_1, FIRST_COLUMN, @bitMsg, color.cOrange)
+  display.setColoredTextAtLnCol(LINE_2, FIRST_COLUMN, @pwmMsg, color.cRainbow)
+  display.setColoredTextAtLnCol(LINE_3, FIRST_COLUMN, string("led matrix"), color.cWhite)
   display.commitScreenToPanelSet()
 
 PRI show18scanColorCheck()
@@ -285,7 +288,7 @@ PRI demoColorPalette12Panels() | red, panelNumber
 ' @local red - current red channel level
 ' @local panelNumber - index of current mini panel
 
-  ' 10x10x10 COLOR PANELs + BW panel
+  ' 11x10x10 COLOR PANELs + BW panel
 
   panelNumber := 0
   repeat red from 0 TO CHANNEL_MAX step PALETTE_STEP
@@ -297,7 +300,7 @@ PRI demoColorPalette12Panels() | red, panelNumber
 PRI generateGreenBluePanelAgainst(panelNumber, red) | panelRow, panelCol, row, col, green, blue, startCol
 ' Generate a green-blue gradient mini panel at the given red level.
 '
-' @param panelNumber - index of the mini panel (0-11)
+' @param panelNumber - index of the mini panel (0-10)
 ' @param red - fixed red channel value for this panel
 
 ' Local Variables:
@@ -311,8 +314,8 @@ PRI generateGreenBluePanelAgainst(panelNumber, red) | panelRow, panelCol, row, c
 
   panelRow := panelNumber / PALETTE_PER_ROW
   panelCol := panelNumber // PALETTE_PER_ROW
-  row := panelRow * KROW_HEIGHT_IN_PIX
-  startCol := col := panelCol * KCOL_WIDTH_IN_PIX
+  row := panelRow * MINI_ROW_HEIGHT
+  startCol := col := panelCol * MINI_COL_WIDTH
   repeat green from 0 TO PALETTE_LAST step PALETTE_STEP
     repeat blue from 0 TO PALETTE_LAST step PALETTE_STEP
       pixels.drawPixelAtRC(chainIndex, row, col, colorUtils.cValueForRGB(red, green, blue))
@@ -339,13 +342,13 @@ PRI generateBWPanel(panelNumber) | panelRow, panelCol, row, col, red, green, blu
 
   panelRow := panelNumber / PALETTE_PER_ROW
   panelCol := panelNumber // PALETTE_PER_ROW
-  startRow := (panelRow * KROW_HEIGHT_IN_PIX)
+  startRow := (panelRow * MINI_ROW_HEIGHT)
   row := startRow - BW_SKIP_ROWS                        ' skip black rows
-  startCol := col := panelCol * KCOL_WIDTH_IN_PIX
+  startCol := col := panelCol * MINI_COL_WIDTH
   colCtr := 0
   repeat green from 0 TO CHANNEL_MAX step BW_RAMP_STEP
     red := blue := green
-    if NOT row < startRow
+    if row >= startRow
       pixels.drawPixelAtRC(chainIndex, row, col, colorUtils.cValueForRGB(red, green, blue))
     col++
     colCtr++
@@ -393,7 +396,7 @@ PRI showFullColorSweep() | row, col, red, green, blue, panelColumns
       row++
       col := 0
   red := green := blue := 0
-  repeat red from 0 TO CHANNEL_MAX                      ' YELLOW'
+  repeat red from 0 TO CHANNEL_MAX                      ' YELLOW
     green := red
     pixels.drawPixelAtRC(chainIndex, row, col, colorUtils.cValueForRGB(red, green, blue))
     col++

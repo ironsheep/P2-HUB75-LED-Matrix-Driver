@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... May 2021
-''   Updated.... 06 Oct 2026
+''   Updated.... 08 Oct 2026
 ''
 '' =================================================================================================
 
@@ -15,10 +15,6 @@ CON ' ---- Timing ----
 
     CLK_FREQ  = 320_000_000                                         ' system freq as a constant
     _CLKFREQ  = CLK_FREQ                                            ' set system clock
-
-CON ' ---- DEBUG Pins ----
-
-' DEBUG_PIN = 0
 
 CON ' ---- I/O Pins ----
 
@@ -55,8 +51,6 @@ CON ' ---- I/O Pins ----
     MTX_LED_PIN_CLK      = MTX_LED_BASE_PIN + 0
 
     MTX_ROW_ADDR_PINS    = MTX_LED_PIN_A ADDPINS 4                  ' TESTING use 4 for ABCDE, 3 for ABCD
-
-    MTX_COLOR_PINS       = MTX_LED_PIN_R1 ADDPINS 5
 
     MTX_COLOR_RGB1_PINS  = MTX_LED_PIN_R1 ADDPINS 2
     MTX_COLOR_RGB2_PINS  = MTX_LED_PIN_R2 ADDPINS 2
@@ -98,9 +92,9 @@ PUB start() | addr, rgb1, rgb2, ctl, ctr
     repeat ctr from 0 to MAX_16PIN_VALUE
       pinwrite(MTX_16PINS, ctr)
     pinwrite(MTX_16PINS, 0)
-    waitms(HOLD_DELAY_MS)  ' 1 second
+    waitms(HOLD_DELAY_MS)
     pinwrite(MTX_16PINS, MAX_16PIN_VALUE)
-    waitms(HOLD_DELAY_MS)  ' 1 second
+    waitms(HOLD_DELAY_MS)
 
   ' check all hub75 signal pins by group
   repeat
@@ -122,11 +116,9 @@ PUB start() | addr, rgb1, rgb2, ctl, ctr
     pinfloat(MTX_COLOR_RGB1_PINS)
     pinfloat(MTX_COLOR_RGB2_PINS)
 
-    waitms(CYCLE_DELAY_MS)  ' 3/1000 seconds
+    waitms(CYCLE_DELAY_MS)
 
-
-
-CON ' license
+CON ' ---- License ----
 {{
  -------------------------------------------------------------------------------------------------
   MIT License

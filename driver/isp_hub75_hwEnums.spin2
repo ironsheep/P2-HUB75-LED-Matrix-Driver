@@ -7,28 +7,35 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Nov 2022
-''   Updated.... 06 Oct 2026
+''   Updated.... 08 Oct 2026
 ''
 '' =================================================================================================
-'
-'  Interface constants used to describe HUB75 panel connection and configuration
 
-CON ' Hardware Interface Constants
+{
+  Interface constants used to describe HUB75 panel connection and configuration
+}
+
+CON ' ---- Hardware Interface Constants ----
     {Spin2_Doc_CON}
 
 ' ---- (1) HUB75 Pin Group: where the P2 EVAL HUB75 Adapter is plugged in ----
 '  A HUB75 adapter is a 16-pin board; it mounts on one 16-pin group. The pin range
 '  is carried in each name, so no math is needed to know which pins are involved.
 '  PIN_GROUP_P48_P63 is NOT provided: pins 48-63 overlap the P2's predefined (reserved) pins.
-    #0[16], PIN_GROUP_P0_P15, PIN_GROUP_P16_P31, PIN_GROUP_P32_P47
+'  Allocation: quantity. The value is the group's base pin (0, 16, 32), used in pin arithmetic.
+    PINS_PER_GROUP = 16                                         ' pins in one HUB75 pin group
+    #0[PINS_PER_GROUP], PIN_GROUP_P0_P15, PIN_GROUP_P16_P31, PIN_GROUP_P32_P47
 
 '  (2) how many HUB75 boards are you connecting?
-'  HUB75 adapter identifiers (each step is HUB75_ADAPTER_STEP apart):
-'   HUB75_ADAPTER_1 - first  HUB75 adapter card
-'   HUB75_ADAPTER_2 - second HUB75 adapter card
-'   HUB75_ADAPTER_3 - third  HUB75 adapter card
+'  HUB75 adapter identifiers (each step is HUB75_ADAPTER_STEP apart; the values are not meant to be written):
+'   HUB75_ADAPTER_1 (10) - first  HUB75 adapter card
+'   HUB75_ADAPTER_2 (20) - second HUB75 adapter card
+'   HUB75_ADAPTER_3 (30) - third  HUB75 adapter card
+'  HUB75_ADAPTER_BASE is the first identifier (the same value as HUB75_ADAPTER_1).
+'  Allocation: distinct identity. The identifiers are 10, 20 and 30 so that an adapter identifier is
+'  never mistaken for a chain index (0 .. 2); indexForHub75ChainId() converts one to the other.
     HUB75_ADAPTER_STEP = 10
-    #10[10], HUB75_ADAPTER_1, HUB75_ADAPTER_2, HUB75_ADAPTER_3
+    #HUB75_ADAPTER_STEP[HUB75_ADAPTER_STEP], HUB75_ADAPTER_1, HUB75_ADAPTER_2, HUB75_ADAPTER_3
     HUB75_ADAPTER_BASE = HUB75_ADAPTER_1
 
 '  (3) rotation values
@@ -40,11 +47,13 @@ CON ' Hardware Interface Constants
 '   ROT_90      - rotate content 90 degrees clockwise
 '   ROT_180     - rotate content 180 degrees
 '   ROT_270     - rotate content 270 degrees clockwise
+'  Allocation: distinct identity. The values start at $20, clear of the adapter identifiers
+'  (10 .. 30) and of the chain indexes (0 .. 2), so a rotation is never mistaken for either.
     #$20, ROT_UNKNOWN, ROT_0, ROT_90, ROT_180, ROT_270
-    ' couple more aliases for convenience
-    ROT_NONE = ROT_0
-    ROT_LEFT_90 = ROT_270
-    ROT_RIGHT_90 = ROT_90
+    ' aliases of the values above, kept for v3 configs (prefer ROT_0, ROT_270 and ROT_90):
+    ROT_NONE = ROT_0                                            ' alias kept for v3 configs; prefer ROT_0
+    ROT_LEFT_90 = ROT_270                                       ' alias kept for v3 configs; prefer ROT_270
+    ROT_RIGHT_90 = ROT_90                                       ' alias kept for v3 configs; prefer ROT_90
 '  For DISPn_ROTATION the value is physical, how the whole display is mounted:
 '   ROT_RIGHT_90 = hung turned 90 degrees clockwise, ROT_LEFT_90 = counter-clockwise;
 '   the driver turns the content so it reads upright as mounted.
@@ -63,8 +72,11 @@ CON ' Hardware Interface Constants
 '   CHIP_MBI5124GP               - MBI5124GP driver chip
 '   CHIP_GS6238S                 - GS6238S driver chip
 '   CHIP_DP5125D                 - DP5125D driver chip
+'  Allocation: arbitrary. The chip selections start at 0 (CHIP_UNKNOWN, unset) and occupy the low
+'  byte (CHIP_TYPE_MASK); the config flags below start at $100, so a chip selection and the flags
+'  OR'd onto CHIP_MANUAL_SPEC never share bits.
     #0, CHIP_UNKNOWN, CHIP_MANUAL_SPEC, CHIP_FM6126A, CHIP_FM6124, CHIP_UNK_LAT_END_ENCL, CHIP_ICN2037, ...
-    CHIP_ICN2038S, CHIP_UNK_LAT_END_ENCL_SLO_CLK, CHIP_MBI5124GP, CHIP_GS6238S, CHIP_DP5125D
+        CHIP_ICN2038S, CHIP_UNK_LAT_END_ENCL_SLO_CLK, CHIP_MBI5124GP, CHIP_GS6238S, CHIP_DP5125D
 
 ' Normal use:
 '   PANEL_DRIVER_CHIP = CHIP_FM6126A
@@ -89,6 +101,7 @@ CON ' Hardware Interface Constants
 '   RB_SWAP             ($1000) - swap red and blue color channels
 '   SCAN_4              ($2000) - 1/4 scan panel addressing
 '   GB_SWAP             ($4000) - swap green and blue color channels
+'  Allocation: bit field. Each flag is one bit above the chip byte, so flags combine with |.
     #$100, LAT_STYLE_OFFSET, #$200, LAT_POSN_OVERLAP, #$400, INIT_PANEL_REQUIRED, #$1000, RB_SWAP, #$2000, SCAN_4, #$4000, GB_SWAP
 
 '  (5) Describe the overall layout of your hardware panel(s):
@@ -98,6 +111,8 @@ CON ' Hardware Interface Constants
 '   ADDR_ABC     - 3 address lines (A-B-C)
 '   ADDR_ABCD    - 4 address lines (A-B-C-D)
 '   ADDR_ABCDE   - 5 address lines (A-B-C-D-E)
+'  Allocation: quantity. The value is the number of address lines (ADDR_ABC = 3), used in arithmetic;
+'  ADDR_UNKNOWN (2) is below the supported range.
     #2, ADDR_UNKNOWN, ADDR_ABC, ADDR_ABCD, ADDR_ABCDE
 
 '  (6) Describe the color depth you'd like to display:
@@ -109,6 +124,7 @@ CON ' Hardware Interface Constants
 '   DEPTH_6BIT - 6 bits per color channel
 '   DEPTH_7BIT - 7 bits per color channel
 '   DEPTH_8BIT - 8 bits per color channel
+'  Allocation: quantity. The value is the number of bits per channel (DEPTH_3BIT = 3), used in arithmetic.
     #3, DEPTH_3BIT, DEPTH_4BIT, DEPTH_5BIT, DEPTH_6BIT, DEPTH_7BIT, DEPTH_8BIT
 
 '  (7) Cube faces (a display with DISPn_SHAPE = SHAPE_CUBE):
@@ -127,12 +143,14 @@ CON ' Hardware Interface Constants
 '
 '  Face coordinates (face, row, column): every face is seen from outside the cube,
 '  row 0 is the face's up edge and column 0 its left edge.
-'  STABLE -- the image-mapping sprint depends on these up directions:
+'  STABLE -- display code and the cube layer depend on these up directions:
 '   FRONT, BACK, LEFT, RIGHT - up points toward TOP
 '   TOP                      - up points toward BACK, so that standing at FRONT, text on TOP reads correctly
 '   BOTTOM                   - up points toward FRONT
 '  The 12 edges: FRONT-TOP, FRONT-RIGHT, FRONT-BOTTOM, FRONT-LEFT, BACK-TOP, BACK-LEFT,
 '  BACK-BOTTOM, BACK-RIGHT, LEFT-TOP, LEFT-BOTTOM, RIGHT-TOP and RIGHT-BOTTOM.
+'  Allocation: distinct identity. The face identifiers start at $50, apart from the rotations ($20 ..)
+'  and the shapes ($60 ..), so a face is never mistaken for either.
 #$50, FACE_TOP, FACE_BOTTOM, FACE_FRONT, FACE_BACK, FACE_LEFT, FACE_RIGHT
 
 '  (8) Wiring words: the words of the per-panel sentences DISPn_C0 .. DISPn_C15
@@ -152,6 +170,7 @@ CON ' Hardware Interface Constants
 '   FIRST_PANEL - bit 24:     this is C0, the panel the adapter plugs into
 '   NO_PANEL    - bit 25:     no panel at this cable position
 '
+'  Allocation: bit field. See the table above; each kind of word has its own bits.
 '  Join the words with | only, never +: C2 + C2 silently becomes C3.
 '  The C0 .. C15 words also name a cable position in DISPn_CUBE_TOP and DISPn_CUBE_FRONT.
 
@@ -208,13 +227,41 @@ CON ' Hardware Interface Constants
 '  (9) Display shape (DISPn_SHAPE):
 '   SHAPE_FLAT - the panels form one flat display; DISPn_ROTATION applies
 '   SHAPE_CUBE - six square panels form a cube; DISPn_CUBE_TOP and DISPn_CUBE_FRONT apply
+'  Allocation: distinct identity. The shapes start at $60, apart from the faces ($50 ..) and the
+'  rotations ($20 ..).
     #$60, SHAPE_FLAT, SHAPE_CUBE
+
+CON ' ---- Status Codes ----
+    {Spin2_Doc_CON}
+
+'  Status codes returned by the driver methods that perform an operation
+'  (allocation: arbitrary; SUCCESS is 0 and each error is a distinct negative number):
+'   SUCCESS             (0)  - the operation was done
+'   E_FRAMESET_NULL     (-1) - a frame set was expected and the address given was NULL
+'   E_FRAMESET_FOREIGN  (-2) - the frame set is not one of the adapter's own frame sets
+'   E_BAD_ROTATION      (-3) - the content rotation is not ROT_NONE, ROT_RIGHT_90, ROT_LEFT_90 or ROT_180
+'   E_BMP_NOT_24BIT     (-4) - the BMP file is not an uncompressed 24-bit image
+'   E_NOT_ONE_BLOCK     (-5) - the glyph does not lie wholly inside one panel, so it was not drawn as one block
+    SUCCESS             = 0
+    E_FRAMESET_NULL     = -1
+    E_FRAMESET_FOREIGN  = -2
+    E_BAD_ROTATION      = -3
+    E_BMP_NOT_24BIT     = -4
+    E_NOT_ONE_BLOCK     = -5
+
+CON ' ---- Memory Units ----
+    {Spin2_Doc_CON}
+
+'  Defined here once, because this is the lowest object that the configuration file, the buffer
+'  objects and the test programs can all see (the configuration file cannot see the driver):
+'   BYTES_PER_LONG - bytes in a LONG (a quantity, used in arithmetic)
+    BYTES_PER_LONG      = 4
 
 PUB null()
 '' This is not a top level object
 ''
 
-CON ' license
+CON ' ---- License ----
 
 {{
 

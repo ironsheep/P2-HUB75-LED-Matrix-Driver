@@ -7,27 +7,39 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Nov 2022
-''   Updated.... 06 Oct 2026
+''   Updated.... 08 Oct 2026
 ''
 '' =================================================================================================
-'
-' -----------------
-' User Setup Notes:
-' -----------------
-'   Nothing in this file needs editing.  The buffers for all three HUB75 adapter boards are always present,
-'   and each is sized from that adapter's wiring sentences in isp_hub75_hwPanelConfig.spin2.
-'
-'   An adapter whose DISPn_C0 is NO_PANEL has no panels: its buffers are zero length and cost no memory.
+
+{
+  -----------------
+  User Setup Notes:
+  -----------------
+    Nothing in this file needs editing.  The buffers for all three HUB75 adapter boards are always present,
+    and each is sized from that adapter's wiring sentences in isp_hub75_hwPanelConfig.spin2.
+
+    An adapter whose DISPn_C0 is NO_PANEL has no panels: its buffers are zero length and cost no memory.
+}
+
+CON ' ---- Buffer Table Slots ----
+
+' The three pointers each adapter's table holds, in order:
+'   BUFFER_SLOT_SCREEN    - the screen buffer
+'   BUFFER_SLOT_FRAMESET1 - PWM Frame-Set 1
+'   BUFFER_SLOT_FRAMESET2 - PWM Frame-Set 2
+    #0, BUFFER_SLOT_SCREEN, BUFFER_SLOT_FRAMESET1, BUFFER_SLOT_FRAMESET2
 
 OBJ
 
     hwEnum      : "isp_hub75_hwEnums"                               ' hub75 attachment, set up constants
     user        : "isp_hub75_hwPanelConfig"                         ' panel(s) size and layout per adapter
 
-DAT  ' Large Buffers for each HUB75 adapter/chain of panels
+DAT ' ---- Large Buffers per HUB75 adapter ----
 
 ' allocating one or more screens of pixels of 24bit color
 ' our screen bitmap of RGB colors (pwm bit lengths ;-)
+' 1st HUB75 adapter board: zero length when DISP0_C0 is NO_PANEL
+' sigFront, sigBack and sigBack1 are guard patterns around the first adapter's buffers; nothing reads them
     sigFront        LONG    $0DF0ADDE
     hub75Buffer0    LONG    0[user.DISP0_SCRN_SIZE_IN_LONGS] ' fixed at 24bits/pixel for now
     pwmFrames0_1    LONG    0[user.DISP0_FRAMESET_SIZE_IN_LONGS]
@@ -37,28 +49,25 @@ DAT  ' Large Buffers for each HUB75 adapter/chain of panels
     screenTable0    LONG    @hub75Buffer0
                     LONG    @pwmFrames0_1
                     LONG    @pwmFrames0_2
-screenTable0End
     sigBack1        LONG    $0DF2ADDE
 
 ' 2nd HUB75 adapter board: zero length when DISP1_C0 is NO_PANEL
-hub75Buffer1            LONG    0[user.DISP1_SCRN_SIZE_IN_LONGS] ' fixed at 24bits/pixel for now
-pwmFrames1_1            LONG    0[user.DISP1_FRAMESET_SIZE_IN_LONGS]
-pwmFrames1_2            LONG    0[user.DISP1_FRAMESET_SIZE_IN_LONGS]
+    hub75Buffer1    LONG    0[user.DISP1_SCRN_SIZE_IN_LONGS] ' fixed at 24bits/pixel for now
+    pwmFrames1_1    LONG    0[user.DISP1_FRAMESET_SIZE_IN_LONGS]
+    pwmFrames1_2    LONG    0[user.DISP1_FRAMESET_SIZE_IN_LONGS]
 
-screenTable1            LONG    @hub75Buffer1
-                        LONG    @pwmFrames1_1
-                        LONG    @pwmFrames1_2
-screenTable1End
+    screenTable1    LONG    @hub75Buffer1
+                    LONG    @pwmFrames1_1
+                    LONG    @pwmFrames1_2
 
 ' 3rd HUB75 adapter board: zero length when DISP2_C0 is NO_PANEL
-hub75Buffer2            LONG    0[user.DISP2_SCRN_SIZE_IN_LONGS] ' fixed at 24bits/pixel for now
-pwmFrames2_1            LONG    0[user.DISP2_FRAMESET_SIZE_IN_LONGS]
-pwmFrames2_2            LONG    0[user.DISP2_FRAMESET_SIZE_IN_LONGS]
+    hub75Buffer2    LONG    0[user.DISP2_SCRN_SIZE_IN_LONGS] ' fixed at 24bits/pixel for now
+    pwmFrames2_1    LONG    0[user.DISP2_FRAMESET_SIZE_IN_LONGS]
+    pwmFrames2_2    LONG    0[user.DISP2_FRAMESET_SIZE_IN_LONGS]
 
-screenTable2            LONG    @hub75Buffer2
-                        LONG    @pwmFrames2_1
-                        LONG    @pwmFrames2_2
-screenTable2End
+    screenTable2    LONG    @hub75Buffer2
+                    LONG    @pwmFrames2_1
+                    LONG    @pwmFrames2_2
 
 PUB null()
 '' Placeholder to prevent this object from being used as a top-level file.
@@ -66,11 +75,11 @@ PUB null()
 
 PUB adapterPtrs(eHub75Adapter) : pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2
 '' Return the pointers to the buffers of one HUB75 adapter board, chosen by its adapter ID
-'' (HUB75_ADAPTER_1 .. HUB75_ADAPTER_3; adapter k drives display DISPn with n = k-1). Programs
+'' (hwEnum.HUB75_ADAPTER_1 .. hwEnum.HUB75_ADAPTER_3; adapter k drives display DISPn with n = k-1). Programs
 '' do not call this: the display start call fetches the pointers by adapter.
 ''
-'' @param eHub75Adapter - the HUB75 adapter identifier (HUB75_ADAPTER_1, _2 or _3)
-'' @returns pScrnBuffer - address of screen Buffer (2-3 bytes per pixel)
+'' @param eHub75Adapter - the HUB75 adapter identifier (hwEnum.HUB75_ADAPTER_1, hwEnum.HUB75_ADAPTER_2 or hwEnum.HUB75_ADAPTER_3)
+'' @returns pScrnBuffer - address of screen Buffer (3 bytes per pixel)
 '' @returns pPwmFrameSet1 - address of PWM Frame-Set 1 (4 bits per pixel * color depth)
 '' @returns pPwmFrameSet2 - address of PWM Frame-Set 2 (4 bits per pixel * color depth)
 ''
@@ -85,46 +94,52 @@ PUB adapterPtrs(eHub75Adapter) : pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2
         hwEnum.HUB75_ADAPTER_3:
             pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2 := chain2Ptrs()
         other:
-            DEBUG("HUB75: adapterPtrs() no buffers for adapter id ", udec_(eHub75Adapter), " [isp_hub75_hwBuffers.spin2]")
+            debug("HUB75: adapterPtrs() no buffers for adapter id ", udec_(eHub75Adapter), " [isp_hub75_hwBuffers.spin2]")
             abort
 
 PRI chain0Ptrs() : pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2
 ' Return the pointers to the buffers for the first HUB75 adapter board.
 '
-' @returns pScrnBuffer - address of screen Buffer (2-3 bytes per pixel)
+' @returns pScrnBuffer - address of screen Buffer (3 bytes per pixel)
 ' @returns pPwmFrameSet1 - address of PWM Frame-Set 1 (4 bits per pixel * color depth)
 ' @returns pPwmFrameSet2 - address of PWM Frame-Set 2 (4 bits per pixel * color depth)
 
-    DEBUG("hwBffrs: scrnBffr bytes=", udec_long_(user.DISP0_SCRN_SIZE_IN_LONGS * 4))
-    DEBUG("hwBffrs: 2x pwmFrameBffr bytes=", udec_long_(user.DISP0_FRAMESET_SIZE_IN_LONGS * 4))
-    pScrnBuffer := @@LONG[@screenTable0][0]
-    pPwmFrameSet1 := @@LONG[@screenTable0][1]
-    pPwmFrameSet2 := @@LONG[@screenTable0][2]
-    DEBUG("hwBffrs: ", uhex_long(pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2))
+    debug("hwBffrs: scrnBffr bytes=", udec_long_(user.DISP0_SCRN_SIZE_IN_LONGS * hwEnum.BYTES_PER_LONG))
+    debug("hwBffrs: 2x pwmFrameBffr bytes=", udec_long_(user.DISP0_FRAMESET_SIZE_IN_LONGS * hwEnum.BYTES_PER_LONG))
+    pScrnBuffer := @@LONG[@screenTable0][BUFFER_SLOT_SCREEN]
+    pPwmFrameSet1 := @@LONG[@screenTable0][BUFFER_SLOT_FRAMESET1]
+    pPwmFrameSet2 := @@LONG[@screenTable0][BUFFER_SLOT_FRAMESET2]
+    debug("hwBffrs: ", uhex_long(pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2))
 
 PRI chain1Ptrs() : pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2
 ' Return the pointers to the buffers for the second HUB75 adapter board.
 '
-' @returns pScrnBuffer - address of screen Buffer (2-3 bytes per pixel)
+' @returns pScrnBuffer - address of screen Buffer (3 bytes per pixel)
 ' @returns pPwmFrameSet1 - address of PWM Frame-Set 1 (4 bits per pixel * color depth)
 ' @returns pPwmFrameSet2 - address of PWM Frame-Set 2 (4 bits per pixel * color depth)
 
-    pScrnBuffer := @@LONG[@screenTable1][0]
-    pPwmFrameSet1 := @@LONG[@screenTable1][1]
-    pPwmFrameSet2 := @@LONG[@screenTable1][2]
+    debug("hwBffrs: scrnBffr bytes=", udec_long_(user.DISP1_SCRN_SIZE_IN_LONGS * hwEnum.BYTES_PER_LONG))
+    debug("hwBffrs: 2x pwmFrameBffr bytes=", udec_long_(user.DISP1_FRAMESET_SIZE_IN_LONGS * hwEnum.BYTES_PER_LONG))
+    pScrnBuffer := @@LONG[@screenTable1][BUFFER_SLOT_SCREEN]
+    pPwmFrameSet1 := @@LONG[@screenTable1][BUFFER_SLOT_FRAMESET1]
+    pPwmFrameSet2 := @@LONG[@screenTable1][BUFFER_SLOT_FRAMESET2]
+    debug("hwBffrs: ", uhex_long(pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2))
 
 PRI chain2Ptrs() : pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2
 ' Return the pointers to the buffers for the third HUB75 adapter board.
 '
-' @returns pScrnBuffer - address of screen Buffer (2-3 bytes per pixel)
+' @returns pScrnBuffer - address of screen Buffer (3 bytes per pixel)
 ' @returns pPwmFrameSet1 - address of PWM Frame-Set 1 (4 bits per pixel * color depth)
 ' @returns pPwmFrameSet2 - address of PWM Frame-Set 2 (4 bits per pixel * color depth)
 
-    pScrnBuffer := @@LONG[@screenTable2][0]
-    pPwmFrameSet1 := @@LONG[@screenTable2][1]
-    pPwmFrameSet2 := @@LONG[@screenTable2][2]
+    debug("hwBffrs: scrnBffr bytes=", udec_long_(user.DISP2_SCRN_SIZE_IN_LONGS * hwEnum.BYTES_PER_LONG))
+    debug("hwBffrs: 2x pwmFrameBffr bytes=", udec_long_(user.DISP2_FRAMESET_SIZE_IN_LONGS * hwEnum.BYTES_PER_LONG))
+    pScrnBuffer := @@LONG[@screenTable2][BUFFER_SLOT_SCREEN]
+    pPwmFrameSet1 := @@LONG[@screenTable2][BUFFER_SLOT_FRAMESET1]
+    pPwmFrameSet2 := @@LONG[@screenTable2][BUFFER_SLOT_FRAMESET2]
+    debug("hwBffrs: ", uhex_long(pScrnBuffer, pPwmFrameSet1, pPwmFrameSet2))
 
-CON ' license
+CON ' ---- License ----
 
 {{
 

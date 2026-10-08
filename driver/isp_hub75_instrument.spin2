@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2026
-''   Updated.... 04 Oct 2026
+''   Updated.... 08 Oct 2026
 ''
 '' =================================================================================================
 
@@ -84,7 +84,9 @@ CON ' ---- Signals and Monitors ----
     MON_COUNT_A_ONLY        = 0
     CLK_PERIOD_TRIGGER      = %00
 
-    ' Which of its two windows the CLK monitor is running
+    ' Which of its two windows the CLK monitor is running:
+    '  CLK_WINDOW_HIGHS   (0) - P_COUNTER_HIGHS, clocks CLK was high
+    '  CLK_WINDOW_PERIODS (1) - P_COUNTER_PERIODS, CLK periods
     #0, CLK_WINDOW_HIGHS, CLK_WINDOW_PERIODS
 
     ' A window that has not completed after this many window lengths is given up
@@ -118,15 +120,28 @@ CON ' ---- Frame-Set Take Check ----
 
 CON ' ---- Report Arithmetic ----
 
-    ' Fixed-point reports: x100 values print with one decimal; percent x100 = fraction x 10_000
-    FIXED_POINT_SCALE       = 100
-    FRACTION_DIVISOR        = 10
-    PERCENT_X100_SCALE      = 10_000
-    NS_PER_SECOND           = 1_000_000_000
+    ' Fixed-point reports: x100 values print with one decimal (matrix.FIXED_POINT_SCALE,
+    ' matrix.FRACTION_DIVISOR, matrix.PERCENT_X100_SCALE and matrix.NS_PER_SECOND)
     MICROS_PER_SECOND       = 1_000_000
 
-OBJ
+CON ' ---- Status Codes ----
+    {Spin2_Doc_CON}
 
+    ' Status codes of start(), sampleSecond() and startTakeCheck():
+    '  SUCCESS             - the call did what it was asked (forwarded from hwEnum, which defines it)
+    '  E_STROBE_PINS_OWNED - start(): the adapter at P0 owns P8-P11, the strobe pins; nothing was started
+    '  E_NO_MONITOR_PIN    - start(): no signal has a free neighbour pin, so no monitor was started
+    '  E_NOT_RUNNING       - sampleSecond(), startTakeCheck(): no monitor is running
+    '  E_NO_FREE_COG       - startTakeCheck(): no cog is free for the take check
+    SUCCESS                 = hwEnum.SUCCESS
+    E_STROBE_PINS_OWNED     = -1
+    E_NO_MONITOR_PIN        = -2
+    E_NOT_RUNNING           = -3
+    E_NO_FREE_COG           = -4
+
+OBJ ' ---- Objects Needed ----
+
+    hwEnum      : "isp_hub75_hwEnums"                               ' hwEnum.SUCCESS
     matrix      : "isp_hub75_rgb3bit"                               ' constants only: adapter pin layout and the strobe pins
 
 DAT ' ---- Singleton State ----
@@ -165,20 +180,21 @@ DAT ' ---- Singleton State ----
     takeTallies             LONG    0[TALLY_COUNT]                  ' written only by that cog
     takeCheckStack          LONG    0[TAKE_STACK_LONGS]
 
-PUB start(adapterBasePin, latchesPerRefreshCount) : bRunning | sigIdx, monitorPin
+PUB start(adapterBasePin, latchesPerRefreshCount) : status | sigIdx, monitorPin
 '' Start a monitor beside each signal that has a free neighbour pin, for the adapter whose
 '' pins begin at adapterBasePin. An adapter at P0 has the strobe pins among its own: nothing
 '' is started and the reason is printed.
 ''
 '' @param adapterBasePin - pin number of the adapter's CLK (0, 16 or 32)
 '' @param latchesPerRefreshCount - LATCH rises that make one full refresh, for the refresh figure (0 = not reported)
-'' @returns bRunning - TRUE if at least one monitor started
+'' @returns status - SUCCESS if at least one monitor started, E_NO_MONITOR_PIN if none could be placed,
+''                   E_STROBE_PINS_OWNED if the adapter owns the strobe pins
 
 ' Local Variables:
-' @local sigIdx - signal being set up
-' @local monitorPin - pin chosen to monitor that signal
+' @local sigIdx - the MON_* signal being set up
+' @local monitorPin - the pin that monitors that signal
 
-  bRunning := FALSE
+  status := E_NO_MONITOR_PIN
   monitorsRunning := FALSE
   latchesPerRefresh := latchesPerRefreshCount
   clkWindowKind := CLK_WINDOW_HIGHS
@@ -202,10 +218,11 @@ PUB start(adapterBasePin, latchesPerRefreshCount) : bRunning | sigIdx, monitorPi
         debug("INSTR: ", zstr_(signalLabel(sigIdx)), " P", udec_(LONG[@watchedPins][sigIdx]), " not monitored: jumper needed")
       else
         startMonitor(sigIdx)
-        bRunning := TRUE
+        status := hwEnum.SUCCESS
         debug("INSTR: ", zstr_(signalLabel(sigIdx)), " P", udec_(LONG[@watchedPins][sigIdx]), " watched by P", udec_(monitorPin))
-    monitorsRunning := bRunning
+    monitorsRunning := (status == hwEnum.SUCCESS)
   else
+    status := E_STROBE_PINS_OWNED
     debug("INSTR: monitors unavailable: the adapter at P", udec_(adapterFirstPin), " owns P", udec_(adapterFirstPin), "-P", udec_(adapterLastPin), ", which holds strobes P", udec_(matrix.MTX_LA_XT_P08), "-P", udec_(matrix.MTX_LA_XT_P11), " and the monitor pins; none driven, none started")
 
 PUB stop() | sigIdx
@@ -213,7 +230,7 @@ PUB stop() | sigIdx
 ''
 
 ' Local Variables:
-' @local sigIdx - signal whose monitor is released
+' @local sigIdx - the MON_* signal whose monitor is released
 
   stopTakeCheck()
   repeat sigIdx from 0 to MON_COUNT - 1
@@ -229,16 +246,16 @@ PUB isRunning() : bRunning
 
   bRunning := (monitorsRunning == TRUE)
 
-PUB sampleSecond() : bSampled | sigIdx
+PUB sampleSecond() : status | sigIdx
 '' Wait for the monitors' next one-second window, read them, and print one INSTR line. The
 '' CLK monitor is read first because its window length is timed at the moment it completes.
 ''
-'' @returns bSampled - TRUE if the monitors were read, FALSE if none is running
+'' @returns status - SUCCESS if the monitors were read, E_NOT_RUNNING if none is running
 
 ' Local Variables:
-' @local sigIdx - signal being read
+' @local sigIdx - the MON_* signal being read
 
-  bSampled := FALSE
+  status := E_NOT_RUNNING
   if monitorsRunning == TRUE
     readClockMonitor()
     repeat sigIdx from 0 to MON_COUNT - 1
@@ -246,7 +263,7 @@ PUB sampleSecond() : bSampled | sigIdx
         LONG[@windowCounts][sigIdx] := readWindow(LONG[@monitorPins][sigIdx])
     deriveFigures()
     reportSecond()
-    bSampled := TRUE
+    status := hwEnum.SUCCESS
 
 PUB refreshRateX100() : refreshX100
 '' Return the refresh the last window implied from LATCH rises.
@@ -277,22 +294,24 @@ PUB clockHighNsX100() : highNsX100
 
   highNsX100 := lastClkHighNsX100
 
-PUB startTakeCheck(lastRowAddress) : bStarted
+PUB startTakeCheck(lastRowAddress) : status
 '' Start a cog that checks every frame-set take: at each rise of P8 it reads the row-address
 '' pins and counts the take as at a frame boundary when they hold lastRowAddress. Needs the
 '' monitors running (P8 is driven only then). Read the counts with takeTotals().
 ''
 '' @param lastRowAddress - the row address of a frame's last row (row addresses in a frame - 1)
-'' @returns bStarted - TRUE if the check's cog started
+'' @returns status - SUCCESS if the check's cog started, E_NOT_RUNNING if the monitors are not running,
+''                   E_NO_FREE_COG if no cog is free
 
-  bStarted := FALSE
+  status := E_NOT_RUNNING
   stopTakeCheck()
   if monitorsRunning == TRUE
     longfill(@takeTallies, 0, TALLY_COUNT)
     takeCheckCog := cogspin(NEWCOG, watchTakes(matrix.MTX_LA_XT_P08, adapterFirstPin + matrix.PIN_OFST_A, lastRowAddress), @takeCheckStack)
     if takeCheckCog >= 0
-      bStarted := TRUE
+      status := hwEnum.SUCCESS
     else
+      status := E_NO_FREE_COG
       takeCheckCog := NO_COG
       debug("INSTR: take check not started: no free cog")
 
@@ -335,8 +354,8 @@ PUB stopwatchMicros(startTick) : elapsedMicros
 PRI chooseMonitorPin(sigIdx) : monitorPin | choiceIdx, candidatePin
 ' Pick the first free neighbour of a signal, nearest-below first, and record its routing.
 '
-' @param sigIdx - signal to find a monitor for
-' @returns monitorPin - the pin chosen, or NO_PIN if no neighbour is free
+' @param sigIdx - the MON_* signal to find a monitor for
+' @returns monitorPin - the pin that monitors the signal, or NO_PIN if no neighbour is free
 
 ' Local Variables:
 ' @local choiceIdx - neighbour choice being tried
@@ -373,10 +392,10 @@ PRI startMonitor(sigIdx) | monitorPin, routeIdx
 ' Configure and start one monitor smart pin. Y is written before DIR rises, which is safe for
 ' these counting modes because their Y is 0, the reset value.
 '
-' @param sigIdx - signal whose monitor starts
+' @param sigIdx - the MON_* signal whose monitor starts
 
 ' Local Variables:
-' @local monitorPin - the monitor's pin
+' @local monitorPin - the pin that monitors the signal
 ' @local routeIdx - the neighbour choice that routes it
 
   monitorPin := LONG[@monitorPins][sigIdx]
@@ -397,7 +416,7 @@ PRI startClockWindow() | monitorPin, routeIdx, windowMode
 '
 
 ' Local Variables:
-' @local monitorPin - the CLK monitor's pin
+' @local monitorPin - the pin that monitors CLK
 ' @local routeIdx - the neighbour choice that routes it
 ' @local windowMode - smart-pin mode of this window
 
@@ -416,7 +435,7 @@ PRI readClockMonitor() | monitorPin, windowValue, bDone
 '
 
 ' Local Variables:
-' @local monitorPin - the CLK monitor's pin
+' @local monitorPin - the pin that monitors CLK
 ' @local windowValue - the window's count
 ' @local bDone - TRUE if the window completed
 
@@ -437,7 +456,7 @@ PRI readClockMonitor() | monitorPin, windowValue, bDone
 PRI readWindow(monitorPin) : windowCount | bDone
 ' Wait for a monitor's window to end and return its count; 0 if it never ends.
 '
-' @param monitorPin - the monitor to read
+' @param monitorPin - the pin that monitors the signal to read
 ' @returns windowCount - the window's count
 
 ' Local Variables:
@@ -452,7 +471,7 @@ PRI waitForWindow(monitorPin) : bDone | giveUpTick
 ' Wait until a monitor raises IN (the end of its window), for at most WINDOW_TIMEOUT_LENGTHS
 ' windows. A CLK monitor on a silent panel never completes, so the wait must end.
 '
-' @param monitorPin - the monitor to wait on
+' @param monitorPin - the pin that monitors the signal to wait on
 ' @returns bDone - TRUE if IN rose, FALSE if the wait timed out
 
 ' Local Variables:
@@ -483,21 +502,21 @@ PRI deriveFigures() | latchRises, litClocks, highPulseX100
   litClocks := LONG[@windowCounts][MON_OE]
   lastRefreshX100 := 0
   if latchesPerRefresh > 0
-    lastRefreshX100 := muldiv64(latchRises, FIXED_POINT_SCALE, latchesPerRefresh)
-  lastLitX100 := muldiv64(litClocks, PERCENT_X100_SCALE, clkfreq)
+    lastRefreshX100 := muldiv64(latchRises, matrix.FIXED_POINT_SCALE, latchesPerRefresh)
+  lastLitX100 := muldiv64(litClocks, matrix.PERCENT_X100_SCALE, clkfreq)
   lastClkRisesPerSec := clkPeriodsPerSec
   lastClkHighClocksX100 := 0
   lastClkHighNsX100 := 0
   if clkPeriodsPerSec > 0
-    highPulseX100 := muldiv64(clkHighClocksPerSec, FIXED_POINT_SCALE, clkPeriodsPerSec)
+    highPulseX100 := muldiv64(clkHighClocksPerSec, matrix.FIXED_POINT_SCALE, clkPeriodsPerSec)
     lastClkHighClocksX100 := highPulseX100
-    lastClkHighNsX100 := muldiv64(highPulseX100, NS_PER_SECOND, clkfreq)
+    lastClkHighNsX100 := muldiv64(highPulseX100, matrix.NS_PER_SECOND, clkfreq)
 
 PRI reportSecond()
 ' Print one INSTR line: the figures first, then the raw counts of each strobe and of LATCH.
 '
 
-  debug("INSTR: refresh ", udec_(lastRefreshX100 / FIXED_POINT_SCALE), ".", udec_((lastRefreshX100 // FIXED_POINT_SCALE) / FRACTION_DIVISOR), " Hz, lit ", udec_(lastLitX100 / FIXED_POINT_SCALE), ".", udec_((lastLitX100 // FIXED_POINT_SCALE) / FRACTION_DIVISOR), "%, clk ", udec_(lastClkRisesPerSec / matrix.HZ_PER_MHZ), ".", udec_((lastClkRisesPerSec // matrix.HZ_PER_MHZ) / (matrix.HZ_PER_MHZ / FRACTION_DIVISOR)), " MHz mean, high ", udec_(lastClkHighClocksX100 / FIXED_POINT_SCALE), ".", udec_((lastClkHighClocksX100 // FIXED_POINT_SCALE) / FRACTION_DIVISOR), " clk ", udec_(lastClkHighNsX100 / FIXED_POINT_SCALE), ".", udec_((lastClkHighNsX100 // FIXED_POINT_SCALE) / FRACTION_DIVISOR), " ns | /s: cmd ", udec_(LONG[@windowCounts][MON_CMD]), " frame ", udec_(LONG[@windowCounts][MON_FRAME]), " row ", udec_(LONG[@windowCounts][MON_ROW]), " plane ", udec_(LONG[@windowCounts][MON_PLANE]), " latch ", udec_(LONG[@windowCounts][MON_LATCH]))
+  debug("INSTR: refresh ", udec_(lastRefreshX100 / matrix.FIXED_POINT_SCALE), ".", udec_((lastRefreshX100 // matrix.FIXED_POINT_SCALE) / matrix.FRACTION_DIVISOR), " Hz, lit ", udec_(lastLitX100 / matrix.FIXED_POINT_SCALE), ".", udec_((lastLitX100 // matrix.FIXED_POINT_SCALE) / matrix.FRACTION_DIVISOR), "%, clk ", udec_(lastClkRisesPerSec / matrix.HZ_PER_MHZ), ".", udec_((lastClkRisesPerSec // matrix.HZ_PER_MHZ) / (matrix.HZ_PER_MHZ / matrix.FRACTION_DIVISOR)), " MHz mean, high ", udec_(lastClkHighClocksX100 / matrix.FIXED_POINT_SCALE), ".", udec_((lastClkHighClocksX100 // matrix.FIXED_POINT_SCALE) / matrix.FRACTION_DIVISOR), " clk ", udec_(lastClkHighNsX100 / matrix.FIXED_POINT_SCALE), ".", udec_((lastClkHighNsX100 // matrix.FIXED_POINT_SCALE) / matrix.FRACTION_DIVISOR), " ns | /s: cmd ", udec_(LONG[@windowCounts][MON_CMD]), " frame ", udec_(LONG[@windowCounts][MON_FRAME]), " row ", udec_(LONG[@windowCounts][MON_ROW]), " plane ", udec_(LONG[@windowCounts][MON_PLANE]), " latch ", udec_(LONG[@windowCounts][MON_LATCH]))
 
 PRI watchTakes(takePin, firstAddressPin, lastRowAddress) | eventConfig, addressShift, rowAddress, tally, pTakes, pOnBoundary, pOffBoundary, pLastOffRow
 ' Run in the take check's own cog, forever (stopTakeCheck() stops the cog). Selectable event 1
@@ -550,7 +569,7 @@ PRI watchTakes(takePin, firstAddressPin, lastRowAddress) | eventConfig, addressS
 PRI signalLabel(sigIdx) : pLabel
 ' Return the printable name of a signal.
 '
-' @param sigIdx - MON_* signal
+' @param sigIdx - the MON_* signal to name
 ' @returns pLabel - zero-terminated name
 
   case sigIdx

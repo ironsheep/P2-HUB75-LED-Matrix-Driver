@@ -8,26 +8,27 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Apr 2021
-''   Updated.... 06 Oct 2026
-''
-''   How to read the image (the wiring sentences are DISPn_C0 .. DISPn_C15 in isp_hub75_hwPanelConfig):
-''     - Each panel gets its own background colour, so panels are easy to tell apart.
-''     - Each panel shows an arrow (^), its cable position Ck and its panel position Pp.
-''       Large panels show the three on separate lines, centred. Small panels (32x16 with the
-''       5x7 font, for example) show the compact form: the arrow and "C2P1" on one line.
-''     - P labels in reading order and every arrow up: the wiring sentences are right.
-''     - P labels out of order: the sentences place panels wrongly. Read the C labels to fix them.
-''     - An arrow pointing another way: that panel's arrow word is wrong, and the arrow shows
-''       which way the panel's own top points as mounted.
-''     - The C labels are physically correct even when the config is wrong. The routine draws Ck
-''       on the screen position the config gives that cable position, and the panel at that
-''       position is the one the ribbon cable feeds as Ck, so Ck lands on the real panel at
-''       cable position k (C0 is the panel the adapter plugs into). Only the P labels and the
-''       arrows depend on the sentences being right. The background colour follows the cable
-''       position too, so a panel keeps its colour from one config to the next.
+''   Updated.... 08 Oct 2026
 ''
 '' =================================================================================================
 
+{
+  How to read the image (the wiring sentences are DISPn_C0 .. DISPn_C15 in isp_hub75_hwPanelConfig):
+    - Each panel gets its own background colour, so panels are easy to tell apart.
+    - Each panel shows an arrow (^), its cable position Ck and its panel position Pp.
+      Large panels show the three on separate lines, centred. Small panels (32x16 with the
+      5x7 font, for example) show the compact form: the arrow and "C2P1" on one line.
+    - P labels in reading order and every arrow up: the wiring sentences are right.
+    - P labels out of order: the sentences place panels wrongly. Read the C labels to fix them.
+    - An arrow pointing another way: that panel's arrow word is wrong, and the arrow shows
+      which way the panel's own top points as mounted.
+    - The C labels are physically correct even when the config is wrong. The routine draws Ck
+      on the screen position the config gives that cable position, and the panel at that
+      position is the one the ribbon cable feeds as Ck, so Ck lands on the real panel at
+      cable position k (C0 is the panel the adapter plugs into). Only the P labels and the
+      arrows depend on the sentences being right. The background colour follows the cable
+      position too, so a panel keeps its colour from one config to the next.
+}
 
 CON ' ---- Timing ----
 
@@ -44,7 +45,6 @@ CON ' ---- Identify Layout ----
     LARGE_PANEL_ROWS = 64                                         ' panels this tall (or taller) use the 8x8 font, smaller ones the 5x7 font
     MIN_SEPARATE_LINES = 5                                        ' text lines a panel needs to show the arrow, Ck and Pp on separate lines
     ARROW_LINE = 0                                                ' text line of the arrow, in both layouts (the top of the panel)
-    CENTER_DIVISOR = 2                                            ' half of a span
     CABLE_LINE_BACK = 1                                           ' the Ck line is this many lines above the middle of the panel
     POSITION_LINE_FORWARD = 1                                     ' the Pp line is this many lines below the middle of the panel
     COMPACT_ARROW_LEN = 1                                         ' the arrow is one character at the start of the compact line
@@ -83,14 +83,14 @@ PUB main()
   chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
 
   ' startup our backend COG(s): one call per adapter (aborts if no cog is free)
-  display.start(hub75Bffrs.HUB75_ADAPTER_1)
+  display.start(display.HUB75_ADAPTER_1)
 
   identifyPanels()
   debug("END_SESSION")
 
   repeat                                                        ' hold the image
 
-PRI identifyPanels() | panelCount, cablePos, panelPosn, cellRows, cellColumns, bCompact
+PRI identifyPanels() | panelCount, cablePos, panelPosn, cellRows, bCompact
 ' Label every panel: for each cable position, look up the panel position where that panel
 ' sits (reading order as mounted) and draw on that panel an arrow, Ck and Pp, over a
 ' background colour of its own.
@@ -101,10 +101,9 @@ PRI identifyPanels() | panelCount, cablePos, panelPosn, cellRows, cellColumns, b
 ' @local cablePos - cable position being labelled
 ' @local panelPosn - panel position of the panel at that cable position, as mounted
 ' @local cellRows - pixel rows of one panel, as mounted
-' @local cellColumns - pixel columns of one panel, as mounted
 ' @local bCompact - TRUE when the panel is too small for three lines
 
-  cellRows, cellColumns := hub75Bffrs.cellSizeInPixels(chainIndex)
+  cellRows, _ := hub75Bffrs.cellSizeInPixels(chainIndex)
   if cellRows >= LARGE_PANEL_ROWS
     display.setTextFont(display.TEXT_FONT_8X8A)
   else
@@ -131,27 +130,27 @@ PRI identifyPanels() | panelCount, cablePos, panelPosn, cellRows, cellColumns, b
     else
       drawCentered(panelPosn, ARROW_LINE, @lblArrow)
       appendNumber(0, CABLE_LETTER, cablePos)
-      drawCentered(panelPosn, (panelTextLines / CENTER_DIVISOR) - CABLE_LINE_BACK, @lblText)
+      drawCentered(panelPosn, (panelTextLines / display.CENTER_DIVISOR) - CABLE_LINE_BACK, @lblText)
       appendNumber(0, POSITION_LETTER, panelPosn)
-      drawCentered(panelPosn, (panelTextLines / CENTER_DIVISOR) + POSITION_LINE_FORWARD, @lblText)
+      drawCentered(panelPosn, (panelTextLines / display.CENTER_DIVISOR) + POSITION_LINE_FORWARD, @lblText)
     debug("  -- C", udec_(cablePos), " is at P", udec_(panelPosn))
 
   ' update our screen
   display.commitScreenToPanelSet()
 
-PRI appendNumber(startLen, cLetter, nValue) : newLen
+PRI appendNumber(startLen, cLetter, labelNumber) : newLen
 ' Append a letter and a one- or two-digit number to the label text, then end it with a zero.
 '
 ' @param startLen - characters already in the label text
 ' @param cLetter - the letter to append (CABLE_LETTER or POSITION_LETTER)
-' @param nValue - the number to append (0 to 99)
+' @param labelNumber - the number to append (0 to 99)
 ' @returns newLen - characters in the label text after the append
 
   newLen := startLen
   lblText[newLen++] := cLetter
-  if nValue >= DECIMAL_BASE
-    lblText[newLen++] := DIGIT_ZERO + (nValue / DECIMAL_BASE)
-  lblText[newLen++] := DIGIT_ZERO + (nValue // DECIMAL_BASE)
+  if labelNumber >= DECIMAL_BASE
+    lblText[newLen++] := DIGIT_ZERO + (labelNumber / DECIMAL_BASE)
+  lblText[newLen++] := DIGIT_ZERO + (labelNumber // DECIMAL_BASE)
   lblText[newLen] := 0
 
 PRI drawCentered(panelPosn, line, pText) | column
@@ -164,10 +163,9 @@ PRI drawCentered(panelPosn, line, pText) | column
 ' Local Variables:
 ' @local column - text column within the panel where the text starts
 
-  column := 0 #> ((panelTextColumns - strsize(pText)) / CENTER_DIVISOR)
+  column := 0 #> ((panelTextColumns - strsize(pText)) / display.CENTER_DIVISOR)
   display.setCursorOnPanel(line, column, panelPosn)
   display.setTextAtCursor(pText)
-
 
 CON ' ---- License ----
 

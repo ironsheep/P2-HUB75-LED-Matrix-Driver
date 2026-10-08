@@ -2,8 +2,12 @@
 ''
 ''   File....... test_hub75_pin_identify.spin2
 ''   Purpose.... HUB75 Pin Identification Test - toggle pins at known frequencies
-''   Author..... Stephen M Moraco / Claude Code
+''   Authors.... Stephen M Moraco / Claude Code
+''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
+''               -- see below for terms of use
+''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Jan 2025
+''   Updated.... 08 Oct 2026
 ''
 ''   This test program toggles HUB75 pins AND LA instrumentation pins (P8-P11)
 ''   as a binary counter. Use a logic analyzer to measure each pin's frequency.
@@ -57,12 +61,20 @@
 ''
 '' =================================================================================================
 
-CON { timing }
+CON ' ---- Timing ----
 
     CLK_FREQ = 300_000_000                              ' system freq as a constant
     _CLKFREQ = CLK_FREQ                                 ' set system clock
 
-CON { configuration }
+CON ' ---- Counter Bit-Split Masks ----
+
+    ' The 20-bit counter splits into the 4 LA pins (low) and 16 HUB75 pins (high)
+    LA_BIT_COUNT    = 4         ' number of low counter bits routed to the LA pins
+    LA_BITS_MASK    = $F        ' mask isolating the LA_BIT_COUNT low bits
+    HUB75_BIT_COUNT = 16        ' number of high counter bits routed to the HUB75 pins
+    HUB75_BITS_MASK = $FFFF     ' mask isolating the HUB75_BIT_COUNT bits (after >> LA_BIT_COUNT)
+
+CON ' ---- Configuration ----
 
     '  USER CONFIG: Set your HUB75 adapter base pin here
     BASE_PIN = 16                   ' Change to match your setup: 0, 16, 32, or 48
@@ -71,21 +83,25 @@ CON { configuration }
     ' Each subsequent bit toggles at half the previous bit's rate
     BASE_FREQ_HZ = 100_000          ' 100 kHz base - adjust if needed
 
+    ' A pin toggles twice per period: one rising and one falling edge
+    EDGES_PER_PERIOD = 2
+
     ' Calculate delay between counter increments
     ' Counter increments cause bit 0 to toggle, so delay = 1/(2*BASE_FREQ)
-    DELAY_TICKS = CLK_FREQ / (BASE_FREQ_HZ * 2)
+    DELAY_TICKS = CLK_FREQ / (BASE_FREQ_HZ * EDGES_PER_PERIOD)
 
     ' Pin groups
-    LA_PIN_GROUP = 8 ADDPINS 3              ' P8-P11 (4 LA instrumentation pins)
-    HUB75_PIN_GROUP = BASE_PIN ADDPINS 15   ' 16 HUB75 pins
+    LA_BASE_PIN = 8                         ' first LA instrumentation pin (P8-P11)
+    LA_PIN_GROUP = LA_BASE_PIN ADDPINS LA_BIT_COUNT - 1             ' P8-P11 (4 LA instrumentation pins)
+    HUB75_PIN_GROUP = BASE_PIN ADDPINS HUB75_BIT_COUNT - 1          ' 16 HUB75 pins
 
-CON { pin names for reference }
+CON ' ---- Pin Names ----
 
     ' LA Instrumentation pins (directly on P2, not on HUB75 connector)
-    PIN_LA_08  = 8      ' bit 0 - Start of NEW Command
-    PIN_LA_09  = 9      ' bit 1 - Start of PWM FrameSet
-    PIN_LA_10  = 10     ' bit 2 - Start of SAME PWM Frame
-    PIN_LA_11  = 11     ' bit 3 - Start of NEW single PWM Frame
+    PIN_LA_08  = LA_BASE_PIN + 0   ' bit 0 - Start of NEW Command
+    PIN_LA_09  = LA_BASE_PIN + 1   ' bit 1 - Start of PWM FrameSet
+    PIN_LA_10  = LA_BASE_PIN + 2   ' bit 2 - Start of SAME PWM Frame
+    PIN_LA_11  = LA_BASE_PIN + 3   ' bit 3 - Start of NEW single PWM Frame
 
     ' HUB75 connector pins (bits 4-19 of counter)
     PIN_CLK    = BASE_PIN + 0   ' bit 4
@@ -105,14 +121,7 @@ CON { pin names for reference }
     PIN_SPARE1 = BASE_PIN + 14  ' bit 18
     PIN_SPARE2 = BASE_PIN + 15  ' bit 19
 
-CON { counter bit-split masks }
-
-    ' The 20-bit counter splits into the 4 LA pins (low) and 16 HUB75 pins (high)
-    LA_BIT_COUNT    = 4         ' number of low counter bits routed to the LA pins
-    LA_BITS_MASK    = $F        ' mask isolating the LA_BIT_COUNT low bits
-    HUB75_BITS_MASK = $FFFF     ' mask isolating the 16 HUB75 bits (after >> LA_BIT_COUNT)
-
-CON { per-bit frequency divisors }
+CON ' ---- Per-bit Frequency Divisors ----
 
     ' Each counter bit toggles at BASE_FREQ_HZ divided by a power of two.
     ' Divisor for bit N is 2^N; named per bit so the printed frequencies stay self-documenting.
@@ -131,16 +140,21 @@ CON { per-bit frequency divisors }
     BIT13_DIV = 8192           ' bit 13 divisor (+9  G1)
     BIT14_DIV = 16384          ' bit 14 divisor (+10 B1)
     BIT15_DIV = 32768          ' bit 15 divisor (+11 R2)
+    BIT16_DIV = 65536          ' bit 16 divisor (+12 G2)
+    BIT17_DIV = 131072         ' bit 17 divisor (+13 B2)
+    BIT18_DIV = 262144         ' bit 18 divisor (+14 SP1)
+    BIT19_DIV = 524288         ' bit 19 divisor (+15 SP2)
 
-VAR
+    ' The slowest pins are printed in hundredths of a Hz: the whole part, then two digits
+    HZ_SCALE        = 100       ' hundredths in a Hz
+    FRACTION_BASE   = 10        ' decimal base of the two fraction digits
 
-    LONG    counter
-
-PUB main() | nextTime, laBits, hub75Bits
+PUB main() | counter, nextTime, laBits, hub75Bits
 '' Run a 20-bit binary counter onto the LA and HUB75 pin groups for frequency identification.
 ''
 
 ' Local Variables:
+' @local counter - the 20-bit binary counter
 ' @local nextTime - next system-counter tick to wait for
 ' @local laBits - low 4 counter bits routed to the LA pins
 ' @local hub75Bits - 16 counter bits routed to the HUB75 pins
@@ -176,10 +190,10 @@ PUB main() | nextTime, laBits, hub75Bits
   debug("  +9  (G1):        ", udec_(BASE_FREQ_HZ / BIT13_DIV), " Hz       bit 13")
   debug("  +10 (B1):        ", udec_(BASE_FREQ_HZ / BIT14_DIV), " Hz        bit 14")
   debug("  +11 (R2):        ", udec_(BASE_FREQ_HZ / BIT15_DIV), " Hz        bit 15")
-  debug("  +12 (G2):        ~1.5 Hz        bit 16")
-  debug("  +13 (B2):        ~0.76 Hz       bit 17")
-  debug("  +14 (SP1):       ~0.38 Hz       bit 18")
-  debug("  +15 (SP2):       ~0.19 Hz       bit 19")
+  debug("  +12 (G2):        ", udec_(BASE_FREQ_HZ * HZ_SCALE / BIT16_DIV / HZ_SCALE), ".", udec_(BASE_FREQ_HZ * HZ_SCALE / BIT16_DIV // HZ_SCALE / FRACTION_BASE), udec_(BASE_FREQ_HZ * HZ_SCALE / BIT16_DIV // FRACTION_BASE), " Hz        bit 16")
+  debug("  +13 (B2):        ", udec_(BASE_FREQ_HZ * HZ_SCALE / BIT17_DIV / HZ_SCALE), ".", udec_(BASE_FREQ_HZ * HZ_SCALE / BIT17_DIV // HZ_SCALE / FRACTION_BASE), udec_(BASE_FREQ_HZ * HZ_SCALE / BIT17_DIV // FRACTION_BASE), " Hz       bit 17")
+  debug("  +14 (SP1):       ", udec_(BASE_FREQ_HZ * HZ_SCALE / BIT18_DIV / HZ_SCALE), ".", udec_(BASE_FREQ_HZ * HZ_SCALE / BIT18_DIV // HZ_SCALE / FRACTION_BASE), udec_(BASE_FREQ_HZ * HZ_SCALE / BIT18_DIV // FRACTION_BASE), " Hz       bit 18")
+  debug("  +15 (SP2):       ", udec_(BASE_FREQ_HZ * HZ_SCALE / BIT19_DIV / HZ_SCALE), ".", udec_(BASE_FREQ_HZ * HZ_SCALE / BIT19_DIV // HZ_SCALE / FRACTION_BASE), udec_(BASE_FREQ_HZ * HZ_SCALE / BIT19_DIV // FRACTION_BASE), " Hz       bit 19")
   debug(" ")
   debug("Running 20-bit binary counter...")
   debug("==============================================")
@@ -204,13 +218,13 @@ PUB main() | nextTime, laBits, hub75Bits
     nextTime += DELAY_TICKS
     waitct(nextTime)
 
-CON { license }
+CON ' ---- License ----
 
 {{
  -------------------------------------------------------------------------------------------------
   MIT License
 
-  Copyright (c) 2025 Iron Sheep Productions, LLC
+  Copyright (c) 2024 Iron Sheep Productions, LLC
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal

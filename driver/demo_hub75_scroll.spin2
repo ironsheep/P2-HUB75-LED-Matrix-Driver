@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2022
-''   Updated.... 07 Oct 2026
+''   Updated.... 08 Oct 2026
 ''
 '' =================================================================================================
 
@@ -37,6 +37,11 @@ CON ' ---- Demo Constants ----
     COMPACT_FIRST_LINE  = 0                                         ' compact layout: scroller n on line n
     SCROLLER_COUNT      = 4                                         ' right, left, up, down
 
+OBJ ' ---- Objects ----
+
+    color           : "isp_hub75_color"
+    display         : "isp_hub75_display"
+
 DAT ' ---- Scroller Text ----
 
     textToRight     BYTE    "First long text-123          ", 0
@@ -44,50 +49,32 @@ DAT ' ---- Scroller Text ----
     textUp          BYTE    "3rd  UP  -", 0
     textDown        BYTE    "4th Down -", 0
 
-OBJ ' ---- Objects ----
-
-    color           : "isp_hub75_color"
-    hub75Bffrs      : "isp_hub75_hwBufferAccess"
-    display         : "isp_hub75_display"
-
-VAR ' ---- Per-instance State ----
-
-    LONG    chainIndex
-    LONG    scrollPeriod
-
 PUB main()
 '' Run the scrolling text demo on the HUB75 LED matrix.
 ''
 
-    chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
-
     ' startup our backend COG(s): one call per adapter (aborts if no cog is free)
-    display.start(hub75Bffrs.HUB75_ADAPTER_1)
+    display.start(display.HUB75_ADAPTER_1)
 
     demoScrollingText()
 
     repeat
 
-PRI demoScrollingText() | textSize, textLines, pTitle1, pTitle2, scrollerIdx, line
+PRI demoScrollingText() | textLines, pTitle1, pTitle2, scrollerIdx, line
 ' Set up and animate four scrolling text regions, one per direction, laid out for the display's
 ' height (full layout, or the compact one on a display with fewer than FULL_LAYOUT_LINES text
 ' lines).
 '
 
 ' Local Variables:
-' @local textSize - selected font size for the display text
 ' @local textLines - text lines the display holds in that font
 ' @local pTitle1 - first title line's text
 ' @local pTitle2 - second title line's text
 ' @local scrollerIdx - scroller being started: 0 right, 1 left, 2 up, 3 down
 ' @local line - text line of that scroller
 
-    scrollPeriod := SCROLL_PERIOD                       ' SCROLL_PERIOD hundredths of a second per step
-
-    textSize := display.TEXT_FONT_5x7
-
     display.clearScreen()
-    display.setTextFont(textSize)                       ' font size
+    display.setTextFont(display.TEXT_FONT_5x7)
     display.setCursor(TITLE_LINE_1, FIRST_COLUMN)       ' start at top left, with one pixel of spacing
     textLines := display.numberTextLines()
     debug("scroll demo: ", udec(textLines), " text lines")
@@ -95,9 +82,6 @@ PRI demoScrollingText() | textSize, textLines, pTitle1, pTitle2, scrollerIdx, li
         ' show some static text above the scrollers
         pTitle1 := string("Iron Sheep")
         pTitle2 := string("ScrollDemo")
-        if textSize <> display.TEXT_FONT_5x7
-            pTitle1 := string("SHEEP")
-            pTitle2 := string("scroll")
         display.setColoredTextAtLnCol(TITLE_LINE_1, FIRST_COLUMN, pTitle1, color.cMaroon)
         display.setColoredTextAtLnCol(TITLE_LINE_2, FIRST_COLUMN, pTitle2, color.cOrange)
 
@@ -117,7 +101,7 @@ PRI demoScrollingText() | textSize, textLines, pTitle1, pTitle2, scrollerIdx, li
     display.commitScreenToPanelSet()
 
     ' now loop while scrolling finishes
-    wait100thSecs(scrollPeriod)
+    wait100thSecs(SCROLL_PERIOD)
 
     ' while scrolling not done...
     repeat while display.isScrollingComplete() == FALSE
@@ -127,7 +111,7 @@ PRI demoScrollingText() | textSize, textLines, pTitle1, pTitle2, scrollerIdx, li
         display.commitScreenToPanelSet()
 
         ' delay while we stare wide-eyed at the new...
-        wait100thSecs(scrollPeriod)
+        wait100thSecs(SCROLL_PERIOD)
 
 PRI startScroller(line, pZString, direction, rgbColor, loopMode) | scrollerID
 ' Start one scrolling text region on a text line, in a direction, colour and loop mode.
@@ -144,12 +128,12 @@ PRI startScroller(line, pZString, direction, rgbColor, loopMode) | scrollerID
     scrollerID := display.scrollColoredTextOnLn(line, pZString, direction, rgbColor)
     display.configureScrollLoopMode(scrollerID, loopMode)
 
-PRI wait100thSecs(count)
+PRI wait100thSecs(hundredths)
 ' Wait for N hundredths of a second.
 '
-' @param count - number of hundredths of a second to wait
+' @param hundredths - number of hundredths of a second to wait
 
-    repeat count
+    repeat hundredths
         waitms(MS_PER_100TH_SEC)
 
 CON ' ---- License ----

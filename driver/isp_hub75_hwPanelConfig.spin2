@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Jan 2024
-''   Updated.... 06 Oct 2026
+''   Updated.... 08 Oct 2026
 ''
 '' =================================================================================================
 
@@ -26,7 +26,7 @@ CON ' ---- User Panel Connection and Configuration ----
 '       ICN2037                 ABCDE
 '       ICN2038S                ABCDE
 
-'  User customized section describing the memory allocated to our matrix panel displays
+'  User wiring section
 '
 ' Wiring: one sentence per cable position, DISPn_C0 .. DISPn_C15
 '
@@ -81,8 +81,8 @@ CON ' ---- User Panel Connection and Configuration ----
     DISP0_COLOR_DEPTH              = hwEnum.DEPTH_8BIT
 
     ' (4) Say how the whole display is mounted (the rotation is physical)
-    '    ROT_RIGHT_90 = hung turned 90 degrees clockwise, ROT_LEFT_90 = counter-clockwise,
-    '    ROT_180 = upside-down. Content then reads upright as mounted.
+    '    hwEnum.ROT_RIGHT_90 = hung turned 90 degrees clockwise, hwEnum.ROT_LEFT_90 = counter-clockwise,
+    '    hwEnum.ROT_180 = upside-down. Content then reads upright as mounted.
     ' NOTE: Use ROT_NONE first to verify panel orientation, then adjust if needed
     DISP0_ROTATION                 = hwEnum.ROT_NONE
     'DISP0_ROTATION = hwEnum.ROT_180  ' uncomment if display is upside-down
@@ -126,41 +126,14 @@ CON ' ---- User Panel Connection and Configuration ----
 
     ' End User configure
 
-    ' The display's size, its grid of panels and each panel's place and rotation are
-    ' derived from the wiring sentences at startup, not set here.
-
-    ' Screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
-    ' Color depth only affects which bits are significant in BCM conversion
-    DISP0_BITS_PER_COLOR           = DISP0_COLOR_DEPTH * 3
-    DISP0_BYTES_PER_COLOR          = 3
-
-    ' how many panels are in use: each cable position that is not NO_PANEL
-    DISP0_PANEL_COUNT              = (DISP0_C0 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C1 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP0_C2 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C3 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP0_C4 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C5 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP0_C6 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C7 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP0_C8 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C9 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP0_C10 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C11 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP0_C12 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C13 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP0_C14 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C15 <> hwEnum.NO_PANEL ? 1 : 0)
-
-    ' buffers hold only the panels in use (panel count x panel pixels), not the bounding box
-    DISP0_SCRN_SIZE_IN_BYTES       = (((DISP0_PANEL_COUNT * DISP0_MAX_PANEL_COLUMNS * DISP0_MAX_PANEL_ROWS * DISP0_BYTES_PER_COLOR) + 3) / 4) * 4
-    DISP0_SCRN_SIZE_IN_LONGS       = (DISP0_SCRN_SIZE_IN_BYTES / 4)
-
-    ' what is our PWM frame size
-    ' PWM Frames are 4 bits per pixel for every pixel of the panels in use
-    DISP0_PWM_FRAME_SIZE_IN_BYTES  = (DISP0_PANEL_COUNT * DISP0_MAX_PANEL_COLUMNS * DISP0_MAX_PANEL_ROWS) / 2
-    DISP0_PWM_FRAME_SIZE_IN_LONGS  = (DISP0_PWM_FRAME_SIZE_IN_BYTES + 3) / 4
-
-    DISP0_FRAMESET_SIZE_IN_LONGS   = DISP0_COLOR_DEPTH * DISP0_PWM_FRAME_SIZE_IN_LONGS
-
 ' panel set on 2nd HUB75 adapter board - DISP1_* constants
 
     ' User configure
 
     ' (1) describe the panel connections, addressing and chips
-    DISP1_ADAPTER_BASE_PIN         = hwEnum.PIN_GROUP_P16_P31
+    '    NOTE each adapter needs its own pin group: when you use this adapter, set the base pin
+    '         to the group it is plugged into (the default differs from the other two adapters)
+    DISP1_ADAPTER_BASE_PIN         = hwEnum.PIN_GROUP_P32_P47
     DISP1_PANEL_DRIVER_CHIP        = hwEnum.CHIP_ICN2037
     DISP1_PANEL_ADDR_LINES         = hwEnum.ADDR_ABCDE
 
@@ -210,37 +183,14 @@ CON ' ---- User Panel Connection and Configuration ----
 
     ' End User configure
 
-    ' Screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
-    DISP1_BITS_PER_COLOR           = DISP1_COLOR_DEPTH * 3
-    DISP1_BYTES_PER_COLOR          = 3
-
-    ' how many panels are in use: each cable position that is not NO_PANEL
-    DISP1_PANEL_COUNT              = (DISP1_C0 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C1 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP1_C2 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C3 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP1_C4 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C5 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP1_C6 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C7 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP1_C8 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C9 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP1_C10 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C11 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP1_C12 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C13 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP1_C14 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C15 <> hwEnum.NO_PANEL ? 1 : 0)
-
-    ' buffers hold only the panels in use (panel count x panel pixels), not the bounding box
-    DISP1_SCRN_SIZE_IN_BYTES       = (((DISP1_PANEL_COUNT * DISP1_MAX_PANEL_COLUMNS * DISP1_MAX_PANEL_ROWS * DISP1_BYTES_PER_COLOR) + 3) / 4) * 4
-    DISP1_SCRN_SIZE_IN_LONGS       = (DISP1_SCRN_SIZE_IN_BYTES / 4)
-
-    ' what is our PWM frame size
-    ' PWM Frames are 4 bits per pixel for every pixel of the panels in use
-    DISP1_PWM_FRAME_SIZE_IN_BYTES  = (DISP1_PANEL_COUNT * DISP1_MAX_PANEL_COLUMNS * DISP1_MAX_PANEL_ROWS) / 2
-    DISP1_PWM_FRAME_SIZE_IN_LONGS  = (DISP1_PWM_FRAME_SIZE_IN_BYTES + 3) / 4
-
-    DISP1_FRAMESET_SIZE_IN_LONGS   = DISP1_COLOR_DEPTH * DISP1_PWM_FRAME_SIZE_IN_LONGS
-
 ' panel set on 3rd HUB75 adapter board - DISP2_* constants
 
     ' User configure
 
     ' (1) describe the panel connections, addressing and chips
-    DISP2_ADAPTER_BASE_PIN         = hwEnum.PIN_GROUP_P16_P31
+    '    NOTE each adapter needs its own pin group: when you use this adapter, set the base pin
+    '         to the group it is plugged into (the default differs from the other two adapters)
+    DISP2_ADAPTER_BASE_PIN         = hwEnum.PIN_GROUP_P0_P15
     DISP2_PANEL_DRIVER_CHIP        = hwEnum.CHIP_ICN2037
     DISP2_PANEL_ADDR_LINES         = hwEnum.ADDR_ABCDE
 
@@ -290,8 +240,72 @@ CON ' ---- User Panel Connection and Configuration ----
 
     ' End User configure
 
+CON ' ---- Derived Buffer Sizes (not edited) ----
+
+' Everything below is computed from the settings above. It is not part of the
+' user's configuration, so it is kept out of the generated interface doc.
+' The display's size, its grid of panels and each panel's place and rotation are
+' derived from the wiring sentences at startup, not set here.
+
+    ' buffer sizes round up to whole longs (hwEnum.BYTES_PER_LONG)
+    PIXELS_PER_PWM_BYTE           = 2                          ' a PWM frame holds 4 bits per pixel
+
+' first HUB75 adapter board - DISP0_* derived values
+
     ' Screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
-    DISP2_BITS_PER_COLOR           = DISP2_COLOR_DEPTH * 3
+    ' Color depth only affects which bits are significant in BCM conversion
+    DISP0_BYTES_PER_COLOR          = 3
+
+    ' how many panels are in use: each cable position that is not NO_PANEL
+    DISP0_PANEL_COUNT              = (DISP0_C0 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C1 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP0_C2 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C3 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP0_C4 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C5 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP0_C6 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C7 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP0_C8 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C9 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP0_C10 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C11 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP0_C12 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C13 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP0_C14 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C15 <> hwEnum.NO_PANEL ? 1 : 0)
+
+    ' buffers hold only the panels in use (panel count x panel pixels), not the bounding box
+    DISP0_SCRN_SIZE_IN_BYTES       = (((DISP0_PANEL_COUNT * DISP0_MAX_PANEL_COLUMNS * DISP0_MAX_PANEL_ROWS * DISP0_BYTES_PER_COLOR) + (hwEnum.BYTES_PER_LONG - 1)) / hwEnum.BYTES_PER_LONG) * hwEnum.BYTES_PER_LONG
+    DISP0_SCRN_SIZE_IN_LONGS       = (DISP0_SCRN_SIZE_IN_BYTES / hwEnum.BYTES_PER_LONG)
+
+    ' what is our PWM frame size
+    ' PWM Frames are 4 bits per pixel for every pixel of the panels in use
+    DISP0_PWM_FRAME_SIZE_IN_BYTES  = (DISP0_PANEL_COUNT * DISP0_MAX_PANEL_COLUMNS * DISP0_MAX_PANEL_ROWS) / PIXELS_PER_PWM_BYTE
+    DISP0_PWM_FRAME_SIZE_IN_LONGS  = (DISP0_PWM_FRAME_SIZE_IN_BYTES + (hwEnum.BYTES_PER_LONG - 1)) / hwEnum.BYTES_PER_LONG
+
+    DISP0_FRAMESET_SIZE_IN_LONGS   = DISP0_COLOR_DEPTH * DISP0_PWM_FRAME_SIZE_IN_LONGS
+
+' second HUB75 adapter board - DISP1_* derived values
+
+    ' Screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
+    DISP1_BYTES_PER_COLOR          = 3
+
+    ' how many panels are in use: each cable position that is not NO_PANEL
+    DISP1_PANEL_COUNT              = (DISP1_C0 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C1 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP1_C2 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C3 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP1_C4 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C5 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP1_C6 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C7 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP1_C8 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C9 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP1_C10 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C11 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP1_C12 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C13 <> hwEnum.NO_PANEL ? 1 : 0) + ...
+                                     (DISP1_C14 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C15 <> hwEnum.NO_PANEL ? 1 : 0)
+
+    ' buffers hold only the panels in use (panel count x panel pixels), not the bounding box
+    DISP1_SCRN_SIZE_IN_BYTES       = (((DISP1_PANEL_COUNT * DISP1_MAX_PANEL_COLUMNS * DISP1_MAX_PANEL_ROWS * DISP1_BYTES_PER_COLOR) + (hwEnum.BYTES_PER_LONG - 1)) / hwEnum.BYTES_PER_LONG) * hwEnum.BYTES_PER_LONG
+    DISP1_SCRN_SIZE_IN_LONGS       = (DISP1_SCRN_SIZE_IN_BYTES / hwEnum.BYTES_PER_LONG)
+
+    ' what is our PWM frame size
+    ' PWM Frames are 4 bits per pixel for every pixel of the panels in use
+    DISP1_PWM_FRAME_SIZE_IN_BYTES  = (DISP1_PANEL_COUNT * DISP1_MAX_PANEL_COLUMNS * DISP1_MAX_PANEL_ROWS) / PIXELS_PER_PWM_BYTE
+    DISP1_PWM_FRAME_SIZE_IN_LONGS  = (DISP1_PWM_FRAME_SIZE_IN_BYTES + (hwEnum.BYTES_PER_LONG - 1)) / hwEnum.BYTES_PER_LONG
+
+    DISP1_FRAMESET_SIZE_IN_LONGS   = DISP1_COLOR_DEPTH * DISP1_PWM_FRAME_SIZE_IN_LONGS
+
+' third HUB75 adapter board - DISP2_* derived values
+
+    ' Screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
     DISP2_BYTES_PER_COLOR          = 3
 
     ' how many panels are in use: each cable position that is not NO_PANEL
@@ -305,13 +319,13 @@ CON ' ---- User Panel Connection and Configuration ----
                                      (DISP2_C14 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP2_C15 <> hwEnum.NO_PANEL ? 1 : 0)
 
     ' buffers hold only the panels in use (panel count x panel pixels), not the bounding box
-    DISP2_SCRN_SIZE_IN_BYTES       = (((DISP2_PANEL_COUNT * DISP2_MAX_PANEL_COLUMNS * DISP2_MAX_PANEL_ROWS * DISP2_BYTES_PER_COLOR) + 3) / 4) * 4
-    DISP2_SCRN_SIZE_IN_LONGS       = (DISP2_SCRN_SIZE_IN_BYTES / 4)
+    DISP2_SCRN_SIZE_IN_BYTES       = (((DISP2_PANEL_COUNT * DISP2_MAX_PANEL_COLUMNS * DISP2_MAX_PANEL_ROWS * DISP2_BYTES_PER_COLOR) + (hwEnum.BYTES_PER_LONG - 1)) / hwEnum.BYTES_PER_LONG) * hwEnum.BYTES_PER_LONG
+    DISP2_SCRN_SIZE_IN_LONGS       = (DISP2_SCRN_SIZE_IN_BYTES / hwEnum.BYTES_PER_LONG)
 
     ' what is our PWM frame size
     ' PWM Frames are 4 bits per pixel for every pixel of the panels in use
-    DISP2_PWM_FRAME_SIZE_IN_BYTES  = (DISP2_PANEL_COUNT * DISP2_MAX_PANEL_COLUMNS * DISP2_MAX_PANEL_ROWS) / 2
-    DISP2_PWM_FRAME_SIZE_IN_LONGS  = (DISP2_PWM_FRAME_SIZE_IN_BYTES + 3) / 4
+    DISP2_PWM_FRAME_SIZE_IN_BYTES  = (DISP2_PANEL_COUNT * DISP2_MAX_PANEL_COLUMNS * DISP2_MAX_PANEL_ROWS) / PIXELS_PER_PWM_BYTE
+    DISP2_PWM_FRAME_SIZE_IN_LONGS  = (DISP2_PWM_FRAME_SIZE_IN_BYTES + (hwEnum.BYTES_PER_LONG - 1)) / hwEnum.BYTES_PER_LONG
 
     DISP2_FRAMESET_SIZE_IN_LONGS   = DISP2_COLOR_DEPTH * DISP2_PWM_FRAME_SIZE_IN_LONGS
 
@@ -323,7 +337,7 @@ PUB null()
 '' Placeholder to prevent this object from being used as a top-level file.
 ''
 
-CON ' license
+CON ' ---- License ----
 
 {{
 

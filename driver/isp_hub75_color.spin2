@@ -1,46 +1,48 @@
 '' =================================================================================================
 ''
 ''   File....... isp_hub75_color.spin2
-''   Purpose.... Provide utility color routines
+''   Purpose.... Provide the named color constants (24-bit RGB colors and the 3-bit base colors)
 ''   Authors.... Stephen M Moraco
 ''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 06 Oct 2026
+''   Updated.... 08 Oct 2026
 ''
 '' =================================================================================================
 
 CON ' ---- Color Constants ----
     {Spin2_Doc_CON}
 
-    CBLACK        = $000000
-    CWHITE        = $FFFFFF
-    CRED          = $FF0000
-    CLIME         = $00FF00
-    CBLUE         = $0000FF
-    CYELLOW       = $FFFF00
-    CCYAN         = $00FFFF
-    CMAGENTA      = $FF00FF
-    CSILVER       = $C0C0C0
-    CGRAY         = $808080
-    CMAROON       = $800000
-    COLIVE        = $808000
-    CGREEN        = $008000
-    CPURPLE       = $800080
-    CTEAL         = $008080
-    CNAVY         = $000080
-    CDARKGREEN    = $006400
-    CORANGE       = $FFA500
-    CBLUEVIOLET   = $8A2BE2
+    ' Named 24-bit $RRGGBB colors (HTML/X11 basic color set, plus two of our own)
+    CBLACK        = $000000     ' all channels off
+    CWHITE        = $FFFFFF     ' all channels full
+    CRED          = $FF0000     ' red
+    CLIME         = $00FF00     ' bright green ("lime")
+    CBLUE         = $0000FF     ' blue
+    CYELLOW       = $FFFF00     ' red + green
+    CCYAN         = $00FFFF     ' green + blue
+    CMAGENTA      = $FF00FF     ' red + blue
+    CSILVER       = $C0C0C0     ' light gray
+    CGRAY         = $808080     ' mid gray
+    CMAROON       = $800000     ' dark red
+    COLIVE        = $808000     ' dark yellow
+    CGREEN        = $008000     ' dark green
+    CPURPLE       = $800080     ' dark magenta
+    CTEAL         = $008080     ' dark cyan
+    CNAVY         = $000080     ' dark blue
+    CDARKGREEN    = $006400     ' very dark green
+    CORANGE       = $FFA500     ' orange
+    CBLUEVIOLET   = $8A2BE2     ' blue-violet
 
-    CFULLRED      = $FF0000
-    CFULLGREEN    = $00FF00
-    CFULLBLUE     = $0000FF
+    ' Full-intensity single-channel colors (the same values as CRED, CLIME and CBLUE)
+    CFULLRED      = $FF0000     ' red channel at full
+    CFULLGREEN    = $00FF00     ' green channel at full
+    CFULLBLUE     = $0000FF     ' blue channel at full
 
     ' SPECIAL non-colors - invoke algorithm to generate actual color used
-    CREDWHTBLU    = $deadf0
-    CRAINBOW      = $deadf1
+    CREDWHTBLU    = $DEADF0     ' marker for a red-white-blue pattern (no driver code interprets it yet)
+    CRAINBOW      = $DEADF1     ' marker for a hue that follows the display column (screenUtils expands it)
 
     ' our 3-bit colors (one bit per RGB channel):
     '  BASE_BLACK   - $00 all channels off

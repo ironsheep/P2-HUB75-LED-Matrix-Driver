@@ -15,7 +15,7 @@ Each panel is described by one sentence, each adapter starts with one call, six 
 #### Breaking Changes
 
 - **BREAKING**: `DISPx_MAX_PANELS_PER_ROW`, `DISPx_MAX_PANELS_PER_COLUMN`, `DISPx_WIRE_ENTRY`, `DISPx_WIRE_TRAVERSE` and `DISP0_PANEL0_ROT` to `DISP0_PANEL3_ROT` are removed. Describe each panel in a wiring sentence, `DISPx_C0` to `DISPx_C15`; a v3.x `isp_hub75_hwPanelConfig.spin2` does not compile.
-- **BREAKING**: `display.start()` takes the adapter ID, `display.start(hub75Bffrs.HUB75_ADAPTER_1)`, in place of the v3.x sequence. `configure()`, `setWireConfig()` and `setBufferPointers()` are removed, and your program no longer names the buffers object.
+- **BREAKING**: `display.start()` takes the adapter ID, `display.start(display.HUB75_ADAPTER_1)`, in place of the v3.x sequence. `configure()`, `setWireConfig()` and `setBufferPointers()` are removed, and your program no longer names the buffers object.
 - **BREAKING**: `isp_hub75_hwBufferAccess.spin2` and `isp_hub75_hwBuffers.spin2` are never edited. Restore the release copies; a second or third adapter needs only its `DISP1_` or `DISP2_` settings.
 - **BREAKING**: panel-centric calls (`fillPanel()`, `setCursorOnPanel()`, `drawPanelBox()`, `drawPanelLine()`, `scrollColoredTextOnLnOfNPanels()` and their siblings) take panel positions: `P0` is the top-left panel as the display hangs, numbered in reading order. A program that numbered panels by their place in the buffer must renumber; on a display wired from the bottom-left, `fillPanel(0)` now fills the top-left panel.
 - **BREAKING**: `DISPx_ROTATION` states how the display is mounted: `ROT_RIGHT_90` is hung turned 90 degrees clockwise, and content is drawn to read upright as hung. A program that sets a rotation should re-check it against how the display hangs.
@@ -30,11 +30,11 @@ Each panel is described by one sentence, each adapter starts with one call, six 
 - **Identify screen**, `demo_hub75_numberPanels.spin2`: labels each panel with its cable position, its panel position and an arrow, to fill in and confirm the sentences.
 - **Multiple adapters without file edits**: describe the second or third adapter's panels in `DISP1_` or `DISP2_` and start it with its own `display.start()`; an adapter with no panels costs no memory.
 - **Driver limits**: the [Wiring Guide](DOCs/WiringGuide.md#driver-limits) gives the most panels one adapter can drive for each panel type, and the startup check reports a display over the limit.
-- `placeBMP(chain, file, rotation)` places an image of any size, turned by a content rotation (`ROT_NONE`, `ROT_RIGHT_90`, `ROT_LEFT_90` or `ROT_180`).
+- `placeBMP(chain, file, rotation)` places an image of any size, turned by a content rotation (`bmp.ROT_NONE`, `bmp.ROT_RIGHT_90`, `bmp.ROT_LEFT_90` or `bmp.ROT_180`). It and `fillScreenFromBMP()` return `bmp.SUCCESS`, or `bmp.E_BAD_ROTATION` or `bmp.E_BMP_NOT_24BIT` when nothing was drawn.
 - **Demo**: `demo_hub75_boundary.spin2` draws across panel seams and prints the time of one full draw.
 - `DISPx_TARGET_REFRESH_HZ` (default 60) sets the refresh rate to aim for. The driver picks the brightest panel timing that reaches it; a display that cannot reach it runs at its fastest rate and prints that rate at startup.
 - MBI5124GP panels are configured at start: the driver writes each chip's configuration register with the values its datasheet gives for red, green and blue LEDs.
-- `display.showFrameSet(pFrameSet)` shows a PWM frame set you built. It accepts one of the adapter's two sets, and refuses NULL or any other address with a message naming the call.
+- `display.showFrameSet(pFrameSet)` shows a PWM frame set you built. It accepts one of the adapter's two sets and returns `display.SUCCESS`; it refuses NULL (`display.E_FRAMESET_NULL`) or any other address (`display.E_FRAMESET_FOREIGN`) with a message naming the call.
 
 #### Removed
 
@@ -42,6 +42,10 @@ Each panel is described by one sentence, each adapter starts with one call, six 
 
 #### Fixed
 
+- `demo_hub75_7seg.spin2` on a display 32 columns wide or less keeps its text: two digits it does not place were drawn in black over it every minute.
+- A 7-segment digit placed blank counts from 0 on its first increment; the first increment used to be lost.
+- `demo_hub75_multiPanel.spin2` and `demo_hub75_quadPanel.spin2` spread their panel colours around the whole colour circle; they reached only about 70% of it, never magenta.
+- The first start of an adapter no longer releases pin P0.
 - MBI5124GP panels chained on one adapter run as one display. The first column of each panel showed the wrong red in some rows, on some images, and could flicker: the column clock was faster than one chip can hand its data to the next. The clock is now held to that limit (18.6 MHz at 335 MHz).
 - `demo_hub75_scroll.spin2` lays its scrollers out for the display's height. On a 32-row display its up and down scrollers landed on the last line, on top of the left-scrolling text.
 - Chains of ten or more panels on one adapter show every panel. Chains of nine or fewer were unaffected.

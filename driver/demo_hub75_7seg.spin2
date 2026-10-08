@@ -1,13 +1,13 @@
 '' =================================================================================================
 ''
 ''   File....... demo_hub75_7seg.spin2
-''   Purpose.... Top-level Demonstration - showing off our HUB75 matrix
+''   Purpose.... Top-level Demonstration - a high-speed clock built from mechanical 7-segment digits
 ''   Authors.... Stephen M Moraco
 ''               -- Copyright (c) 2024 Iron Sheep Productions, LLC
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 06 Oct 2026
+''   Updated.... 08 Oct 2026
 ''
 '' =================================================================================================
 
@@ -21,6 +21,16 @@ CON ' ---- Timing ----
 CON ' ---- Display Constants ----
 
     MAX_DIGITS          = 8
+
+    ' which digit object shows which clock digit (the second clock adds 12 hours: 24-hour hours and minutes)
+    HOURS_TENS          = 0
+    HOURS_ONES          = 1
+    MINUTES_TENS        = 2
+    MINUTES_ONES        = 3
+    HOURS24_TENS        = 4
+    HOURS24_ONES        = 5
+    MINUTES2_TENS       = 6
+    MINUTES2_ONES       = 7
 
     ' digit placement (row, then the left column of each digit; the second panel adds PANEL_WIDTH)
     DIGIT_ROW           = 8
@@ -60,6 +70,10 @@ CON ' ---- Display Constants ----
     DOT_DIM_COLOR       = $00006F
     DOT_BRIGHT_COLOR    = $0080FF
 
+    ' showSecondsDots() brightness choices
+    DOTS_DIM            = 0
+    DOTS_BRIGHT         = 1
+
 OBJ ' ---- Objects ----
 
     color                       : "isp_hub75_color"
@@ -71,30 +85,24 @@ OBJ ' ---- Objects ----
 VAR ' ---- Per-instance State ----
 
     LONG    chainIndex
-    LONG    segmentPeriod
-    LONG    digitPeriod
-    LONG    digitIndex
-    LONG    hours
-    LONG    minutes
 
-PUB start() | hours24, displayColumns
+PUB start() | hours, minutes, hours24, displayColumns
 '' Start underlying drivers and run the seven-segment clock demo.
 ''
 
 ' Local Variables:
+' @local hours - hours value of the first clock (0 to LAST_HOUR)
+' @local minutes - minutes value of both clocks
 ' @local hours24 - hours value in 24-hour format
 ' @local displayColumns - width of the display in pixel columns
 
   chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
   ' startup our backend COG(s): one call per adapter (aborts if no cog is free)
-  display.start(hub75Bffrs.HUB75_ADAPTER_1)
+  display.start(display.HUB75_ADAPTER_1)
 
   displayColumns := hub75Bffrs.maxDisplayColumns(chainIndex)
 
   '  SEVEN SEGMENT DEMO
-
-  segmentPeriod := SEGMENT_PERIOD
-  digitPeriod := DIGIT_PERIOD
 
   ' draw some text!
   display.setTextFont(display.TEXT_FONT_5x7)            ' font size
@@ -104,27 +112,25 @@ PUB start() | hours24, displayColumns
   display.commitScreenToPanelSet()
 
   ' High Speed CLOCK demo
-  hours := minutes := 0
-
-  digit[0].placeDigit(chainIndex, DIGIT_ROW, DIGIT_COLUMN_A, DIGIT_ZERO, color.cOrange)
-  digit[1].placeDigit(chainIndex, DIGIT_ROW, DIGIT_COLUMN_B, DIGIT_ZERO, color.cOrange)
+  digit[HOURS_TENS].placeDigit(chainIndex, DIGIT_ROW, DIGIT_COLUMN_A, DIGIT_ZERO, color.cOrange)
+  digit[HOURS_ONES].placeDigit(chainIndex, DIGIT_ROW, DIGIT_COLUMN_B, DIGIT_ZERO, color.cOrange)
   if displayColumns > WIDTH_FOR_4_DIGITS
-    digit[2].placeDigit(chainIndex, DIGIT_ROW, DIGIT_COLUMN_C, DIGIT_ZERO, color.cOrange)
-    digit[3].placeDigit(chainIndex, DIGIT_ROW, DIGIT_COLUMN_D, DIGIT_ZERO, color.cOrange)
+    digit[MINUTES_TENS].placeDigit(chainIndex, DIGIT_ROW, DIGIT_COLUMN_C, DIGIT_ZERO, color.cOrange)
+    digit[MINUTES_ONES].placeDigit(chainIndex, DIGIT_ROW, DIGIT_COLUMN_D, DIGIT_ZERO, color.cOrange)
   if displayColumns > WIDTH_FOR_6_DIGITS
-    digit[4].placeDigit(chainIndex, DIGIT_ROW, DIGIT_COLUMN_A + PANEL_WIDTH, DIGIT_ONE, color.cOrange)
-    digit[5].placeDigit(chainIndex, DIGIT_ROW, DIGIT_COLUMN_B + PANEL_WIDTH, DIGIT_TWO, color.cOrange)
+    digit[HOURS24_TENS].placeDigit(chainIndex, DIGIT_ROW, DIGIT_COLUMN_A + PANEL_WIDTH, DIGIT_ONE, color.cOrange)
+    digit[HOURS24_ONES].placeDigit(chainIndex, DIGIT_ROW, DIGIT_COLUMN_B + PANEL_WIDTH, DIGIT_TWO, color.cOrange)
   if displayColumns > WIDTH_FOR_8_DIGITS
-    digit[6].placeDigit(chainIndex, DIGIT_ROW, DIGIT_COLUMN_C + PANEL_WIDTH, DIGIT_ZERO, color.cOrange)
-    digit[7].placeDigit(chainIndex, DIGIT_ROW, DIGIT_COLUMN_D + PANEL_WIDTH, DIGIT_ZERO, color.cOrange)
+    digit[MINUTES2_TENS].placeDigit(chainIndex, DIGIT_ROW, DIGIT_COLUMN_C + PANEL_WIDTH, DIGIT_ZERO, color.cOrange)
+    digit[MINUTES2_ONES].placeDigit(chainIndex, DIGIT_ROW, DIGIT_COLUMN_D + PANEL_WIDTH, DIGIT_ZERO, color.cOrange)
 
   display.commitScreenToPanelSet()
-  wait100thSecs(segmentPeriod)
+  wait100thSecs(SEGMENT_PERIOD)
 
   loopUntilSegmentsFinish()
 
   ' PAUSE to see digit before next morph
-  wait100thSecs(digitPeriod)
+  wait100thSecs(DIGIT_PERIOD)
 
   repeat hours from 0 TO LAST_HOUR
     hours24 := hours + SECOND_CLOCK_OFFSET
@@ -133,48 +139,49 @@ PUB start() | hours24, displayColumns
 
     repeat minutes from 0 TO LAST_MINUTE
 
-      digit[0].setValue(hours / DECIMAL_BASE)
-      digit[1].setValue(hours // DECIMAL_BASE)
-      digit[2].setValue(minutes / DECIMAL_BASE)
-      digit[3].setValue(minutes // DECIMAL_BASE)
+      digit[HOURS_TENS].setValue(hours / DECIMAL_BASE)
+      digit[HOURS_ONES].setValue(hours // DECIMAL_BASE)
+      if displayColumns > WIDTH_FOR_4_DIGITS            ' only the digits placed above are set
+        digit[MINUTES_TENS].setValue(minutes / DECIMAL_BASE)
+        digit[MINUTES_ONES].setValue(minutes // DECIMAL_BASE)
       if displayColumns > WIDTH_FOR_6_DIGITS
-        digit[4].setValue(hours24 / DECIMAL_BASE)
-        digit[5].setValue(hours24 // DECIMAL_BASE)
+        digit[HOURS24_TENS].setValue(hours24 / DECIMAL_BASE)
+        digit[HOURS24_ONES].setValue(hours24 // DECIMAL_BASE)
       if displayColumns > WIDTH_FOR_8_DIGITS
-        digit[6].setValue(minutes / DECIMAL_BASE)
-        digit[7].setValue(minutes // DECIMAL_BASE)
+        digit[MINUTES2_TENS].setValue(minutes / DECIMAL_BASE)
+        digit[MINUTES2_ONES].setValue(minutes // DECIMAL_BASE)
 
       display.commitScreenToPanelSet()
-      wait100thSecs(segmentPeriod)
+      wait100thSecs(SEGMENT_PERIOD)
 
-      showSecondsDots( minutes // SECONDS_DOT_PERIOD )
+      showSecondsDots(minutes // SECONDS_DOT_PERIOD)    ' DOTS_DIM (0) or DOTS_BRIGHT (1)
 
       loopUntilSegmentsFinish()
 
-      wait100thSecs(digitPeriod)
+      wait100thSecs(DIGIT_PERIOD)
 
-  DEBUG("DEMO: done")
+  debug("DEMO: done")
   repeat
 
-PUB wait100thSecs(count)
-'' Wait for the specified number of hundredths of a second.
-''
-'' @param count - number of hundredths of a second to wait
+' ---- Private Methods ----
 
-  repeat count
+PRI wait100thSecs(hundredths)
+' Wait for the specified number of hundredths of a second.
+'
+' @param hundredths - number of hundredths of a second to wait
+
+  repeat hundredths
     waitms(MS_PER_100TH_SEC)
-
-CON ' ---- Private Methods ----
 
 PRI showSecondsDots(lightDark) | targetColor
 ' Draw the colon dots between hour and minute digits.
 '
-' @param lightDark - 0 for dim color, 1 for bright color
+' @param lightDark - DOTS_DIM for dim color, DOTS_BRIGHT for bright color
 
 ' Local Variables:
 ' @local targetColor - computed 24-bit RGB color for dots
 
-  if lightDark == 0
+  if lightDark == DOTS_DIM
     targetColor := DOT_DIM_COLOR
   else
     targetColor := DOT_BRIGHT_COLOR
@@ -197,10 +204,13 @@ PRI drawSecondsDot(row, column, rgbColor)
   pixels.drawPixelAtRC(chainIndex, row+1, column, rgbColor)
   pixels.drawPixelAtRC(chainIndex, row+1, column+1, rgbColor)
 
-PRI allDigitAnimationsComplete() : bAllComplete
+PRI allDigitAnimationsComplete() : bAllComplete | digitIndex
 ' Return TRUE if all digit animations have finished.
 '
 ' @returns bAllComplete - TRUE if all complete, FALSE otherwise
+
+' Local Variables:
+' @local digitIndex - loop index over the digit objects
 
   bAllComplete := TRUE
   repeat digitIndex from 0 TO MAX_DIGITS - 1
@@ -208,11 +218,12 @@ PRI allDigitAnimationsComplete() : bAllComplete
       bAllComplete := FALSE
       quit
 
-PRI loopUntilSegmentsFinish() | didAnimate
+PRI loopUntilSegmentsFinish() | digitIndex, didAnimate
 ' Animate all digit segments until all animations are complete.
 '
 
 ' Local Variables:
+' @local digitIndex - loop index over the digit objects
 ' @local didAnimate - TRUE if any digit animated this iteration
 
   repeat
@@ -224,7 +235,7 @@ PRI loopUntilSegmentsFinish() | didAnimate
           digit[digitIndex].animateStep()
       if didAnimate == TRUE
         display.commitScreenToPanelSet()
-        wait100thSecs(segmentPeriod)
+        wait100thSecs(SEGMENT_PERIOD)
 
     if allDigitAnimationsComplete() == TRUE
       quit

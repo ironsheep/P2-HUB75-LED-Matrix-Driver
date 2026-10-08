@@ -208,8 +208,8 @@ Panel-centric calls take (panel position, panel coordinates) in the viewer's fra
 
 `display.commitScreenToPanelSet()` triggers conversion from screen buffer to PWM frames. It calls `convertScreen2PWM_14()` for a chip flagged `SCAN_4` and `convertScreen2PWM()` for every other chip (both in `isp_hub75_panel.spin2`):
 
-1. **Wait for the previous post to be taken.** The refresh cog names the frame set it is showing in `dvrShowing` at each frame start. Before converting again, the commit waits until `dvrShowing` is the set it posted last (within one refresh), so the set it is about to write is never the set on display. The first commit after start has nothing to wait for.
-2. **Select the PWM frame set that is not on display** (the one `dvrShowing` does not name).
+1. **Wait for the previous post to be taken.** The refresh cog names the frame set it is showing in `driverShowing` at each frame start. Before converting again, the commit waits until `driverShowing` is the set it posted last (within one refresh), so the set it is about to write is never the set on display. The first commit after start has nothing to wait for.
+2. **Select the PWM frame set that is not on display** (the one `driverShowing` does not name).
 3. **For each group of four columns**: block-read the four top-half and four bottom-half pixels, spread each pixel pair's channel bits across the bit planes with `MERGEB`, collect the four columns' plane bytes in one long per plane, and write each plane's long once. The chip's red/blue or green/blue channel swap (`RB_SWAP`, `GB_SWAP`) is applied to each pixel's bytes on the way in (`channelOrder()`). Half-scan and quarter-scan panels share this converter; only where each row lands in the frame set differs. Panel widths are a multiple of 4 columns (checked at startup). On the author's four-panel rig a commit takes 4.09 ms at 8-bit and 3.26 ms at 5-bit.
 4. **Post the converted set** to the PASM2 driver with `cmdWritePwmBuffer()`.
 5. **Return immediately** - the driver takes the set at its next frame start and continues displaying asynchronously, so the panels never show a half-converted image.
@@ -501,7 +501,7 @@ DISP0_TARGET_REFRESH_HZ = 60
 All three adapters are always present in `isp_hub75_hwBufferAccess.spin2` and `isp_hub75_hwBuffers.spin2`, and nothing in those files is edited. An adapter whose `DISPx_C0` is `NO_PANEL` has zero-length buffers and costs no memory. To use another adapter:
 
 1. **In `isp_hub75_hwPanelConfig.spin2`**: describe the panels of `DISP1_` (second adapter) or `DISP2_` (third adapter): pin group, chip, address lines, panel size, color depth, and the wiring sentences.
-2. **In your program**: give each adapter its own display object (`display[2] : "isp_hub75_display"`) and start it with its adapter ID, `display[1].startWithId(1, hub75Bffrs.HUB75_ADAPTER_2)` (or `HUB75_ADAPTER_3`); `startWithId` is `start` plus a number that labels the adapter's debug messages. Each adapter runs its own display object and refresh COG, and each display commits its own screen buffer. Brightness is the one setting shared by all adapters.
+2. **In your program**: give each adapter its own display object (`display[2] : "isp_hub75_display"`) and start it with its adapter ID, `display[1].startWithId(1, display.HUB75_ADAPTER_2)` (or `HUB75_ADAPTER_3`); `startWithId` is `start` plus a number that labels the adapter's debug messages. Each adapter runs its own display object and refresh COG, and each display commits its own screen buffer. Brightness is the one setting shared by all adapters.
 
 The startup check halts with a message if a display that is started has no panels, or if the combined buffers of all three adapters do not fit hub RAM (the compiler reports the second). See the [upgrade checklist](../Checklist-v3-v4.md#starting-a-second-or-third-adapter) for the call sequence.
 

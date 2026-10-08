@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2026
-''   Updated.... 07 Oct 2026
+''   Updated.... 08 Oct 2026
 ''
 '' =================================================================================================
 
@@ -106,10 +106,6 @@ CON ' ---- Workload ----
     FIRST_COLUMN            = 0                             ' leftmost column of the display
     FIRST_TEXT_COLUMN       = 0                             ' leftmost text column
 
-    ' Fixed-point reports: x100 values print with one decimal
-    FIXED_POINT_SCALE       = 100
-    FRACTION_DIVISOR        = 10
-
 CON ' ---- Frame-set handshake trace ----
 
     ' Back-to-back commits traced (no drawing between them: the fastest commit rate)
@@ -124,11 +120,14 @@ CON ' ---- Brightness steps and tearing test (visit C) ----
     ' eye); the step reports the last one
     BRIGHTNESS_SAMPLE_SECONDS = 5
 
-    ' Brightness when no adjustment is wanted (display.setBrightness() full scale)
-    FULL_BRIGHTNESS         = 256
-
     ' Brightness steps measured, in order (BRIGHTNESS_STEP_COUNT entries in brightnessSteps)
     BRIGHTNESS_STEP_COUNT   = 4
+
+    ' The steps' brightness values: full, FULL_BRIGHTNESS / BRIGHTNESS_HALF_DIVISOR, the chip-minimum
+    ' floor, and off
+    BRIGHTNESS_HALF_DIVISOR = 2
+    BRIGHTNESS_FLOOR        = 1
+    BRIGHTNESS_OFF          = 0
 
     ' Seconds the tearing test alternates two full-screen patterns at the fastest commit rate
     TEAR_TEST_SECONDS       = 20
@@ -152,18 +151,20 @@ CON ' ---- Test patterns (plan section 1), judged by eye ----
     #0, PATTERN_GREY_RAMP, PATTERN_RGB_BANDS, PATTERN_SOLID_RED, PATTERN_SOLID_GREEN, ...
     PATTERN_SOLID_BLUE, PATTERN_SOLID_WHITE, PATTERN_CHECKER, PATTERN_COUNT
 
-    ' The band pattern's bands, top to bottom: one channel ramps, or all three (BAND_WHITE)
+    ' The band pattern's bands, top to bottom:
+    '  BAND_RED   - the red channel ramps
+    '  BAND_GREEN - the green channel ramps
+    '  BAND_BLUE  - the blue channel ramps
+    '  BAND_WHITE - all three channels ramp
+    '  BAND_COUNT - number of bands
     #0, BAND_RED, BAND_GREEN, BAND_BLUE, BAND_WHITE, BAND_COUNT
 
-    ' Levels in an 8-bit channel, and full on
+    ' The colour packing comparison: the packed forms compared, and the blue channel's step
     PACKING_FORMS           = 2                             ' packedCorrectedColor() and packedCorrectedRgb()
     PACKING_BLUE_STRIDE     = 7                             ' an odd stride, so blue follows neither red nor green
-    LEVEL_COUNT             = 256
-    LEVEL_MAX               = LEVEL_COUNT - 1
 
-    ' Channel places in a 24-bit $RRGGBB colour
-    RED_SHIFT               = 16
-    GREEN_SHIFT             = 8
+    ' Levels in an 8-bit channel
+    LEVEL_COUNT             = colorUtils.MAX_COLOR_VALUE + 1
 
     ' A checkerboard pixel is lit when its row + column is odd
     CHECKER_PHASES          = 2
@@ -175,8 +176,8 @@ CON ' ---- Test patterns (plan section 1), judged by eye ----
 CON ' ---- Colour table self-test ----
 
     ' Depths compared (the scratch tables cover every depth whatever the build's depth)
-    TABLE_DEPTH_FIRST       = hwEnum.DEPTH_3BIT
-    TABLE_DEPTH_LAST        = hwEnum.DEPTH_8BIT
+    TABLE_DEPTH_FIRST       = hub75Bffrs.DEPTH_3BIT
+    TABLE_DEPTH_LAST        = hub75Bffrs.DEPTH_8BIT
 
     ' Gamma cases, in order: off, on
     GAMMA_CASE_OFF          = 0
@@ -311,12 +312,6 @@ CON ' ---- Row-run self-test ----
     FILL_CORNER_COLUMNS     = 20
     FILL_STRIP_ROWS         = 3
 
-    ' Segments: placed SEGMENT_REACH before a cell's corner, SEGMENT_SPACING apart; the last one
-    ' SEGMENT_EDGE_ROWS above the bottom and SEGMENT_EDGE_COLUMNS before the right edge
-    ' Sloped lines run DIAG_REACH pixels past the display's edges; the steep ones lean
-    ' DIAG_STEEP_RUN columns either side of the first cell boundary. Circles: one of
-    ' CIRCLE_SMALL_RADIUS inside the first cell, one of CIRCLE_EDGE_RADIUS centred
-    ' CIRCLE_EDGE_INSET pixels in from the bottom right, so most of it is off the display.
     ' The overdraw scroll case: OVERDRAW_STEPS steps between its interruptions; the box is
     ' OVERDRAW_BOX_SIZE pixels square, OVERDRAW_BOX_INSET pixels into the window, in OVERDRAW_COLOR
     OVERDRAW_STEPS          = 3
@@ -324,12 +319,19 @@ CON ' ---- Row-run self-test ----
     OVERDRAW_BOX_SIZE       = 4
     OVERDRAW_COLOR          = $40_FF_40
 
+    ' Sloped lines run DIAG_REACH pixels past the display's edges; the steep ones lean
+    ' DIAG_STEEP_RUN columns either side of the first cell boundary
     DIAG_REACH              = 5
     DIAG_STEEP_RUN          = 9
+
+    ' Circles: one of CIRCLE_SMALL_RADIUS inside the first cell, one of CIRCLE_EDGE_RADIUS centred
+    ' CIRCLE_EDGE_INSET pixels in from the bottom right, so most of it is off the display
     CIRCLE_SMALL_RADIUS     = 6
     CIRCLE_EDGE_RADIUS      = 9
     CIRCLE_EDGE_INSET       = 2
 
+    ' Segments: placed SEGMENT_REACH before a cell's corner, SEGMENT_SPACING apart; the last one
+    ' SEGMENT_EDGE_ROWS above the bottom and SEGMENT_EDGE_COLUMNS before the right edge
     SEGMENT_REACH           = 4
     SEGMENT_SPACING         = 4
     SEGMENT_EDGE_ROWS       = 2
@@ -346,7 +348,6 @@ CON ' ---- Row-run self-test ----
     BACKGROUND_LONG         = $5A_5A_5A_5A
     CAPTURE_AREA_LONGS      = 8192
     CAPTURE_LONGS           = CAPTURE_AREA_LONGS / 2
-    BITS_PER_BYTE           = 8
     BYTE_MASK               = $FF
     NO_OFFSET               = -1                            ' first differing offset when none differ
 
@@ -371,9 +372,6 @@ CON ' ---- Brightness step labels ----
 
     ' Decimal digits are built by repeated division by the base
     DECIMAL_BASE            = 10
-
-    ' Lit share relative to full, in whole percent
-    PERCENT_SCALE           = 100
 
     ' Screen-buffer byte values for the tearing test's two patterns (every channel full, or off)
     SCREEN_BYTE_WHITE       = $FF
@@ -408,7 +406,7 @@ DAT ' ---- Test State (singleton) ----
     commitMicros    LONG    0                               ' commit time of the phase just run, microseconds
 
     ' brightness steps measured by runBrightnessSteps(): full, half, the chip-minimum floor, off
-    brightnessSteps LONG    FULL_BRIGHTNESS, FULL_BRIGHTNESS / 2, 1, 0
+    brightnessSteps LONG    matrix.FULL_BRIGHTNESS, matrix.FULL_BRIGHTNESS / BRIGHTNESS_HALF_DIVISOR, BRIGHTNESS_FLOOR, BRIGHTNESS_OFF
 
     ' the handshake trace, one entry per traced commit (see runHandshakeTrace())
     traceConverted  LONG    0[TRACE_COMMITS]                ' frame set the commit converted into
@@ -416,7 +414,7 @@ DAT ' ---- Test State (singleton) ----
     traceShownNow   LONG    0[TRACE_COMMITS]                ' frame set on display when the commit returned
 
     ' the row-run self-test (see runRowRunTest())
-    testRotations   LONG    hwEnum.ROT_NONE, hwEnum.ROT_RIGHT_90, hwEnum.ROT_180, hwEnum.ROT_LEFT_90
+    testRotations   LONG    bmpHandler.ROT_NONE, bmpHandler.ROT_RIGHT_90, bmpHandler.ROT_180, bmpHandler.ROT_LEFT_90
     testArrows      LONG    hwEnum.ARROW_UP, hwEnum.ARROW_RIGHT, hwEnum.ARROW_DOWN, hwEnum.ARROW_LEFT
     ownSentences    LONG    user.DISP0_C0, user.DISP0_C1, user.DISP0_C2, user.DISP0_C3
                     LONG    user.DISP0_C4, user.DISP0_C5, user.DISP0_C6, user.DISP0_C7
@@ -433,36 +431,40 @@ DAT ' ---- Test State (singleton) ----
     insideDirections LONG   display.DIR_TO_LEFT, display.DIR_TO_RIGHT, display.DIR_UP, display.DIR_DOWN   ' the inside-a-panel scroll cases, in case order
     emptyNote       BYTE    0                               ' no note after a case line
 
-PUB main() : ok | nCommitsBefore, bTakeCheck
+PUB main() : workerCog | nCommitsBefore, instrumentStatus, takeCheckStatus
 '' Start adapter 1 and the instrument, run every phase of the workload, report, and end the session.
 ''
-'' @returns ok - cog ID + 1 of the display driver (display.start() aborts when no cog is free)
+'' @returns workerCog - cog ID + 1 of the display driver (display.start() aborts when no cog is free)
 
 ' Local Variables:
 ' @local nCommitsBefore - commits posted before the take check started
-' @local bTakeCheck - TRUE if the take check started
+' @local instrumentStatus - instrument.SUCCESS if the instrument started a monitor, or the reason it did not
+' @local takeCheckStatus - instrument.SUCCESS if the take check started
 
   debug("RATES: ---- HUB75 rates workload ----")
 
-  ok := display.start(hub75Bffrs.HUB75_ADAPTER_1)
+  workerCog := display.start(display.HUB75_ADAPTER_1)
   ' display.start() aborts with a message when no cog is free, so a return here is a started cog
   chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
   colorDepth := hub75Bffrs.colorDepth(chainIndex)
   debug("RATES: colour depth ", udec_(colorDepth), " bits, adapter base P", udec_(hub75Bffrs.pinBase(chainIndex)))
   runColourTableTest()
   runRowRunTest()
-  instrument.start(hub75Bffrs.pinBase(chainIndex), latchesPerRefresh())
+  instrumentStatus := instrument.start(hub75Bffrs.pinBase(chainIndex), latchesPerRefresh())
+  if instrumentStatus <> instrument.SUCCESS
+    debug("RATES: instrument not started (status ", sdec_(instrumentStatus), "): draw and commit times only")
   nCommitsBefore := commitsPosted()
-  bTakeCheck := instrument.startTakeCheck(rowsPerRefresh() - 1)
+  takeCheckStatus := instrument.startTakeCheck(rowsPerRefresh() - 1)
   runPatterns()
   runWorkload()
   runHandshakeTrace()
   refuseNullFrameSet()
   runBrightnessSteps()
   runTearingTest()
-  if bTakeCheck == TRUE
+  if takeCheckStatus == instrument.SUCCESS
     reportTakeCheck(nCommitsBefore)
   instrument.stop()
+  display.stop()
   debug("END_SESSION")
 
 PRI runColourTableTest() | depthIdx, gammaCase, bGamma, ledIdx, nCaseMismatches, nMismatches, nCompared
@@ -475,7 +477,7 @@ PRI runColourTableTest() | depthIdx, gammaCase, bGamma, ledIdx, nCaseMismatches,
 ' Local Variables:
 ' @local depthIdx - depth being compared
 ' @local gammaCase - GAMMA_CASE_* being compared
-' @local bGamma - TRUE for the gamma-on case
+' @local bGamma - TRUE for gamma on
 ' @local ledIdx - colour channel being read from the live table
 ' @local nCaseMismatches - mismatches in the case just compared
 ' @local nMismatches - mismatches in all cases
@@ -532,7 +534,7 @@ PRI comparePacking() : nMismatches | levelIdx, red, green, blue, expected, packe
   nMismatches := 0
   repeat levelIdx from 0 to LEVEL_COUNT - 1
     red := levelIdx
-    green := (LEVEL_COUNT - 1) - levelIdx
+    green := colorUtils.MAX_COLOR_VALUE - levelIdx
     blue := (levelIdx * PACKING_BLUE_STRIDE) // LEVEL_COUNT
     expected := colorUtils.correctedSingleColor(chainIndex, colorUtils.LED_RED, red)
     expected |= colorUtils.correctedSingleColor(chainIndex, colorUtils.LED_GREEN, green) << colorUtils.PACKED_GREEN_SHIFT
@@ -544,14 +546,14 @@ PRI comparePacking() : nMismatches | levelIdx, red, green, blue, expected, packe
         debug("RATES: colour packing MISMATCH first at ", udec_(red), ",", udec_(green), ",", udec_(blue), ": expected ", uhex_long_(expected), ", by value ", uhex_long_(packedByValue), ", by channels ", uhex_long_(packedByChannels))
       nMismatches += (packedByValue <> expected ? 1 : 0) + (packedByChannels <> expected ? 1 : 0)
 
-PRI compareTable(nDepthInBits, bGamma, bLive, led) : nMismatches | levelIdx, storedByte, expectedByte
+PRI compareTable(nDepthInBits, bGamma, bLive, ledIdx) : nMismatches | levelIdx, storedByte, expectedByte
 ' Compare one table with referenceStored() for every input 0-255, printing each mismatch: the
-' scratch table, or (bLive) the adapter's table as correctedSingleColor() reads it for led.
+' scratch table, or (bLive) the adapter's table as correctedSingleColor() reads it for ledIdx.
 '
-' @param nDepthInBits - depth the table was built for
-' @param bGamma - TRUE if the table was built with gamma
+' @param nDepthInBits - color depth in bits per channel (3-8)
+' @param bGamma - TRUE for gamma on
 ' @param bLive - TRUE to read the adapter's table, FALSE to read the scratch table
-' @param led - colour channel read from the live table
+' @param ledIdx - colour channel read from the live table
 ' @returns nMismatches - entries that differ from the old function
 
 ' Local Variables:
@@ -560,9 +562,9 @@ PRI compareTable(nDepthInBits, bGamma, bLive, led) : nMismatches | levelIdx, sto
 ' @local expectedByte - the old function's output for the input
 
   nMismatches := 0
-  repeat levelIdx from 0 to LEVEL_MAX
-    if bLive
-      storedByte := colorUtils.correctedSingleColor(chainIndex, led, levelIdx)
+  repeat levelIdx from 0 to colorUtils.MAX_COLOR_VALUE
+    if bLive == TRUE
+      storedByte := colorUtils.correctedSingleColor(chainIndex, ledIdx, levelIdx)
     else
       storedByte := BYTE[@scratchTable][levelIdx]
     expectedByte := referenceStored(nDepthInBits, bGamma, levelIdx)
@@ -576,7 +578,7 @@ PRI referenceStored(nDepthInBits, bGamma, levelIdx) : storedByte | nPwmFrames, p
 ' with the frame count from hub75Bffrs' PWM_FRAMES_nBIT constants as the old code took it.
 '
 ' @param nDepthInBits - color depth in bits per channel (3-8)
-' @param bGamma - TRUE to apply the gamma curve first
+' @param bGamma - TRUE for gamma on
 ' @param levelIdx - 8-bit input
 ' @returns storedByte - the byte the old code stored
 
@@ -586,18 +588,18 @@ PRI referenceStored(nDepthInBits, bGamma, levelIdx) : storedByte | nPwmFrames, p
 
   pGamma, _, _ := colorUtils.gammaPtrs()
   storedByte := levelIdx
-  if bGamma
+  if bGamma == TRUE
     storedByte := BYTE[pGamma][storedByte]
   case nDepthInBits
-    hwEnum.DEPTH_3BIT:
+    hub75Bffrs.DEPTH_3BIT:
       nPwmFrames := hub75Bffrs.PWM_FRAMES_3BIT
-    hwEnum.DEPTH_4BIT:
+    hub75Bffrs.DEPTH_4BIT:
       nPwmFrames := hub75Bffrs.PWM_FRAMES_4BIT
-    hwEnum.DEPTH_5BIT:
+    hub75Bffrs.DEPTH_5BIT:
       nPwmFrames := hub75Bffrs.PWM_FRAMES_5BIT
-    hwEnum.DEPTH_6BIT:
+    hub75Bffrs.DEPTH_6BIT:
       nPwmFrames := hub75Bffrs.PWM_FRAMES_6BIT
-    hwEnum.DEPTH_7BIT:
+    hub75Bffrs.DEPTH_7BIT:
       nPwmFrames := hub75Bffrs.PWM_FRAMES_7BIT
     other:
       nPwmFrames := hub75Bffrs.PWM_FRAMES_8BIT
@@ -610,7 +612,7 @@ PRI gammaLabel(bGamma) : pLabel
 ' @param bGamma - TRUE for gamma on
 ' @returns pLabel - zero-terminated name
 
-  if bGamma
+  if bGamma == TRUE
     pLabel := string("on")
   else
     pLabel := string("off")
@@ -713,7 +715,7 @@ PRI runRowRunTest() | startMs, layoutIdx, rotationIdx, arrowIdx, caseIdx, nCaseM
 PRI buildTestSentences(layoutIdx, arrowWord) | cablePos, sentence
 ' Fill testSentences with one layout's wiring sentences, every panel's arrow replaced by arrowWord.
 '
-' @param layoutIdx - LAYOUT_* to build
+' @param layoutIdx - LAYOUT_* under test
 ' @param arrowWord - hwEnum.ARROW_* every panel is given
 
 ' Local Variables:
@@ -807,7 +809,7 @@ PRI compareWindowed(caseIdx, caseVariant) : nMismatches, firstOffset | pScreen, 
         quit
       windowFirst++
     windowEnd := (windowFirst + CAPTURE_AREA_LONGS) <# nLongs
-    longmove(@captureArea, pScreen + (windowFirst * matrix.BYTES_PER_LONG), windowEnd - windowFirst)
+    longmove(@captureArea, pScreen + (windowFirst * hub75Bffrs.BYTES_PER_LONG), windowEnd - windowFirst)
     finishRowRunCase(caseIdx)
     pixels.setPerPixelReference(FALSE)
     fillBackground()
@@ -1128,10 +1130,10 @@ PRI countByteDiffs(longIdx, screenLong, expectedLong, nMismatchesSoFar, firstOff
   nMismatches := nMismatchesSoFar
   firstOffset := firstOffsetSoFar
   if screenLong <> expectedLong
-    repeat byteIdx from 0 to matrix.BYTES_PER_LONG - 1
-      if (((screenLong ^ expectedLong) >> (byteIdx * BITS_PER_BYTE)) & BYTE_MASK) <> 0
+    repeat byteIdx from 0 to hub75Bffrs.BYTES_PER_LONG - 1
+      if (((screenLong ^ expectedLong) >> (byteIdx * matrix.BITS_PER_BYTE)) & BYTE_MASK) <> 0
         if firstOffset == NO_OFFSET
-          firstOffset := (longIdx * matrix.BYTES_PER_LONG) + byteIdx
+          firstOffset := (longIdx * hub75Bffrs.BYTES_PER_LONG) + byteIdx
         nMismatches++
 
 PRI compareAddressRule() : nMismatches, nCompared | displayRows, displayColumns, cellRows, cellColumns, rowIdx, columnIdx, pRule, pOld
@@ -1202,7 +1204,7 @@ PRI oldPixelAddress(row, column) : pPixel | layoutRows, layoutColumns, eRotation
 
   layoutRows, layoutColumns, eRotation := hub75Bffrs.layoutSizeAndRotation(chainIndex)
   mountedRows, mountedColumns := layoutRows, layoutColumns
-  if (eRotation == hub75Bffrs.ROT_LEFT_90) OR (eRotation == hub75Bffrs.ROT_RIGHT_90)
+  if (eRotation == hub75Bffrs.ROT_LEFT_90) or (eRotation == hub75Bffrs.ROT_RIGHT_90)
     mountedRows, mountedColumns := layoutColumns, layoutRows
   mountedRow := 0 #> row <# mountedRows - 1
   mountedColumn := 0 #> column <# mountedColumns - 1
@@ -1224,7 +1226,7 @@ PRI oldPixelAddress(row, column) : pPixel | layoutRows, layoutColumns, eRotation
 PRI layoutLabel(layoutIdx) : pLabel
 ' Return the printable name of a test layout.
 '
-' @param layoutIdx - LAYOUT_* value
+' @param layoutIdx - LAYOUT_* under test
 ' @returns pLabel - zero-terminated name
 
   case layoutIdx
@@ -1242,11 +1244,11 @@ PRI rotationLabel(rotationIdx) : pLabel
 ' @returns pLabel - zero-terminated name
 
   case LONG[@testRotations][rotationIdx]
-    hwEnum.ROT_NONE:
+    bmpHandler.ROT_NONE:
       pLabel := string("ROT_NONE")
-    hwEnum.ROT_RIGHT_90:
+    bmpHandler.ROT_RIGHT_90:
       pLabel := string("ROT_RIGHT_90")
-    hwEnum.ROT_180:
+    bmpHandler.ROT_180:
       pLabel := string("ROT_180")
     other:
       pLabel := string("ROT_LEFT_90")
@@ -1420,11 +1422,11 @@ PRI runBrightnessSteps() | stepIdx, windowIdx, brightness, fullLitX100, relative
         if stepIdx == 0
           fullLitX100 := instrument.litShareX100()
         if fullLitX100 > 0
-          relativePercent := muldiv64(instrument.litShareX100(), PERCENT_SCALE, fullLitX100)
+          relativePercent := muldiv64(instrument.litShareX100(), colorUtils.PERCENT_SCALE, fullLitX100)
         if bLabels == TRUE
           showLitLabel(relativePercent)
-    debug("RATES: brightness ", udec_(brightness), ": refresh ", udec_(instrument.refreshRateX100() / FIXED_POINT_SCALE), ".", udec_((instrument.refreshRateX100() // FIXED_POINT_SCALE) / FRACTION_DIVISOR), " Hz, lit ", udec_(instrument.litShareX100() / FIXED_POINT_SCALE), ".", udec_((instrument.litShareX100() // FIXED_POINT_SCALE) / FRACTION_DIVISOR), "%, label ", udec_(relativePercent), "% of full")
-  display.setBrightness(FULL_BRIGHTNESS)
+    debug("RATES: brightness ", udec_(brightness), ": refresh ", udec_(instrument.refreshRateX100() / matrix.FIXED_POINT_SCALE), ".", udec_((instrument.refreshRateX100() // matrix.FIXED_POINT_SCALE) / matrix.FRACTION_DIVISOR), " Hz, lit ", udec_(instrument.litShareX100() / matrix.FIXED_POINT_SCALE), ".", udec_((instrument.litShareX100() // matrix.FIXED_POINT_SCALE) / matrix.FRACTION_DIVISOR), "%, label ", udec_(relativePercent), "% of full")
+  display.setBrightness(matrix.FULL_BRIGHTNESS)
 
 PRI runTearingTest() | endMs, commitCount, pScreen, screenBytes
 ' Alternate a full white and a full black screen at the fastest commit rate for TEAR_TEST_SECONDS.
@@ -1440,7 +1442,7 @@ PRI runTearingTest() | endMs, commitCount, pScreen, screenBytes
 
   commitCount := 0
   pScreen := hub75Bffrs.displayBufferAddress(chainIndex)
-  screenBytes := hub75Bffrs.displaySizeInLongs(chainIndex) * matrix.BYTES_PER_LONG
+  screenBytes := hub75Bffrs.displaySizeInLongs(chainIndex) * hub75Bffrs.BYTES_PER_LONG
   debug("RATES: TEARING TEST: white and black alternating for ", udec_(TEAR_TEST_SECONDS), " s")
   endMs := getms() + (TEAR_TEST_SECONDS * MS_PER_SECOND)
   repeat while getms() - endMs < 0
@@ -1495,13 +1497,13 @@ PRI drawPattern(patternIdx, displayRows, displayColumns) | columnIdx, rowIdx, le
         repeat bandIdx from 0 to BAND_COUNT - 1
           display.drawBoxOfColor(bandIdx * bandRows, columnIdx, ONE_PIXEL, bandRows, TRUE, bandColor(bandIdx, level))
     PATTERN_SOLID_RED:
-      display.fillScreen(rgbOf(LEVEL_MAX, 0, 0))
+      display.fillScreen(rgbOf(colorUtils.MAX_COLOR_VALUE, 0, 0))
     PATTERN_SOLID_GREEN:
-      display.fillScreen(rgbOf(0, LEVEL_MAX, 0))
+      display.fillScreen(rgbOf(0, colorUtils.MAX_COLOR_VALUE, 0))
     PATTERN_SOLID_BLUE:
-      display.fillScreen(rgbOf(0, 0, LEVEL_MAX))
+      display.fillScreen(rgbOf(0, 0, colorUtils.MAX_COLOR_VALUE))
     PATTERN_SOLID_WHITE:
-      display.fillScreen(rgbOf(LEVEL_MAX, LEVEL_MAX, LEVEL_MAX))
+      display.fillScreen(rgbOf(colorUtils.MAX_COLOR_VALUE, colorUtils.MAX_COLOR_VALUE, colorUtils.MAX_COLOR_VALUE))
     other:
       repeat rowIdx from FIRST_ROW to displayRows - 1
         repeat columnIdx from FIRST_COLUMN to displayColumns - 1
@@ -1533,7 +1535,7 @@ PRI rgbOf(redLevel, greenLevel, blueLevel) : rgbColor
 ' @param blueLevel - blue 0..255
 ' @returns rgbColor - 24-bit $RRGGBB colour
 
-  rgbColor := (redLevel << RED_SHIFT) | (greenLevel << GREEN_SHIFT) | blueLevel
+  rgbColor := (redLevel << colorUtils.RED_SHIFT) | (greenLevel << colorUtils.GREEN_SHIFT) | blueLevel
 
 PRI patternLabel(patternIdx) : pLabel
 ' Return what a viewer should see in a test pattern.
@@ -1590,20 +1592,15 @@ PRI reportTakeCheck(nCommitsBefore) | nCommitsAfter, nTakes, nOnBoundary, nOffBo
   else
     debug("RATES: TAKE CHECK FAIL: ", udec_(nProblems), " problem(s); ", udec_(nOnBoundary), " on the boundary, ", udec_(nOffBoundary), " off it, ", udec_(nTakes), " takes, ", udec_(nCommitsAfter - nCommitsBefore), " commits")
 
-PRI commitsPosted() : nCommits | nWaited, nBad, pFirstShown
+PRI commitsPosted() : nCommits
 ' Return the commits posted since start (the first of display.commitTotals()).
 '
 ' @returns nCommits - commits posted
 
-' Local Variables:
-' @local nWaited - commitTotals() result not used here
-' @local nBad - commitTotals() result not used here
-' @local pFirstShown - commitTotals() result not used here
-
-  nCommits, nWaited, nBad, pFirstShown := display.commitTotals()
+  nCommits, _, _, _ := display.commitTotals()
 
 PRI showStepLabel(stepNumber, brightness)
-' Label a brightness step on the panel: "STEP n OF 4  B nnn" with the lit line blank until the
+' Label a brightness step on the panel: "STEP n OF count  B nnn" with the lit line blank until the
 ' step's window LABEL_WINDOW is measured, then commit so the label shows.
 '
 ' @param stepNumber - step being shown, from 1
@@ -1654,19 +1651,19 @@ PRI labelAppendText(pZString) | charIdx
     BYTE[@labelLine][labelLength++] := BYTE[pZString][charIdx++]
   BYTE[@labelLine][labelLength] := 0
 
-PRI labelAppendDecimal(value) | divisor
-' Append a non-negative value in decimal to the label line, up to LABEL_LINE_CHARS characters.
+PRI labelAppendDecimal(labelNumber) | divisor
+' Append a non-negative number in decimal to the label line, up to LABEL_LINE_CHARS characters.
 '
-' @param value - value to append (0 or more)
+' @param labelNumber - number to append (0 or more)
 
 ' Local Variables:
 ' @local divisor - place value of the digit being appended
 
   divisor := 1
-  repeat while value / divisor >= DECIMAL_BASE
+  repeat while labelNumber / divisor >= DECIMAL_BASE
     divisor *= DECIMAL_BASE
   repeat while divisor > 0 and labelLength < LABEL_LINE_CHARS
-    BYTE[@labelLine][labelLength++] := "0" + (value / divisor) // DECIMAL_BASE
+    BYTE[@labelLine][labelLength++] := "0" + (labelNumber / divisor) // DECIMAL_BASE
     divisor /= DECIMAL_BASE
   BYTE[@labelLine][labelLength] := 0
 
@@ -1678,18 +1675,18 @@ PRI labelPlace(textLine)
 
   display.setColoredTextAtLnWithAlignPad(textLine, @labelLine, color.cWhite, display.ALIGN_LEFT, LABEL_LINE_CHARS)
 
-PRI refuseNullFrameSet() | bAccepted
+PRI refuseNullFrameSet() | showStatus
 ' Call display.showFrameSet(0): the call must print its refusal and post nothing.
 '
 
 ' Local Variables:
-' @local bAccepted - what showFrameSet() answered
+' @local showStatus - what showFrameSet() answered
 
-  bAccepted := display.showFrameSet(matrix.NO_FRAME_SET)
-  if bAccepted == FALSE
+  showStatus := display.showFrameSet(matrix.NO_FRAME_SET)
+  if showStatus == display.E_FRAMESET_NULL
     debug("RATES: PASS: showFrameSet(0) refused (its message is the line above)")
   else
-    debug("RATES: FAIL: showFrameSet(0) was accepted")
+    debug("RATES: FAIL: showFrameSet(0) was not refused as a NULL frame set, status ", sdec_(showStatus))
 
 PRI drawPhase(phaseIdx) | drawStart, commitStart
 ' Draw one phase into the screen buffer and commit it, timing each step.
@@ -1747,22 +1744,22 @@ PRI drawText() | textLine
   repeat textLine from 0 to display.numberTextLines() - 1
     display.setColoredTextAtLnCol(textLine, FIRST_TEXT_COLUMN, @textMessage, color.cGreen)
 
-PRI reportPhase(phaseIdx) | windowIdx, bSampled
+PRI reportPhase(phaseIdx) | windowIdx, sampleStatus
 ' Sample the monitors while the phase is shown and print the phase's line from the last window.
 '
 ' @param phaseIdx - PHASE_* just committed
 
 ' Local Variables:
 ' @local windowIdx - monitor window being taken
-' @local bSampled - TRUE if the monitors were read
+' @local sampleStatus - instrument.SUCCESS if the monitors were read
 
-  bSampled := FALSE
+  sampleStatus := instrument.E_NOT_RUNNING
   repeat windowIdx from 1 to SAMPLE_SECONDS
-    bSampled := instrument.sampleSecond()
-    if bSampled == FALSE
+    sampleStatus := instrument.sampleSecond()
+    if sampleStatus <> instrument.SUCCESS
       quit
-  if bSampled == TRUE
-    debug("RATES: depth ", udec_(colorDepth), " ", zstr_(phaseLabel(phaseIdx)), ": refresh ", udec_(instrument.refreshRateX100() / FIXED_POINT_SCALE), ".", udec_((instrument.refreshRateX100() // FIXED_POINT_SCALE) / FRACTION_DIVISOR), " Hz, lit ", udec_(instrument.litShareX100() / FIXED_POINT_SCALE), ".", udec_((instrument.litShareX100() // FIXED_POINT_SCALE) / FRACTION_DIVISOR), "%, clock ", udec_(instrument.clockRisesPerSecond()), " rises/s, CLK high ", udec_(instrument.clockHighNsX100() / FIXED_POINT_SCALE), ".", udec_((instrument.clockHighNsX100() // FIXED_POINT_SCALE) / FRACTION_DIVISOR), " ns, draw ", udec_(drawMicros), " uS, commit ", udec_(commitMicros), " uS")
+  if sampleStatus == instrument.SUCCESS
+    debug("RATES: depth ", udec_(colorDepth), " ", zstr_(phaseLabel(phaseIdx)), ": refresh ", udec_(instrument.refreshRateX100() / matrix.FIXED_POINT_SCALE), ".", udec_((instrument.refreshRateX100() // matrix.FIXED_POINT_SCALE) / matrix.FRACTION_DIVISOR), " Hz, lit ", udec_(instrument.litShareX100() / matrix.FIXED_POINT_SCALE), ".", udec_((instrument.litShareX100() // matrix.FIXED_POINT_SCALE) / matrix.FRACTION_DIVISOR), "%, clock ", udec_(instrument.clockRisesPerSecond()), " rises/s, CLK high ", udec_(instrument.clockHighNsX100() / matrix.FIXED_POINT_SCALE), ".", udec_((instrument.clockHighNsX100() // matrix.FIXED_POINT_SCALE) / matrix.FRACTION_DIVISOR), " ns, draw ", udec_(drawMicros), " uS, commit ", udec_(commitMicros), " uS")
   else
     debug("RATES: depth ", udec_(colorDepth), " ", zstr_(phaseLabel(phaseIdx)), ": monitors unavailable, draw ", udec_(drawMicros), " uS, commit ", udec_(commitMicros), " uS")
 
@@ -1790,7 +1787,7 @@ PRI rowsPerRefresh() : rowsInFrame | driverConfig, eChipType, chainColumns, rowL
   chainColumns := hub75Bffrs.columnsPerPanel(chainIndex) * hub75Bffrs.maxPanels(chainIndex)
   if (driverConfig & matrix.DRIVER_FLAGS_MASK & hwEnum.SCAN_4) <> 0
     chainColumns *= hub75Bffrs.SCAN_4_COLUMN_FACTOR
-  rowLongs := ((chainColumns * hub75Bffrs.BYTES_PER_COLUMN_CLOCK) + matrix.BYTES_PER_LONG - 1) / matrix.BYTES_PER_LONG
+  rowLongs := ((chainColumns * hub75Bffrs.BYTES_PER_COLUMN_CLOCK) + hub75Bffrs.BYTES_PER_LONG - 1) / hub75Bffrs.BYTES_PER_LONG
   rowsInFrame := hub75Bffrs.pwmFrameSizeInLongs(chainIndex) / rowLongs
 
 PRI phaseLabel(phaseIdx) : pLabel

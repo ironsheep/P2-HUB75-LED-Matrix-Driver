@@ -194,7 +194,7 @@ Not set by you, worked out at startup from the sentences: the number of panels (
 
 **NOTE**: the DISPx_ is a place holder for DISP0\_\*, DISP1\_\* and DISP2\_\* constants indicating the 1st, 2nd, and 3rd HUB75 cards.
 
-Each adapter you use is started by one call, `display.start(hub75Bffrs.HUB75_ADAPTER_n)`, which checks the sentences, derives the layout, builds the cell address tables and the adapter's color table, hands the adapter its buffers and starts its refresh cog. (`display.startWithId()` is the same call with a debug instance number, for programs that start more than one adapter.) Nothing in `isp_hub75_hwBufferAccess.spin2` or `isp_hub75_hwBuffers.spin2` is edited to add an adapter.
+Each adapter you use is started by one call, `display.start(display.HUB75_ADAPTER_n)`, which checks the sentences, derives the layout, builds the cell address tables and the adapter's color table, hands the adapter its buffers and starts its refresh cog. (`display.startWithId()` is the same call with a debug instance number, for programs that start more than one adapter.) Nothing in `isp_hub75_hwBufferAccess.spin2` or `isp_hub75_hwBuffers.spin2` is edited to add an adapter.
 
 ## Notes on driver internals
 

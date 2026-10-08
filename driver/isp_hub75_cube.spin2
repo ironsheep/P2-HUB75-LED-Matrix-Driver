@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2026
-''   Updated.... 06 Oct 2026
+''   Updated.... 08 Oct 2026
 ''
 '' =================================================================================================
 
@@ -150,36 +150,36 @@ DAT ' ---- Cube faces, edges and folded tables ----
   panel's cell of the flat picture (the face table).
 }
 
-' The tables of each cube, built once by foldNet(); one set per adapter. LONGs throughout,
-' because the adds are negative and BYTE and WORD reads are unsigned.
-cubeFaceSize        LONG    0[MAX_CUBES]                                        ' N, or 0 when the display has no faces
-cubeEdges           LONG    0[MAX_CUBES * CUBE_EDGE_SLOTS * EDGE_RECORD_LONGS]  ' the edge table: (face, edge) -> record
-cubeFaces           LONG    0[MAX_CUBES * CUBE_FACES * FACE_RECORD_LONGS]       ' the face table: face -> record
+    ' The tables of each cube, built once by foldNet(); one set per adapter. LONGs throughout,
+    ' because the adds are negative and BYTE and WORD reads are unsigned.
+    cubeFaceSize        LONG    0[MAX_CUBES]                                        ' N, or 0 when the display has no faces
+    cubeEdges           LONG    0[MAX_CUBES * CUBE_EDGE_SLOTS * EDGE_RECORD_LONGS]  ' the edge table: (face, edge) -> record
+    cubeFaces           LONG    0[MAX_CUBES * CUBE_FACES * FACE_RECORD_LONGS]       ' the face table: face -> record
 
-' Work area for one fold; startup folds one adapter at a time.
-rollNormal          BYTE    0[CUBE_FACES]                       ' cable position -> outward normal once folded (axis code)
-rollUp              BYTE    0[CUBE_FACES]                       ' cable position -> its cell's up, folded (axis code)
-rollRight           BYTE    0[CUBE_FACES]                       ' cable position -> its cell's right, folded (axis code)
-frameNormal         BYTE    0[CUBE_FACES]                       ' face -> outward normal (axis code)
-frameUp             BYTE    0[CUBE_FACES]                       ' face -> up (axis code); a face's right is derived: up x normal
-lineText            BYTE    0[CUBE_LINE_BYTES]                  ' one line of the printed cube
+    ' Work area for one fold; startup folds one adapter at a time.
+    rollNormal          BYTE    0[CUBE_FACES]                       ' cable position -> outward normal once folded (axis code)
+    rollUp              BYTE    0[CUBE_FACES]                       ' cable position -> its cell's up, folded (axis code)
+    rollRight           BYTE    0[CUBE_FACES]                       ' cable position -> its cell's right, folded (axis code)
+    frameNormal         BYTE    0[CUBE_FACES]                       ' face -> outward normal (axis code)
+    frameUp             BYTE    0[CUBE_FACES]                       ' face -> up (axis code); a face's right is derived: up x normal
+    lineText            BYTE    0[CUBE_LINE_BYTES]                  ' one line of the printed cube
 
-' Characters of the printed cube lines
-faceUpArrows        BYTE    "^>v<"                              ' a face's up in its cell, by its turn
-edgeLetters         BYTE    "NESW"                              ' an edge, by its index
+    ' Characters of the printed cube lines
+    faceUpArrows        BYTE    "^>v<"                              ' a face's up in its cell, by its turn
+    edgeLetters         BYTE    "NESW"                              ' an edge, by its index
 
 PUB null()
-'' Placeholder to prevent this object from being used as a top-level file.
+'' This is not a top level object
 ''
 
-PUB foldNet(nChainIdx, pCellRows, pCellColumns, pCablePositions, topCable, frontCable, faceSize) : mistakeCount | layoutIdx, cableA, cableB
+PUB foldNet(nChainIdx, pCellRows, pCellColumns, pCablePositions, topCable, frontCable, faceSize) : mistakeCount | checkedChainIdx, cableA, cableB
 '' Fold a net of six panels into a cube and build the nChainIdx cube's tables: the face table
 '' (each face's cable position, panel position and turn in its cell) and the edge table (all 12
 '' edges, in both directions: the neighbour across each edge of each face and the transform of
 '' coordinates across it). configureAdapter() calls it for a display with DISPn_SHAPE = SHAPE_CUBE;
-'' a fold self-test calls it with a reference net. A net that is
-'' not one of the 11 cube nets, or a front face that does not share an edge with the top face,
-'' prints its message and leaves the display without faces; the caller decides whether to stop.
+'' a fold self-test calls it with a reference net. A net that is not one of the 11 cube nets, or
+'' a front face that does not share an edge with the top face, prints its message and leaves the
+'' display without faces; the caller decides whether to stop.
 ''
 '' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @param pCellRows - address of LONG[6]: the grid row of each cable position's cell (any origin)
@@ -187,17 +187,17 @@ PUB foldNet(nChainIdx, pCellRows, pCellColumns, pCablePositions, topCable, front
 '' @param pCablePositions - address of BYTE[6]: the panel position (P) of each cable position
 '' @param topCable - cable position of the top face (0 .. 5)
 '' @param frontCable - cable position of the front face (0 .. 5)
-'' @param faceSize - pixel rows (and columns) of one square panel
+'' @param faceSize - pixel rows (and columns) of one face, which is one square panel
 '' @returns mistakeCount - number of problems reported (0 when the cube's tables are built)
 
 ' Local Variables:
-' @local layoutIdx - the chain index, checked against the adapters that exist
+' @local checkedChainIdx - the chain index, checked against the adapters that exist
 ' @local cableA - the earlier of two cable positions that fold onto one face
 ' @local cableB - the later of those two, or a cable position that shares no edge with the others
 
     mistakeCount := 0
-    layoutIdx := cubeIndex(nChainIdx)
-    cubeFaceSize[layoutIdx] := 0                        ' no faces until the fold succeeds
+    checkedChainIdx := cubeIndex(nChainIdx)
+    cubeFaceSize[checkedChainIdx] := 0                        ' no faces until the fold succeeds
     rollNet(pCellRows, pCellColumns)
     cableA, cableB := findFoldCollision()
     if cableB <> NO_POSITION
@@ -205,19 +205,19 @@ PUB foldNet(nChainIdx, pCellRows, pCellColumns, pCablePositions, topCable, front
         ' which places every panel next to its neighbour; it is reported against C0
         if cableA == NO_POSITION
             cableA := FIRST_CABLE_POSITION
-        debug("HUB75: DISP", udec_(layoutIdx), ": the panels do not fold into a cube (C", udec_(cableA), " and C", udec_(cableB), " fold onto the same face); arrange the six panels as one of the 11 cube nets")
+        debug("HUB75: DISP", udec_(checkedChainIdx), ": the panels do not fold into a cube (C", udec_(cableA), " and C", udec_(cableB), " fold onto the same face); arrange the six panels as one of the 11 cube nets")
         mistakeCount++
     elseif (rollNormal[frontCable] >> AXIS_SIGN_BITS) == (rollNormal[topCable] >> AXIS_SIGN_BITS)
         ' the front's normal lies on the top's axis: it is the face opposite the top
-        debug("HUB75: DISP", udec_(layoutIdx), "_CUBE_FRONT: C", udec_(frontCable), " is opposite the top face (C", udec_(topCable), ") when the panels are folded; the front face must share an edge with the top face")
+        debug("HUB75: DISP", udec_(checkedChainIdx), "_CUBE_FRONT: C", udec_(frontCable), " is opposite the top face (C", udec_(topCable), ") when the panels are folded; the front face must share an edge with the top face")
         mistakeCount++
     else
         buildFaceFrames(topCable, frontCable)
-        buildFaceRecords(layoutIdx, pCellRows, pCellColumns, pCablePositions, faceSize)
-        buildEdgeRecords(layoutIdx, faceSize)
-        cubeFaceSize[layoutIdx] := faceSize
+        buildFaceRecords(checkedChainIdx, pCellRows, pCellColumns, pCablePositions, faceSize)
+        buildEdgeRecords(checkedChainIdx, faceSize)
+        cubeFaceSize[checkedChainIdx] := faceSize
 
-PUB printCube(nChainIdx) | layoutIdx, faceIdx, edge, pFace, pEdge, lineLen
+PUB printCube(nChainIdx) | checkedChainIdx, faceIdx, edge, pFace, pEdge, lineLen
 '' Print the folded cube, one line per face: its cable and panel positions, the direction its
 '' up points within its cell of the flat picture, and the face and edge across each of its
 '' four edges. The six lines together are the 24 entries of the edge table.
@@ -225,16 +225,16 @@ PUB printCube(nChainIdx) | layoutIdx, faceIdx, edge, pFace, pEdge, lineLen
 '' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 
 ' Local Variables:
-' @local layoutIdx - the chain index, checked against the adapters that exist
+' @local checkedChainIdx - the chain index, checked against the adapters that exist
 ' @local faceIdx - the face being printed (0 = TOP .. 5 = RIGHT)
 ' @local edge - one of the face's edges (EDGE_N .. EDGE_W)
 ' @local pFace - pointer to the face's record in the face table
 ' @local pEdge - pointer to the edge's record in the edge table
 ' @local lineLen - characters written to the line so far
 
-    layoutIdx := cubeIndex(nChainIdx)
+    checkedChainIdx := cubeIndex(nChainIdx)
     repeat faceIdx from FACE_IDX_TOP to FACE_IDX_RIGHT
-        pFace := @cubeFaces[faceRecordIndex(layoutIdx, faceIdx)]
+        pFace := @cubeFaces[faceRecordIndex(checkedChainIdx, faceIdx)]
         lineLen := appendText(0, faceNameText(faceIdx))
         lineLen := appendText(lineLen, @" = C")
         lineLen := appendNumber(lineLen, LONG[pFace][FACE_CABLE])
@@ -244,7 +244,7 @@ PUB printCube(nChainIdx) | layoutIdx, faceIdx, edge, pFace, pEdge, lineLen
         lineText[lineLen++] := faceUpArrows[LONG[pFace][FACE_TURN]]
         lineLen := appendText(lineLen, @"):")
         repeat edge from EDGE_N to EDGE_W
-            pEdge := @cubeEdges[edgeRecordIndex(layoutIdx, faceIdx, edge)]
+            pEdge := @cubeEdges[edgeRecordIndex(checkedChainIdx, faceIdx, edge)]
             lineText[lineLen++] := " "
             lineText[lineLen++] := edgeLetters[edge]
             lineLen := appendText(lineLen, @"->")
@@ -252,7 +252,7 @@ PUB printCube(nChainIdx) | layoutIdx, faceIdx, edge, pFace, pEdge, lineLen
             lineText[lineLen++] := "."
             lineText[lineLen++] := edgeLetters[LONG[pEdge][EDGE_ENTRY]]
         lineText[lineLen] := 0
-        debug("HUB75: DISP", udec_(layoutIdx), " cube ", zstr_(@lineText))
+        debug("HUB75: DISP", udec_(checkedChainIdx), " cube ", zstr_(@lineText))
 
 PUB faceSizeInPixels(nChainIdx) : nFaceSize
 '' Return the size of one face of the nChainIdx cube, in pixels: face coordinates run from 0 to
@@ -263,7 +263,7 @@ PUB faceSizeInPixels(nChainIdx) : nFaceSize
 
     nFaceSize := cubeFaceSize[cubeIndex(nChainIdx)]
 
-PUB facePixelToPanel(nChainIdx, eFace, row, column) : panelPosn, panelRow, panelColumn, displayRow, displayColumn | layoutIdx, faceIdx, pFace
+PUB facePixelToPanel(nChainIdx, eFace, row, column) : panelPosn, panelRow, panelColumn, displayRow, displayColumn | checkedChainIdx, faceIdx, pFace
 '' Return where a pixel in face coordinates lands on the cube's panels. Row and column may run
 '' past the face's edges: the pixel is folded across as many edges as it crosses, using the edge
 '' table built at startup, so it is never clipped. A pixel past two edges of one face at once
@@ -281,17 +281,17 @@ PUB facePixelToPanel(nChainIdx, eFace, row, column) : panelPosn, panelRow, panel
 '' @returns displayColumn - display column of the pixel (0 when there is no panel)
 
 ' Local Variables:
-' @local layoutIdx - the chain index, checked against the adapters that exist
+' @local checkedChainIdx - the chain index, checked against the adapters that exist
 ' @local faceIdx - the face the pixel lands on (0 = TOP .. 5 = RIGHT), or NO_FACE
 ' @local pFace - pointer to that face's record in the face table
 
     panelPosn := NO_PANEL_POSITION
     panelRow := panelColumn := displayRow := displayColumn := 0
-    layoutIdx := cubeIndex(nChainIdx)
-    faceIdx, row, column := foldPoint(layoutIdx, eFace, row, column)
+    checkedChainIdx := cubeIndex(nChainIdx)
+    faceIdx, row, column := foldPoint(checkedChainIdx, eFace, row, column)
     if faceIdx <> NO_FACE
         ' face coordinates -> panel coordinates (the face's turn in its cell) -> display coordinates
-        pFace := @cubeFaces[faceRecordIndex(layoutIdx, faceIdx)]
+        pFace := @cubeFaces[faceRecordIndex(checkedChainIdx, faceIdx)]
         panelPosn := LONG[pFace][FACE_POSITION]
         panelRow, panelColumn := turnFaceCoords(LONG[pFace][FACE_TURN], LONG[pFace][FACE_ADD_ROW], LONG[pFace][FACE_ADD_COL], row, column)
         displayRow := panelRow + LONG[pFace][FACE_ORIGIN_ROW]
@@ -369,7 +369,7 @@ PUB homeOnFaceOfExtent(nChainIdx, eFace, firstRow, firstColumn, lastRow, lastCol
 
     eHomeFace, homeTurn, homeAddRow, homeAddColumn := homeOnFace(nChainIdx, eFace, (firstRow + lastRow) SAR MIDPOINT_SHIFT, (firstColumn + lastColumn) SAR MIDPOINT_SHIFT)
 
-PUB homeOnFace(nChainIdx, eFace, ctrRow, ctrColumn) : eHomeFace, homeTurn, homeAddRow, homeAddColumn | layoutIdx, faceIdx, faceSize, rowOver, columnOver, edge, pEdge
+PUB homeOnFace(nChainIdx, eFace, ctrRow, ctrColumn) : eHomeFace, homeTurn, homeAddRow, homeAddColumn | checkedChainIdx, faceIdx, faceSize, rowOver, columnOver, edge, pEdge
 '' Return the home of an object drawn in face coordinates: the face that holds the object's
 '' centre, and the transform from the given face's frame into the home face's frame. Drawing
 '' the object in its home frame puts the one unavoidable seam of every corner it straddles on
@@ -388,9 +388,9 @@ PUB homeOnFace(nChainIdx, eFace, ctrRow, ctrColumn) : eHomeFace, homeTurn, homeA
 '' @returns homeAddColumn - column added after the turn
 
 ' Local Variables:
-' @local layoutIdx - the chain index, checked against the adapters that exist
+' @local checkedChainIdx - the chain index, checked against the adapters that exist
 ' @local faceIdx - the face the centre is on so far (0 = TOP .. 5 = RIGHT)
-' @local faceSize - pixel rows (and columns) of one face
+' @local faceSize - pixel rows (and columns) of one face, which is one square panel
 ' @local rowOver - how far the centre's row lies past the face
 ' @local columnOver - how far the centre's column lies past the face
 ' @local edge - the edge the centre lies past (EDGE_N .. EDGE_W)
@@ -399,8 +399,8 @@ PUB homeOnFace(nChainIdx, eFace, ctrRow, ctrColumn) : eHomeFace, homeTurn, homeA
     eHomeFace := NO_FACE
     homeTurn := QTURN_NONE
     homeAddRow := homeAddColumn := 0
-    layoutIdx := cubeIndex(nChainIdx)
-    faceSize := cubeFaceSize[layoutIdx]
+    checkedChainIdx := cubeIndex(nChainIdx)
+    faceSize := cubeFaceSize[checkedChainIdx]
     faceIdx := eFace - hwEnum.FACE_TOP
     if faceSize > 0 and faceIdx +< CUBE_FACES
         ' a centre in a corner gap: hold the axis with the smaller overshoot to the face
@@ -424,7 +424,7 @@ PUB homeOnFace(nChainIdx, eFace, ctrRow, ctrColumn) : eHomeFace, homeTurn, homeA
                 edge := EDGE_W
             else
                 quit
-            pEdge := @cubeEdges[edgeRecordIndex(layoutIdx, faceIdx, edge)]
+            pEdge := @cubeEdges[edgeRecordIndex(checkedChainIdx, faceIdx, edge)]
             ctrRow, ctrColumn := turnFaceCoords(LONG[pEdge][EDGE_TURN], LONG[pEdge][EDGE_ADD_ROW], LONG[pEdge][EDGE_ADD_COL], ctrRow, ctrColumn)
             homeAddRow, homeAddColumn := turnFaceCoords(LONG[pEdge][EDGE_TURN], LONG[pEdge][EDGE_ADD_ROW], LONG[pEdge][EDGE_ADD_COL], homeAddRow, homeAddColumn)
             homeTurn := (homeTurn + LONG[pEdge][EDGE_TURN]) & QTURN_MASK
@@ -461,20 +461,20 @@ PUB turnFaceCoords(turn, addRow, addColumn, row, column) : newRow, newColumn
     newRow += addRow
     newColumn += addColumn
 
-PRI cubeIndex(nChainIdx) : layoutIdx
+PRI cubeIndex(nChainIdx) : checkedChainIdx
 ' Return the chain index after checking it names an adapter that has a cube table; stop on any other.
 '
 ' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
-' @returns layoutIdx - the same index, within the valid range
+' @returns checkedChainIdx - the same index, within the valid range
 '
 ' Aborts (with a DEBUG message) when nChainIdx names no adapter.
 
-    layoutIdx := 0 #> nChainIdx <# MAX_CUBES - 1
-    if nChainIdx <> layoutIdx
+    checkedChainIdx := 0 #> nChainIdx <# MAX_CUBES - 1
+    if nChainIdx <> checkedChainIdx
         debug("HUB75: no cube tables for this chain index: [isp_hub75_cube.spin2]")
         abort
 
-PRI foldPoint(layoutIdx, eFace, row, column) : faceIdx, faceRow, faceColumn | faceSize, edge, pEdge
+PRI foldPoint(checkedChainIdx, eFace, row, column) : faceIdx, faceRow, faceColumn | faceSize, edge, pEdge
 ' Fold face coordinates onto the face that holds them. A pixel on the face (the usual case) is
 ' settled by one unsigned test. While exactly one coordinate is past the face, it crosses that
 ' edge (one quarter turn and two adds from the edge table). A fold keeps the coordinate along the
@@ -482,7 +482,7 @@ PRI foldPoint(layoutIdx, eFace, row, column) : faceIdx, faceRow, faceColumn | fa
 ' past two edges of the face it is on at once is in a corner gap: it can only be met on the
 ' first test.
 '
-' @param layoutIdx - the chain index, already checked against the adapters that exist
+' @param checkedChainIdx - the chain index, already checked against the adapters that exist
 ' @param eFace - the face the coordinates are on (hwEnum.FACE_TOP .. hwEnum.FACE_RIGHT)
 ' @param row - pixel row on that face (any value)
 ' @param column - pixel column on that face (any value)
@@ -491,13 +491,13 @@ PRI foldPoint(layoutIdx, eFace, row, column) : faceIdx, faceRow, faceColumn | fa
 ' @returns faceColumn - the pixel's column on that face (0 when there is no face)
 
 ' Local Variables:
-' @local faceSize - pixel rows (and columns) of one face
+' @local faceSize - pixel rows (and columns) of one face, which is one square panel
 ' @local edge - the edge the pixel lies past (EDGE_N .. EDGE_W)
 ' @local pEdge - pointer to that edge's record in the edge table
 
     faceRow := row
     faceColumn := column
-    faceSize := cubeFaceSize[layoutIdx]
+    faceSize := cubeFaceSize[checkedChainIdx]
     faceIdx := eFace - hwEnum.FACE_TOP
     if faceSize == 0 or faceIdx +>= CUBE_FACES          ' no faces, or not a face (unsigned: below TOP too)
         faceIdx := NO_FACE
@@ -512,7 +512,7 @@ PRI foldPoint(layoutIdx, eFace, row, column) : faceIdx, faceRow, faceColumn | fa
             else
                 edge := (faceColumn < 0) ? EDGE_W : EDGE_E
             ' (edgeRecordIndex() written in line, to keep a method call off every crossing)
-            pEdge := @cubeEdges[((((layoutIdx * CUBE_FACES) + faceIdx) * FACE_EDGES) + edge) * EDGE_RECORD_LONGS]
+            pEdge := @cubeEdges[((((checkedChainIdx * CUBE_FACES) + faceIdx) * FACE_EDGES) + edge) * EDGE_RECORD_LONGS]
             faceRow, faceColumn := turnFaceCoords(LONG[pEdge][EDGE_TURN], LONG[pEdge][EDGE_ADD_ROW], LONG[pEdge][EDGE_ADD_COL], faceRow, faceColumn)
             faceIdx := LONG[pEdge][EDGE_NEIGHBOUR]
     if faceIdx == NO_FACE
@@ -647,17 +647,17 @@ PRI setFaceFrame(faceIdx, normalAxis, upAxis)
     frameNormal[faceIdx] := normalAxis
     frameUp[faceIdx] := upAxis
 
-PRI buildFaceRecords(layoutIdx, pCellRows, pCellColumns, pCablePositions, faceSize) | minRow, minColumn, cablePos, faceIdx, turn, addRow, addColumn, pFace
+PRI buildFaceRecords(checkedChainIdx, pCellRows, pCellColumns, pCablePositions, faceSize) | minRow, minColumn, cablePos, faceIdx, turn, addRow, addColumn, pFace
 ' Build the face table: for each face, the cable position whose folded normal is the face's
 ' normal, that panel's position, the quarter turns that carry face coordinates into panel
 ' coordinates (how the face's up points within its cell of the flat picture), and the display
 ' coordinates of the panel's top-left pixel.
 '
-' @param layoutIdx - the chain index, already checked against the adapters that exist
+' @param checkedChainIdx - the chain index, already checked against the adapters that exist
 ' @param pCellRows - address of LONG[6]: the grid row of each cable position's cell
 ' @param pCellColumns - address of LONG[6]: the grid column of each cable position's cell
 ' @param pCablePositions - address of BYTE[6]: the panel position (P) of each cable position
-' @param faceSize - pixel rows (and columns) of one face
+' @param faceSize - pixel rows (and columns) of one face, which is one square panel
 
 ' Local Variables:
 ' @local minRow - top grid row of the net
@@ -678,7 +678,7 @@ PRI buildFaceRecords(layoutIdx, pCellRows, pCellColumns, pCablePositions, faceSi
         cablePos := findByte(@rollNormal, frameNormal[faceIdx])
         turn := turnInCell(cablePos, frameUp[faceIdx])
         addRow, addColumn := quarterTurnOffset(turn, faceSize)
-        pFace := @cubeFaces[faceRecordIndex(layoutIdx, faceIdx)]
+        pFace := @cubeFaces[faceRecordIndex(checkedChainIdx, faceIdx)]
         LONG[pFace][FACE_CABLE] := cablePos
         LONG[pFace][FACE_POSITION] := BYTE[pCablePositions][cablePos]
         LONG[pFace][FACE_TURN] := turn
@@ -687,22 +687,22 @@ PRI buildFaceRecords(layoutIdx, pCellRows, pCellColumns, pCablePositions, faceSi
         LONG[pFace][FACE_ORIGIN_ROW] := (LONG[pCellRows][cablePos] - minRow) * faceSize
         LONG[pFace][FACE_ORIGIN_COL] := (LONG[pCellColumns][cablePos] - minColumn) * faceSize
 
-PRI buildEdgeRecords(layoutIdx, faceSize) | faceIdx, edge, nbrFace, entry, candidate, turn, addRow, addColumn, stepRow, stepColumn, pEdge
+PRI buildEdgeRecords(checkedChainIdx, faceSize) | faceIdx, edge, nbrFace, entryEdge, candidate, turn, addRow, addColumn, stepRow, stepColumn, pEdge
 ' Build the edge table: for each edge of each face, the face across it, the neighbour's edge it
 ' meets, and the transform that carries this face's coordinates into the neighbour's. Moving
 ' out through edge e is moving in from the entered edge e', so the frame turns
 ' k = (e' + EDGE_OPPOSITE - e) quarter turns, and the face's extended plane then sits one face
 ' beyond e': add = (the quarter turn's offset) + faceSize x (the step out through e').
 '
-' @param layoutIdx - the chain index, already checked against the adapters that exist
-' @param faceSize - pixel rows (and columns) of one face
+' @param checkedChainIdx - the chain index, already checked against the adapters that exist
+' @param faceSize - pixel rows (and columns) of one face, which is one square panel
 
 ' Local Variables:
 ' @local faceIdx - the face whose edges are recorded
 ' @local edge - one of its edges (EDGE_N .. EDGE_W)
 ' @local nbrFace - the face across that edge
-' @local entry - the neighbour's edge that the edge meets
-' @local candidate - one of the neighbour's edges, while searching for the entry
+' @local entryEdge - the neighbour's edge that the edge meets
+' @local candidate - one of the neighbour's edges, while searching for the entry edge
 ' @local turn - clockwise quarter turns from this face's frame to the neighbour's
 ' @local addRow - row offset of the quarter turn about the face
 ' @local addColumn - column offset of the quarter turn about the face
@@ -715,17 +715,17 @@ PRI buildEdgeRecords(layoutIdx, faceSize) | faceIdx, edge, nbrFace, entry, candi
             ' the neighbour is the face whose normal is this edge's direction, and the edge it
             ' meets is its edge whose direction is this face's normal
             nbrFace := findByte(@frameNormal, faceEdgeDirection(faceIdx, edge))
-            entry := EDGE_N
+            entryEdge := EDGE_N
             repeat candidate from EDGE_N to EDGE_W
                 if faceEdgeDirection(nbrFace, candidate) == frameNormal[faceIdx]
-                    entry := candidate
+                    entryEdge := candidate
                     quit
-            turn := (entry + EDGE_OPPOSITE - edge) & QTURN_MASK
+            turn := (entryEdge + EDGE_OPPOSITE - edge) & QTURN_MASK
             addRow, addColumn := quarterTurnOffset(turn, faceSize)
-            stepRow, stepColumn := edgeStep(entry)
-            pEdge := @cubeEdges[edgeRecordIndex(layoutIdx, faceIdx, edge)]
+            stepRow, stepColumn := edgeStep(entryEdge)
+            pEdge := @cubeEdges[edgeRecordIndex(checkedChainIdx, faceIdx, edge)]
             LONG[pEdge][EDGE_NEIGHBOUR] := nbrFace
-            LONG[pEdge][EDGE_ENTRY] := entry
+            LONG[pEdge][EDGE_ENTRY] := entryEdge
             LONG[pEdge][EDGE_TURN] := turn
             LONG[pEdge][EDGE_ADD_ROW] := addRow + (faceSize * stepRow)
             LONG[pEdge][EDGE_ADD_COL] := addColumn + (faceSize * stepColumn)
@@ -774,7 +774,7 @@ PRI quarterTurnOffset(turn, faceSize) : addRow, addColumn | lastPixel
 ' turnFaceCoords() carries the face's square onto itself.
 '
 ' @param turn - clockwise quarter turns (QTURN_NONE .. QTURN_ANTICLOCKWISE)
-' @param faceSize - pixel rows (and columns) of one face
+' @param faceSize - pixel rows (and columns) of one face, which is one square panel
 ' @returns addRow - row added after the turn
 ' @returns addColumn - column added after the turn
 
@@ -846,24 +846,24 @@ PRI turnInCell(cablePos, upAxis) : turn
     else
         turn := QTURN_ANTICLOCKWISE
 
-PRI edgeRecordIndex(layoutIdx, faceIdx, edge) : recordIdx
+PRI edgeRecordIndex(checkedChainIdx, faceIdx, edge) : recordIdx
 ' Return the index in cubeEdges of the record for one edge of one face of one cube.
 '
-' @param layoutIdx - the chain index, already checked against the adapters that exist
+' @param checkedChainIdx - the chain index, already checked against the adapters that exist
 ' @param faceIdx - the face (FACE_IDX_TOP .. FACE_IDX_RIGHT)
 ' @param edge - the edge (EDGE_N .. EDGE_W)
 ' @returns recordIdx - LONG index of the record's first entry
 
-    recordIdx := ((((layoutIdx * CUBE_FACES) + faceIdx) * FACE_EDGES) + edge) * EDGE_RECORD_LONGS
+    recordIdx := ((((checkedChainIdx * CUBE_FACES) + faceIdx) * FACE_EDGES) + edge) * EDGE_RECORD_LONGS
 
-PRI faceRecordIndex(layoutIdx, faceIdx) : recordIdx
+PRI faceRecordIndex(checkedChainIdx, faceIdx) : recordIdx
 ' Return the index in cubeFaces of the record for one face of one cube.
 '
-' @param layoutIdx - the chain index, already checked against the adapters that exist
+' @param checkedChainIdx - the chain index, already checked against the adapters that exist
 ' @param faceIdx - the face (FACE_IDX_TOP .. FACE_IDX_RIGHT)
 ' @returns recordIdx - LONG index of the record's first entry
 
-    recordIdx := ((layoutIdx * CUBE_FACES) + faceIdx) * FACE_RECORD_LONGS
+    recordIdx := ((checkedChainIdx * CUBE_FACES) + faceIdx) * FACE_RECORD_LONGS
 
 PRI faceNameText(faceIdx) : pName
 ' Return the name of a face, as the printed cube lines show it.

@@ -195,7 +195,7 @@ VAR
 
 PUB main()
     chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
-    display.start(hub75Bffrs.HUB75_ADAPTER_1)
+    display.start(display.HUB75_ADAPTER_1)
 ```
 
 Then draw:

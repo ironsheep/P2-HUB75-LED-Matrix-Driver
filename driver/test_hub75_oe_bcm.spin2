@@ -7,13 +7,13 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2026
-''   Updated.... 03 Oct 2026
+''   Updated.... 08 Oct 2026
 ''
 '' =================================================================================================
 
 { What this program is:
 
-   The planning-phase prototype of DOCs/plans/FRAME-RATE-SPRINT-PLAN.md section 1. It is a
+   The planning-phase prototype of DOCs/plans/archive/FRAME-RATE-SPRINT-PLAN.md section 1. It is a
    standalone top file (in the manner of test_hub75_pin_identify.spin2) and does not use the
    display driver. It drives ONE adapter, the one described by the DISP0_ settings of
    isp_hub75_hwPanelConfig.spin2, and proves the OE-weighted refresh method of the
@@ -51,7 +51,7 @@ CON ' ---- Timing ----
 CON ' ---- Test Settings (edit these) ----
 
     ' Bit planes in the test frame set (the prototype's own depth, not DISP0_COLOR_DEPTH)
-    TEST_COLOR_DEPTH        = hwEnum.DEPTH_8BIT
+    TEST_COLOR_DEPTH        = hub75Bffrs.DEPTH_8BIT
 
     ' The OE unit T, in system clocks. Plane k (k = 0 is the LSB) is lit for 2^k x T.
     ' Rig: 4 x 128x64 ICN2037 chained = 512 column clocks per row address; at 16 clocks per
@@ -122,10 +122,7 @@ CON ' ---- Monitor Pins ----
 
 CON ' ---- Refresh Cog Settings ----
 
-    ' /OE smart pin: P_PULSE (p2kbArchSmartPin00100PulseCycleOutput) with X[31:16] = 0, so the
-    ' output is high for all Y x X[15:0] clocks; inverted, so it idles HIGH (blank) and goes
-    ' LOW (lit) for the pulse. P_OE lets the smart pin drive the pin.
-    OE_PIN_MODE             = P_PULSE | P_OE | P_INVERT_OUTPUT
+    ' The /OE smart pin mode is matrix.OE_PIN_MODE (isp_hub75_rgb3bit.spin2 explains it)
 
     ' The pulse base period is the 16-bit field X[15:0]
     MAX_PULSE_BASE_CLOCKS   = $FFFF
@@ -136,14 +133,15 @@ CON ' ---- Refresh Cog Settings ----
     ' the five address pins A..E as a field (ROW_ADDR_PINS_SPAN is count - 1)
     ADDRESS_FIELD_MASK      = (1 << (matrix.ROW_ADDR_PINS_SPAN + 1)) - 1
 
-    ' Byte of a port that holds R1..B2 (pins base+8 .. base+13)
+    ' Byte of a port that holds R1..B2 (pins base+8 .. base+13):
+    '  COLOR_IN_BYTE1 - byte 1 of the port (value 1)
+    '  COLOR_IN_BYTE2 - byte 2 of the port (value 2)
+    '  COLOR_IN_BYTE3 - byte 3 of the port (value 3)
     #1, COLOR_IN_BYTE1, COLOR_IN_BYTE2, COLOR_IN_BYTE3
 
-    ' Model overheads (estimates, in clocks): the fixed cost of a SETQ+RDLONG row load on top
-    ' of one clock per long, and the clocks from the end of a shift to the WYPIN that lights
-    ' the plane (end of clock, IN poll, address, LATCH pulse, calls)
-    ROW_LOAD_SETUP_CLOCKS   = 24
-    LATCH_SEQUENCE_CLOCKS   = 64
+    ' The model's overheads are matrix.ROW_LOAD_SETUP_CLOCKS (the fixed cost of a SETQ+RDLONG row
+    ' load on top of one clock per long) and matrix.LATCH_SEQUENCE_CLOCKS (the clocks from the end
+    ' of a shift to the WYPIN that lights the plane); both are estimates, in clocks
 
 CON ' ---- Pattern and Report Constants ----
 
@@ -157,11 +155,6 @@ CON ' ---- Pattern and Report Constants ----
     ' A checkerboard square is lit when its row + column square index is odd
     CHECKER_PHASES          = 2
     CHECKER_LIT_PHASE       = 1
-
-    ' Fixed-point reports: values x100 print with two decimals; percent x100 = fraction x 10_000
-    FIXED_POINT_SCALE       = 100
-    PERCENT_X100_SCALE      = 10_000
-    NS_PER_SECOND           = 1_000_000_000
 
 OBJ
 
@@ -247,7 +240,7 @@ PRI loadConfiguration() : bValid | eAddrLines, driverConfig, scanDivisor
   panelsOnChain := hub75Bffrs.maxPanels(adapterChainIndex)
   chainPixelColumns := panelPixelColumns * panelsOnChain
 
-  ' the adapter's pins (as rgb3bit start() sets its pnlLedPin* and pin groups)
+  ' the adapter's pins (as rgb3bit start() sets its panelPin* and pin groups)
   clockPin := basePinNumber + matrix.PIN_OFST_CLK
   enablePin := basePinNumber + matrix.PIN_OFST_OE
   latchPin := basePinNumber + matrix.PIN_OFST_LATCH
@@ -280,11 +273,11 @@ PRI loadConfiguration() : bValid | eAddrLines, driverConfig, scanDivisor
     scanDivisor := pnl.QUARTER_DIVISOR
   else
     columnClocks := chainPixelColumns * hub75Bffrs.SINGLE_COLUMN_FACTOR
-    scanDivisor := pnl.HALF_DIVISOR
+    scanDivisor := matrix.HALF_DIVISOR
 
   debug("OE-BCM: chip ", zstr_(chipName(chipTypeId)), ", flags ", uhex_word_(chipFlags), ", base P", udec_(basePinNumber), ", ", udec_(panelsOnChain), " panel(s) of ", udec_(panelPixelColumns), "x", udec_(panelPixelRows))
-  debug("OE-BCM: ", udec_(rowAddressCount), " row addresses x ", udec_(columnClocks), " column clocks, scan 1/", udec_(rowAddressCount), " (", zstr_(quarterScan ? string("SCAN_4") : string("half scan")), ")")
-  debug("OE-BCM: latch ", zstr_(overlapLatch ? string("overlapped (LATCH high over the last 3 columns)") : (latchEnclosed ? string("at end, enclosed") : string("at end, offset"))), ", RB swap ", zstr_(swapRedBlue ? string("yes") : string("no")), ", GB swap ", zstr_(swapGreenBlue ? string("yes") : string("no")))
+  debug("OE-BCM: ", udec_(rowAddressCount), " row addresses x ", udec_(columnClocks), " column clocks, scan 1/", udec_(rowAddressCount), " (", zstr_(quarterScan == TRUE ? string("SCAN_4") : string("half scan")), ")")
+  debug("OE-BCM: latch ", zstr_(overlapLatch == TRUE ? string("overlapped (LATCH high over the last 3 columns)") : (latchEnclosed == TRUE ? string("at end, enclosed") : string("at end, offset"))), ", RB swap ", zstr_(swapRedBlue == TRUE ? string("yes") : string("no")), ", GB swap ", zstr_(swapGreenBlue == TRUE ? string("yes") : string("no")))
 
   if user.DISP0_ADAPTER_BASE_PIN < MONITOR_REACH
     debug("OE-BCM: REFUSED: adapter at P", udec_(user.DISP0_ADAPTER_BASE_PIN), " has no free pins below it for the CLK/OE/LATCH monitors")
@@ -313,9 +306,9 @@ PRI computeTiming() | minPulseClocks, minPeriodClocks, extraCycles, candidateUni
 ' @local candidateRow - model clocks per row address for candidateUnit
 ' @local jIdx - the j being tried (T = S / 2^j)
 
-  minPulseClocks := muldiv64(clkfreq, matrix.MIN_CLK_PULSE_NS, NS_PER_SECOND)
+  minPulseClocks := muldiv64(clkfreq, matrix.MIN_CLK_PULSE_NS, matrix.NS_PER_SECOND)
   ' round up: minPulseClocks clocks must last at least the minimum pulse
-  if muldiv64(minPulseClocks, NS_PER_SECOND, matrix.MIN_CLK_PULSE_NS) < clkfreq
+  if muldiv64(minPulseClocks, matrix.NS_PER_SECOND, matrix.MIN_CLK_PULSE_NS) < clkfreq
     minPulseClocks++
   clockHighWait := 0 #> (minPulseClocks - matrix.LOOP_HIGH_FIXED_CLOCKS)
   clockLowWait := 0 #> (minPulseClocks - matrix.LOOP_LOW_FIXED_CLOCKS)
@@ -327,7 +320,7 @@ PRI computeTiming() | minPulseClocks, minPeriodClocks, extraCycles, candidateUni
   clocksPerColumn := matrix.BASE_LOOP_CYCLES + clockHighWait + clockLowWait
   shiftClocks := columnClocks * clocksPerColumn
   ' round up: a pulse shorter than the chip's minimum may not light at all
-  minOeClocks := muldiv64(clkfreq, MIN_OE_PULSE_NS, NS_PER_SECOND) + 1
+  minOeClocks := muldiv64(clkfreq, MIN_OE_PULSE_NS, matrix.NS_PER_SECOND) + 1
 
   if TARGET_REFRESH_HZ == 0
     modelOeUnit := clampOeUnit(OE_UNIT_CLOCKS)
@@ -336,8 +329,8 @@ PRI computeTiming() | minPulseClocks, minPeriodClocks, extraCycles, candidateUni
     modelOeUnit := clampOeUnit(shiftClocks >> TEST_COLOR_DEPTH)
     repeat jIdx from 0 to TEST_COLOR_DEPTH
       candidateUnit := clampOeUnit(shiftClocks >> jIdx)
-      candidateRow := modelRowClocks(candidateUnit, rowLoadClocks(), LATCH_SEQUENCE_CLOCKS)
-      if refreshX100For(candidateRow) >= TARGET_REFRESH_HZ * FIXED_POINT_SCALE
+      candidateRow := modelRowClocks(candidateUnit, rowLoadClocks(), matrix.LATCH_SEQUENCE_CLOCKS)
+      if refreshX100For(candidateRow) >= TARGET_REFRESH_HZ * matrix.FIXED_POINT_SCALE
         modelOeUnit := candidateUnit
         quit
   modelJ := jForOeUnit(modelOeUnit)
@@ -348,7 +341,7 @@ PRI computeTiming() | minPulseClocks, minPeriodClocks, extraCycles, candidateUni
   candidateRow := modelRowClocks(modelOeUnit, 0, 0)
   studyRefreshX100 := refreshX100For(candidateRow)
   studyDutyX100 := dutyX100For(modelOeUnit, candidateRow)
-  candidateRow := modelRowClocks(modelOeUnit, rowLoadClocks(), LATCH_SEQUENCE_CLOCKS)
+  candidateRow := modelRowClocks(modelOeUnit, rowLoadClocks(), matrix.LATCH_SEQUENCE_CLOCKS)
   modelRefreshX100 := refreshX100For(candidateRow)
   modelDutyX100 := dutyX100For(modelOeUnit, candidateRow)
 
@@ -361,15 +354,15 @@ PRI reportModel() | predictedClockRises, predictedLatchRises, oeUnitNs
 ' @local predictedLatchRises - LATCH rises per second the model expects
 ' @local oeUnitNs - T in nanoseconds
 
-  oeUnitNs := muldiv64(modelOeUnit, NS_PER_SECOND, clkfreq)
-  predictedLatchRises := muldiv64(rowAddressCount * TEST_COLOR_DEPTH, modelRefreshX100, FIXED_POINT_SCALE)
-  predictedClockRises := muldiv64(columnClocks * rowAddressCount * TEST_COLOR_DEPTH, modelRefreshX100, FIXED_POINT_SCALE)
+  oeUnitNs := muldiv64(modelOeUnit, matrix.NS_PER_SECOND, clkfreq)
+  predictedLatchRises := muldiv64(rowAddressCount * TEST_COLOR_DEPTH, modelRefreshX100, matrix.FIXED_POINT_SCALE)
+  predictedClockRises := muldiv64(columnClocks * rowAddressCount * TEST_COLOR_DEPTH, modelRefreshX100, matrix.FIXED_POINT_SCALE)
   debug("OE-BCM: column loop ", udec_(clocksPerColumn), " clocks (waitLo=", udec_(clockLowWait), ", waitHi=", udec_(clockHighWait), "), S = ", udec_(shiftClocks), " clocks per plane row, ", udec_(TEST_COLOR_DEPTH), " planes, shift ", zstr_(SHIFT_MODE == SHIFT_WHILE_DARK ? string("while dark") : string("while lit")))
   debug("OE-BCM: T = ", udec_(modelOeUnit), " clocks (", udec_(oeUnitNs), " ns), j = ", udec_(modelJ), " (S / T = ", udec_(shiftClocks / modelOeUnit), "), min /OE pulse ", udec_(minOeClocks), " clocks, target ", udec_(TARGET_REFRESH_HZ), " Hz (0 = fixed T)")
   if oeUnitClocks <> modelOeUnit
     debug("OE-BCM: ERROR TEST: the cog runs T = ", udec_(oeUnitClocks), " clocks; the model below keeps T = ", udec_(modelOeUnit))
-  debug("OE-BCM: MODEL (study, S only): refresh ", udec_(studyRefreshX100 / FIXED_POINT_SCALE), ".", udec_((studyRefreshX100 // FIXED_POINT_SCALE) / pnl.DECIMAL_BASE), " Hz, lit ", udec_(studyDutyX100 / FIXED_POINT_SCALE), ".", udec_((studyDutyX100 // FIXED_POINT_SCALE) / pnl.DECIMAL_BASE), "%")
-  debug("OE-BCM: MODEL (+load/latch): refresh ", udec_(modelRefreshX100 / FIXED_POINT_SCALE), ".", udec_((modelRefreshX100 // FIXED_POINT_SCALE) / pnl.DECIMAL_BASE), " Hz, lit ", udec_(modelDutyX100 / FIXED_POINT_SCALE), ".", udec_((modelDutyX100 // FIXED_POINT_SCALE) / pnl.DECIMAL_BASE), "%, expect CLK ", udec_(predictedClockRises), "/s, LATCH ", udec_(predictedLatchRises), "/s")
+  debug("OE-BCM: MODEL (study, S only): refresh ", udec_(studyRefreshX100 / matrix.FIXED_POINT_SCALE), ".", udec_((studyRefreshX100 // matrix.FIXED_POINT_SCALE) / pnl.DECIMAL_BASE), " Hz, lit ", udec_(studyDutyX100 / matrix.FIXED_POINT_SCALE), ".", udec_((studyDutyX100 // matrix.FIXED_POINT_SCALE) / pnl.DECIMAL_BASE), "%")
+  debug("OE-BCM: MODEL (+load/latch): refresh ", udec_(modelRefreshX100 / matrix.FIXED_POINT_SCALE), ".", udec_((modelRefreshX100 // matrix.FIXED_POINT_SCALE) / pnl.DECIMAL_BASE), " Hz, lit ", udec_(modelDutyX100 / matrix.FIXED_POINT_SCALE), ".", udec_((modelDutyX100 // matrix.FIXED_POINT_SCALE) / pnl.DECIMAL_BASE), "%, expect CLK ", udec_(predictedClockRises), "/s, LATCH ", udec_(predictedLatchRises), "/s")
 
 PRI locateFrameSet() : bFits | pScreen, pSetOne, pSetTwo, screenBytes, setBytes
 ' Place the test frame set in adapter 1's own buffers. isp_hub75_hwBuffers.spin2 lays out the
@@ -389,8 +382,8 @@ PRI locateFrameSet() : bFits | pScreen, pSetOne, pSetTwo, screenBytes, setBytes
   pScreen := hub75Bffrs.displayBufferAddress(adapterChainIndex)
   pSetOne := hub75Bffrs.pwmFrame1BufferAddress(adapterChainIndex)
   pSetTwo := hub75Bffrs.pwmFrame2BufferAddress(adapterChainIndex)
-  screenBytes := hub75Bffrs.displaySizeInLongs(adapterChainIndex) * matrix.BYTES_PER_LONG
-  setBytes := hub75Bffrs.colorDepth(adapterChainIndex) * hub75Bffrs.pwmFrameSizeInLongs(adapterChainIndex) * matrix.BYTES_PER_LONG
+  screenBytes := hub75Bffrs.displaySizeInLongs(adapterChainIndex) * hub75Bffrs.BYTES_PER_LONG
+  setBytes := hub75Bffrs.colorDepth(adapterChainIndex) * hub75Bffrs.pwmFrameSizeInLongs(adapterChainIndex) * hub75Bffrs.BYTES_PER_LONG
 
   rowSizeBytes := columnClocks * hub75Bffrs.BYTES_PER_COLUMN_CLOCK
   planeSizeBytes := rowSizeBytes * rowAddressCount
@@ -409,7 +402,8 @@ PRI locateFrameSet() : bFits | pScreen, pSetOne, pSetTwo, screenBytes, setBytes
 PRI buildPattern(patternId) | slotIdx, physRow, colIdx, pLineByte, redBit, greenBit, blueBit, redLevel, greenLevel, blueLevel, pPlaneByte, planeIdx, bitIdx, planeBits
 ' Fill the frame set with one test pattern. Layout: plane-major, plane 0 = MSB; one plane is
 ' rowAddressCount rows of columnClocks bytes; a byte is %00_B2G2R2_B1G1R1 (panel.spin2 RGB1_*_BIT,
-' RGB2_*_BIT), with RB_SWAP / GB_SWAP applied as the converter does (panel.spin2 startS8).
+' RGB2_*_BIT), with RB_SWAP / GB_SWAP applied as the converter does (panel.convertHalfScan() and
+' convertQuarterScan(); test_hub75_converter.spin2 buildExpected() is the same map by hand).
 '
 ' @param patternId - PATTERN_* to draw
 
@@ -452,9 +446,9 @@ PRI buildPattern(patternId) | slotIdx, physRow, colIdx, pLineByte, redBit, green
 PRI lineStart(slotIdx, physRow) : pLineByte, redBit, greenBit, blueBit | rowAddress, bBottomHalf, columnOffset, halfRows
 ' Locate one panel row in plane 0 and choose its colour bits (RGB1 for the top half, RGB2 for
 ' the bottom half). Half scan: row address = row mod (rows / 2). SCAN_4 follows
-' convertScreen2PWM_14 (panel.spin2): row address = row mod (rows / 4); each slot
-' holds two lines per address, and the line whose row mod (rows / 2) is in the first quarter
-' goes in the second half.
+' panel.convertQuarterScan() (and lineOffsetOf() of test_hub75_converter.spin2): row address =
+' row mod (rows / 4); each slot holds two lines per address, and the line whose row mod
+' (rows / 2) is in the first quarter goes in the second half.
 '
 ' @param slotIdx - cable position of the panel
 ' @param physRow - panel row
@@ -469,7 +463,7 @@ PRI lineStart(slotIdx, physRow) : pLineByte, redBit, greenBit, blueBit | rowAddr
 ' @local columnOffset - byte offset of this panel's columns within the row
 ' @local halfRows - half the panel height
 
-  halfRows := panelPixelRows / pnl.HALF_DIVISOR
+  halfRows := panelPixelRows / matrix.HALF_DIVISOR
   rowAddress := physRow // rowAddressCount
   bBottomHalf := (physRow >= halfRows)
   if quarterScan == TRUE
@@ -732,7 +726,7 @@ PRI startRefreshCog() : bStarted | colorByteIdx
   planeCount := TEST_COLOR_DEPTH
   firstPulseWeight := 1 << (TEST_COLOR_DEPTH - 1)
   columnClocksBeforeLatch := columnClocks - matrix.LATCH_OVERLAP_COLS
-  rowLongsLessOne := ((rowSizeBytes + matrix.BYTES_PER_LONG - 1) / matrix.BYTES_PER_LONG) - 1
+  rowLongsLessOne := ((rowSizeBytes + hub75Bffrs.BYTES_PER_LONG - 1) / hub75Bffrs.BYTES_PER_LONG) - 1
   framesShownHub := 0
 
   refreshCogId := COGINIT(NEWCOG, @refreshCog, @framesShownHub)
@@ -809,13 +803,13 @@ PRI reportSecond(clockRises, litClocks, latchRises, framesCounted) | refreshX100
 ' @local refreshErrX100 - refresh error against the model, percent x100 (signed)
 ' @local litErrX100 - lit-share error against the model, percent x100 (signed)
 
-  refreshX100 := muldiv64(latchRises, FIXED_POINT_SCALE, rowAddressCount * TEST_COLOR_DEPTH)
-  litX100 := muldiv64(litClocks, PERCENT_X100_SCALE, clkfreq)
-  refreshErrX100 := ((refreshX100 - modelRefreshX100) * PERCENT_X100_SCALE) / modelRefreshX100
-  litErrX100 := ((litX100 - modelDutyX100) * PERCENT_X100_SCALE) / modelDutyX100
-  debug("MON: CLK ", udec_(clockRises), "/s LATCH ", udec_(latchRises), "/s refresh ", udec_(refreshX100 / FIXED_POINT_SCALE), ".", udec_((refreshX100 // FIXED_POINT_SCALE) / pnl.DECIMAL_BASE), " Hz (cog ", udec_(framesCounted), " frames) lit ", udec_(litX100 / FIXED_POINT_SCALE), ".", udec_((litX100 // FIXED_POINT_SCALE) / pnl.DECIMAL_BASE), "% | vs model: refresh ", sdec_(refreshErrX100), " lit ", sdec_(litErrX100), " (x0.01%)")
+  refreshX100 := muldiv64(latchRises, matrix.FIXED_POINT_SCALE, rowAddressCount * TEST_COLOR_DEPTH)
+  litX100 := muldiv64(litClocks, matrix.PERCENT_X100_SCALE, clkfreq)
+  refreshErrX100 := ((refreshX100 - modelRefreshX100) * matrix.PERCENT_X100_SCALE) / modelRefreshX100
+  litErrX100 := ((litX100 - modelDutyX100) * matrix.PERCENT_X100_SCALE) / modelDutyX100
+  debug("MON: CLK ", udec_(clockRises), "/s LATCH ", udec_(latchRises), "/s refresh ", udec_(refreshX100 / matrix.FIXED_POINT_SCALE), ".", udec_((refreshX100 // matrix.FIXED_POINT_SCALE) / pnl.DECIMAL_BASE), " Hz (cog ", udec_(framesCounted), " frames) lit ", udec_(litX100 / matrix.FIXED_POINT_SCALE), ".", udec_((litX100 // matrix.FIXED_POINT_SCALE) / pnl.DECIMAL_BASE), "% | vs model: refresh ", sdec_(refreshErrX100), " lit ", sdec_(litErrX100), " (x0.01%)")
 
-PRI modelRowClocks(oeUnit, loadClocks, latchClocks) : rowClocks | pulseWeightNow, litClocks
+PRI modelRowClocks(oeUnit, loadClocks, latchClocks) : rowClocks | pulseWeightNow, planeLitClocks
 ' Return the model's clocks for one row address: every plane is shifted once and lit for
 ' 2^k x T. While lit, each slot is the longer of the plane's light and the next plane's
 ' load + shift; while dark, the light and the shift follow each other. With zero overheads
@@ -828,16 +822,16 @@ PRI modelRowClocks(oeUnit, loadClocks, latchClocks) : rowClocks | pulseWeightNow
 
 ' Local Variables:
 ' @local pulseWeightNow - 2^k for the plane being added
-' @local litClocks - the plane's lit time
+' @local planeLitClocks - the plane's lit time
 
   rowClocks := 0
   pulseWeightNow := 1 << (TEST_COLOR_DEPTH - 1)
   repeat TEST_COLOR_DEPTH
-    litClocks := pulseWeightNow * oeUnit
+    planeLitClocks := pulseWeightNow * oeUnit
     if SHIFT_MODE == SHIFT_WHILE_DARK
-      rowClocks += (litClocks #> loadClocks) + shiftClocks + latchClocks
+      rowClocks += (planeLitClocks #> loadClocks) + shiftClocks + latchClocks
     else
-      rowClocks += (litClocks #> (loadClocks + shiftClocks)) + latchClocks
+      rowClocks += (planeLitClocks #> (loadClocks + shiftClocks)) + latchClocks
     pulseWeightNow >>= 1
 
 PRI refreshX100For(rowClocks) : refreshX100
@@ -846,7 +840,7 @@ PRI refreshX100For(rowClocks) : refreshX100
 ' @param rowClocks - clocks per row address
 ' @returns refreshX100 - frames per second x100
 
-  refreshX100 := muldiv64(clkfreq, FIXED_POINT_SCALE, rowClocks * rowAddressCount)
+  refreshX100 := muldiv64(clkfreq, matrix.FIXED_POINT_SCALE, rowClocks * rowAddressCount)
 
 PRI dutyX100For(oeUnit, rowClocks) : dutyX100
 ' Return the share of time the panel is lit: (2^N - 1) x T per row over the row cost.
@@ -855,14 +849,14 @@ PRI dutyX100For(oeUnit, rowClocks) : dutyX100
 ' @param rowClocks - clocks per row address
 ' @returns dutyX100 - lit share, percent x100
 
-  dutyX100 := muldiv64(((1 << TEST_COLOR_DEPTH) - 1) * oeUnit, PERCENT_X100_SCALE, rowClocks)
+  dutyX100 := muldiv64(((1 << TEST_COLOR_DEPTH) - 1) * oeUnit, matrix.PERCENT_X100_SCALE, rowClocks)
 
 PRI rowLoadClocks() : loadClocks
 ' Return the estimated clocks to SETQ+RDLONG one plane's row into cog RAM.
 '
-' @returns loadClocks - estimated load time in clocks
+' @returns loadClocks - clocks to load one plane's row (estimated)
 
-  loadClocks := ((rowSizeBytes + matrix.BYTES_PER_LONG - 1) / matrix.BYTES_PER_LONG) + ROW_LOAD_SETUP_CLOCKS
+  loadClocks := ((rowSizeBytes + hub75Bffrs.BYTES_PER_LONG - 1) / hub75Bffrs.BYTES_PER_LONG) + matrix.ROW_LOAD_SETUP_CLOCKS
 
 PRI clampOeUnit(requestedUnit) : oeUnit
 ' Keep T within the chip's shortest pulse and the smart pin's 16-bit base period.
@@ -959,7 +953,7 @@ refreshCog
                 ' /OE: a P_PULSE smart pin, configured in the order DIRL -> WRPIN -> WXPIN ->
                 ' DIRH (p2kbArchSmartPins); WYPIN later starts each pulse. It idles blank.
                 dirl    enablePin
-                wrpin   ##OE_PIN_MODE, enablePin
+                wrpin   ##matrix.OE_PIN_MODE, enablePin
                 wxpin   oeUnitClocks, enablePin         ' X[15:0] = T, X[31:16] = 0: lit all of each period
                 dirh    enablePin
                 mov     pulseStarted, #0                ' no pulse yet: nothing to wait for
