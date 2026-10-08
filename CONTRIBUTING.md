@@ -16,15 +16,15 @@ If you want to contribute to our project and make it better, your help is very w
 - Clone the fork on your local machine. Your remote repo on Github is called `origin`.
 - Add the original repository as a remote called `upstream`.
 - If you created your fork a while ago be sure to pull upstream changes into your local repository.
-- Create a new branch to work on! Branch from `develop` if it exists, else from `master`.
+- Create a new branch to work on! Branch from `develop` if it exists, else from `main`.
 - Implement/fix your feature, comment your code.
 - Follow the code style of the project, including indentation.
-- If the project has tests run them!
+- Compile every demo and test top file (`demo_hub75_*.spin2`, `test_hub75_*.spin2`, `isp_hub75_anlyCheck.spin2`) with no warnings. The `test_hub75_*` programs are self-tests; run the ones your change touches (`test_hub75_converter` and `test_hub75_cube_fold` need no panels attached).
 - Write or adapt tests as needed.
 - Add or change the documentation as needed.
 - Squash your commits into a single commit with git's [interactive rebase](https://help.github.com/articles/interactive-rebase). Create a new branch if necessary.
 - Push your branch to your fork on Github, the remote `origin`.
-- From your fork open a pull request in the correct branch. Target the project's `develop` branch if there is one, else go for `master`!
+- From your fork open a pull request in the correct branch. Target the project's `develop` branch if there is one, else go for `main`!
 - …
 - If the maintainer requests further changes just push them to your branch. The PR will be updated automatically.
 - Once the pull request is approved and merged you can pull the changes from `upstream` to your local repo and delete
@@ -38,7 +38,7 @@ And last but not least: Always write your commit messages in the present tense. 
 
 > If you like my work and/or this has helped you in some way then feel free to help me out for a couple of :coffee:'s or :pizza: slices!
 >
-> [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep) &nbsp;&nbsp; -OR- &nbsp;&nbsp; [![Patreon](./Images/patreon.png)](https://www.patreon.com/IronSheep?fan_landing=true)[Patreon.com/IronSheep](https://www.patreon.com/IronSheep?fan_landing=true)
+> [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep) &nbsp;&nbsp; -OR- &nbsp;&nbsp; [![Patreon](./images/patreon.png)](https://www.patreon.com/IronSheep?fan_landing=true)[Patreon.com/IronSheep](https://www.patreon.com/IronSheep?fan_landing=true)
 
 ---
 

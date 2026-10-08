@@ -130,16 +130,13 @@ OBJ
     hub75Bffrs  :   "isp_hub75_hwBufferAccess"
     display     :   "isp_hub75_display"
 
-PUB main() | chainIndex, cog
+PUB main() | chainIndex
     ' v4.x (new)
-    cog := display.start(hub75Bffrs.HUB75_ADAPTER_1)
-    if cog == -1
-        debug("- the driver failed to start")
-        abort
     chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)   ' only if you call hub75Bffrs.* methods
+    display.start(hub75Bffrs.HUB75_ADAPTER_1)
 ```
 
-`display.start()` reads the adapter's settings, checks your wiring sentences, derives the layout, hands the adapter its buffers and starts the driver. If a sentence is wrong it prints a `HUB75:` message naming the sentence and stops the program; every message is listed in the Wiring Guide's [startup messages](DOCs/WiringGuide.md#startup-messages). The calls `configure`, `setWireConfig` and `setBufferPointers` are gone, and your program no longer calls the buffers object's pointer methods (the start call fetches the pointers by adapter).
+`display.start()` reads the adapter's settings, checks your wiring sentences, derives the layout, hands the adapter its buffers and starts the driver. If a sentence is wrong, or no cog is free for the driver, it prints a `HUB75:` message and stops the program; every wiring message is listed in the Wiring Guide's [startup messages](DOCs/WiringGuide.md#startup-messages). It returns only when the driver started (the returned value is the driver's cog ID plus one, never 0 or -1), so a v3.x check of its result for failure can be taken out. The calls `configure`, `setWireConfig` and `setBufferPointers` are gone, and your program no longer calls the buffers object's pointer methods (the start call fetches the pointers by adapter).
 
 **Adapter *k* drives display `DISP(k-1)_`**: `HUB75_ADAPTER_1` starts the display configured by `DISP0_`, `HUB75_ADAPTER_2` starts `DISP1_`, and `HUB75_ADAPTER_3` starts `DISP2_`.
 
@@ -156,9 +153,9 @@ CON
     FRONT_PANEL = 0                                     ' which display object drives which adapter
     BACK_PANEL = 1
 
-PUB main() | frontCog, backCog
-    frontCog := display[FRONT_PANEL].startWithId(FRONT_PANEL, hub75Bffrs.HUB75_ADAPTER_1)
-    backCog := display[BACK_PANEL].startWithId(BACK_PANEL, hub75Bffrs.HUB75_ADAPTER_2)
+PUB main()
+    display[FRONT_PANEL].startWithId(FRONT_PANEL, hub75Bffrs.HUB75_ADAPTER_1)
+    display[BACK_PANEL].startWithId(BACK_PANEL, hub75Bffrs.HUB75_ADAPTER_2)
 
     ' with more than one adapter, all your calls are display[FRONT_PANEL].method() or
     ' display[BACK_PANEL].method(), and each display commits its own screen to its own panels
@@ -185,6 +182,15 @@ To turn an **image**, use the content rotation parameter of the new image call, 
 ### Panel numbers are panel positions
 
 Calls that name a panel (`fillPanel`, `setCursorOnPanel`, `drawPanelBox`, `drawPanelLine`, `scrollColoredTextOnLnOfNPanels` and their siblings) take a **panel position**: `P0` is the top-left panel as the display hangs, and the numbers run in reading order. In v3.x the number was the panel's place in the buffer, which for a display wired from the bottom is not the order you see: on the author's 2 x 2 rig the top-right panel was panel 0. Check any panel number your program uses against the identify screen. Panel-centric calls also now **clip** at the panel's edge instead of spilling onto a neighbour.
+
+## If your program calls the buffers object or the manual chip flags directly
+
+Programs that draw only through the display object need nothing here.
+
+- **Removed from `isp_hub75_hwBufferAccess.spin2`:** `wireStart()`, `wireTraverse()`, `wireOrderForPanel()`, `displayPanelForWire()`, `needsPanelColumnSwap()`, `panelRotationAt()`, `displayToPanelCoords()`, `panelPixelOffset()` and `indexToPanel()`. `panelRotation()` is now `displayRotation()`. Where you need a panel's place, ask the layout: `positionAtDisplayPixel()`, `positionForCable()`, `offsetToPanel()`, `layoutAreaOfPanel()`.
+- **Writing the screen buffer yourself.** Scrolling regions move the frame they drew last and draw only the new edge, so they must be told when something else has written the screen buffer. Anything you draw through the display object does this for you. If your program writes the screen buffer directly, call `hub75Bffrs.noteAllDrawn(chainIndex)` afterwards (or `hub75Bffrs.noteDrawn(chainIndex, topRow, leftColumn, bottomRow, rightColumn)` for one rectangle) so the scrolling regions draw again in full.
+- **`CLK_WIDE_PULSE`** is removed from the manual chip flags (it had no effect). A `CHIP_MANUAL_SPEC` config that ORs it on does not compile until you take it out.
+- **`demo_hub75_hwGeometry.spin2`**, the commented-out example of the v3.x settings, is gone. The [Wiring Guide](DOCs/WiringGuide.md) replaces it.
 
 ## What else is new
 

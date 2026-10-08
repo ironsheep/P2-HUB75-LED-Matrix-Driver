@@ -17,7 +17,9 @@ This document provides a comprehensive matrix of all driver chip characteristics
 | **GS6238S** | Cyan | ABCD | 1/16 | - | **Yes** | - | Offset+Overlap | ⚠️ Untested |
 | **DP5125D** | - | ABC | 1/8 | - | - | - | Offset+Overlap | ✅ Tested |
 
-The column clock is held to the chip's rated maximum (for the MBI5124GP, to its chain limit), and each half of the clock pulse is at least 20 ns; the ratings are in the table below.
+The column clock is held to the chip's rated maximum (for the MBI5124GP, to its chain limit), and each half of the clock pulse is at least 20 ns; the ratings are in the table below. A chip with no rating in the driver's table (GS6238S, DP5125D, or a chip set by flags alone) is held to 20 MHz with a 50 ns minimum /OE pulse, and `start()` says so in its startup messages.
+
+The driver has no `CHIP_FM6124C` setting; FM6124C is a variant of FM6124, and `CHIP_FM6124` sets the same flags as `CHIP_MANUAL_SPEC` alone. The chip settings the driver knows are `CHIP_FM6126A`, `CHIP_FM6124`, `CHIP_ICN2037`, `CHIP_ICN2038S`, `CHIP_MBI5124GP`, `CHIP_GS6238S` and `CHIP_DP5125D`, plus `CHIP_MANUAL_SPEC` with flags for a chip not listed.
 
 **Notes:**
 - ICN2037BP is the same chip as ICN2037 in SSOP24-P-150 package
@@ -41,7 +43,8 @@ This table is the one place the project states each chip's datasheet clock and /
 - A rated clock is one chip's. Inside a panel, and from one panel to the next, each chip's SDO feeds the next chip's SDI, so a clock period must also cover the slowest CLK-to-SDO delay plus the SDI setup time. MBI5124GP: 50 ns + 3 ns = 53 ns, 18.9 MHz (datasheet pp.9-10, the 3.3 V row, as for its /OE minimum); the driver holds it there. At 22.3 MHz, two chained panels lost or gained red in the first column of each panel on some images, and it flickered. ICN2037: 35 ns + 5 ns = 40 ns, 25.0 MHz; ICN2038S: 30 ns + 5 ns = 35 ns, 28.6 MHz (V2.0 and V1.1 datasheets, switching characteristics); both are at or above the 25 MHz the 20 ns pulses already allow, so neither clock changes. The FM6124 and FM6126A datasheets in `DOCs/` do not give their text to a text extractor, so their CLK-to-SDO delays have not been read (punch list).
 - ICN2037: the V1.1 datasheet and `DOCs/ICN2037/ICN2037-timing.pdf` give a 60 ns minimum /OE pulse; the V2.0 datasheet gives 40 ns. The conservative 60 ns holds. V2.0's transition table (p.8) lists a 35 MHz clock; the rating on its pp.2 and 7, and in V1.1, is 30 MHz, which holds.
 - ICN2038S: the datasheet has FM6126A-style register commands. Whether the panels need them is untested.
-- MBI5124GP: typical and maximum /OE pulse widths are in the timing table in its section below (MBI5124GP-B_C datasheet, pp.9-10).
+- MBI5124GP: the driver uses the 3.3 V figure, 50 ns, as its minimum /OE pulse. Typical and maximum /OE pulse widths are in the timing table in its section below (MBI5124GP-B_C datasheet, pp.9-10).
+- The driver's values are `MIN_CLK_PULSE_NS`, `RATED_CLK_HZ_*`, `MAX_CLK_HZ_*` and `MIN_OE_NS_*` in `isp_hub75_rgb3bit.spin2`; the table above is what those constants hold.
 
 ---
 
@@ -139,7 +142,7 @@ CHIP_MANUAL_SPEC
 |----------------|-------|-------|
 | Address Lines | ABCDE (5) | 32 row addressing (64×64 panel) |
 | Scan Rate | 1/32 | Full scan |
-| Max Clock | 30 MHz | Same as FM6124 |
+| Max Clock | 30 MHz | Same as FM6124 (the driver has no FM6124C setting, so it has no rating of its own for this chip) |
 | R/B Swap | No | |
 | G/B Swap | No | |
 | Init Required | No | Same as FM6124 |
@@ -318,12 +321,7 @@ CHIP_MANUAL_SPEC | CHIP_UNK_LAT_END_ENCL | SCAN_4 | INIT_PANEL_REQUIRED
 - Panel has both input and output HUB75 connectors (daisy-chain capable hardware)
 - Some chips hidden under plastic LED housing - cannot visually identify
 - Multi-panel daisy-chain works once the clock is held to the chain limit. At 22.3 MHz the first column of each panel lost or gained red in some rows on some images (each panel's first stage misses the bit the stage before it hands on), and it flickered
-
-**Investigation Status:**
-- Two panels available for testing
-- Bus transceiver chip still unidentified (hidden under housing)
-- Daisy-chain issue likely related to driver timing or 1/8 scan handling, not missing hardware
-- May need additional timing or initialization investigation
+- The bus transceiver chip is still unidentified (hidden under the housing)
 
 ---
 
@@ -335,7 +333,7 @@ CHIP_MANUAL_SPEC | CHIP_UNK_LAT_END_ENCL | SCAN_4 | INIT_PANEL_REQUIRED
 |----------------|-------|-------|
 | Address Lines | ABCD (4) | 16 row addressing |
 | Scan Rate | 1/16 | Standard scan |
-| Max Clock | 30 MHz | |
+| Max Clock | No rating in the driver's table | No public datasheet; the driver holds 20 MHz and a 50 ns /OE minimum |
 | R/B Swap | No | |
 | G/B Swap | **Yes** | Green and Blue swapped |
 | Init Required | No | |
@@ -371,7 +369,7 @@ CHIP_MANUAL_SPEC | LAT_STYLE_OFFSET | LAT_POSN_OVERLAP | GB_SWAP
 |----------------|-------|-------|
 | Address Lines | ABC (3) | 8 row addressing |
 | Scan Rate | 1/8 | Special scan pattern |
-| Max Clock | Unknown | |
+| Max Clock | Unknown | No rating in the driver's table; the driver holds 20 MHz and a 50 ns /OE minimum |
 | R/B Swap | No | |
 | G/B Swap | No | |
 | Init Required | No | |
@@ -593,6 +591,8 @@ These chips operate as standard shift registers - clock in data, latch, enable o
 
 ## Latch Timing Styles
 
+The driver reads two flags: `LAT_STYLE_OFFSET` (offset latch; without it the latch is enclosed) and `LAT_POSN_OVERLAP` (latch overlaps the last column clocks). Every chip the driver knows without `LAT_STYLE_OFFSET` gets the same enclosed, non-overlapped latch; the Standard, Enclosed and End-Enclosed names below describe the panels, and only the offset and overlap flags change what the driver does.
+
 ### Standard Latch
 - Latch signal pulses after all column data is clocked
 - Used by: FM6124
@@ -626,15 +626,8 @@ For successful multi-panel daisy-chaining:
 ### Known Working Configurations
 - FM6126A (Pink): Chains tested
 - ICN2037: Chains and 2D grids tested
+- MBI5124GP (Green): two panels chained end to end tested, with the clock held to the chain limit
 - DP5125D: working in multi-panel use (README chip table)
-
-### Investigation Needed
-- **MBI5124GP (Green)**: Two panels not daisy-chaining
-  - Possible causes:
-    - Special latch timing not propagating correctly
-    - 1/8 scan timing issues between panels
-    - Initialization sequence needs to be per-panel
-    - Clock/data signal degradation
 
 ---
 
@@ -661,8 +654,10 @@ To add support for a new chip:
        desiredFlags := hwEnum.CHIP_MANUAL_SPEC | {required flags}
    ```
 
-4. If chip needs special handling, modify the PASM driver in `isp_hub75_rgb3bit.spin2`
+4. Add the chip's clock and /OE ratings to `columnLoopClocks()` and `oeMinimumClocks()` in `isp_hub75_rgb3bit.spin2` (new `RATED_CLK_HZ_*`, `MAX_CLK_HZ_*` and `MIN_OE_NS_*` constants, and a row in the ratings table above). A chip without them runs at 20 MHz with a 50 ns /OE minimum and says so at start.
+
+5. If chip needs special handling, modify the PASM driver in `isp_hub75_rgb3bit.spin2` (an init sequence runs from `start()` when `INIT_PANEL_REQUIRED` is set, for the chips that have one)
 
 ---
 
-*Last Updated: December 2024*
+*Last Updated: October 2026 (driver 4.0.0)*

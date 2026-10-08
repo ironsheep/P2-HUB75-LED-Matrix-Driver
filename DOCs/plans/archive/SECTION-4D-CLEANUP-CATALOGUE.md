@@ -1,5 +1,7 @@
 # §4d Post-Reconciliation Functional Cleanup -- Findings Catalogue
 
+> **History.** Applied 2026-06-12 during SOURCE-RECONCILIATION (build 3.0.3); kept as the record of that cleanup. File and line references are to the 3.0.3 tree.
+
 **Sprint:** source-reconciliation (build 3.0.3) | **Task:** «#10» §4d | **Date:** 2026-06-11
 **Method:** 8 parallel audit agents, all 28 merged `.spin2` files, three dimensions
 (D1 unused params/returns/locals, D2 dead/simplifiable, D3 doc-comment completeness).

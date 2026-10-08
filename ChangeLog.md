@@ -6,7 +6,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for reminders on how to str
 
 ### Pages: [README](README.md) | [Hardware Turn-on](HardwareTurnon.md) | [Driver Details](THEOPS.md) | [Wiring Guide](DOCs/WiringGuide.md) | Change Log
 
-## [4.0.0] 06 Oct 2026
+## [4.0.0] 08 Oct 2026
 
 ### Wiring sentences, a cube layer, one-call adapter startup, and bit-plane refresh at full 8-bit color
 
@@ -56,15 +56,15 @@ Each panel is described by one sentence, each adapter starts with one call, six 
 - `setColoredTextAtLnWithAlignPad()` with `ALIGN_RIGHT` or `ALIGN_CENTER` places the padded field on the line; it was placed by the length of the text alone, so a padded right-aligned field ran past the line's end. A centred field is padded on both sides; its right side was left undrawn.
 - Text scrolling right with `SCROLL_ONCE_TO_CLEAR` scrolls until its region is clear; it stopped with the first character's left edge still showing. A region wider than its text shows spaces before the text; it read the bytes in front of the text buffer.
 - Text scrolling sideways no longer draws a black column just right of its region. On every step where the text sat on a character boundary, the gap after the last character landed one pixel outside the region.
-- An adapter on pins P0-P15 no longer has its colour lines toggled by the timing marks on P8-P11. Adapters on P16-P31 or P32-P47 were unaffected. The marks now exist only in a `HUB75_INSTRUMENT` build.
+- An adapter on pins P0-P15 no longer has its colour lines toggled by the timing marks on P8-P11. Adapters on P16-P31 or P32-P47 were unaffected. The marks now exist only in the measurement test builds.
 
 #### Changed
 
-- **Drawing speed**: every drawing call finds its pixels from a table built at startup, one lookup per panel instead of the full address rule per pixel, and writes them in PASM. On the four-panel 256x128 rig at 8-bit: one full-width line of scrolling text steps in 1.3 ms sideways (was 45 ms) and 3.3 to 4.1 ms up or down (was 41 ms), so it keeps up with the 71 Hz refresh; an 8-digit 7-segment step takes at most 11.5 ms (was 24 ms); `fillScreen()` 4.7 ms (was 20 ms); a full screen of 5x7 text 43 ms (was 291 ms); a sloped line or circle about 1 ms (was 6 ms).
+- **Drawing speed**: every drawing call finds its pixels from a table built at startup, one lookup per panel instead of the full address rule per pixel, and writes them in PASM. On the four-panel 256x128 rig at 8-bit: one full-width line of scrolling text steps in 1.3 ms sideways and 3.3 to 4.1 ms up or down (39 to 50 ms before), so it keeps up with the 71 Hz refresh; an 8-digit 7-segment step takes at most 12.5 ms (up to 24 ms before); a sloped line or circle takes about 1 ms (about 6 ms before). Fills, lines, text and BMP drawing times against the pre-4.0.0 figures are under Performance below.
 - **Scrolling moves the last frame**: a step moves the region's pixels one place and draws only the new edge. Anything drawn over the region through the driver, and any clear or fill of the screen, makes the next step draw the whole region again, so what you see is unchanged. A program that writes the screen buffer directly, not through the driver's calls, calls `hub75Bffrs.noteAllDrawn(chainIndex)` afterwards so the regions draw again.
 - Buffers are sized by the number of panels in use, not by the display's bounding box. A display with a gap (an L shape) holds no memory for the gap.
 - **Refresh**: each bit plane is shown once per row address and lit by output-enable time in proportion to its bit weight. Rates by depth are in the [Wiring Guide](DOCs/WiringGuide.md#refresh-rate).
-- **Default color depth is 8-bit** (`DISPx_COLOR_DEPTH = hwEnum.DEPTH_8BIT`), full 24-bit color. A configuration whose buffers exceed hub RAM at 8-bit fails to compile with `Program requirement exceeds 512KB hub RAM`; lower the depth.
+- **Default color depth is 8-bit** (`DISPx_COLOR_DEPTH = hwEnum.DEPTH_8BIT`), full 24-bit color. A configuration whose buffers do not fit in hub RAM at 8-bit fails to compile; lower the depth.
 - `setBrightness()` sets how long the panels are lit, not the color values: the image keeps its full depth at any brightness and the refresh rate does not change. The lowest lit time is the chip's shortest /OE pulse, so on the four-panel rig at 8-bit settings 1 to 11 look the same; 0 is off.
 - The column clock is held to each chip's datasheet rating, with each half of the pulse at least 20 ns (15 system clocks per column at 335 MHz on the four-panel rig). Each chip's clock and /OE ratings are in the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings); a chip with no rating in the table is held to 20 MHz and 50 ns and says so at startup. MBI5124GP panels are held to their chain limit, 18.9 MHz, below the chip's 25 MHz rating.
 - Drawing time does not depend on color depth.
@@ -76,7 +76,7 @@ Measured on four ICN2037 128x64 panels (256x128 pixels) at 335 MHz.
 
 - Refresh at 8-bit: improved from 4.86 to 71.0 Hz; at 5-bit, from 40.01 to 84.7 Hz
 - `commitScreenToPanelSet()` at 8-bit: improved from 21.25 to 4.09 ms
-- Drawing at 8-bit, flat fill / lines / text / BMP: improved from 635.4 / 233.3 / 1,103.0 / 304.2 ms to 114.0 / 116.8 / 300.9 / 188.4 ms
+- Drawing at 8-bit, flat fill / fanned lines / lines of text / 64x32 BMP: improved from 635.4 / 233.3 / 1,103.0 / 304.2 ms to 4.7 / 13.0 / 24.6 / 3.8 ms
 
 #### Hardware Compatibility
 

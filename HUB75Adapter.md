@@ -31,14 +31,15 @@ NOTE: *The I/Cs on this board were selected so that we can drive our panels as f
 
 ### Downloads
 
-- [Latest HUB75 driver build](https://github.com/ironsheep/p2-HUB75-LED-Matrix-Driver/releases) (GitHub release)
+- [Latest HUB75 driver build](https://github.com/ironsheep/p2-LED-Matrix-Driver/releases) (GitHub release)
 - [Hub75 Adapter Board v1.4 Schematic](images/hub75-adaptor-v1.4-schematic.pdf)
 
 ### Resource Links
 
-- [Driver documentation & help with initial driver configuration](https://github.com/ironsheep/p2-HUB75-LED-Matrix-Driver/blob/main/THEOPS.md) (GitHub)
-- [Use of the HUB75 v1.4 Optional Connectors](https://github.com/ironsheep/p2-HUB75-LED-Matrix-Driver/blob/main/HUB75-brd-config.md) (GitHub)
-- [The driver project](https://github.com/ironsheep/p2-HUB75-LED-Matrix-Driver) (GitHub)
+- [Driver documentation](https://github.com/ironsheep/p2-LED-Matrix-Driver/blob/main/THEOPS.md) (GitHub)
+- [Help with initial driver configuration: the Wiring Guide](https://github.com/ironsheep/p2-LED-Matrix-Driver/blob/main/DOCs/WiringGuide.md) (GitHub)
+- [Use of the HUB75 v1.4 Optional Connectors](https://github.com/ironsheep/p2-LED-Matrix-Driver/blob/main/HUB75-brd-config.md) (GitHub)
+- [The driver project](https://github.com/ironsheep/p2-LED-Matrix-Driver) (GitHub)
 
 
 ----

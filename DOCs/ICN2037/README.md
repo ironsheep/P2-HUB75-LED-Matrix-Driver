@@ -281,24 +281,24 @@ OUT     ════════════════════════
 
 ### 5.1 P2 Eval HUB75 Adapter Pin Assignment
 
-*Source: hub75-adaptor-v1.4-schematic.pdf*
+*Source: the driver's pin offsets (`PIN_OFST_*` and `COLOR_OFST_*` in `isp_hub75_rgb3bit.spin2`) and the adapter pinout in [HUB75-brd-config.md](../../HUB75-brd-config.md); the offsets are from the adapter's base pin (P0, P16 or P32)*
 
-| HUB75 Signal | 74HCT244 Output | P2 Pin (J2) | Function |
-|--------------|-----------------|-------------|----------|
-| R1 | U1-1Y1 | p8+1 | Red data, upper half |
-| G1 | U1-1Y0 | p8+0 | Green data, upper half |
-| B1 | U1-1Y3 | p8+3 | Blue data, upper half |
-| R2 | U1-1Y2 | p8+2 | Red data, lower half |
-| G2 | U1-2Y0 | p8+5 | Green data, lower half |
-| B2 | U1-2Y3 | p8+4 | Blue data, lower half |
-| A | U2-1A2 | p0+2 | Row address bit 0 |
-| B | U2-2A2 | p0+4 | Row address bit 1 |
-| C | U2-2A3 | p0+5 | Row address bit 2 |
-| D | U2-2A0 | p0+7 | Row address bit 3 |
-| E | U2-2A1 | p0+6 | Row address bit 4 |
-| CLK | U2-1A0 | p0+3 | Pixel clock |
-| LAT/STB | U2-1A3 | p0+1 | Latch strobe |
-| OE | U2-1A1 | p0+0 | Output enable |
+| HUB75 Signal | P2 Pin | Function |
+|--------------|--------|----------|
+| CLK | base+0 | Pixel clock |
+| OE | base+1 | Output enable |
+| LAT/STB | base+2 | Latch strobe |
+| A | base+3 | Row address bit 0 |
+| B | base+4 | Row address bit 1 |
+| C | base+5 | Row address bit 2 |
+| D | base+6 | Row address bit 3 |
+| E | base+7 | Row address bit 4 |
+| R1 | base+8 | Red data, upper half |
+| G1 | base+9 | Green data, upper half |
+| B1 | base+10 | Blue data, upper half |
+| R2 | base+11 | Red data, lower half |
+| G2 | base+12 | Green data, lower half |
+| B2 | base+13 | Blue data, lower half |
 
 ### 5.2 Panel Geometry for 128x64 Panels
 
@@ -425,17 +425,18 @@ CHIP_MANUAL_SPEC | RB_SWAP
 
 ### 7.1 Required Driver Constants
 
-What the driver does for the ICN2037 (the clock and latch are the driver's own choices, not settings you make):
+What the settings and the driver do for the ICN2037 (the clock, /OE minimum and latch are the driver's own choices, not settings you make):
 
-| Driver Constant | Recommended Value | Reason |
-|-----------------|-------------------|--------|
-| `CHIP_TYPE` | `CHIP_ICN2037` | Identifies chip family |
-| `ADDR_LINES` | 5 (ABCDE) | 1/32 scan requires 5 address lines |
-| Column clock | 15 system clocks per column at 335 MHz, about 22.3 MHz | Rated 30 MHz; 20 ns pulses cap it at 25 MHz |
+| Setting or behavior | Value | Reason |
+|---------------------|-------|--------|
+| `DISPn_PANEL_DRIVER_CHIP` | `hwEnum.CHIP_ICN2037` | Sets the chip's flags (`CHIP_MANUAL_SPEC \| RB_SWAP`) and its clock and /OE ratings |
+| `DISPn_PANEL_ADDR_LINES` | `hwEnum.ADDR_ABCDE` | 1/32 scan requires 5 address lines |
+| Column clock | 15 system clocks per column at 335 MHz, about 22.3 MHz | No faster than the chip's limit, 25 MHz (the 20 ns pulses cap the 30 MHz rating; the CLK-to-SDO chain limit, 35 + 5 ns, is also 25 MHz) |
+| Minimum /OE pulse | 60 ns | The conservative datasheet figure (`MIN_OE_NS_ICN2037`) |
 | Latch | At the end of the row | No special init sequence needed |
-| `OE_POLARITY` | Active LOW | OE=0 enables outputs |
-| `LATCH_POLARITY` | Active HIGH | LE pulse HIGH to latch |
-| `CLK_EDGE` | Rising | Data shifts on CLK rising edge |
+| OE polarity | Active LOW | OE=0 enables outputs |
+| LE polarity | Active HIGH | LE pulse HIGH to latch |
+| CLK edge | Rising | Data shifts on CLK rising edge |
 
 ### 7.2 Chip Family Compatibility
 
@@ -496,5 +497,5 @@ These symptoms were seen during the first bring-up of the driver and are kept as
 
 ---
 
-*Document generated: 2025-01-06*
-*Driver version target: v3.x+*
+*Last updated: October 2026*
+*Driver version target: 4.0.0*

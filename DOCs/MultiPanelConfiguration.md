@@ -55,20 +55,40 @@ The panel width must be a multiple of 4 (every common panel is). Startup stops w
 DISP0_COLOR_DEPTH = hwEnum.DEPTH_8BIT
 ```
 
-| Depth | Colors | Buffer bytes/pixel (screen + PWM) | PWM Frames |
-|-------|--------|-----------------------------------|------------|
-| `DEPTH_3BIT` | 512 | 6 | 7 |
-| `DEPTH_4BIT` | 4,096 | 7 | 15 |
-| `DEPTH_5BIT` | 32,768 | 8 | 31 |
-| `DEPTH_6BIT` | 262,144 | 9 | 63 |
-| `DEPTH_7BIT` | 2,097,152 | 10 | 127 |
-| `DEPTH_8BIT` | 16,777,216 | 11 | 255 |
+| Depth | Colors | Buffer bytes/pixel (screen + PWM) | Bit planes per frame set |
+|-------|--------|-----------------------------------|--------------------------|
+| `DEPTH_3BIT` | 512 | 6 | 3 |
+| `DEPTH_4BIT` | 4,096 | 7 | 4 |
+| `DEPTH_5BIT` | 32,768 | 8 | 5 |
+| `DEPTH_6BIT` | 262,144 | 9 | 6 |
+| `DEPTH_7BIT` | 2,097,152 | 10 | 7 |
+| `DEPTH_8BIT` | 16,777,216 | 11 | 8 |
 
-(The screen buffer is 3 bytes per pixel at every depth; the rest is the two PWM frame sets, see below.)
+(The screen buffer is 3 bytes per pixel at every depth; the rest is the two PWM frame sets, see below. 8-bit is the default; lower the depth only when the buffers do not fit.)
 
-### Step 4: Panel Layout, Cabling and Rotation
+### Step 4: Display Rotation and Panel Layout
 
-Describe the layout with the wiring sentences (`DISPn_C0` ... `DISPn_C15`), and say how the whole display hangs with `DISPn_ROTATION`. Both are covered, with worked examples, in the [Wiring Guide](WiringGuide.md).
+Say how the whole display hangs with `DISPn_ROTATION`, and describe the layout and cabling with the wiring sentences (`DISPn_C0` ... `DISPn_C15`). Both are covered, with worked examples, in the [Wiring Guide](WiringGuide.md).
+
+### Step 5: Display Shape
+
+```spin2
+' (6) describe the display shape: hwEnum.SHAPE_FLAT or hwEnum.SHAPE_CUBE
+DISP0_SHAPE = hwEnum.SHAPE_FLAT
+DISP0_CUBE_TOP = hwEnum.NO_PANEL
+DISP0_CUBE_FRONT = hwEnum.NO_PANEL
+```
+
+A flat display leaves the two cube settings at `NO_PANEL`. A cube of six square panels names its top and front faces there; see [the cube](WiringGuide.md#the-cube).
+
+### Step 6: Refresh Target
+
+```spin2
+' (7) the refresh rate to aim for, in Hz
+DISP0_TARGET_REFRESH_HZ = 60
+```
+
+The driver picks the brightest panel timing that reaches this rate and runs at the fastest rate it has when the display cannot reach it. What the target does, and the rates measured, are in the [Wiring Guide's refresh rate section](WiringGuide.md#refresh-rate).
 
 ## Memory Requirements
 
@@ -106,7 +126,7 @@ Total = Screen + (2 × PWM Frameset) = N × P × (3 + D) bytes
 | 4×2 | 64×64 | 8 | 32,768 | 352 KB | 256 KB |
 | 8×1 | 64×32 | 8 | 16,384 | 176 KB | 128 KB |
 
-**Note:** the three adapters share the hub RAM, and your application code takes some of it: in the DEBUG build of the largest demo, 451,564 bytes are free for buffers. Hub RAM is calculated in full, with the build it comes from, in the [Wiring Guide's Hub RAM section](WiringGuide.md#hub-ram).
+**Note:** the three adapters share the hub RAM, and your application code takes some of it, so the table is what the buffers need, not what is free. A display that does not fit fails to compile with `Program requirement exceeds 512KB hub RAM`. Hub RAM is calculated in full, with the build it comes from, in the [Wiring Guide's Hub RAM section](WiringGuide.md#hub-ram).
 
 ### Maximum Practical Configurations
 
@@ -120,13 +140,13 @@ On a single adapter the number of panels is limited by the refresh line buffer (
 |------|-------------|---------------------|-------|
 | **FM6126A** | Pink | ✅ Tested | Tested in chains |
 | **ICN2037** | - | ✅ Full support | Tested in chains and 2D grids |
-| **ICN2038S** | - | ⚠️ Expected | Similar to ICN2037 |
-| FM6124 | Orange | ⚠️ Untested | Similar to FM6126A |
+| ICN2038S | - | ✅ Single panel | Single-ended road-sign panel: no daisy-chain by construction |
+| FM6124 | Orange | ✅ Single panel | Not yet run in a chain |
 | MBI5124GP | Green | ✅ Tested | 1/8 scan; two panels in a chain |
-| GS6238S | Cyan | ⚠️ Untested | |
-| DP5125D | - | ⚠️ Untested | May work |
+| GS6238S | Cyan | ✅ Single panel | Not yet run in a chain |
+| DP5125D | - | ✅ Multi-panel | 1/8 scan |
 
-For multi-panel displays, verified chips are **FM6126A (Pink)** and **ICN2037**.
+For multi-panel displays, the chips run in chains are **FM6126A (Pink)**, **ICN2037**, **MBI5124GP (Green)** and **DP5125D**; the [README chip table](../README.md#chips-supported) is the status of record.
 
 ## Troubleshooting
 
@@ -161,7 +181,24 @@ For multi-panel displays, verified chips are **FM6126A (Pink)** and **ICN2037**.
 
 ## API Usage
 
-Once configured, the display appears as a single logical surface:
+Once configured, the display appears as a single logical surface. Start each adapter with one call; adapter k drives display `DISP(k-1)_`:
+
+```spin2
+OBJ
+    color      : "isp_hub75_color"
+    hub75Bffrs : "isp_hub75_hwBufferAccess"
+    pixels     : "isp_hub75_screenUtils"
+    display    : "isp_hub75_display"
+
+VAR
+    LONG    chainIndex
+
+PUB main()
+    chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
+    display.start(hub75Bffrs.HUB75_ADAPTER_1)
+```
+
+Then draw:
 
 ```spin2
 ' Draw at display coordinates (0,0 = top-left of entire display)

@@ -12,61 +12,54 @@ This document tracks known technical debt and potential future optimizations.
 
 ---
 
-## TD-002: Documentation Gap - Theory of Operations Consolidation
+## TD-002: Documentation Gap - No Documentation Index
 
 **Date Identified:** January 2025
 
 **Current State:**
 
-The project has two parallel sets of Theory of Operations documentation:
+The project documentation is two groups.
 
-**User-authored (practical, user-facing):**
-- `THEOPS.md` - Main theory of operations, driver architecture overview, configuration guide
-- `HUB75-Driver-SWver0.md` - v0.x chip configuration and timing details
-- `HUB75-Driver-SWver1.md` - v1.x updated driver settings
+**Driver and configuration (user-facing):**
+- `README.md` and `THEOPS.md` - overview, driver file organization, glossary, configuration, driver internals
+- `DOCs/WiringGuide.md` - the wiring sentences, driver limits, refresh rate
+- `DOCs/ChipCharacteristicsMatrix.md` - per-chip ratings and behaviour
+- `DOCs/AuthorTestConfigurations.md`, `DOCs/MultiPanelConfiguration.md` - panel configurations
 
-**Claude-generated (technically detailed, reference-oriented):**
-- `DOCs/TheoryOfOperations.md` - Deep dive on system architecture, data flow, PWM mechanism, buffer architecture
-- `DOCs/CodeAssessment.md` - Code organization analysis, performance notes, 2D support assessment
-- `DOCs/ICN2037/README.md` - Comprehensive chip reference with timing budgets, signal path analysis
-- `DOCs/plans/Sprint-2x2-Panel-Repair.md` - Research findings on refresh loop, orientation system, signal polarity
+**Reference and analysis:**
+- `DOCs/TheoryOfOperations.md` - system architecture, data flow, the pixel write and screen commit paths, timing
+- `HUB75-Driver-SWver0.md`, `HUB75-Driver-SWver1.md` - chip configuration and timing details of the earlier driver versions
+- `DOCs/ICN2037/README.md` - chip reference with timing budgets and signal path analysis
+- `DOCs/plans/archive/` - sprint plans and research, including `Sprint-2x2-Panel-Repair.md` and `THEORY_OF_OPERATIONS_SIGNALING.md`
 
 **The Gap:**
 
-1. **Depth vs. Accessibility:** Claude-generated docs contain detailed technical analysis (timing calculations, signal path budgets, PASM2 loop tracing) that isn't reflected in user-facing docs. User docs are more approachable but lack this depth.
-
-2. **Version Drift:** User docs reference older file names (`isp_hub75_hwGeometry.spin2`) and may not reflect current architecture changes (2D grid support, the wiring sentences, per-panel rotation by arrow word).
-
-3. **Fragmentation:** Related information is scattered across multiple files. For example:
-   - PWM/BCM explanation partially in THEOPS.md, fully detailed in DOCs/TheoryOfOperations.md
-   - Chip timing in HUB75-Driver-SWver1.md AND DOCs/ICN2037/README.md
-   - Orientation system only documented in Sprint-2x2-Panel-Repair.md
-
-4. **Discoverability:** New users would find THEOPS.md but miss the detailed chip references and architecture docs in DOCs/ subdirectory.
+1. **No index:** there is no `DOCs/README.md` saying what each document covers or in what order to read them. A new reader finds `README.md` and `THEOPS.md` and can miss the chip references and `DOCs/TheoryOfOperations.md`.
+2. **Chip timing in several places:** `HUB75-Driver-SWver1.md`, `DOCs/ICN2037/README.md` and `DOCs/ChipCharacteristicsMatrix.md` each carry chip timing. The matrix is the one place for the datasheet clock and /OE ratings; the other two predate it.
+3. **Reference material left in archived plans:** the signal-chain timing in `DOCs/plans/archive/Sprint-2x2-Panel-Repair.md` and the pin and flag analysis in `DOCs/plans/archive/THEORY_OF_OPERATIONS_SIGNALING.md` have not been extracted into a permanent document.
 
 **Recommended Consolidation:**
 
-1. **Update THEOPS.md** with current file names and 2D grid support information
-2. **Cross-reference** user docs to detailed DOCs/ references where appropriate
-3. **Extract permanent reference material** from Sprint-2x2-Panel-Repair.md (e.g., three-tier orientation system, timing calculations) into appropriate permanent docs
-4. **Create DOCs/README.md** index file describing available documentation and recommended reading order
+1. **Create `DOCs/README.md`** as an index describing the available documentation and a recommended reading order
+2. **Cross-reference** the chip timing in `HUB75-Driver-SWver1.md` and `DOCs/ICN2037/README.md` to the matrix's ratings table
+3. **Extract permanent reference material** (the signal-chain timing, checked against the current refresh core) from the archived plans into a permanent document
 
 **Trade-offs:**
-- Pro: Unified documentation improves maintainability
-- Pro: Users can find appropriate detail level for their needs
+- Pro: Users can find the appropriate level of detail for their needs
+- Pro: One home for each fact improves maintainability
 - Con: Requires time investment to consolidate
-- Con: Risk of introducing inconsistencies during merge
+- Con: Risk of introducing inconsistencies during the merge
 
 **Decision:**
-Deferred until 2x2 panel repair is complete. The Sprint plan contains valuable research that should be preserved, but consolidation should wait until the implementation validates the findings.
+Deferred. The wiring sentences replaced the orientation system the archived 2x2 research describes, so only its signal-chain timing material is worth extracting.
 
 **Related Files:**
-- `THEOPS.md` - Primary user-facing theory doc
-- `HUB75-Driver-SWver0.md`, `HUB75-Driver-SWver1.md` - Version-specific timing docs
+- `THEOPS.md` - Primary user-facing driver document
 - `DOCs/TheoryOfOperations.md` - Detailed architecture doc
-- `DOCs/CodeAssessment.md` - Code analysis doc
+- `DOCs/ChipCharacteristicsMatrix.md` - Chip ratings
 - `DOCs/ICN2037/README.md` - Chip reference doc
-- `DOCs/plans/Sprint-2x2-Panel-Repair.md` - Current research (contains extractable reference material)
+- `HUB75-Driver-SWver0.md`, `HUB75-Driver-SWver1.md` - Version-specific timing docs
+- `DOCs/plans/archive/Sprint-2x2-Panel-Repair.md` - Research (contains extractable signal-chain timing)
 
 ---
 
@@ -75,19 +68,22 @@ Deferred until 2x2 panel repair is complete. The Sprint plan contains valuable r
 **Date Identified:** January 2025
 
 **Current Implementation:**
-Panel-relative drawing routines in `isp_hub75_display.spin2` have inconsistent parameter ordering. Some routines have `panelIndex` as the first parameter, others have it later:
+Panel-relative routines in `isp_hub75_display.spin2` have inconsistent parameter ordering. Most have `panelIndex` as the first parameter, others have it later:
 
-- `fillPanel(panelIndex, color)` - panel index FIRST ✓
-- `setCursorOnPanel(line, col, panelIndex)` - panel index LAST ✗
-- `drawPanelBoxOfColor(panelIndex, row, col, w, h, filled, color)` - panel index FIRST ✓
-- `drawPanelBox(panelIndex, row, col, w, h, filled)` - panel index FIRST ✓
+- `fillPanel(panelIndex, rgbColor)` - panel index FIRST ✓
+- `homeCursorOnPanel(panelIndex)` - panel index FIRST ✓
+- `drawPanelBox(panelIndex, topRow, leftColumn, width, height, filled)` - panel index FIRST ✓
+- `drawPanelBoxOfColor(panelIndex, topRow, leftColumn, width, height, filled, rgbColor)` - panel index FIRST ✓
+- `drawPanelLine(panelIndex, fmRow, fmColumn, toRow, toColumn)` - panel index FIRST ✓
+- `setCursorOnPanel(line, column, panelIndex)` - panel index LAST ✗
+- `scrollTextOnLnOfNPanels(line, panelIndex, panelCount, pZString, direction)` - panel index SECOND ✗ (so is `scrollColoredTextOnLnOfNPanels`)
 
 **Desired Standard:**
 All panel-relative routines should have `panelIndex` as their **first parameter** for consistency and API clarity. This makes it immediately clear which routines are panel-relative vs display-relative.
 
 **Affected Routines:**
-- `setCursorOnPanel(line, col, panelIndex)` → should be `setCursorOnPanel(panelIndex, line, col)`
-- Any other panel routines with panelIndex not in first position
+- `setCursorOnPanel(line, column, panelIndex)` → should be `setCursorOnPanel(panelIndex, line, column)`
+- `scrollTextOnLnOfNPanels` and `scrollColoredTextOnLnOfNPanels`, with `panelIndex` after `line`
 
 **Trade-offs:**
 - Pro: Consistent API, easier to remember parameter order
@@ -100,35 +96,26 @@ Deferred. Fix when doing a larger API cleanup pass. Document the standard for ne
 
 **Related Files:**
 - `isp_hub75_display.spin2` - Contains panel drawing routines
-- `demo_hub75_multi2x2panel.spin2` - Example call sites
+- `demo_hub75_quadPanel.spin2`, `demo_hub75_numberPanels.spin2`, `demo_hub75_multiPanel.spin2` - Example call sites
 
 ---
 
-## TD-004: 7seg Demo Column Threshold `96` Needs Review
+## TD-004: 7seg Demo Column Thresholds Need a Geometry Check
 
 **Date Identified:** June 2026
 
 **Current Implementation:**
-`demo_hub75_7seg.spin2` (~line 96) guards extra-panel digit placement with
-`if hub75Bffrs.maxDisplayColumns(chainIndex) > 96`. The literal `96` is 1.5
-standard 64-column panel widths -- an odd boundary that does not correspond to a
-clean panel-count multiple (unlike the sibling `> 32` and `> 64` guards, which
-are 1x and 2x panel widths). It is unclear whether `96` is intentional or should
-be `columnsPerPanel * N` (e.g., a 3- or 4-panel guard), which would make it a
-latent geometry bug rather than just an unnamed magic number.
+`demo_hub75_7seg.spin2` names its display-width thresholds `WIDTH_FOR_4_DIGITS = 32`, `WIDTH_FOR_6_DIGITS = 64` and `WIDTH_FOR_8_DIGITS = 96`, with digit columns placed from `DIGIT_COLUMN_A..D` and a second-panel offset `PANEL_WIDTH = 64`. The seconds dots on the second panel are drawn when `hub75Bffrs.maxDisplayColumns(chainIndex) > WIDTH_FOR_8_DIGITS` (in `showSecondsDots()`). Each threshold lies below the left column of the next digit pair (digits C and D at 35 and 50, the second panel's digits A and B at 66 and 81, its C and D at 99 and 114), which reads as intended. The demo assumes 64-column panels, so the thresholds and `PANEL_WIDTH` are not derived from the configured panel width.
 
 **Trade-offs:**
-- Pro (fix): removes an ambiguous boundary; aligns with the `32`/`64` guard pattern
-- Con (defer): no observed misbehavior; only manifests on wide multi-panel chains
+- Pro (fix): derive the thresholds and `PANEL_WIDTH` from the panel width (`hub75Bffrs.columnsPerPanel()`), so the demo follows a wider panel
+- Con (defer): no observed misbehavior; the demo has not been run on a chain of three or more panels
 
 **Decision:**
-Deferred (surfaced during the §4c authoring-guide conformance pass, source-
-reconciliation sprint). Left as-is for now; revisit when the 7seg demo is next
-exercised on a 3+ panel chain. Excluded from the §4c magic-number normalization
-pending a geometry-intent confirmation.
+Deferred. Revisit when the 7seg demo is next exercised on a wide multi-panel chain.
 
 **Related Files:**
-- `demo_hub75_7seg.spin2` - the `> 96` guard
+- `demo_hub75_7seg.spin2` - the width thresholds and `PANEL_WIDTH`
 - `isp_hub75_hwBufferAccess.spin2` - `maxDisplayColumns()` / `columnsPerPanel()` accessors
 
 ---

@@ -1,5 +1,7 @@
 # HUB75 Signaling Theory of Operations
 
+> **History, superseded.** This instruction-by-instruction analysis describes `isp_hub75_rgb3bit.spin2` before the 4.0.0 refresh core (bit planes lit by /OE time). It no longer matches the source. The current signalling is described in the [Theory of Operations](../../TheoryOfOperations.md).
+
 ## Deep Analysis of `isp_hub75_rgb3bit.spin2`
 
 **Document Purpose:** Detailed instruction-by-instruction analysis of the HUB75 signaling code, focusing on LAT, OE, CLK, ADDR, and RGB line control.

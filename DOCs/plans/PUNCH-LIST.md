@@ -29,23 +29,22 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 ### ICN2038S scan setting contradicts its address lines (finding, not yet explained)
 
 - **Found:** 2026-10-01, while writing the THEOPS glossary's scan entry («#68»).
-- **What:** `getDriverFlags()` gives `CHIP_ICN2038S` the `SCAN_4` flag (`driver/isp_hub75_hwBufferAccess.spin2`, the ICN2038S branch), and `DOCs/ChipCharacteristicsMatrix.md` (ICN2038S section) and `DOCs/AuthorTestConfigurations.md` (Configuration 12) call it 1/8 scan. But the same docs describe it as a 64×64 panel with `ADDR_ABCDE`, which is 32 row addresses: 64 ÷ 32 = 2 rows lit at once (1/32 scan). `SCAN_4` selects the four-rows-at-once conversion (`convertScreen2PWM_14`, chosen at `driver/isp_hub75_display.spin2` in `commitScreenToPanelSet`). Either the flag, the address-line setting or the panel description is wrong.
+- **What:** `getDriverFlags()` gives `CHIP_ICN2038S` the `SCAN_4` flag (`driver/isp_hub75_hwBufferAccess.spin2`, the ICN2038S branch), and `DOCs/ChipCharacteristicsMatrix.md` (ICN2038S section) and `DOCs/AuthorTestConfigurations.md` (Configuration 12) call it 1/8 scan. But the same docs describe it as a 64×64 panel with `ADDR_ABCDE`, which is 32 row addresses: 64 ÷ 32 = 2 rows lit at once (1/32 scan). `SCAN_4` selects the four-rows-at-once frame-set layout (`convertScreen2PWM_14()` in `driver/isp_hub75_panel.spin2`, chosen in `commitScreenToPanelSet()` in `driver/isp_hub75_display.spin2`) and doubles the columns the refresh core shifts per row address. Either the flag, the address-line setting or the panel description is wrong.
 - **Not known:** which of the three is wrong. The docs say this panel works in a production road-sign display, so the code may be right and the description wrong.
 - **Bears on:** the limits table (§11, «#82») and the scan-term switch in the other docs («#85»). Settle it before «#85» writes a scan value for this chip.
 
 ### Panel-centric clipping looks up the panel for every pixel on diagonal lines (efficiency, not measured)
 
 - **Found:** 2026-10-02, by the «#86» cleanup review.
-- **What:** a panel-centric line or pixel is clipped by calling `hub75Bffrs.positionAtDisplayPixel()` for every pixel (`driver/isp_hub75_display.spin2`, `drawLineInternal` / `drawPixelInternal` with `clipPanel`). Each call validates the chain index and does two divisions and a table read. The design predates «#86»; «#86» moved the lookup onto mounted tables without changing its cost.
-- **Cheaper:** compute the target panel's rectangle once per call (`offsetToPanel` + `cellSizeInPixels`) and clip each pixel with four compares, or clip the line's endpoints once.
-- **Not known:** the saving; panel-centric drawing is a small part of the boundary test's 191,538 µs.
-- **Bears on:** nothing in this sprint; a candidate for a performance pass.
-- **Narrowed 2026-10-05:** «#100» clips straight runs (horizontal and vertical lines, boxes, fills) once per run against the panel's rectangle (`driver/isp_hub75_display.spin2`, about :1514-1527). A panel-centric diagonal line or single pixel still calls `positionAtDisplayPixel()` per pixel (about :1623).
+- **What:** a panel-centric sloped line or single pixel is clipped by calling `hub75Bffrs.positionAtDisplayPixel()` for every pixel: `drawPixelInternal()` in `driver/isp_hub75_display.spin2` does it in its `DRAW_CLIP_TO_PANEL` branch, and `plotLineLowInternal()` / `plotLineHighInternal()` reach it through `drawPixelInternal()` because only a whole-display line in one color takes the one-plot-context PASM path (`isFastPlot()`). Each call validates the chain index, compares the pixel against the display's bounds, does two divisions and reads the mounted cell table. Straight runs (horizontal and vertical lines, boxes, fills) are clipped once per run against the panel's rectangle (`drawLineRun()`), so they do not pay it.
+- **Cheaper:** compute the target panel's rectangle once per call (`offsetToPanel` and the panel's size in rows and columns) and clip each pixel with four compares, or clip the line's end points once.
+- **Not known:** the saving; it has not been measured.
+- **Bears on:** nothing in 4.0.0; a candidate for a performance pass.
 
 ### Cube fold path: about five method calls per face pixel (efficiency, estimated, not measured)
 
 - **Found:** 2026-10-02, by the «#80» cleanup review.
-- **What:** a face-centric pixel goes drawFoldedPixel -> cube.homeFoldToDisplay -> turnFaceCoords (home) -> foldPoint -> turnFaceCoords (face) -> drawPixelAtRC (`driver/isp_hub75_display.spin2`, `driver/isp_hub75_cube.spin2`; the scroller's plotFacePixel is the same). Cheaper: in faceHomeOf, compose the home transform with the home face's face-to-panel transform and cell origin into one affine once per object. Per pixel, apply it with one unsigned on-face test, and call foldPoint only for off-face pixels. That saves about 3 calls on the usual pixel.
+- **What:** a face-centric pixel goes drawFoldedPixel -> cube.homeFoldToDisplay -> turnFaceCoords (home) -> foldPoint -> turnFaceCoords (face) -> drawPixelAtRC (`driver/isp_hub75_display.spin2`, `driver/isp_hub75_cube.spin2`, and `drawPixelAtRC` in `driver/isp_hub75_screenUtils.spin2`; the scroller's `plotFacePixel` in `driver/isp_hub75_scrollingText.spin2` is the same). Cheaper: in faceHomeOf, compose the home transform with the home face's face-to-panel transform and cell origin into one affine once per object. Per pixel, apply it with one unsigned on-face test, and call foldPoint only for off-face pixels. That saves about 3 calls on the usual pixel.
 - **Not known:** the real cost; there is no cube to time it on. Measure at the six-panel bench.
 - **Bears on:** face scrolling speed on a real cube (panel sweep).
 

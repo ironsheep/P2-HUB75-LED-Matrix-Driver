@@ -59,7 +59,22 @@ uses it).
    included. Behaviour fixes (M1 cog-start failure, M6 dithered scroll, M9 7-segment hide,
    S12 pad overflow, S13 anlyCheck) are confirmed on the P2 / at the bench afterwards.
 
-Then any testing Stephen wants, then the tag and push (Stephen).
+6. **Documentation current** (agreed change 1, below): every reader Markdown file brought to
+   the 4.0.0 driver shape; finished plans moved to `archive/` with a history banner.
+
+Then the tag and push (Stephen), then the panel certification (agreed change 1).
+
+## Agreed changes
+
+1. **Order: tag first, then certify on every panel** (Stephen, 2026-10-08). *What changed:*
+   the release runs closeout → all documentation current → release contents ready → commit,
+   tag and push (Stephen) → a final certification by eye on every panel type, starting with
+   the quad (cabled now). This replaces "testing, then the tag". *Why:* the 2026-10-05
+   process already allows moving the tag while no one has taken 4.0.0, so a fault found at
+   certification is fixed, the tag moved and pushed again. *Touches:* item 4's order,
+   «#111», `DOCs/bench/RIG-STATE.md`. Stephen also asked that **all** Markdown files be
+   brought current (item 6), not only the README and ChangeLog. *Does not admit:* driver
+   changes beyond fixes the certification finds.
 
 ## The 4.0.0 release process, and later releases (Stephen, 2026-10-05)
 

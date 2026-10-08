@@ -11,6 +11,7 @@
 - ABCD address lines
 - Offset latch style with overlap positioning
 - No initialization sequence required
+- No clock or /OE rating in the driver's table (no datasheet): the driver holds the column clock to 20 MHz and the shortest /OE pulse to 50 ns, and says so at start
 
 ## Datasheet Status
 **No public datasheet available.** This chip appears to be a Chinese LED driver with limited documentation.
@@ -23,7 +24,8 @@
 - [SmartMatrix Community Discussion](https://community.pixelmatix.com/t/64x32-panel-from-aliexpress-gs6238s/925)
 - [PxMatrix Issue #269](https://github.com/2dom/PxMatrix/issues/269)
 
-## Driver Flags
+## Driver Settings
+Select the chip with `DISPn_PANEL_DRIVER_CHIP = hwEnum.CHIP_GS6238S`, which sets these flags:
 ```spin2
 CHIP_MANUAL_SPEC | LAT_STYLE_OFFSET | LAT_POSN_OVERLAP | GB_SWAP
 ```

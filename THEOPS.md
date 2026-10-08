@@ -3,7 +3,7 @@
 
 ![Project Maintenance][maintenance-shield]
 
-On this page you'll learn what files make up the driver (and/or come with it) and what their purpose is, how to configure the dirver for your hardware, and also a bit about how the driver actually works. 
+On this page you'll learn what files make up the driver (and/or come with it) and what their purpose is, how to configure the driver for your hardware, and also a bit about how the driver actually works. The step-by-step account of the driver's mechanism is the [Theory of Operations](DOCs/TheoryOfOperations.md).
 
 (*I expect that this file will continue to grow over time as our driver becomes more capable. -Stephen*)
 
@@ -15,7 +15,7 @@ Within this page:
 - [Driver Files](#driver-file-organization) - the purpose of each file found in the driver
 - [Glossary](#glossary) - the terms every driver document uses, each defined once
 - [Configuring the Driver](#configuring-the-driver) - how to describe your panels to the driver
-- [Notes on Internals](#notes-on-driver-internals) - more in the internal data flow within the driver
+- [Notes on Internals](#notes-on-driver-internals) - how a draw reaches the panels, and how the panels are refreshed
 - [Max Panels Supported](#driver-max-panels-supported) - I'm planning on buying panels. How many panels does this driver support?
 
 
@@ -32,20 +32,28 @@ Here are the reference programs you can study when learning to display to your p
 | demo\_hub75_color.spin2 | Presents the color features of the panel driver, displays a .bmp file |
 | demo\_hub75_text.spin2 | Presents the text and scrolling features of the panel driver |
 | demo\_hub75_7seg.spin2 | Presents a technique for doing multi-step animations using the panel driver |
-| demo\_hub75_multiPanel.spin2 | Presents techniques for drawing to the various surfaces of our P2 P2 Cube |
-| demo\_hub75_5x7font.spin2 | Present pages (every 10 sec) showing the latest 5x7 full character-set font |
-| demo\_hub75_scroll.spin2 | Shows off the 4 supported text-scrolling directions (albeit slowly ;-)
+| demo\_hub75_multiPanel.spin2 | Presents panel-centric drawing (panel fills, labels, scrolling text across panels) on a six-panel display laid out as an unfolded cube; its panel names are labels only. For the faces of a real cube use the face-centric calls (`drawFace...`) |
+| demo\_hub75_5x7font.spin2 | Presents pages (every 10 sec) showing the 5x7 full character-set font |
+| demo\_hub75_scroll.spin2 | Shows off the 4 supported text-scrolling directions |
 | demo\_hub75_colorPad.spin2 | **TEST** Simple single-screen demo so you can check if Red Green Blue LEDs are configured correctly. (*color patch will match color name underneath if settings for color-swap are correct*) |
 | demo\_hub75_numberPanels.spin2 | **IDENTIFY** Labels every panel with its cable position, its panel position and an arrow, so you can fill in and confirm your wiring sentences |
-| demo\_hub75_boundary.spin2 | **TEST** Draws across panel seams and clips a panel-centric line at its panel's edge; prints the time of one full draw |
+| demo\_hub75_boundary.spin2 | **TEST** Draws once across panel seams (a crosshair, a spanning box, a circle, text across a seam) and a panel-centric line that is clipped at its panel's edge, then holds the image |
 | demo\_hub75_quadPanel.spin2, demo\_hub75_multi2x2panel.spin2 | Draw to a 2x2 display and to its individual panels |
-| test\_hub75\_cube\_fold.spin2 | **TEST** Cube fold self-test: runs with no panels attached and prints PASS or FAIL for each case |
-| test\_hub75\_rates.spin2 | **TEST** Runs a fixed workload on one adapter with the instrument and reports refresh, lit share, clock, commit and draw time; runs the frame-set handshake and take checks, the brightness steps, the colour-table and row-run self-tests |
-| test\_hub75\_converter.spin2 | **TEST** Compares the screen-to-PWM converters with a reference converter byte for byte, with no panels attached, and prints PASS or FAIL |
-| test\_hub75\_oe\_bcm.spin2 | **TEST** Stand-alone check of the output-enable-weighted refresh method on one adapter, with test patterns and monitors |
-
 
 **NOTE:** these demo's are built for 64x32 panels and 64x64 panels. You may need to modify them if your panel is a different geometry.
+
+### Test and bring-up top-level files
+
+These are compile entry points for checking the driver and your hardware; they are not driver files and not demos:
+
+| Top-level file | Purpose |
+|-----------------|-------------|
+| test\_hub75\_cube\_fold.spin2 | Cube fold self-test: runs with no panels attached and prints PASS or FAIL for each case |
+| test\_hub75\_rates.spin2 | Runs a fixed workload on one adapter with the instrument and reports refresh, lit share, clock, commit and draw time; runs the frame-set handshake and take checks, the brightness steps, the colour-table and row-run self-tests |
+| test\_hub75\_converter.spin2 | Compares the screen-to-PWM converters with a reference converter byte for byte, with no panels attached, and prints PASS or FAIL |
+| test\_hub75\_oe\_bcm.spin2 | Stand-alone check of the output-enable-weighted refresh method on one adapter, with test patterns and monitors |
+| test\_hub75\_pin\_identify.spin2 | Pin identification: toggles the HUB75 pins at known frequencies so you can tell which pin is which |
+| isp\_hub75\_anlyCheck.spin2 | Pin exerciser: toggles the HUB75 board's pins so you can verify logic analyzer connections and wiring |
 
 ### Driver files
 
@@ -54,25 +62,25 @@ The driver itself is composed of the following files (with a few extras thrown i
 | group / Driver File           |  Purpose |
 |-----------------|-------------|
 | **- User Configuration -** | |
-| isp\_hub75_hwPanelConfig.spin2 | USER MODIFIED configuration: compile-time constants, describe the panels attached to each hub75 adapter (chip, size, color depth, mounting, and the wiring sentences) |
-| isp\_hub75_hwBufferAccess.spin2 | Core - reads your wiring sentences at startup, checks them, derives the display's layout, and holds the small per-adapter tables. **Not edited per setup** |
+| isp\_hub75_hwPanelConfig.spin2 | USER MODIFIED configuration: compile-time constants, describe the panels attached to each hub75 adapter (chip, size, color depth, mounting, refresh target, and the wiring sentences) |
+| isp\_hub75_hwBufferAccess.spin2 | Core - reads your wiring sentences at startup, checks them, derives the display's layout, builds the cell address tables the drawing paths read, and holds the small per-adapter tables and the scrolling window watch. **Not edited per setup** |
 | isp\_hub75_hwBuffers.spin2 | Core - the large buffers for all three adapters, each sized from that adapter's panel count (zero length for an adapter with no panels). **Not edited per setup** |
 | **- Core Driver -** | |
 | isp\_hub75_color.spin2 |  Core - Color constants |
-| isp\_hub75_colorUtils.spin2 |  Core - Color translation routines, etc. |
-| isp\_hub75_display.spin2 | Core - the drawing primitives and screen buffer |
-| isp\_hub75_fonts.spin2 | Core - fonts for text support |
+| isp\_hub75_colorUtils.spin2 |  Core - Color translation routines and each adapter's color table |
+| isp\_hub75_display.spin2 | Core - the display API: text, lines, boxes, circles, scrolling, brightness and the commit of the screen buffer to the panels |
+| isp\_hub75_fonts.spin2 | Core - fonts for text support: a 5x7 font, two 8x8 variants, and two dithered 5x7 fonts |
 | isp\_hub75_cube.spin2 | Core - the cube layer: folds a six-panel net into a cube and carries face coordinates across its 12 edges |
 | isp\_hub75_hwEnums.spin2 | Core - enumerations for panel, panel connection description, and the words of the wiring sentences |
-| isp\_hub75_panel.spin2 | Core - the layer translating screen buffer to PWM buffers |
-| isp\_hub75_rgb3bit.spin2 | Core - the PASM Hub75 driver |
-| isp\_hub75_screenUtils.spin2 | Core - non-panal drawing primitives |
+| isp\_hub75_panel.spin2 | Core - the layer converting the screen buffer into PWM frame sets and posting them to the refresh cog |
+| isp\_hub75_rgb3bit.spin2 | Core - the PASM Hub75 refresh cog |
+| isp\_hub75_screenUtils.spin2 | Core - pixel-level drawing primitives: single pixels, row and column runs, glyph blocks, scroll moves and the plot context writer |
+| isp\_hub75_scrollingText.spin2 | Core - scrolling text regions (the display object holds four of them) |
 | **- Extras -** | |
 | isp\_hub75\_display_bmp.spin2 | **Optional** - load .bmp file content into screen buffer |
-| isp\_hub75_scrollingText.spin2 | **Optional** - adds Scrolling Text |
-| isp\_hub75_7seg.spin2 | **Optional** - part of 7-segment demo - a digit |
-| isp\_hub75_segment.spin2 | **Optional** - part of 7-segment demo - a segment within a digit |
-| isp\_hub75\_instrument.spin2 | **Optional** - measurement: monitor smart pins on CLK, /OE, LATCH and the refresh cog's strobes, plus stopwatches. Compiled only with `HUB75_INSTRUMENT` defined (see [Author Test Configurations](DOCs/AuthorTestConfigurations.md)) |
+| isp\_hub75_7seg.spin2 | **Optional** - part of 7-segment demo - a digit (packaged with the demos) |
+| isp\_hub75_segment.spin2 | **Optional** - part of 7-segment demo - a segment within a digit (packaged with the demos) |
+| isp\_hub75\_instrument.spin2 | **Test only** - measurement: monitor smart pins on CLK, /OE, LATCH and the refresh cog's strobes, plus stopwatches. Compiled only with `HUB75_INSTRUMENT` defined by a test top file (see [Author Test Configurations](DOCs/AuthorTestConfigurations.md)) |
 
 The structure of these files was chosen in order to (1) make it easier and less memory usage for part of the driver to access other parts and (2) make it easier for you to chose to compile the **optional** parts or not. 
 
@@ -139,6 +147,18 @@ How a cube display is mounted, set by `DISPn_CUBE_TOP` and `DISPn_CUBE_FRONT`: t
 
 A (face, row, column) position on a cube display. Row and column may run past the edge of the face; a pixel that does is carried across the edge onto the neighbouring face. Each face's up direction is fixed: the four side faces' up points toward `TOP`, the top face's up points toward `BACK` (so text on the top face reads correctly when viewed from the front), and the bottom face's up points toward `FRONT`.
 
+### cell
+
+One position in the display's grid of panels, one panel in size as the viewer sees it. A cell either holds a panel or is empty (the hole in an L-shaped display). The driver's cell address tables have one entry per cell.
+
+### bit plane
+
+One bit of the color depth, for every pixel of the display. A display at 8-bit color depth has eight bit planes; plane 0 is the most significant bit.
+
+### frame set
+
+The bit planes of one whole image, in the form the refresh cog shifts out: one frame per bit plane, plane 0 first. Each adapter has two frame sets; one is on display while a commit converts the next image into the other.
+
 ### scan
 
 A panel's scan is written **1/S scan**, where S is the number of row addresses its address lines select. Each address lights several rows at once: **panel rows ÷ S**. For example:
@@ -166,15 +186,15 @@ To this driver the panels look like the following:
 
 In the above image you see panels describe in terms of rows and columns, and you also see the overall display described in rows and columns but comprised of multiple panels in some arrangement.  The configuration settings following are intended to describe the geometry of your display to the driver.  The organization you describe in these settings causes the underlying driver to allocate buffer space tailored to your display and conditions the hub75 signalling to work correctly for your display. Additionally, if your panels use certain chips the signalling will be changed to conform to what those chips need to work.
 
-Once you haave the driver source files added to your project you will first need to configure the driver by modifying the following values in the file **isp\_hub75_hwPanelConfig.spin2** for each HUB75 adapter that you will be activating in your project:
+Once you have the driver source files added to your project you will first need to configure the driver by modifying the following values in the file **isp\_hub75_hwPanelConfig.spin2** for each HUB75 adapter that you will be activating in your project:
 
-The settings, their defaults and what each means are in the table of [Driver Constants used for configuration](README.md#driver-constants-used-for-configuration) in the README. That table is the one place the settings are listed. In it, `DISPx_C0` ... `DISPx_C15` are the [wiring](#wiring) sentences, `DISPx_ROTATION` is a [display rotation](#display-rotation), and `DISPx_CUBE_TOP` and `DISPx_CUBE_FRONT` set the [cube orientation](#cube-orientation).
+The settings, their defaults and what each means are in the table of [Driver Constants used for configuration](README.md#driver-constants-used-for-configuration) in the README. That table is the one place the settings are listed. In it, `DISPx_C0` ... `DISPx_C15` are the [wiring](#wiring) sentences, `DISPx_ROTATION` is a [display rotation](#display-rotation), `DISPx_SHAPE` says flat or cube, `DISPx_CUBE_TOP` and `DISPx_CUBE_FRONT` set the [cube orientation](#cube-orientation), and `DISPx_TARGET_REFRESH_HZ` is the refresh rate to aim for.
 
 Not set by you, worked out at startup from the sentences: the number of panels (`DISPx_PANEL_COUNT`, counted at compile time from the `NO_PANEL` entries; it sizes the buffers), the display's size in pixels, its grid of panels, and each panel's place, buffer slot and rotation. The driver prints them as a picture of the grid; the [Wiring Guide](DOCs/WiringGuide.md#what-a-good-config-prints) explains it.
 
 **NOTE**: the DISPx_ is a place holder for DISP0\_\*, DISP1\_\* and DISP2\_\* constants indicating the 1st, 2nd, and 3rd HUB75 cards.
 
-Each adapter you use is started by one call, `display.start(hub75Bffrs.HUB75_ADAPTER_n)`, which checks the sentences, derives the layout, and hands the adapter its buffers. Nothing in `isp_hub75_hwBufferAccess.spin2` or `isp_hub75_hwBuffers.spin2` is edited to add an adapter.
+Each adapter you use is started by one call, `display.start(hub75Bffrs.HUB75_ADAPTER_n)`, which checks the sentences, derives the layout, builds the cell address tables and the adapter's color table, hands the adapter its buffers and starts its refresh cog. (`display.startWithId()` is the same call with a debug instance number, for programs that start more than one adapter.) Nothing in `isp_hub75_hwBufferAccess.spin2` or `isp_hub75_hwBuffers.spin2` is edited to add an adapter.
 
 ## Notes on driver internals
 
@@ -182,21 +202,27 @@ Here's a quick diagram you can use to gain a general understanding of how this d
 
 ![Driver Data Flow](images/hub75-driver-data-flow.jpg)
 
-**Figure 2**: Flow of data within the driver.
+**Figure 2**: Flow of data within the driver. (The figure shows the stored color values; brightness is applied by the refresh core as /OE time, not when a pixel is written.)
 
-Basically, this image shows that the user code draws in 24-bit color values. As these are written to the screen buffer they are translated into PWM values. When the screen is committed (the image is transferred to the display) the screen image is split out into individual PWM buffers, one bit-plane frame for each bit of the color depth (together, a frame set). The commit converts into whichever of the adapter's two frame sets is not on display and posts it; the refresh core takes the posted set at the start of its next frame, so the panels never show a half-converted image.
+Basically, this image shows that the user code draws in 24-bit color values. The drawing calls look up where each pixel goes in the screen buffer (one lookup in a table built at startup from your wiring sentences) and write it there, three bytes per pixel, after one read of the adapter's color table per channel (gamma if enabled, then the color depth). When the screen is committed (the image is transferred to the display) the screen buffer is split out into individual PWM buffers, one bit-plane frame for each bit of the color depth (together, a frame set). The commit converts into whichever of the adapter's two frame sets is not on display and posts it; the refresh core takes the posted set at the start of its next frame, so the panels never show a half-converted image. Brightness is not one of the steps in the figure: it is /OE time, applied by the refresh core, and it does not change the values stored.
 
-The refresh core shows each bit plane once per row address and lights it for a time proportional to its bit weight, by pulsing the panel's output-enable (/OE) line for 2^*k* units. This is binary-coded (bit-angle) modulation with output-enable weighting, a widely used way to drive these panels. How often every row address has been shown with every plane is the refresh rate. You set the rate you want with `DISPx_TARGET_REFRESH_HZ` (default 60 Hz); the driver picks the brightest /OE unit that reaches it. The method, the target rule, the measured rates and the brightness floor are in the [Wiring Guide's refresh rate section](DOCs/WiringGuide.md#refresh-rate).
+A drawing call reaches the panels in these steps. The [Theory of Operations](DOCs/TheoryOfOperations.md#2-data-flow) describes each in detail:
 
-The storage format is shown in the diagram at the various points of translation.
+1. **At startup** (`display.start()`), `isp_hub75_hwBufferAccess.spin2` decodes and checks your wiring sentences, derives the grid and its lookup tables, and from them builds the **cell address tables**: for each [cell](#cell) that holds a panel, the screen-buffer offset of the cell's first pixel and the signed steps to the pixel at its right and the pixel below it. They are worked out once, from one rule (display rotation, then the panel's place, rotation and buffer slot), so no drawing call works the rule out again.
+2. **A pixel write** looks its address up in those tables. **Runs** of pixels (lines, box rows and columns, glyph rows, BMP rows, fills) take one start address and step per cell and are written in PASM by `fillRowRun`, `fillColumnRun` and `copyRowRun` in `isp_hub75_screenUtils.spin2`. A glyph that lies inside one cell is one block, its rows written in one PASM call. Sloped lines and circles in one color plot every pixel through one **plot context** (the tables' addresses, handed to PASM once per shape).
+3. **Scrolling text moves the last frame.** A scrolling region watches its window in the screen buffer; when nothing else has drawn there and the next step is one pixel on, it moves the pixels it drew last time one place in PASM and draws only the new edge column or row. A program that writes the screen buffer directly, past the driver's calls, calls `hub75Bffrs.noteAllDrawn(chain)` afterwards so every watched window is drawn in full on its next step.
+4. **The commit** (`display.commitScreenToPanelSet()`) converts the screen buffer into the idle frame set with an inline-PASM converter (`convertRowPairs()` in `isp_hub75_panel.spin2`) and posts it. It waits first if the refresh core has not yet taken the previous post.
+5. **The refresh core** (`isp_hub75_rgb3bit.spin2`) runs continuously: at each frame start it takes the posted set and reads the brightness; then, for each row address and each bit plane, it loads the plane's row into cog RAM, shifts it into the panels, latches it and lights it.
 
-The PASM2 HUB75 driver derives its signal timing from the configured system clock (`_clkfreq`) rather than assuming a fixed frequency. This clock-frequency-independent timing means a demo can change its `_clkfreq` and the panel CLK/latch/blanking pulses continue to meet the panel's timing requirements without hand-tuning the driver.
+The refresh core shows each bit plane once per row address and lights it for a time proportional to its bit weight, by pulsing the panel's output-enable (/OE) line (a smart pin in pulse mode) for 2^*k* units. This is binary-coded (bit-angle) modulation with output-enable weighting, a widely used way to drive these panels. How often every row address has been shown with every plane is the refresh rate. You set the rate you want with `DISPx_TARGET_REFRESH_HZ` (default 60 Hz); the driver picks the brightest /OE unit that reaches it. Brightness (`display.setBrightness()`, 0 to 256, one value for every adapter) shortens the lit part of each plane's slot and leaves the slot, and so the refresh rate, as it was. The method, the target rule, the measured rates and the brightness floor are in the [Wiring Guide's refresh rate section](DOCs/WiringGuide.md#refresh-rate).
+
+The PASM2 HUB75 driver derives its signal timing from the configured system clock (`_clkfreq`) rather than assuming a fixed frequency. This clock-frequency-independent timing means a demo can change its `_clkfreq` and the panel CLK/latch/blanking pulses continue to meet the panel's timing requirements without hand-tuning the driver. Each half of the CLK pulse is held to at least 20 ns, and the whole period to the highest clock the chip allows: its rated clock or, when lower, its chain limit (the delay from one chip's CLK to its SDO plus the next chip's SDI setup time). A chip with no rating in the driver's table is held to 20 MHz, and the driver says so at startup. For the MBI5124GP the chain limit is 18.9 MHz, so at 335 MHz its panels are clocked at 18.6 MHz. The ratings are in the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings).
 
 Each adapter's buffers are sized at compile time from the panels its wiring sentences name: a pixel takes 3 screen-buffer bytes plus one byte per bit of color depth for the two PWM frame sets (11 bytes at 8-bit). The [Wiring Guide](DOCs/WiringGuide.md#driver-limits) gives the hub RAM each display needs and the most panels one adapter can drive.
 
-To create our rich colors the driver lights each bit plane for a time proportional to its bit weight (binary-coded modulation, weighted by /OE). A compile-time `COLOR_DEPTH` setting specifies how rich the colors are to be for your display; the default is 8-bit (full 24-bit color).
+A compile-time color depth setting (`DISPx_COLOR_DEPTH`, 3 to 8 bits) specifies how rich the colors are to be for your display; the default is 8-bit (full 24-bit color).
 
-The PWM Frame-set consists of one plane for each bit in the color depth. The following digram shows the constituent frames being displayed with the MSBit being displayed for the longest period and the LSBit for the shortest. Each plane's lit time is its power-of-2 weight: in 3-bit the MSBit is lit 2^2 or 4 units, the next bit 2^1 or 2 units and the LSBit 1 unit.
+The PWM Frame-set consists of one plane for each bit in the color depth. The following diagram shows the constituent frames being displayed with the MSBit being displayed for the longest period and the LSBit for the shortest. Each plane's lit time is its power-of-2 weight: in 3-bit the MSBit is lit 2^2 or 4 units, the next bit 2^1 or 2 units and the LSBit 1 unit.
 
 ![Displaying Bit Depths](images/BitDepths.png)
 
@@ -246,6 +272,8 @@ My hope would be that I'll find that using one or more of these approaches will 
 
 Our P2 Eval HUB75 Adapter board is built to drive up to 5 address pins (A-E) so we can drive many HUB75 panel variants.
 
+The adapter sits on one 16-pin group (`PIN_GROUP_P0_P15`, `PIN_GROUP_P16_P31` or `PIN_GROUP_P32_P47`). The refresh cog drives the pins at these offsets from the group's first pin: CLK +0, /OE +1, LATCH +2, row address A to E +3 to +7, and the six color pins R1 G1 B1 R2 G2 B2 +8 to +13.
+
 Here's a simple diagram showing related pin groups:
 
 ![Hub75 pinout](images/hub75e_pinout.png)
@@ -271,6 +299,6 @@ Iron Sheep Productions, LLC.
 
 ---
 
-Last Updated: 05 Oct 2026
+Last Updated: 08 Oct 2026
 
 [maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep.biz-blue.svg?style=for-the-badge

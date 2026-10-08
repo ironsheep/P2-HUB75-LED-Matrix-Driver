@@ -11,7 +11,7 @@ Each configuration below is shown as the `DISP0_` settings that describe it: the
 | 1-3 | P3-6432-121-16s-D1.0 | **Pink** | 64×32 | FM6126A | ABCD | P16-P31 | **Multi-panel OK** | Requires init sequence |
 | 4 | P3-6432-121-16s-D1.0 | **Orange** | 64×32 | FM6124 | ABCD | P16-P31 | Untested | Hackerbox panel |
 | 5-6 | P2-2020210240-200 | - | 64×64 | ICN2037 | ABCDE | P16-P31 | **Multi-panel OK** | R/B swapped |
-| 7 | P4-1921-8S-vV2.0 | **Green** | 64×32 | MBI5124GP | ABC | P16-P31 | Untested | 1/8 scan |
+| 7 | P4-1921-8S-vV2.0 | **Green** | 64×32 | MBI5124GP | ABC | P16-P31 | **Multi-panel OK** (two) | 1/8 scan |
 | 8 | P4-1921-8S-vV2.0 | **Green** | 64×32 | MBI5124GP | ABC | P32-P47 | Untested | 1/8 scan, alt pins |
 | 9 | P2.5-16S-V1.0 | **Cyan** | 64×32 | GS6238S | ABCD | P16-P31 | Untested | G/B swapped |
 | 10 | P2-2020210240-200 | - | 64×64 | ICN2037 | ABCDE | P16-P31 | **Multi-panel OK** | P2 Cube FLAT, R/B swapped |
@@ -156,7 +156,7 @@ DISP0_MAX_PANEL_ROWS = 32
 DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP     ' DISP0_C1 .. DISP0_C15 are hwEnum.NO_PANEL
 ```
 
-**Multi-Panel Status:** ❌ Single panel only (see Configuration 7; [driver limits table](WiringGuide.md#driver-limits))
+**Multi-Panel Status:** Single panel only on this pin group; the chip's two-panel chain was run on the P16-P31 pins (Configuration 7). See the [driver limits table](WiringGuide.md#driver-limits).
 
 ---
 
@@ -324,7 +324,7 @@ DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP     ' DISP0_C1 .. DISP0_C15 are 
 | ICN2038S | - | ABCDE | None | Untested | N/A (single-ended) |
 | MBI5124GP | Green | ABC | None | Yes | **Yes** (two panels) |
 | GS6238S | Cyan | ABCD | G/B | No | Untested |
-| DP5125D | - | ABC | None | No | Untested |
+| DP5125D | - | ABC | None | No | **Yes** |
 
 Each chip's datasheet clock and /OE ratings are in the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings).
 
@@ -352,22 +352,22 @@ The following chip/panel combinations have been verified working in multi-panel 
 2. **ICN2037 64×64** - Tested in chains and grids
 3. **ICN2037 128×64** - Tested in chains and 2×2 grids
 4. **MBI5124GP 64×32 (Green)** - Two panels tested in a chain
+5. **DP5125D** - working in multi-panel use (the [README](../README.md#chips-supported) chip table)
 
-The following are expected to work but not yet verified:
+The following are expected to work but not yet verified in multi-panel use:
 - **ICN2038S** - Similar to ICN2037 (its scan setting is disputed; see Configuration 12)
 - **FM6124 (Orange)** - Similar to FM6126A
-- **DP5125D** - Untested
 
-Not yet proven on hardware with the 4.0.0 driver: the cube on six real panels, more than two quarter-scan panels in one chain, a second adapter cabled at the same time, and any panel type other than the ICN2037 128x64. See the Known Issues in the [Change Log](../ChangeLog.md).
+Not yet proven on hardware with the 4.0.0 driver: the cube on six real panels, more than two quarter-scan panels in one chain, a second adapter cabled at the same time, and panel types not yet run (ICN2037 64x64, FM6124C, ICN2038S, GS6238S, DP5125D) with measured refresh for them. See the Known Issues in the [Change Log](../ChangeLog.md).
 
 ---
 
 ## Configuration Toggle Mechanism
 
-**Note:** The commented configurations in the "More Hardware Setup Notes" block at the end of `isp_hub75_hwPanelConfig.spin2` are documentation examples only. They are NOT individually toggleable.
+The configurations above are examples to copy from; none of them is a switch in the code.
 
 To change configuration:
-1. Edit the `DISP0_*` constants directly in the "User configure" section of the first adapter's group, including its wiring sentences
+1. Edit the `DISP0_*` constants directly in the "User configure" section of the first adapter's group in `isp_hub75_hwPanelConfig.spin2`, including its wiring sentences (adapters 2 and 3 have `DISP1_*` and `DISP2_*` groups)
 2. Match the values to your hardware from the examples above
 3. Recompile and flash; the startup picture and the identify screen confirm the wiring sentences (see the [Wiring Guide](WiringGuide.md))
 

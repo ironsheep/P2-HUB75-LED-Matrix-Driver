@@ -9,6 +9,8 @@ The P2 Forum Thread is found here: [P2 P2 Cube](https://forums.parallax.com/disc
 
 And the repository for design and physical objects is found here [Repository: P2 P2 Cube](https://github.com/jshook/p2_p2_cube)
 
+How the driver folds six panels into a cube (the net, the top and front faces, face coordinates) is in the [Wiring Guide](DOCs/WiringGuide.md#the-cube). The pictures below are of the test jig.
+
 This is the back of my 6 x 64x64 panel driven with a 5V 60A power supply so we can test full display Brightness. 
 
 ![Cube Flattened - Back](images/flatCubeBackTestJig.jpg)
@@ -25,7 +27,7 @@ Trying scrolling text around what would be the sides of the cube.
 
 ![Cube Flattened - Front](images/flat-cube2.jpg)
 
-Repait panels in a loop (you can't see here) so the panels individually change colors randomly.
+Repaint panels in a loop (you can't see here) so the panels individually change colors randomly.
 
 ![Cube Flattened - Front](images/flat-cube3.jpg)
 

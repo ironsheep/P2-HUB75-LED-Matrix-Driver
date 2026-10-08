@@ -139,7 +139,7 @@ Your program never sees cables, arrows or the way the display was mounted; the w
 
 ### Turning an image: content rotation
 
-Turning an image is separate from mounting. The image-placing call, `placeBMP`, takes a content rotation (`ROT_NONE`, `ROT_RIGHT_90` for clockwise, `ROT_LEFT_90` or `ROT_180`). The image is turned about the centre of the display as it is placed; the part that falls off the display is simply not shown, and nothing is wrapped or moved. Placing again with another rotation re-places the picture from the source, so nothing is lost. Content rotation works for an image of any size, composes with mounting, and does not affect text or shapes you draw (a drawn display already follows the display's geometry). It does not apply to a cube.
+Turning an image is separate from mounting. The image-placing call, `placeBMP`, takes a content rotation (`ROT_NONE`, `ROT_RIGHT_90` for clockwise, `ROT_LEFT_90` or `ROT_180`). The image is turned about the centre of the display as it is placed; the part that falls off the display is simply not shown, and nothing is wrapped or moved. Placing again with another rotation re-places the picture from the source, so nothing is lost. Content rotation works for an image of any size, composes with mounting, and does not affect text or shapes you draw (a drawn display already follows the display's geometry). A cube has no face-aware image call: `placeBMP` places the image on the flat layout of the net, not carried across the folded edges.
 
 ## The cube
 
@@ -217,31 +217,31 @@ Notes on the table:
 
 - The 4 x 128x64 ICN2037 rig sits exactly at the limit: 4 x 128 = 512 column clocks.
 - The ICN2038S has five address lines (which fits 1/32 scan and would give a limit of 8), but the driver flags the chip as quarter-scan, so the limit it enforces is 4.
-- Multi-panel use of the FM6124, GS6238S and ICN2038S has not been proven on hardware, and the MBI5124GP has been run with two panels, so for those rows the number is the driver's cap, not a demonstrated working count.
+- The ICN2038S panel is single-ended, so it cannot be chained. Multi-panel use of the FM6124 and GS6238S has not been proven on hardware, and the MBI5124GP has been run with two panels, so for those rows the number is the driver's cap, not a demonstrated working count.
 
 ### Hub RAM
 
 One panel of P pixels at colour depth N takes **P x (3 + N) bytes**: the screen buffer (3 bytes per pixel) plus two PWM frame sets (N x P / 2 bytes each). The compiler builds all three adapters' buffers into the same program, so the buffers of every adapter share what is left of the 512 KB hub RAM.
 
-Measured with the largest demo (`demo_hub75_7seg.spin2`) compiled with `pnut-ts -d -m`: the code, data and stack take 72,724 bytes, leaving **451,564 bytes** for buffers (468,636 in a release build without `-d`). Five panels of 128x64 at 8-bit compile (450,560 bytes of buffers); a sixth fails with `Program requirement exceeds 512KB hub RAM`.
+Measured with the largest demo (`demo_hub75_7seg.spin2`) and five 128x64 panels at 8-bit (450,560 bytes of buffers): built with DEBUG (`pnut-ts -d`) it fails with `Program requirement exceeds 512KB hub RAM by 8684 bytes`, so a DEBUG build leaves **441,876 bytes** for buffers; built without DEBUG it compiles (508,492 bytes in all), leaving about 466,000 bytes. Your own program's size moves these figures, so the compiler's report for your build is the authority.
 
-Maximum panels by RAM alone, one adapter, nothing on the others (calculated from the 451,564 bytes):
+Maximum panels by RAM alone, one adapter, nothing on the others (calculated from the 441,876 bytes of a DEBUG build):
 
 | Panel | 3-bit | 4-bit | 5-bit | 6-bit | 7-bit | 8-bit |
 |---|---|---|---|---|---|---|
-| 64x32 | 36 | 31 | 27 | 24 | 22 | 20 |
-| 64x64 | 18 | 15 | 13 | 12 | 11 | 10 |
-| 128x64 | 9 | 7 | 6 | 6 | 5 | 5 |
+| 64x32 | 35 | 30 | 26 | 23 | 21 | 19 |
+| 64x64 | 17 | 15 | 13 | 11 | 10 | 9 |
+| 128x64 | 8 | 7 | 6 | 5 | 5 | 4 |
 
-On one adapter, RAM never sets the limit: the line buffer's cap above is lower in every cell. RAM binds when adapters share it, for example two adapters of 4 x 128x64 at 8-bit need 8 x 90,112 = 720,896 bytes, which does not fit.
+On one adapter, RAM never sets the limit: the line buffer's cap above is at or below it in every cell (128x64 at 8-bit: both 4). RAM binds when adapters share it, for example two adapters of 4 x 128x64 at 8-bit need 8 x 90,112 = 720,896 bytes, which does not fit.
 
-Worked examples (128x64 panels unless stated; calculated from the 451,564 bytes, except the first, which is the author's rig):
+Worked examples (128x64 panels unless stated; calculated from the 441,876 bytes of a DEBUG build, except the first, which is the author's rig):
 
 | Configuration | Hub buffers (bytes) | Fits |
 |---|---|---|
 | 1 adapter x 4 panels, 8-bit | 4 x 8,192 x 11 = 360,448 | yes (runs on the rig) |
 | 2 adapters x 4 panels, 8-bit | 720,896 | no |
-| 2 adapters x 4 panels, 4-bit | 8 x 8,192 x 7 = 458,752 | no, 7,188 bytes over |
+| 2 adapters x 4 panels, 4-bit | 8 x 8,192 x 7 = 458,752 | no with DEBUG (16,876 bytes over); about 7,600 bytes to spare without |
 | 2 adapters x 4 panels, 3-bit | 8 x 8,192 x 6 = 393,216 | yes |
 | Cube: 1 adapter x 6 panels of 64x64, 8-bit (384 of the 512 columns) | 6 x 4,096 x 11 = 270,336 | yes |
 
@@ -260,7 +260,7 @@ The refresh cog shows each bit plane **once** per row address. For each row addr
 
 T is the **/OE unit**. L equals T at full brightness (see [Brightness](#brightness)). One full colour cycle is every row address shown with every plane, and the refresh rate is how often it repeats.
 
-On the author's rig the column clock is 15 system clocks per column at 335 MHz. CLK is high for 7 of them (20.9 ns) and low for 8 (23.9 ns) at every depth. The monitors read the high half a little long, through the pin's input threshold: 23.9 ns on the four-panel rig, 21.7 to 24.2 ns on single FM6126A, MBI5124GP and FM6124 panels. The driver holds each half of the pulse to at least 20 ns and the whole period to the chip's rated maximum clock (30 MHz; 25 MHz for the MBI5124GP; 20 MHz for a chip with no rating in the driver's table). The ratings are in the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings).
+On the author's rig the column clock is 15 system clocks per column at 335 MHz. CLK is high for 7 of them (20.9 ns) and low for 8 (23.9 ns) at every depth. The monitors read the high half a little long, through the pin's input threshold: 23.9 ns on the four-panel rig, 21.7 to 24.2 ns on single FM6126A, MBI5124GP and FM6124 panels. The driver holds each half of the pulse to at least 20 ns and the whole period to the chip's highest clock: its rating, or in a chain its chain limit when that is lower (a chip's data output feeds the next chip's data input, so the period must also cover the output delay plus the input setup time). The limits the driver uses are 30 MHz for the FM6124 and FM6126A, 28.6 MHz for the ICN2038S, 25.0 MHz for the ICN2037, 18.9 MHz for the MBI5124GP and 20 MHz for a chip with no rating in the driver's table. At 335 MHz the shortest column loop that keeps both halves at 20 ns or more is 15 system clocks (22.3 MHz), which is what every chip but the MBI5124GP runs at; the MBI5124GP runs at 18.6 MHz. The ratings are in the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings).
 
 #### The target refresh rate
 
@@ -293,7 +293,7 @@ Single 64x32 panels, one at a time on one adapter, same target and clock. Each r
 | FM6124 | 85.3 Hz | 99.7% | 694.1 Hz | 98.6% | 1.1% lit (30 ns) |
 | MBI5124GP (1/8 scan, 128 column clocks per row address, 18.6 MHz chain clock) | 71.2 Hz | 99.8% | 582.7 Hz | 99.4% | 0.7% lit (50 ns) |
 
-The image was correct by eye on the test patterns on all three at both depths; the MBI5124GP was checked by eye at its earlier 22.3 MHz clock, and its figures above are at the 18.6 MHz clock it now uses (one chip cannot hand data to the next any faster; see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)). Two MBI5124GP panels chained as one 128x32 display: 70.9 Hz at 8-bit (99.4% lit), 292.1 Hz at 5-bit (99.6% lit), image correct by eye. Other panel types follow the same rule; their figures have not been measured.
+The image was correct by eye on the test patterns on all three at both depths. The MBI5124GP's figures above are at the 18.6 MHz chain-limit clock (one chip cannot hand data to the next any faster; see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)); its test patterns were checked by eye at a faster clock, and one panel at the 18.6 MHz clock has not been looked at. Two MBI5124GP panels chained as one 128x32 display: 70.9 Hz at 8-bit (99.4% lit), 292.1 Hz at 5-bit (99.6% lit), the identify image and the scroll demo correct by eye. Other panel types follow the same rule; their figures have not been measured.
 
 #### Brightness
 
@@ -310,17 +310,13 @@ At every depth, 128 gave half of the lit share of 256 with the refresh rate unch
 
 #### Commit and draw time
 
-Measured on the same four-panel rig (256x128 pixels), drawing a flat fill, fanned lines, lines of text or a 64x32 BMP placed in the centre, then committing:
+Measured on the same four-panel rig (256x128 pixels):
 
 | Step | 8-bit | 5-bit |
 |---|---|---|
 | Commit | 4.09 ms | 3.26 ms |
-| Draw: flat fill | 4.7 ms | not re-measured |
-| Draw: lines | 12.8 ms | not re-measured |
-| Draw: text | 24.6 ms | not re-measured |
-| Draw: BMP | 3.8 ms | not re-measured |
 
-The draw times were 114.0, 116.8, 300.9 and 188.4 ms (8-bit and 5-bit alike) before every drawing call took its pixels from the cell address tables and wrote them in PASM (see [Theory of Operations](TheoryOfOperations.md#22-pixel-write-operation)). Draw time did not depend on the colour depth then: the screen buffer holds three bytes per pixel at every depth. A commit converts the screen buffer into the PWM frame set that is not on display and posts it; the refresh cog switches to it at its next frame start, so the panels never show a half-converted image (see [Theory of Operations](TheoryOfOperations.md#23-screen-commit-operation)).
+Drawing calls take their pixels from the cell address tables and write them in PASM (see [Theory of Operations](TheoryOfOperations.md#22-pixel-write-operation)). Measured on the same rig at 8-bit with the rates test's workload: a full-screen flat fill 4.7 ms, fanned lines 13.0 ms, lines of text 24.6 ms and a 64x32 BMP 3.8 ms. Other calls measured there: a full screen of 5x7 text 43 ms, ten diagonal lines 9.0 ms and ten circles 7.8 ms. Draw time does not depend on the colour depth: the screen buffer holds three bytes per pixel at every depth. A commit converts the screen buffer into the PWM frame set that is not on display and posts it; the refresh cog switches to it at its next frame start, so the panels never show a half-converted image (see [Theory of Operations](TheoryOfOperations.md#23-screen-commit-operation)).
 
 ## Startup messages
 
@@ -335,8 +331,8 @@ How to read the messages:
 
 The checks run in two passes, so one mistake does not set off a chain of others:
 
-1. Every sentence on its own (rows 1-7, 11, 13 and 14), then the whole display (rows 10, 12 and 22). All of these are reported in one run.
-2. The walk out from `C0` (rows 8 and 9). It runs only when pass 1 found nothing, because it needs well-formed sentences.
+1. Every sentence on its own (rows 1-7, 11, 13 and 14), then the whole display (rows 10, 12, 15-18, 21 and 22). All of these are reported in one run.
+2. The walk out from `C0` (rows 8 and 9), then, for a cube, the fold (rows 19 and 20). It runs only when pass 1 found nothing, because it needs well-formed sentences.
 
 | # | Check | Exact message |
 |---|---|---|
@@ -364,11 +360,12 @@ The checks run in two passes, so one mistake does not set off a chain of others:
 | 16 | a cube of panels that are not square | `HUB75: DISPn: a cube needs square panels, but each panel is W columns x R rows (DISPn_MAX_PANEL_COLUMNS, DISPn_MAX_PANEL_ROWS)` |
 | 17 | `DISPn_CUBE_TOP` / `DISPn_CUBE_FRONT` not one cable position in use | `HUB75: DISPn_CUBE_TOP: must be exactly one of C0 .. C5, the cable position of the top face` (and the same for `DISPn_CUBE_FRONT`, the front face); `HUB75: DISPn_CUBE_TOP: names Cj, but that cable position is NO_PANEL` (and for `DISPn_CUBE_FRONT`) |
 | 18 | Front is the same panel as Top | `HUB75: DISPn_CUBE_FRONT: names the same panel as DISPn_CUBE_TOP; the front face is a different panel that shares an edge with the top face` |
-| 19 | the panels are not one of the 11 cube nets | `HUB75: DISPn: the panels do not fold into a cube (Cj and Ck fold onto the same face); arrange the six panels as one of the 11 cube nets` (when a panel shares no edge: `... (Ck shares no edge with the other panels); ...`) |
+| 19 | the panels are not one of the 11 cube nets | `HUB75: DISPn: the panels do not fold into a cube (Cj and Ck fold onto the same face); arrange the six panels as one of the 11 cube nets` |
 | 20 | Front opposite Top once folded | `HUB75: DISPn_CUBE_FRONT: Cj is opposite the top face (Ck) when the panels are folded; the front face must share an edge with the top face` |
 | 21 | a shape value other than flat or cube | `HUB75: DISPn: DISPn_SHAPE must be SHAPE_FLAT or SHAPE_CUBE` |
 | 22 | a panel width that is not a multiple of 4 | `HUB75: DISPn: panels W columns wide (DISPn_MAX_PANEL_COLUMNS) are not supported; the width must be a multiple of 4` |
 | notice | a mounting rotation on a cube (not a mistake; startup continues) | `HUB75: DISPn: DISPn_ROTATION does not apply to a cube and is ignored` |
+| stop | `DISPn_ADAPTER_BASE_PIN` is not one of `PIN_GROUP_P0_P15`, `PIN_GROUP_P16_P31`, `PIN_GROUP_P32_P47` (startup aborts at this message, with no summary line) | `HUB75: configureAdapter() Invalid PinBase/PinGroup specified: [isp_hub75_hwBufferAccess.spin2] Aborted!` |
 | - | summary, after any of the above | `HUB75: DISPn: K wiring problem(s) above; startup stopped` |
 | notice | no refresh rate the driver can reach meets `DISPn_TARGET_REFRESH_HZ` (not a mistake; startup continues at the fastest rate) | `HUB75: DISPn: DISPn_TARGET_REFRESH_HZ = N Hz is out of reach for this display; running at N.N Hz, its fastest (j = j)` |
 | notice | a panel chip with no /OE rating in the driver's table: any chip but FM6124, FM6126A, ICN2037, ICN2038S and MBI5124GP (not a mistake; startup continues) | `HUB75: DISPn: this panel chip has no /OE rating in the driver's table; the shortest /OE pulse is set to 50 ns` |

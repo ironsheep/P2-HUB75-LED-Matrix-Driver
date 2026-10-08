@@ -1,5 +1,7 @@
 # SOURCE-RECONCILIATION — Sprint Plan
 
+> **History.** The SOURCE-RECONCILIATION sprint (build 3.0.3) is complete; this plan is kept as its record. The driver's current shape is described in [THEOPS](../../../THEOPS.md) and the [Theory of Operations](../../TheoryOfOperations.md).
+
 Unify the three diverged sources of the HUB75 driver into a single,
 authoring-guide-compliant codebase on `main`.
 

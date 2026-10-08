@@ -18,12 +18,12 @@ This provides 64× more RAM than the P2's internal 512KB hub RAM.
 
 ### Hub RAM Constraints (512KB)
 
-The current driver stores all buffers in hub RAM:
+The driver stores all buffers in hub RAM, sized at compile time from the panels in use on each of its three adapters:
 
 | Buffer | Formula | Purpose |
 |--------|---------|---------|
 | Screen Buffer | W × H × 3 bytes | 24-bit RGB pixels |
-| PWM Frameset 1 | W × H × 0.5 × depth bytes | Binary-weighted PWM frames |
+| PWM Frameset 1 | W × H × 0.5 × depth bytes | One frame per bit of color depth, 4 bits per pixel each |
 | PWM Frameset 2 | W × H × 0.5 × depth bytes | The set a commit converts into while the other is on display |
 
 ### Maximum Configurations (Hub RAM Only)
@@ -35,7 +35,9 @@ The current driver stores all buffers in hub RAM:
 | 4×4 @ 128×64 | 131,072 | 1,408 KB | ✗ Exceeds 512KB |
 | 8×8 @ 64×64 | 262,144 | 2,816 KB | ✗ Exceeds 512KB |
 
-At 8-bit a pixel takes 3 + 8 = 11 bytes (the screen buffer plus the two frame sets), so 32,768 pixels take 360,448 bytes (352 KB).
+At 8-bit a pixel takes 3 + 8 = 11 bytes (the screen buffer plus the two frame sets), so 32,768 pixels take 360,448 bytes (352 KB). Hub RAM alone holds fewer than 47,000 pixels at 8-bit (512 KB ÷ 11), before the program's code and other data.
+
+Hub RAM is not the only limit. One adapter's refresh core holds one row of its whole chain in a 512-byte line buffer, one byte per column clock, so a chain is at most 512 column clocks wide (half as many columns for a quarter-scan panel), and one adapter drives at most 16 panels. With 64-row panels that is 32,768 pixels on one adapter, and three adapters drive three separate displays (see the [Wiring Guide's driver limits](WiringGuide.md#driver-limits)). Every configuration in the "Massive Display Configurations" table below exceeds the per-adapter limit, so it needs both PSRAM and a refresh core that does not hold a whole row in cog RAM.
 
 ## What 32MB PSRAM Enables
 
@@ -53,7 +55,7 @@ With screen buffer in PSRAM (3 bytes/pixel):
 | 16×8 @ 64×64 | 524,288 | 1.5 MB | Hub RAM |
 | 16×16 @ 64×64 | 1,048,576 | 3.0 MB | Hub RAM |
 
-**Practical limit:** Panel driver timing and PWM generation, not memory.
+**Practical limit:** the refresh rate a long chain can reach and the line-buffer limit above, not memory.
 
 ### 2. Multi-Frame Animation Storage
 
@@ -80,7 +82,7 @@ Store in PSRAM for instant access:
 
 ### 4. Triple/Quad Buffering
 
-Current: two PWM framesets (a commit converts into the one not on display; `display.showFrameSet()` can post a set you built)
+Today: two PWM framesets (a commit converts into the one not on display; `display.showFrameSet()` can post a set you built)
 With PSRAM:
 - Triple buffer for tear-free animation at high frame rates
 - Quad buffer for complex compositor effects
@@ -232,6 +234,9 @@ COG1:
 ## Architecture Changes Required
 
 ### Current Architecture
+
+One refresh cog per adapter reads the frame set that is on display from hub RAM and clocks it to the panels with `SETBYTE`/`DRVL`/`DRVH` in a `REP` loop; it does not use the streamer.
+
 ```
 ┌─────────────────────────────────────────┐
 │              Hub RAM (512KB)            │
@@ -328,7 +333,7 @@ repeat while long[ptr][2]
 
 | Feature | Hub RAM Only | With 32MB PSRAM |
 |---------|--------------|-----------------|
-| Max display size | ~65K pixels | ~1M+ pixels |
+| Max display size | under 47K pixels at 8-bit, and 32,768 per adapter (64-row panels) | ~1M+ pixels, with the line-buffer limit lifted |
 | Animation frames | 2 PWM frame sets (one on display) | 100+ stored |
 | Pre-rendered assets | Limited | Extensive |
 | Instant scene switching | No | Yes |

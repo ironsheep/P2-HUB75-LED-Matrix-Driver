@@ -15,6 +15,18 @@ In general i'm finding so far that there are 3 or 4 commmon choices for ICs used
 
 ### Pages: [README](README.md) | Hardware Turn-on | [Driver Details](THEOPS.md) | [Change Log](ChangeLog.md)
 
+## Bringing up your own display
+
+The path from a new adapter and panels to a working display is five steps. Every demo and test top file named here is in the `driver/` folder.
+
+1. **Attach the adapter.** The [HUB75 adapter board](HUB75Adapter.md) plugs onto a pair of 2x6 accessory headers, one of the three 16-pin groups P0-P15, P16-P31 or P32-P47. Its pins are listed in the [adapter pinout](HUB75-brd-config.md#hub75-adapter-board-pinout).
+2. **Check the pins (optional, with a logic analyzer).** `isp_hub75_anlyCheck.spin2` is a standalone top file, not part of the driver: it drives every adapter pin so you can confirm your analyzer connections and the wiring. It takes its pin group from `MTX_LED_BASE_PIN` at the top of the file, not from the driver's configuration, and runs until you stop it. `test_hub75_pin_identify.spin2` toggles each adapter pin at its own known frequency so you can tell which analyzer lead is on which pin.
+3. **Describe your hardware.** Edit `isp_hub75_hwPanelConfig.spin2`, the only file you change for a setup. For the adapter's display (`DISP0_` for the first adapter) set the pin group (`DISP0_ADAPTER_BASE_PIN`), the panel chip (`DISP0_PANEL_DRIVER_CHIP`), the address lines (`DISP0_PANEL_ADDR_LINES`), the panel size (`DISP0_MAX_PANEL_COLUMNS`, `DISP0_MAX_PANEL_ROWS`) and the colour depth (`DISP0_COLOR_DEPTH`). Describe where the panels are and how they are cabled with the wiring sentences `DISP0_C0` ... `DISP0_C15`, and how the whole display hangs with `DISP0_ROTATION`. The settings are explained in [Multi-Panel Configuration](DOCs/MultiPanelConfiguration.md), and the sentences in the [Wiring Guide](DOCs/WiringGuide.md). Start with every arrow `ARROW_UP` and `ROT_NONE`.
+4. **Run the identify program.** `demo_hub75_numberPanels.spin2` starts the adapter with one call, `display.start(hub75Bffrs.HUB75_ADAPTER_1)`, and draws on every panel an arrow, its cable position (`C`*k*) and its panel position (`P`*p*), each panel on its own background colour. Before the panels start, the driver checks your sentences and prints the layout it derived to the DEBUG terminal; a mistake is named by setting (`DISP0_C2: ...`) and startup stops, with the full list of messages in the [Wiring Guide](DOCs/WiringGuide.md#startup-messages). When the panels read right, the `P` labels run in reading order and every arrow points up. If not, the [Wiring Guide](DOCs/WiringGuide.md#filling-in-your-config-from-the-identify-screen) shows how to read the screen and correct the sentences.
+5. **Run the demos.** `demo_hub75_color.spin2`, `demo_hub75_text.spin2`, `demo_hub75_scroll.spin2` and the others show the drawing calls; each sets its own clock and starts the adapter the same way.
+
+A display of six square panels folded into a cube is configured the same way, with the shape and the top and front faces added; see [the cube](DOCs/WiringGuide.md#the-cube).
+
 
 ## My Panel
 
@@ -46,9 +58,7 @@ But let's be more specific:
 | Reusable Driver | - | Ensure driver can be configured for (1) single panel size, (2) organization of multi-panel chains, and (3) the various panel chip-sets which require different clocking styles (within practical limits: *all panels must use the same chip-set*) |
 | long-term | - | Can we drive multiple panel chains - we have 64 GPIO pins on the P2... we should easily be able to connect 3 HUB75 adapters. Can we drive them all at video frame rates?  What is our limitation here? |
 
-**NOTE:** Initial turn-on of the pasm2 driver code (1st draft reasonably performant code, not the fastest possible) shows that I'm getting a 400fps rate with 3 bit color.  So far this means that before tuning we might be able to get 50fps of 24bit color for single panel.  For a 4x4 panel this means we might get 12.5fps to 33fps depending upon our color depth.  
-
-Remember, this is without yet tuning the driver for best performance based on what the chip can do.  Based on the limits of the panel chipset, for the panels on this project, I should be able to drive the panel itself around 1.7x faster than I am in the 1st draft code.  So, there's room to get better here.
+**NOTE:** The refresh rates the driver reaches, at every colour depth, are measured on the author's rig and on single panels, and are listed in the [Wiring Guide](DOCs/WiringGuide.md#measured-refresh). The driver aims for the rate you set in `DISPn_TARGET_REFRESH_HZ` (default 60 Hz) and lights the panels as brightly as that rate allows.
 
 ----
 
@@ -58,9 +68,9 @@ Remember, this is without yet tuning the driver for best performance based on wh
 
 ----
 
-### Next Environment Upgrade
+### The Eval Adapter Board
 
-Since the project goals are going to be speed related, I'm going to need a better than flying leads to get to my higher speeds... so I'm building this Eval Adapter board:
+Since the project goals are speed related, flying leads are not good enough to get to the higher speeds... so the driver is built around this Eval Adapter board:
 
 ![P2 Eval Adapter](https://user-images.githubusercontent.com/540005/96038186-062a9e80-0e24-11eb-8299-f5e8fcb03460.png)
 
@@ -84,6 +94,8 @@ The P2 Forum Thread is found here: [P2 P2 Cube](https://forums.parallax.com/disc
 
 And the repository for design and physical objects is found here [Repository: P2 P2 Cube](https://github.com/jshook/p2_p2_cube)
 
+How the driver folds six panels into a cube is in the [Wiring Guide](DOCs/WiringGuide.md#the-cube); more turn-on photos are on the [cube pictures page](CubePix.md).
+
 This is the back of my 6 x 64x64 panel driven with a 5V 60A power supply so we can test full display Brightness. 
 
 ![Cube Flattened - Back](images/flatCubeBackTestJig.jpg)
@@ -92,9 +104,9 @@ This is a snapshot of the 6 x 64x64 panel showing the driver configured for a si
 
 ![Cube Flattened - Front](images/flatCubeFrontTestJig.jpg)
 
-## Up Next, Cascaded Panels
+## Cascaded Panels
 
-The next panel configuration i'm planning on playting with is daisy-chaining 4 of these panels so I can play with larger images. Here you see three more panels waiting for the fourth to be moved from the bench to join them.
+Daisy-chained panels make larger images. Here you see these panels waiting to be cabled into one display; how to describe a chain to the driver is in the [Wiring Guide](DOCs/WiringGuide.md), and the configurations the author has run are in [Author Test Configurations](DOCs/AuthorTestConfigurations.md).
 
 ![2x2 Panels Daisy-Chained](https://user-images.githubusercontent.com/540005/96038541-818c5000-0e24-11eb-8789-b1d77364fd7d.jpg)
 

@@ -20,6 +20,7 @@ Datasheet not available for direct download. Try these sources:
 
 ## Used On
 - Cyan (GS6238S) panels - P2.5-16S-V1.0
+- ICN2037BP 64x64 cube panels - P2-2020210240-200 (as listed in the [Chip Characteristics Matrix](../ChipCharacteristicsMatrix.md))
 
 ## Comparison to TC7258EN
 Similar functionality but with anti-ghosting features and adjustable blanking modes.

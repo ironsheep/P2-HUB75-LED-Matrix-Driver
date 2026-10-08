@@ -24,8 +24,10 @@ Oct 2026 (v4.0.0 - BREAKING: the panel-layout settings and the startup call chan
 - Refresh: each bit plane is shown once and lit by /OE time, to a target refresh rate you set with `DISPx_TARGET_REFRESH_HZ` (default 60 Hz). The author's four-panel rig refreshes at 71.0 Hz at 8-bit
 - 8-bit color is the default depth; brightness is /OE time, so the image keeps its full depth at any brightness
 - A commit never shows a half-converted image, and `display.showFrameSet()` shows a frame set you built yourself
-- Commit and drawing are faster: on the four-panel rig at 8-bit a commit takes 4.09 ms (from 21.25 ms) and a full-screen fill draws in 114.0 ms (from 635.4 ms)
-- Fixes: chains of MBI5124GP panels (column clock held to what one chip can pass to the next), multi-panel quarter-scan conversion, more than 9 panels, each display shows its own image, 90/270 degree display rotation, text and panel calls on any wiring
+- Commit and drawing are much faster: on the four-panel rig at 8-bit a commit takes 4.09 ms (from 21.25 ms) and a full-screen fill draws in 4.7 ms (from 635.4 ms). Every drawing call now finds its pixels from a table built at startup and writes them in PASM
+- Scrolling and animation keep up with the refresh: a scroll step moves the last frame and draws only the new edge, so one full-width line of text steps in 1.3 ms sideways and 3.3 to 4.1 ms up or down
+- Two MBI5124GP panels chained end to end run as one display: the column clock is held to what one chip can pass to the next, and each chip's configuration register is written at start
+- Fixes: multi-panel quarter-scan conversion, more than 9 panels, each display shows its own image, 90/270 degree display rotation, text and panel calls on any wiring, right-aligned and centred padded text, right-scrolling text that clears completely
 - Upgrading from v3.x? See the new [Update to v4.0 Checklist](Checklist-v3-v4.md)
 15 Jan 2024
 - Add support for panels using DP5125D chips
@@ -62,10 +64,11 @@ On this Page:
 - [Current Project state](#current-project-state)
 - [Pending Development](#pending-development)
 - [Driver Setup and Configuration](#driver-setup-and-configuration)
-- [Driver Constants used for configuration](#driver-setup-and-configuration)
+- [Chips Supported](#chips-supported)
+- [Driver Constants used for configuration](#driver-constants-used-for-configuration)
 - [Example Driver Configurations](#example-driver-configurations)
 - [Writing display code for your panels](#writing-display-code-for-your-panels)
-- [BACKGROUND: ...]() - a couple of project background topics
+- [BACKGROUND: HUB75 RGB LED Matrix Panels](#background-hub75-rgb-led-matrix-panels) - and a couple of other project background topics
 - [How to Contribute](#how-to-contribute)
 
 Additional pages:
@@ -84,7 +87,7 @@ Additional pages:
 
 What's working today with the current driver:
 
-- **5x7 font** is now full upper/lower case plus all control characters found in standard ASCII set
+- **5x7 font** is full upper/lower case plus all control characters found in standard ASCII set
 - **5x7 dithered font** - full upper/lower case plus all control characters found in standard ASCII set
 - **5x7 dithered font with descenders** - full upper/lower case plus all control characters found in standard ASCII set
 - Up to **3 HUB75 cards** supported on a single P2, each started with one call and no driver-file edits
@@ -95,7 +98,8 @@ What's working today with the current driver:
 - Multi-panel status differs by chip: the [chip table](#chips-supported) marks each chip `Multi-panel` or `Single-panel`
 - PWM'ing images to achieve 3-bit to 8-bit color per LED (9-bit to 24-bit color per pixel)
 - Displaying text in both 5x7 and 8x8 fonts
-- Initial version of scrolling text - will get more performant in future updates (now up, down, right, and left scroll!)
+- Scrolling text in four directions (up, down, right, and left). A step moves the last frame one place and draws only the new edge, so a full-width line steps in 1.3 ms sideways and 3.3 to 4.1 ms up or down on the author's four-panel rig
+- Fast drawing: every drawing call (pixels, lines, boxes, fills, circles, text, scrolling, BMP) takes its pixel addresses from a table built when the adapter starts and writes straight runs in PASM. Measured on the four-panel rig at 8-bit: full-screen fill 4.7 ms, fanned lines 13.0 ms, lines of text 24.6 ms, a 64x32 BMP 3.8 ms
 - **Wiring sentences**: panel grids of any shape you can cable (a row, a 2x2 in Z or serpentine order, 3x2, an L shape, ...) are described by one short sentence per panel, with each panel's own up (its arrow). The driver checks the sentences at startup and names any mistake. See the [Wiring Guide](DOCs/WiringGuide.md)
 - **Identify screen** (`demo_hub75_numberPanels.spin2`) labels each panel with its cable position and its place in the display, so you can fill in and confirm your sentences
 - **Display mounting**: say how the whole display hangs (`ROT_NONE`, `ROT_RIGHT_90`, `ROT_LEFT_90`, `ROT_180`) and the driver draws so the content reads upright, with width and height swapped for the sideways mountings
@@ -120,7 +124,7 @@ This driver works with the following chips. Other chips may well work since the 
 | FM6126A | ABCD | working `Multi-panel` | Shenzhen Funman Electronics Group Co., Ltd. | The driver sends the panel init sequence at start
 | GS6238S | ABCD | working `Single-panel` | ?? | ??
 | ICN2037 | ABCDE | working `Multi-panel` | Chipone Technology (Beijing) Co., Ltd. | Our P2 P2 cube panels 
-| ICN2037BP | ABCDE | working `Multi-panel` |Chipone Technology (Beijing) Co., Ltd. |
+| ICN2037BP | ABCDE | working `Multi-panel` |Chipone Technology (Beijing) Co., Ltd. | Same chip as the ICN2037 in another package: configure it as `CHIP_ICN2037`
 | ICN2038S | ABCDE | working `Single-panel` | Chipone Technology (Beijing) Co., Ltd. | Single-ended road-sign panel: no daisy-chain by construction |
 | MBI5124GP | ABC | working `Multi-panel` | Macroblock, Inc. (Taiwan) | The driver writes each chip's configuration register at start; two panels chained end to end run as one 128x32 display
 
@@ -342,6 +346,7 @@ There are a couple of demos which you can review then copy and paste from.  Thes
 | test\_hub75\_rates.spin2 | **TEST** Runs a fixed workload on one adapter with the instrument and reports refresh, lit share, clock, commit and draw time; runs the frame-set handshake and take checks, the brightness steps, the colour-table and row-run self-tests |
 | test\_hub75\_converter.spin2 | **TEST** Compares the screen-to-PWM converters with a reference converter byte for byte, with no panels attached, and prints PASS or FAIL |
 | test\_hub75\_oe\_bcm.spin2 | **TEST** Stand-alone check of the output-enable-weighted refresh method on one adapter, with test patterns and monitors |
+| test\_hub75\_pin\_identify.spin2 | **TEST** Bring-up aid: toggles each HUB75 pin (and the P8-P11 measurement pins) at its own known frequency so you can identify the pins with a logic analyzer |
 
 
 **NOTE1:** most of the demo's are built for a 64x32 panels. You may have to modify them to run on your panel geometry.
@@ -400,7 +405,7 @@ But let's be more specific:
 | Reusable Driver | - | Ensure driver can be configured for (1) single panel size, (2) organization of Multi-panel chains, and (3) the various panel chip-sets which require different clocking styles (within practical limits: *all panels must use the same chip-set*) |
 | long-term | - | Can we drive multiple panel chains - we have 64 GPIO pins on the P2... we should easily be able to connect 3 HUB75 adapters. Can we drive them all at video frame rates?  What is our limitation here? |
 
-**NOTE:** The measured refresh rates are in the [Wiring Guide](DOCs/WiringGuide.md#refresh-rate): on the four-panel rig (four ICN2037 128x64 panels, 512 column clocks), 193.3 Hz at 3-bit and 71.0 Hz at 8-bit with the default 60 Hz target. A commit takes 4.09 ms at 8-bit, and drawing a full-screen fill takes 114.0 ms.
+**NOTE:** The measured refresh rates are in the [Wiring Guide](DOCs/WiringGuide.md#refresh-rate): on the four-panel rig (four ICN2037 128x64 panels, 512 column clocks), 193.3 Hz at 3-bit and 71.0 Hz at 8-bit with the default 60 Hz target. A commit takes 4.09 ms at 8-bit, and drawing a full-screen fill takes 4.7 ms.
 
 ----
 

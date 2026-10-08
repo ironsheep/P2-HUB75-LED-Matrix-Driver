@@ -1,4 +1,6 @@
 # P2 HUB75 LED Matrix Driver Repair Plan
+
+> **History, superseded.** This 2x2 repair plan was never closed; the DISPLAY-ORGANIZATION sprint (4.0.0) replaced the wiring model it worked around, and the FRAME-RATE sprint replaced the refresh core it analysed. Kept as the record of that work. Configure panels with the [Wiring Guide](../../WiringGuide.md).
 ## Sprint: 2×2 Panel Support
 
 **Created:** 2025-01-06

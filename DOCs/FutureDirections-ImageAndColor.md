@@ -95,7 +95,7 @@ The P2 HUB75 driver runs on the **Parallax Propeller 2** microcontroller:
 
 | Specification | Value |
 |--------------|-------|
-| **System Clock** | 335 MHz |
+| **System Clock** | 335 MHz (each demo sets it with `_CLKFREQ`) |
 | **Cores (Cogs)** | 8 independent 32-bit cores |
 | **Smart Pins** | 64 hardware-accelerated I/O pins |
 | **I/O Speed** | 2 clock cycles per pin instruction |
@@ -143,7 +143,7 @@ The refresh method (each bit plane shown once per row address and lit by /OE tim
 
 **Problem**: Human perception of brightness is non-linear. A pixel at 50% PWM does not appear half as bright as 100%.
 
-**Today**: `isp_hub75_colorUtils.spin2` holds a 256-entry gamma curve and folds it into each adapter's color table (the table also does the color-depth mapping), so gamma costs nothing per pixel. The curve is off by default and is a driver test control, not a setting you make.
+**Today**: `isp_hub75_colorUtils.spin2` holds a 256-entry gamma curve and folds it into each adapter's color table (the table also does the color-depth mapping), so gamma costs nothing per pixel. The curve is off: its flag (`bGammaEnable` in `isp_hub75_colorUtils.spin2`) is FALSE and nothing in the driver sets it, so no setting you make turns it on.
 
 **Future**: A per-display setting to turn gamma on, and a curve chosen per panel if LED characteristics vary.
 
@@ -217,15 +217,17 @@ Typical values for 6500K white point:
 
 The driver supports multiple panel types with different characteristics:
 
-| Chip | Max Clock | Scan | Init Required | Multi-Panel Status |
+| Chip | Rated Max Clock | Scan | Init Required | Multi-Panel Status |
 |------|-----------|------|---------------|-------------------|
 | FM6126A | 30 MHz | 1/16 | Yes | Tested |
-| FM6124 | 30 MHz | 1/16 | No | Untested |
-| ICN2037/BP | 30 MHz | 1/32 | No | Tested |
-| ICN2038S | 30 MHz | disputed (see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md)) | Untested | Single-ended |
+| FM6124 | 30 MHz | 1/16 | No | Single panel only |
+| ICN2037/BP | 30 MHz (25.0 MHz in a chain) | 1/32 | No | Tested |
+| ICN2038S | 30 MHz (28.6 MHz in a chain) | disputed (see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md)) | Untested | Single panel; single-ended |
 | MBI5124GP | 25 MHz (18.9 MHz in a chain) | 1/8 | Yes | Tested (two panels) |
-| GS6238S | 30 MHz | 1/16 | No | Untested |
-| DP5125D | - | 1/8 | No | Untested |
+| GS6238S | - (no rating in the driver's table; held to 20 MHz) | 1/16 | No | Single panel only |
+| DP5125D | - (no rating in the driver's table; held to 20 MHz) | 1/8 | No | Tested |
+
+The driver holds each half of the clock pulse to at least 20 ns, which caps every chip at 25 MHz, and holds the whole period to the chip's chain limit where that is lower (the MBI5124GP's 18.9 MHz; the ICN2037's 25.0 MHz and the ICN2038S's 28.6 MHz are at or above the pulse cap). The FM6124 and FM6126A chain limits have not been read. The ratings and the arithmetic are in the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings).
 
 ### Notable Panel Configurations Tested
 
