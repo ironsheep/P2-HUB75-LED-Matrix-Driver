@@ -3,7 +3,7 @@
 **For:** `central:spin2-authoring-guide` (`~/.claude/skills-docs/guides/spin2-authoring-guide.md`)
 **From:** p2-LED-Matrix-Driver, the 4.0.0 full style audit (2026-10-08,
 `DOCs/analysis/2026-10-08-4.0.0-STYLE-AUDIT.md`)
-**Status:** recommendation for Stephen; nothing in the central guide has been changed.
+**Status:** recommendation only. This project does not edit the central guide; Stephen applies central changes himself.
 
 ## Why this is needed
 
