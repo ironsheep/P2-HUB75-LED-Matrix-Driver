@@ -91,3 +91,5 @@ __pycache__/
 
 # release package preview (tools/package_release.py --out dist)
 /dist
+/REF-NO-COMMIT
+driver/PSRAM_driver_RJA_Platform_1b.spin2
