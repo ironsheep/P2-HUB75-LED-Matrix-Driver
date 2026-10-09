@@ -8,140 +8,82 @@ Check [Keep a Changelog](http://keepachangelog.com/) for reminders on how to str
 
 ## [4.0.0] 08 Oct 2026
 
-### Wiring sentences, a cube layer, one-call adapter startup, and bit-plane refresh at full 8-bit color
+Full 8-bit color at flicker-free refresh rates, displays of any panel layout including a cube, and a new configuration and startup call.
 
-Each panel is described by one sentence, each adapter starts with one call, six panels can draw as one cube, and each display refreshes in full 8-bit color to a rate you set. To convert v3.x code, follow the [Update to v4.0 Checklist](Checklist-v3-v4.md).
+### New Features
 
-#### Breaking Changes
+- **Wiring sentences**, `DISPx_C0` to `DISPx_C15`: each panel's sentence places it beside an earlier panel and names its arrow; rows, grids and L shapes work
+- **Startup check**: a wiring mistake prints one `HUB75:` line naming the setting and stops; a correct config prints the grid it derived ([messages](DOCs/WiringGuide.md#startup-messages))
+- **Cube display**: `DISPx_SHAPE = hwEnum.SHAPE_CUBE` folds six square panels into a cube; `drawFacePixel()`, `drawFaceLine()`, `drawFaceBox()`, `drawFaceCircle()`, `drawFaceTextAtRC()` and `scrollFaceTextAtRC()` cross all 12 edges
+- `DISPx_TARGET_REFRESH_HZ` (default 60) sets the refresh rate to aim for; a display that cannot reach it runs at its fastest rate and prints it
+- `display.setBrightness()` and `display.getBrightness()` dim by lit time, so the image keeps its full color depth and refresh rate at any brightness
+- Two MBI5124GP panels chain as one display; each chip's configuration register is written at start with its datasheet values
+- `placeBMP(chain, file, rotation)` places an image of any size, turned by `bmp.ROT_NONE`, `bmp.ROT_RIGHT_90`, `bmp.ROT_LEFT_90` or `bmp.ROT_180`
+- `drawCircle()` and `drawCircleOfColor()` draw circles
+- `display.showFrameSet(pFrameSet)` shows a PWM frame set you built; it returns `display.E_FRAMESET_NULL` or `display.E_FRAMESET_FOREIGN` for an address it refuses
+- **Identify screen**, `demo_hub75_numberPanels.spin2`, labels each panel with its cable position, panel position and arrow
+- New demos: `demo_hub75_boundary.spin2`, `demo_hub75_quadPanel.spin2`, `demo_hub75_multi2x2panel.spin2`
 
-- **BREAKING**: `DISPx_MAX_PANELS_PER_ROW`, `DISPx_MAX_PANELS_PER_COLUMN`, `DISPx_WIRE_ENTRY`, `DISPx_WIRE_TRAVERSE` and `DISP0_PANEL0_ROT` to `DISP0_PANEL3_ROT` are removed. Describe each panel in a wiring sentence, `DISPx_C0` to `DISPx_C15`; a v3.x `isp_hub75_hwPanelConfig.spin2` does not compile.
-- **BREAKING**: `display.start()` takes the adapter ID, `display.start(display.HUB75_ADAPTER_1)`, in place of the v3.x sequence. `configure()`, `setWireConfig()` and `setBufferPointers()` are removed, and your program no longer names the buffers object.
+### Improvements
+
+- **Default color depth is 8-bit**, full 24-bit color; a configuration whose buffers do not fit hub RAM fails to compile
+- **Drawing speed**: lines, boxes, circles, text, fills and BMPs are drawn from address tables built at startup, with the pixel writes in PASM
+- **Scrolling** moves the region one place and draws only the new edge; a full-width text line steps in 1.3 ms sideways on the four-panel rig
+- `commitScreenToPanelSet()` converts into the frame set not on display, so a commit never shows a mix of old and new image
+- Panel timing is derived from the system clock and held to each chip's datasheet ratings ([ratings](DOCs/ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings))
+- Buffers are sized by the panels in use, so an L-shaped display reserves no memory for its gap
+- An adapter with no panels configured reserves no memory
+- `fillScreenFromBMP()` returns `bmp.SUCCESS`, `bmp.E_BAD_ROTATION` or `bmp.E_BMP_NOT_24BIT`
+
+### Bug Fixes
+
+- With two or three adapters, each display shows its own image. Every display showed the first adapter's image; single-adapter programs were unaffected.
+- `ROT_RIGHT_90` and `ROT_LEFT_90` on a non-square display draw inside it, and `maxDisplayColumns()` and `maxDisplayRows()` report the mounted size
+- 3-, 4- and 5-bit color depths display correctly. 6-, 7- and 8-bit were unaffected.
+- `releaseScroller(0)` releases the first scroller region
+- A new scrolling region starts in the default loop mode; it no longer inherits `SCROLL_FOREVER` from a released region
+- Text scrolling right with `SCROLL_ONCE_TO_CLEAR` scrolls until its region is clear, and a region wider than its text shows spaces before it
+- Text scrolling sideways no longer draws a black column just right of its region
+- `setColoredTextAtLnWithAlignPad()` with `ALIGN_RIGHT` places the whole padded field on the line, and `ALIGN_CENTER` pads both sides
+- A 7-segment digit placed blank counts from 0 on its first increment
+- `demo_hub75_7seg.spin2` on a display 32 columns wide or less keeps its text
+- `demo_hub75_scroll.spin2` lays its scrollers out for the display's height; on 32 rows they no longer overlap
+- `demo_hub75_multiPanel.spin2` spreads its panel colors around the whole color circle
+- The refresh cog no longer pulses each adapter's R1, G1, B1 and R2 lines as timing marks
+- The first start of an adapter no longer releases pin P0
+
+### Breaking Changes
+
+The [Update to v4.0 Checklist](Checklist-v3-v4.md) converts a v3.x program step by step.
+
+- **BREAKING**: `DISPx_MAX_PANELS_PER_ROW` and `DISPx_MAX_PANELS_PER_COLUMN` are removed. Describe each panel in a wiring sentence, `DISPx_C0` to `DISPx_C15`; a v3.x `isp_hub75_hwPanelConfig.spin2` does not compile until converted.
+- **BREAKING**: pin groups `PINS_P0_P15`, `PINS_P16_P31` and `PINS_P32_P47` are renamed `PIN_GROUP_P0_P15`, `PIN_GROUP_P16_P31` and `PIN_GROUP_P32_P47`, and `PINS_P48_P63` is removed. Update `DISPx_ADAPTER_BASE_PIN`; an old name does not compile.
+- **BREAKING**: `display.start(display.HUB75_ADAPTER_1)` replaces the v3.x startup sequence. `hub75Bffrs.configure()`, `display.setBufferPointers()` and `chain0Ptrs()` to `chain2Ptrs()` are removed; your program no longer names the buffers object.
 - **BREAKING**: `isp_hub75_hwBufferAccess.spin2` and `isp_hub75_hwBuffers.spin2` are never edited. Restore the release copies; a second or third adapter needs only its `DISP1_` or `DISP2_` settings.
-- **BREAKING**: panel-centric calls (`fillPanel()`, `setCursorOnPanel()`, `drawPanelBox()`, `drawPanelLine()`, `scrollColoredTextOnLnOfNPanels()` and their siblings) take panel positions: `P0` is the top-left panel as the display hangs, numbered in reading order. A program that numbered panels by their place in the buffer must renumber; on a display wired from the bottom-left, `fillPanel(0)` now fills the top-left panel.
-- **BREAKING**: `DISPx_ROTATION` states how the display is mounted: `ROT_RIGHT_90` is hung turned 90 degrees clockwise, and content is drawn to read upright as hung. A program that sets a rotation should re-check it against how the display hangs.
-- **BREAKING**: `wireStart()`, `wireTraverse()`, `wireOrderForPanel()`, `displayPanelForWire()`, `needsPanelColumnSwap()`, `panelRotationAt()`, `displayToPanelCoords()`, `panelPixelOffset()` and `indexToPanel()` are removed from `isp_hub75_hwBufferAccess.spin2`, and `panelRotation()` is `displayRotation()`. Programs that draw through the display object need no change.
-- **BREAKING**: the `CLK_WIDE_PULSE` manual-config flag is removed; it had no effect. A config that ORs it onto `CHIP_MANUAL_SPEC` does not compile until it is taken out.
+- **BREAKING**: `DISPx_ROTATION` states how the display is mounted, and content is drawn upright as hung. A program that sets a rotation should re-check it on the panels.
+- **BREAKING**: `panelsPerRow()`, `panelsPerColumn()`, `correctedColor()`, `correctedSingleColor()` and `colorAtDesiredBitWidth()` are removed from `isp_hub75_hwBufferAccess.spin2`, and `panelRotation()` is `displayRotation()`. Programs that draw through the display object need no change.
+- **BREAKING**: `CLK_WIDE_PULSE` is removed; it had no effect. A config that ORs it onto `CHIP_MANUAL_SPEC` does not compile until it is taken out.
+- **BREAKING**: panels must be a multiple of 4 columns wide (`DISPx_MAX_PANEL_COLUMNS`). Every common panel width is; any other stops startup with a message naming the setting.
 
-#### Added
+### Performance
 
-- **Wiring sentences**, `DISPx_C0` to `DISPx_C15`: `direction | neighbour | arrow` places a panel next to an earlier one and says which way its arrow points; `C0` is `FIRST_PANEL | arrow`, and unused positions are `NO_PANEL`. Rows, a 2x2 in Z or serpentine order, 3x2 and L shapes are described the same way.
-- **Startup check**: each wiring mistake prints one `HUB75:` line naming the setting, then startup stops. A correct config prints a picture of the grid it derived. Every message is listed in the [Wiring Guide](DOCs/WiringGuide.md#startup-messages).
-- **Cube display**: `DISPx_SHAPE = hwEnum.SHAPE_CUBE` with `DISPx_CUBE_TOP` and `DISPx_CUBE_FRONT` turns six square panels wired as a cube net into a cube. `drawFacePixel()`, `drawFaceLine()`, `drawFaceBox()`, `drawFaceCircle()`, `drawFaceTextAtRC()` and `scrollFaceTextAtRC()` draw across all 12 edges.
-- **Identify screen**, `demo_hub75_numberPanels.spin2`: labels each panel with its cable position, its panel position and an arrow, to fill in and confirm the sentences.
-- **Multiple adapters without file edits**: describe the second or third adapter's panels in `DISP1_` or `DISP2_` and start it with its own `display.start()`; an adapter with no panels costs no memory.
-- **Driver limits**: the [Wiring Guide](DOCs/WiringGuide.md#driver-limits) gives the most panels one adapter can drive for each panel type, and the startup check reports a display over the limit.
-- `placeBMP(chain, file, rotation)` places an image of any size, turned by a content rotation (`bmp.ROT_NONE`, `bmp.ROT_RIGHT_90`, `bmp.ROT_LEFT_90` or `bmp.ROT_180`). It and `fillScreenFromBMP()` return `bmp.SUCCESS`, or `bmp.E_BAD_ROTATION` or `bmp.E_BMP_NOT_24BIT` when nothing was drawn.
-- **Demo**: `demo_hub75_boundary.spin2` draws across panel seams and prints the time of one full draw.
-- `DISPx_TARGET_REFRESH_HZ` (default 60) sets the refresh rate to aim for. The driver picks the brightest panel timing that reaches it; a display that cannot reach it runs at its fastest rate and prints that rate at startup.
-- MBI5124GP panels are configured at start: the driver writes each chip's configuration register with the values its datasheet gives for red, green and blue LEDs.
-- `display.showFrameSet(pFrameSet)` shows a PWM frame set you built. It accepts one of the adapter's two sets and returns `display.SUCCESS`; it refuses NULL (`display.E_FRAMESET_NULL`) or any other address (`display.E_FRAMESET_FOREIGN`) with a message naming the call.
+Measured on four ICN2037 128x64 panels (256x128 pixels) at 335 MHz, 8-bit color.
 
-#### Removed
+- Refresh: 71.0 Hz
+- `commitScreenToPanelSet()`: 4.09 ms
+- Flat fill / fanned lines / lines of text / 64x32 BMP: 4.7 / 13.0 / 24.6 / 3.8 ms
 
-- `demo_hub75_hwGeometry.spin2`, a commented-out example of the v2/v3 settings. The [Wiring Guide](DOCs/WiringGuide.md) replaces it.
-
-#### Fixed
-
-- `demo_hub75_7seg.spin2` on a display 32 columns wide or less keeps its text: two digits it does not place were drawn in black over it every minute.
-- A 7-segment digit placed blank counts from 0 on its first increment; the first increment used to be lost.
-- `demo_hub75_multiPanel.spin2` and `demo_hub75_quadPanel.spin2` spread their panel colours around the whole colour circle; they reached only about 70% of it, never magenta.
-- The first start of an adapter no longer releases pin P0.
-- MBI5124GP panels chained on one adapter run as one display. The first column of each panel showed the wrong red in some rows, on some images, and could flicker: the column clock was faster than one chip can hand its data to the next. The clock is now held to that limit (18.6 MHz at 335 MHz).
-- `demo_hub75_scroll.spin2` lays its scrollers out for the display's height. On a 32-row display its up and down scrollers landed on the last line, on top of the left-scrolling text.
-- Chains of ten or more panels on one adapter show every panel. Chains of nine or fewer were unaffected.
-- More than one quarter-scan panel (the `SCAN_4` chips: MBI5124GP, DP5125D, ICN2038S) in one chain converts panel by panel. A single panel was unaffected.
-- Each display shows its own adapter's image. With more than one adapter, every display showed the first adapter's image; single-adapter programs were unaffected.
-- `ROT_RIGHT_90` and `ROT_LEFT_90` draw inside the display, and `maxDisplayColumns()`, `maxDisplayRows()` and `displaySizeInPixels()` report the size as mounted. Setting either rotation on a non-square display used to draw past its edge.
-- Text and scrolling that cross a vertical panel seam land whole on a display wired from the bottom-left in Z order. Their two halves had come out swapped.
-- Panel-centric calls land on the panel they name on that same layout: `fillPanel(0)` fills the top-left panel, and a panel-centric line stops at its panel's edge instead of spilling onto a neighbour.
-- `commitScreenToPanelSet()` converts into the PWM frame set that is not on display, so a commit never shows part of the new image with part of the old.
-- `releaseScroller(0)` releases the first scroller region; index 0 was ignored.
-- A new scrolling region starts in the default loop mode. It used to keep the mode of whatever last scrolled on the same scroller, so a region set to `SCROLL_FOREVER`, once released, made the next region given that scroller scroll forever too.
-- `setColoredTextAtLnWithAlignPad()` with `ALIGN_RIGHT` or `ALIGN_CENTER` places the padded field on the line; it was placed by the length of the text alone, so a padded right-aligned field ran past the line's end. A centred field is padded on both sides; its right side was left undrawn.
-- Text scrolling right with `SCROLL_ONCE_TO_CLEAR` scrolls until its region is clear; it stopped with the first character's left edge still showing. A region wider than its text shows spaces before the text; it read the bytes in front of the text buffer.
-- Text scrolling sideways no longer draws a black column just right of its region. On every step where the text sat on a character boundary, the gap after the last character landed one pixel outside the region.
-- An adapter on pins P0-P15 no longer has its colour lines toggled by the timing marks on P8-P11. Adapters on P16-P31 or P32-P47 were unaffected. The marks now exist only in the measurement test builds.
-
-#### Changed
-
-- **Drawing speed**: every drawing call finds its pixels from a table built at startup, one lookup per panel instead of the full address rule per pixel, and writes them in PASM. On the four-panel 256x128 rig at 8-bit: one full-width line of scrolling text steps in 1.3 ms sideways and 3.3 to 4.1 ms up or down (39 to 50 ms before), so it keeps up with the 71 Hz refresh; an 8-digit 7-segment step takes at most 12.5 ms (up to 24 ms before); a sloped line or circle takes about 1 ms (about 6 ms before). Fills, lines, text and BMP drawing times against the pre-4.0.0 figures are under Performance below.
-- **Scrolling moves the last frame**: a step moves the region's pixels one place and draws only the new edge. Anything drawn over the region through the driver, and any clear or fill of the screen, makes the next step draw the whole region again, so what you see is unchanged. A program that writes the screen buffer directly, not through the driver's calls, calls `hub75Bffrs.noteAllDrawn(chainIndex)` afterwards so the regions draw again.
-- Buffers are sized by the number of panels in use, not by the display's bounding box. A display with a gap (an L shape) holds no memory for the gap.
-- **Refresh**: each bit plane is shown once per row address and lit by output-enable time in proportion to its bit weight. Rates by depth are in the [Wiring Guide](DOCs/WiringGuide.md#refresh-rate).
-- **Default color depth is 8-bit** (`DISPx_COLOR_DEPTH = hwEnum.DEPTH_8BIT`), full 24-bit color. A configuration whose buffers do not fit in hub RAM at 8-bit fails to compile; lower the depth.
-- `setBrightness()` sets how long the panels are lit, not the color values: the image keeps its full depth at any brightness and the refresh rate does not change. The lowest lit time is the chip's shortest /OE pulse, so on the four-panel rig at 8-bit settings 1 to 11 look the same; 0 is off.
-- The column clock is held to each chip's datasheet rating, with each half of the pulse at least 20 ns (15 system clocks per column at 335 MHz on the four-panel rig). Each chip's clock and /OE ratings are in the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings); a chip with no rating in the table is held to 20 MHz and 50 ns and says so at startup. MBI5124GP panels are held to their chain limit, 18.9 MHz, below the chip's 25 MHz rating.
-- Drawing time does not depend on color depth.
-- Panels must be a multiple of 4 columns wide (`DISPx_MAX_PANEL_COLUMNS`); every common panel width is. Any other width stops startup with a message naming the setting.
-
-#### Performance
-
-Measured on four ICN2037 128x64 panels (256x128 pixels) at 335 MHz.
-
-- Refresh at 8-bit: improved from 4.86 to 71.0 Hz; at 5-bit, from 40.01 to 84.7 Hz
-- `commitScreenToPanelSet()` at 8-bit: improved from 21.25 to 4.09 ms
-- Drawing at 8-bit, flat fill / fanned lines / lines of text / 64x32 BMP: improved from 635.4 / 233.3 / 1,103.0 / 304.2 ms to 4.7 / 13.0 / 24.6 / 3.8 ms
-
-#### Hardware Compatibility
+### Hardware Compatibility
 
 - ICN2037 128x64, four panels in a 2x2: verified at every depth, 71.0 Hz at 8-bit to 193.3 Hz at 3-bit
-- FM6126A 64x32, single panel: verified, 85.1 Hz at 8-bit
-- FM6124 64x32, single panel: verified, 85.3 Hz at 8-bit
-- MBI5124GP 64x32 (1/8 scan), two panels chained as one 128x32 display: verified, 70.9 Hz at 8-bit, 292.1 Hz at 5-bit
-- MBI5124GP 64x32 (1/8 scan), single panel: 71.2 Hz at 8-bit, 582.7 Hz at 5-bit (self-tests and refresh measured; image checked by eye at the earlier clock)
+- FM6126A 64x32: verified, 85.1 Hz at 8-bit
+- FM6124 64x32: verified, 85.3 Hz at 8-bit
+- MBI5124GP 64x32 (1/8 scan), two panels chained as 128x32: verified, 70.9 Hz at 8-bit
+- MBI5124GP 64x32 (1/8 scan), single panel: 71.2 Hz at 8-bit
 
-### Known Issues v4.0.0
+### Known Issues
 
-- The cube display (`DISPx_SHAPE = hwEnum.SHAPE_CUBE`) has not yet been run on six panels.
-- Chains of more than two quarter-scan panels, chains of more than nine panels, and two adapters cabled at once have not yet been run on panels.
-- The ICN2037 64x64, FM6124C, ICN2038S, GS6238S and DP5125D have not been run with this release. Panel-count limits are calculated, except for four ICN2037 128x64 panels.
-- `display.showFrameSet()` with a frame set you built has not yet been run on hardware.
-- The scan setting of the ICN2038S is disputed: the driver sets `SCAN_4` (four rows lit at once), while its five address lines suggest 1/32 scan. The panel-count limit for this chip follows the driver's setting.
-
-## [3.0.3] 11 Jun 2026
-
-### Clock-independent timing, 2x2 panel grids, per-panel rotation, color fixes
-
-This release unifies the `develop` feature branch into `main`. (Version numbering
-catches up here: the prior heading was `[3.0.1]` while release tags had reached
-`v3.0.2`; this `[3.0.3]` entry both reconciles that gap and records the unified build.)
-
-#### Breaking Changes
-
-- **BREAKING**: pin groups are renamed `PINS_Pxx_Pyy` to `PIN_GROUP_Pxx_Pyy`, and only
-  the three valid 16-pin groups remain (P0-P15, P16-P31, P32-P47). Update
-  `ADAPTER_BASE_PIN` in `isp_hub75_hwPanelConfig.spin2`; an old name will not compile.
-
-#### Added
-
-- **Clock-frequency-independent panel timing** - HUB75 signal timing is now derived
-  from the system clock, so panels drive correctly across different `_clkfreq`
-  settings instead of assuming a fixed frequency.
-- **2x2 panel-grid support** - display-level drawing now spans 2-D panel grids
-  (e.g., four panels in a 2x2 arrangement), with Z-pattern / serpentine wire-order
-  mapping from display coordinates to physical panel wiring.
-- **Per-panel rotation and wire-order** - individual panels within a grid can be
-  rotated (`ROT_NONE` / `ROT_180` / `ROT_LEFT_90` / `ROT_RIGHT_90`) and remapped to
-  physical wire order, in addition to the existing whole-display rotation.
-- **New demos** - `demo_hub75_quadPanel.spin2`, `demo_hub75_multi2x2panel.spin2`,
-  `demo_hub75_numberPanels.spin2`, and the `test_hub75_pin_identify.spin2` bring-up
-  utility.
-
-#### Fixed
-
-- **5-bit color depth** rendering corrected.
-- **MSB-black artifact** - colors missing the most-significant bit no longer render
-  black at certain brightness levels (brightness rounding now rounds to nearest).
-
-#### Changed
-
-- Repo-wide conformance to the project Spin2 authoring guide (no change to emitted
-  behavior), and consolidation of the documentation tree under `DOCs/`.
-
-### Known Issues v3.0.3
-
-- Multi-panel support for some driver chips (e.g., MBI5124GP, FM6126A) is still being
-  worked out; single-panel use of these chips works.
+- The ICN2038S scan setting is disputed: the driver sets `SCAN_4`, while its five address lines suggest 1/32 scan
 
 ## [3.0.1] 15 Jan 2024
 

@@ -51,6 +51,6 @@ Follow these links for more information:
 
 [license-shield]: https://img.shields.io/badge/License-MIT-yellow.svg
 
-[releases-shield]: https://img.shields.io/github/release/ironsheep/p2-LED-Matrix-Driver.svg?style=for-the-badge
+[releases-shield]: https://img.shields.io/github/release/ironsheep/P2-HUB75-LED-Matrix-Driver.svg?style=for-the-badge
 
-[releases]: https://github.com/ironsheep/p2-LED-Matrix-Driver/releases
+[releases]: https://github.com/ironsheep/P2-HUB75-LED-Matrix-Driver/releases

@@ -11,24 +11,17 @@
 The P2 HUB75 Driver is available from a couple of sources:
 
 - [The P2 Object Exchange](https://github.com/parallaxinc/propeller/tree/master/libraries/community/p2) as "ISP HUB75 Matrix"
-- From this repository from the [Releases page](https://github.com/ironsheep/p2-LED-Matrix-Driver/releases)
+- From this repository from the [Releases page](https://github.com/ironsheep/P2-HUB75-LED-Matrix-Driver/releases)
 
 ```
 Latest Updates:
-Oct 2026 (v4.0.0 - BREAKING: the panel-layout settings and the startup call changed)
-- Describe your panels' layout, cabling and mounting with one short sentence per panel (replaces the panels-per-row/column, wire-entry/traversal and per-panel rotation settings)
-- Cube display: six panels draw as one object, with lines, boxes, circles, text and scrolling carrying across every edge
-- Identify routine labels every panel so you can check your sentences
-- A second or third HUB75 adapter no longer needs any driver file edited; one start call per adapter
-- Panel-count limits per panel type, with measured refresh rates for the author's rig
-- Refresh: each bit plane is shown once and lit by /OE time, to a target refresh rate you set with `DISPx_TARGET_REFRESH_HZ` (default 60 Hz). The author's four-panel rig refreshes at 71.0 Hz at 8-bit
-- 8-bit color is the default depth; brightness is /OE time, so the image keeps its full depth at any brightness
-- A commit never shows a half-converted image, and `display.showFrameSet()` shows a frame set you built yourself
-- Commit and drawing are much faster: on the four-panel rig at 8-bit a commit takes 4.09 ms (from 21.25 ms) and a full-screen fill draws in 4.7 ms (from 635.4 ms). Every drawing call now finds its pixels from a table built at startup and writes them in PASM
-- Scrolling and animation keep up with the refresh: a scroll step moves the last frame and draws only the new edge, so one full-width line of text steps in 1.3 ms sideways and 3.3 to 4.1 ms up or down
-- Two MBI5124GP panels chained end to end run as one display: the column clock is held to what one chip can pass to the next, and each chip's configuration register is written at start
-- Fixes: multi-panel quarter-scan conversion, more than 9 panels, each display shows its own image, 90/270 degree display rotation, text and panel calls on any wiring, right-aligned and centred padded text, right-scrolling text that clears completely
-- Upgrading from v3.x? See the new [Update to v4.0 Checklist](Checklist-v3-v4.md)
+9 Oct 2026 
+- Full 8-bit color is the default, refreshing at a target rate you set (`DISPx_TARGET_REFRESH_HZ`, default 60 Hz); the author's four-panel rig runs at 71 Hz
+- Describe any panel layout (rows, grids, L shapes) with one short sentence per panel; startup checks the sentences and names any mistake
+- Up to three HUB75 adapters, each showing its own image, with no driver file edited; one start call per adapter
+- `setBrightness()` dims by lit time, so the image keeps its full color depth at any brightness
+- Two MBI5124GP panels chain as one display
+- Upgrading from v3.x? See the [Update to v4.0 Checklist](Checklist-v3-v4.md)
 15 Jan 2024
 - Add support for panels using DP5125D chips
 - Add Chips' 5x7 dithered fonts
@@ -419,7 +412,7 @@ But let's be more specific:
 
 This is a project supporting our P2 Development Community. Please feel free to contribute to this project. You can contribute in the following ways:
 
-- File **Feature Requests** or **Issues** (describing things you are seeing while using our code) at the [Project Issue Tracking Page](https://github.com/ironsheep/p2-LED-Matrix-Driver/issues)
+- File **Feature Requests** or **Issues** (describing things you are seeing while using our code) at the [Project Issue Tracking Page](https://github.com/ironsheep/P2-HUB75-LED-Matrix-Driver/issues)
 - Fork this repo and then add your code to it. Finally, create a Pull Request to contribute your code back to this repository for inclusion with the projects code. See [CONTRIBUTING](CONTRIBUTING.md)
 
 ----
@@ -446,6 +439,6 @@ Follow these links for more information:
 
 [license-shield]: https://img.shields.io/badge/License-MIT-yellow.svg
 
-[releases-shield]: https://img.shields.io/github/release/ironsheep/p2-LED-Matrix-Driver.svg?style=for-the-badge
+[releases-shield]: https://img.shields.io/github/release/ironsheep/P2-HUB75-LED-Matrix-Driver.svg?style=for-the-badge
 
-[releases]: https://github.com/ironsheep/p2-LED-Matrix-Driver/releases
+[releases]: https://github.com/ironsheep/P2-HUB75-LED-Matrix-Driver/releases
