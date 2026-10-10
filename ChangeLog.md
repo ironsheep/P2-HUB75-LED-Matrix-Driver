@@ -6,7 +6,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for reminders on how to str
 
 ### Pages: [README](README.md) | [Hardware Turn-on](HardwareTurnon.md) | [Driver Details](THEOPS.md) | [Wiring Guide](DOCs/WiringGuide.md) | Change Log
 
-## [4.0.0] 08 Oct 2026
+## [4.0.0] 09 Oct 2026
 
 Full 8-bit color at flicker-free refresh rates, displays of any panel layout including a cube, and a new configuration and startup call.
 
@@ -44,6 +44,7 @@ Full 8-bit color at flicker-free refresh rates, displays of any panel layout inc
 - A new scrolling region starts in the default loop mode; it no longer inherits `SCROLL_FOREVER` from a released region
 - Text scrolling right with `SCROLL_ONCE_TO_CLEAR` scrolls until its region is clear, and a region wider than its text shows spaces before it
 - Text scrolling sideways no longer draws a black column just right of its region
+- Text scrolling sideways in a region longer than its text, in any mode but `SCROLL_ONCE_TO_CLEAR`, repeats the text across the whole region. Shorter regions were unaffected.
 - `setColoredTextAtLnWithAlignPad()` with `ALIGN_RIGHT` places the whole padded field on the line, and `ALIGN_CENTER` pads both sides
 - A 7-segment digit placed blank counts from 0 on its first increment
 - `demo_hub75_7seg.spin2` on a display 32 columns wide or less keeps its text
@@ -62,12 +63,21 @@ The [Update to v4.0 Checklist](Checklist-v3-v4.md) converts a v3.x program step 
 - **BREAKING**: `isp_hub75_hwBufferAccess.spin2` and `isp_hub75_hwBuffers.spin2` are never edited. Restore the release copies; a second or third adapter needs only its `DISP1_` or `DISP2_` settings.
 - **BREAKING**: `DISPx_ROTATION` states how the display is mounted, and content is drawn upright as hung. A program that sets a rotation should re-check it on the panels.
 - **BREAKING**: `panelsPerRow()`, `panelsPerColumn()`, `correctedColor()`, `correctedSingleColor()` and `colorAtDesiredBitWidth()` are removed from `isp_hub75_hwBufferAccess.spin2`, and `panelRotation()` is `displayRotation()`. Programs that draw through the display object need no change.
+- **BREAKING**: `hub75Bffrs.pwmFrameCount()` and the `PWM_FRAMES_3BIT` to `PWM_FRAMES_8BIT` constants are removed: the refresh no longer shows PWM frames. For the color depth, call `hub75Bffrs.colorDepth()`.
 - **BREAKING**: `CLK_WIDE_PULSE` is removed; it had no effect. A config that ORs it onto `CHIP_MANUAL_SPEC` does not compile until it is taken out.
 - **BREAKING**: panels must be a multiple of 4 columns wide (`DISPx_MAX_PANEL_COLUMNS`). Every common panel width is; any other stops startup with a message naming the setting.
 
 ### Performance
 
-Measured on four ICN2037 128x64 panels (256x128 pixels) at 335 MHz, 8-bit color.
+Measured at 335 MHz, 8-bit color, on one FM6124 64x32 panel, with v3.0.2 run on the same panel:
+
+- Refresh: improved from 74.0 to 85.3 Hz
+- Full-screen fill: improved from 183.2 to 0.34 ms
+- Four lines of 5x7 text: improved from 129.2 to 2.79 ms
+- Diagonal line: improved from 5.8 to 0.34 ms
+- `commitScreenToPanelSet()`: improved from 1.37 to 0.28 ms
+
+On four ICN2037 128x64 panels (256x128 pixels):
 
 - Refresh: 71.0 Hz
 - `commitScreenToPanelSet()`: 4.09 ms
@@ -77,12 +87,15 @@ Measured on four ICN2037 128x64 panels (256x128 pixels) at 335 MHz, 8-bit color.
 
 - ICN2037 128x64, four panels in a 2x2: verified at every depth, 71.0 Hz at 8-bit to 193.3 Hz at 3-bit
 - FM6126A 64x32: verified, 85.1 Hz at 8-bit
+- FM6126A 64x32, two panels stacked as one 64x64 display: verified at 8-bit
 - FM6124 64x32: verified, 85.3 Hz at 8-bit
 - MBI5124GP 64x32 (1/8 scan), two panels chained as 128x32: verified, 70.9 Hz at 8-bit
-- MBI5124GP 64x32 (1/8 scan), single panel: 71.2 Hz at 8-bit
+- MBI5124GP 64x32 (1/8 scan), single panel: verified, 71.2 Hz at 8-bit
+- GS6238S 64x32: verified at 8-bit
 
 ### Known Issues
 
+- Built with `-d`, the driver uses about 10 KB of the 16 KB DEBUG data; a program's own `debug()` text past the remaining 6 KB stops output silently
 - The ICN2038S scan setting is disputed: the driver sets `SCAN_4`, while its five address lines suggest 1/32 scan
 
 ## [3.0.1] 15 Jan 2024

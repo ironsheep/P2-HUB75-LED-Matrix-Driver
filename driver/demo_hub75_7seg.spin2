@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 08 Oct 2026
+''   Updated.... 09 Oct 2026
 ''
 '' =================================================================================================
 
@@ -39,6 +39,12 @@ CON ' ---- Display Constants ----
     DIGIT_COLUMN_C      = 35
     DIGIT_COLUMN_D      = 50
     PANEL_WIDTH         = 64
+
+    ' the layout above is designed for a display up to DESIGN_COLUMNS wide and DESIGN_ROWS tall;
+    ' on a larger display the digits and dots are centred in it (CENTER_DIVISOR halves the spare space)
+    DESIGN_COLUMNS      = 128
+    DESIGN_ROWS         = 32
+    CENTER_DIVISOR      = 2
 
     ' display width, in pixel columns, above which the next digits are shown
     WIDTH_FOR_4_DIGITS  = 32
@@ -85,6 +91,8 @@ OBJ ' ---- Objects ----
 VAR ' ---- Per-instance State ----
 
     LONG    chainIndex
+    LONG    rowBase                                                 ' rows the digits and dots are moved down to centre them
+    LONG    columnBase                                              ' columns they are moved right
 
 PUB start() | hours, minutes, hours24, displayColumns
 '' Start underlying drivers and run the seven-segment clock demo.
@@ -101,6 +109,8 @@ PUB start() | hours, minutes, hours24, displayColumns
   display.start(display.HUB75_ADAPTER_1)
 
   displayColumns := hub75Bffrs.maxDisplayColumns(chainIndex)
+  rowBase := 0 #> ((hub75Bffrs.maxDisplayRows(chainIndex) - DESIGN_ROWS) / CENTER_DIVISOR)
+  columnBase := 0 #> ((displayColumns - DESIGN_COLUMNS) / CENTER_DIVISOR)
 
   '  SEVEN SEGMENT DEMO
 
@@ -112,17 +122,17 @@ PUB start() | hours, minutes, hours24, displayColumns
   display.commitScreenToPanelSet()
 
   ' High Speed CLOCK demo
-  digit[HOURS_TENS].placeDigit(chainIndex, DIGIT_ROW, DIGIT_COLUMN_A, DIGIT_ZERO, color.cOrange)
-  digit[HOURS_ONES].placeDigit(chainIndex, DIGIT_ROW, DIGIT_COLUMN_B, DIGIT_ZERO, color.cOrange)
+  digit[HOURS_TENS].placeDigit(chainIndex, rowBase + DIGIT_ROW, columnBase + DIGIT_COLUMN_A, DIGIT_ZERO, color.cOrange)
+  digit[HOURS_ONES].placeDigit(chainIndex, rowBase + DIGIT_ROW, columnBase + DIGIT_COLUMN_B, DIGIT_ZERO, color.cOrange)
   if displayColumns > WIDTH_FOR_4_DIGITS
-    digit[MINUTES_TENS].placeDigit(chainIndex, DIGIT_ROW, DIGIT_COLUMN_C, DIGIT_ZERO, color.cOrange)
-    digit[MINUTES_ONES].placeDigit(chainIndex, DIGIT_ROW, DIGIT_COLUMN_D, DIGIT_ZERO, color.cOrange)
+    digit[MINUTES_TENS].placeDigit(chainIndex, rowBase + DIGIT_ROW, columnBase + DIGIT_COLUMN_C, DIGIT_ZERO, color.cOrange)
+    digit[MINUTES_ONES].placeDigit(chainIndex, rowBase + DIGIT_ROW, columnBase + DIGIT_COLUMN_D, DIGIT_ZERO, color.cOrange)
   if displayColumns > WIDTH_FOR_6_DIGITS
-    digit[HOURS24_TENS].placeDigit(chainIndex, DIGIT_ROW, DIGIT_COLUMN_A + PANEL_WIDTH, DIGIT_ONE, color.cOrange)
-    digit[HOURS24_ONES].placeDigit(chainIndex, DIGIT_ROW, DIGIT_COLUMN_B + PANEL_WIDTH, DIGIT_TWO, color.cOrange)
+    digit[HOURS24_TENS].placeDigit(chainIndex, rowBase + DIGIT_ROW, columnBase + DIGIT_COLUMN_A + PANEL_WIDTH, DIGIT_ONE, color.cOrange)
+    digit[HOURS24_ONES].placeDigit(chainIndex, rowBase + DIGIT_ROW, columnBase + DIGIT_COLUMN_B + PANEL_WIDTH, DIGIT_TWO, color.cOrange)
   if displayColumns > WIDTH_FOR_8_DIGITS
-    digit[MINUTES2_TENS].placeDigit(chainIndex, DIGIT_ROW, DIGIT_COLUMN_C + PANEL_WIDTH, DIGIT_ZERO, color.cOrange)
-    digit[MINUTES2_ONES].placeDigit(chainIndex, DIGIT_ROW, DIGIT_COLUMN_D + PANEL_WIDTH, DIGIT_ZERO, color.cOrange)
+    digit[MINUTES2_TENS].placeDigit(chainIndex, rowBase + DIGIT_ROW, columnBase + DIGIT_COLUMN_C + PANEL_WIDTH, DIGIT_ZERO, color.cOrange)
+    digit[MINUTES2_ONES].placeDigit(chainIndex, rowBase + DIGIT_ROW, columnBase + DIGIT_COLUMN_D + PANEL_WIDTH, DIGIT_ZERO, color.cOrange)
 
   display.commitScreenToPanelSet()
   wait100thSecs(SEGMENT_PERIOD)
@@ -186,11 +196,11 @@ PRI showSecondsDots(lightDark) | targetColor
   else
     targetColor := DOT_BRIGHT_COLOR
 
-  drawSecondsDot(DOT_ROW_UPPER, DOT_COLUMN, targetColor)
-  drawSecondsDot(DOT_ROW_LOWER, DOT_COLUMN, targetColor)
+  drawSecondsDot(rowBase + DOT_ROW_UPPER, columnBase + DOT_COLUMN, targetColor)
+  drawSecondsDot(rowBase + DOT_ROW_LOWER, columnBase + DOT_COLUMN, targetColor)
   if hub75Bffrs.maxDisplayColumns(chainIndex) > WIDTH_FOR_8_DIGITS
-    drawSecondsDot(DOT_ROW_UPPER, DOT_COLUMN + PANEL_WIDTH, targetColor)
-    drawSecondsDot(DOT_ROW_LOWER, DOT_COLUMN + PANEL_WIDTH, targetColor)
+    drawSecondsDot(rowBase + DOT_ROW_UPPER, columnBase + DOT_COLUMN + PANEL_WIDTH, targetColor)
+    drawSecondsDot(rowBase + DOT_ROW_LOWER, columnBase + DOT_COLUMN + PANEL_WIDTH, targetColor)
 
 PRI drawSecondsDot(row, column, rgbColor)
 ' Draw a 2x2 pixel dot at the given row and column.

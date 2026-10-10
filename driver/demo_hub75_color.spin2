@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 08 Oct 2026
+''   Updated.... 09 Oct 2026
 ''
 '' =================================================================================================
 
@@ -38,7 +38,7 @@ CON ' ---- Demo Selection ----
     #1, DEMO_TEXT, DEMO_PARALLAX, DEMO_HUE_GROUPS, DEMO_HUE_LINES, DEMO_PALETTE, DEMO_SWEEP, DEMO_BRIGHTNESS, DEMO_COLOR_BLAST, DEMO_TEXT_AGAIN, DEMO_SCREEN_BLAST, DEMO_BMP_FILE
 
     DEMO_COUNT          = DEMO_BMP_FILE                             ' number of demos in the sequence
-    DEMO_PASSES         = 20                                        ' times the whole sequence repeats
+    DEMO_PASSES         = 2                                         ' times the whole sequence repeats
     DEMO_PAUSE_SECONDS  = 3                                         ' seconds between demos (time for current meas. to settle)
     MS_PER_SECOND       = 1000
 
@@ -55,8 +55,6 @@ CON ' ---- Colour Arithmetic ----
     CHANNEL_MAX         = 255                                       ' full brightness of one colour channel
     CHANNEL_LEVELS      = 256                                       ' distinct levels of one colour channel
     DECIMAL_BASE        = 10
-    HUNDREDS_PLACE      = 100                                       ' place value of the hundreds digit of a frame count
-    ASCII_SPACE         = $20
     ASCII_ZERO          = $30                                       ' the character '0'
 
     ' brightness levels used by the swatch grid (percent of CHANNEL_MAX)
@@ -76,7 +74,6 @@ CON ' ---- Test Pattern Layout ----
     LINE_0              = 0                                         ' text line numbers, counted from the top
     LINE_1              = 1
     LINE_2              = 2
-    LINE_3              = 3
     FIRST_COLUMN        = 0                                         ' text lines start at the left edge
 
     SCAN_BAND_ROWS      = 4                                         ' height of a band in the 1/8 scan check
@@ -117,7 +114,7 @@ CON ' ---- Test Pattern Layout ----
     SWEEP_FIRST_ROW     = 2                                         ' top row of the first colour sweep
     SWEEP_ROW_SLOTS     = 8                                         ' sweep bands the panel height is divided into
 
-    BLAST_PASSES        = 5                                         ' times demoScreenBlast cycles the eight colours
+    BLAST_PASSES        = 1                                         ' times demoScreenBlast cycles the eight colours
     BLAST_HOLD_MS       = 2000                                      ' time each colour is held by demoScreenBlast
     BLAST_TILES_X       = 4                                         ' tiles across in colorBlast
     BLAST_TILES_Y       = 2                                         ' tiles down in colorBlast
@@ -134,7 +131,6 @@ OBJ ' ---- Objects ----
 
 DAT ' ---- Demo Data ----
 
-    pwmMsg      BYTE    "XXXfrm pwm",0
     bitMsg      BYTE    "-RGB "
     bitCt       BYTE    "nbit-",0
 
@@ -234,36 +230,18 @@ PRI demoParallax() | rtCol, ltCol, topRow, botRow
     display.setColoredTextAtLnCol(LINE_2, FIRST_COLUMN, string("Propeller2"), color.cBlue)
     display.commitScreenToPanelSet()
 
-PRI demoText() | frameCount
+PRI demoText()
 ' Draw demo text showing driver info on the LED matrix.
 '
-
-' Local Variables:
-' @local frameCount - number of PWM frames for current config
 
     display.setTextFont(display.TEXT_FONT_5x7)          ' font size
     display.setCursor(0, 0)                             ' start at top left, with one pixel of spacing
     display.setColoredTextAtLnCol(LINE_0, FIRST_COLUMN, string("iron sheep"), color.cMaroon)
 
-    frameCount := hub75Bffrs.pwmFrameCount(chainIndex)
-    case hub75Bffrs.colorDepth(chainIndex)
-        hub75Bffrs.DEPTH_3BIT:
-            pwmMsg.BYTE[0] := ASCII_SPACE
-            pwmMsg.BYTE[1] := ASCII_SPACE
-            pwmMsg.BYTE[2] := ASCII_ZERO + frameCount
-        hub75Bffrs.DEPTH_7BIT,hub75Bffrs.DEPTH_8BIT:
-            pwmMsg.BYTE[0] := ASCII_ZERO + (frameCount / HUNDREDS_PLACE)
-            pwmMsg.BYTE[1] := ASCII_ZERO + ((frameCount // HUNDREDS_PLACE) / DECIMAL_BASE)
-            pwmMsg.BYTE[2] := ASCII_ZERO + ((frameCount // HUNDREDS_PLACE) // DECIMAL_BASE)
-        other:
-            pwmMsg.BYTE[0] := ASCII_SPACE
-            pwmMsg.BYTE[1] := ASCII_ZERO + (frameCount / DECIMAL_BASE)
-            pwmMsg.BYTE[2] := ASCII_ZERO + (frameCount // DECIMAL_BASE)
     bitCt.BYTE[0] := hub75Bffrs.colorDepth(chainIndex) + ASCII_ZERO
 
     display.setColoredTextAtLnCol(LINE_1, FIRST_COLUMN, @bitMsg, color.cOrange)
-    display.setColoredTextAtLnCol(LINE_2, FIRST_COLUMN, @pwmMsg, color.cRainbow)
-    display.setColoredTextAtLnCol(LINE_3, FIRST_COLUMN, string("led matrix"), color.cWhite)
+    display.setColoredTextAtLnCol(LINE_2, FIRST_COLUMN, string("led matrix"), color.cWhite)
     display.commitScreenToPanelSet()
 
 PRI show18scanColorCheck() | band

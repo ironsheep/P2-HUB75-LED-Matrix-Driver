@@ -4,6 +4,13 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 
 ## Active
 
+### Driver `debug()` footprint: about 10 KB of a program's 16 KB DEBUG data (finding; disposition: punch list, Stephen 2026-10-09)
+
+- **Found:** 2026-10-09, «#111», at the quad recheck. `test_hub75_rates.spin2`'s workload report died partway through ("CLK high") and once printed for 17 minutes: the 16 KB DEBUG data cap fails silently below the compiler's error (P2KB `p2kbSpin2DbgDebugStrategyGuide`). On that program the usable ceiling lay between 15,183 bytes (clean) and 15,357 (broken). The test's prose was moved into `DAT` strings with `zstr_()` (13,593 bytes); every self-test then passed (`DOCs/bench/RUN-NOTES.md`, 2026-10-09 evening).
+- **What remains:** the driver's own objects put about 9.5 KB of DEBUG data into any `-d` build (`demo_hub75_text` 9,488, `demo_hub75_color` 9,657, `demo_hub75_scroll` 9,535 bytes; measured as the `-d` `.bin` minus the plain `.bin`), from about 120 `debug()` statements, most in `isp_hub75_rgb3bit.spin2` (43) and `isp_hub75_hwBufferAccess.spin2` (35). A program has about 6 KB left for its own `debug()` text before output can stop silently. Recorded in the 4.0.0 ChangeLog Known Issues.
+- **Levers:** move the driver's `debug()` prose into `DAT` strings emitted with `zstr_()` (keep a literal on each side of a `zstr_()` so the debugger adds no ", "); put verbose startup tracing on `debug[N]()` channels under a per-object `DEBUG_MASK`, off by default, keeping the `HUB75:` wiring messages users need.
+- **Bears on:** every user who builds with `-d`; the next release's Known Issues line.
+
 ### FM6124 and FM6126A: CLK-to-SDO delay not read against the chain clock (finding, 2026-10-07)
 
 - **Found:** 2026-10-07, «#110». Two chained MBI5124GP panels lost or gained red in the first column of each panel at 22.3 MHz: a chip's rated clock is one chip's, and in a chain the period must also cover the CLK-to-SDO delay plus the next chip's SDI setup. The MBI5124GP now runs at that limit (18.9 MHz; `DOCs/ChipCharacteristicsMatrix.md`, ratings notes).
@@ -16,7 +23,7 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 - **Found:** 2026-10-05, by the FRAME-RATE closeout audit (§3 verify).
 - **What:** `test_hub75_rates.spin2` calls `display.showFrameSet()` only with NULL (refused, PASS). Its accepted path (a valid, caller-built frame set taken by the refresh cog) and its refusal of a foreign address have never run. Nothing in the driver or demos calls it; its first user is the slideshow sprint.
 - **Test written:** `DOCs/plans/2026-10-05-showFrameSet-test-checks.patch` adds `showIdleFrameSet()`: copy the set on display into the idle set, post it with `showFrameSet()`, and have the take check expect one more take; then offer the screen buffer's address, which must be refused. Kept out of the tree because it has not completed a run.
-- **Not known:** why its one run (single FM6126A, `driver/logs/headless_261005-165311.log`) went silent after the last test pattern at 16:54:06, before reaching the new code. The same path passed at 16:22 (`-162211`). Stephen stopped further runs before release.
+- **Not known:** why its one run (single FM6126A, `driver/logs/headless_261005-165311.log`) went silent after the last test pattern at 16:54:06, before reaching the new code. Likely the DEBUG data cap (see the `debug()` footprint item above): on 2026-10-09 the same program's output died at the same point, the first workload report after the last pattern, when its DEBUG data passed about 15.2 KB; the patch adds more `debug()` text. Not yet re-run to confirm. The same path passed at 16:22 (`-162211`). Stephen stopped further runs before release.
 - **Bears on:** 4.0.0's `showFrameSet()` claim; the slideshow sprint.
 
 ### Brightness floor: settings 1-11 look the same on the quad rig (behaviour, measured; disposition: punch list, Stephen 2026-10-05)

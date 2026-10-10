@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2020
-''   Updated.... 08 Oct 2026
+''   Updated.... 09 Oct 2026
 ''
 '' =================================================================================================
 
@@ -20,10 +20,7 @@ CON ' ---- Timing ----
 
 CON ' ---- Demo Constants ----
 
-    ASCII_SPACE         = $20
     ASCII_ZERO          = $30                                       ' the character '0'
-    DECIMAL_BASE        = 10
-    HUNDRED             = 100                                       ' divisor for the hundreds digit of a frame count
     DELAY_SECONDS       = 4                                         ' pause between the static text and the scrolling text
     MS_PER_SECOND       = 1000
     MS_PER_100TH_SEC    = 10
@@ -42,7 +39,6 @@ OBJ ' ---- Objects ----
 
 DAT ' ---- String Data ----
 
-    pwmMsg      BYTE    "XXXfrm pwm",0
     bitMsg      BYTE    "-RGB "
     bitCt       BYTE    "nbit-",0
 
@@ -105,37 +101,19 @@ PRI demoScrollingText() | scrollerID
     ' delay while we stare wide-eyed at the new...
     wait100thSecs(SCROLL_PERIOD)
 
-PRI demoText() | frameCount
+PRI demoText()
 ' Display static text and panel info on the LED matrix.
 '
-
-' Local Variables:
-' @local frameCount - number of PWM frames for current color depth
 
   display.clearScreen()
   display.setTextFont(display.TEXT_FONT_5x7)            ' font size
   display.setCursor(0, 0)                               ' start at top left, with one pixel of spacing
   display.setColoredTextAtLnCol(LINE_0, FIRST_COLUMN, string("iron sheep"), color.cMaroon)
 
-  frameCount := hub75Bffrs.pwmFrameCount(chainIndex)
-  case hub75Bffrs.colorDepth(chainIndex)
-    hub75Bffrs.DEPTH_3BIT:
-      pwmMsg.BYTE[0] := ASCII_SPACE
-      pwmMsg.BYTE[1] := ASCII_SPACE
-      pwmMsg.BYTE[2] := ASCII_ZERO + frameCount
-    hub75Bffrs.DEPTH_7BIT,hub75Bffrs.DEPTH_8BIT:
-      pwmMsg.BYTE[0] := ASCII_ZERO + (frameCount / HUNDRED)
-      pwmMsg.BYTE[1] := ASCII_ZERO + ((frameCount // HUNDRED) / DECIMAL_BASE)
-      pwmMsg.BYTE[2] := ASCII_ZERO + ((frameCount // HUNDRED) // DECIMAL_BASE)
-    other:
-      pwmMsg.BYTE[0] := ASCII_SPACE
-      pwmMsg.BYTE[1] := ASCII_ZERO + (frameCount / DECIMAL_BASE)
-      pwmMsg.BYTE[2] := ASCII_ZERO + (frameCount // DECIMAL_BASE)
   bitCt.BYTE[0] := hub75Bffrs.colorDepth(chainIndex) + ASCII_ZERO
 
   display.setColoredTextAtLnCol(LINE_1, FIRST_COLUMN, @bitMsg, color.cOrange)
-  display.setColoredTextAtLnCol(LINE_2, FIRST_COLUMN, @pwmMsg, color.cMagenta)
-  display.setColoredTextAtLnCol(LINE_3, FIRST_COLUMN, string("led matrix"), color.cWhite)
+  display.setColoredTextAtLnCol(LINE_2, FIRST_COLUMN, string("led matrix"), color.cWhite)
   display.commitScreenToPanelSet()
 
 PRI waitSec(countSeconds)

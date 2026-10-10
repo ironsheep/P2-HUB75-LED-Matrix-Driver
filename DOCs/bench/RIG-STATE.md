@@ -24,4 +24,9 @@ Recorded 2026-10-08, the quad recabled for the 4.0.0 release certification
 - **Other panels on hand:** two green MBI5124GP 64×32 (1/8 scan, ADDR_ABC; chained
   as 128×32 they need a scratch config: `C0 = FIRST_PANEL | ARROW_UP`,
   `C1 = LEFT_OF | C0 | ARROW_UP`, C0 the right-hand panel from the front), 1 ×
-  64×32 FM6126A (ABCD) and the orange 1 × 64×32 FM6124 (ABCD).
+  64×32 FM6126A (ABCD), colour-patched pink (a second pink, possibly damaged, makes a pink
+  pair), the orange 1 × 64×32 FM6124 (ABCD), and a cyan-patched GS6238S panel. The
+  single panels carry a colour patch naming their chip; the quad's panels do not.
+- **Pink FM6126A idle draw** (powered, no data cable; Stephen 2026-10-09): the good pink
+  0 A, 0 W; the suspect pink 1.2 A, 5.1 W. A panel with no data should draw almost nothing,
+  so the suspect pink is drawing current it should not.

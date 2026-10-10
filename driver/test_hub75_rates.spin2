@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Oct 2026
-''   Updated.... 08 Oct 2026
+''   Updated.... 09 Oct 2026
 ''
 '' =================================================================================================
 
@@ -72,6 +72,13 @@
    must report FAIL (the address-rule lines do not use the step and still PASS); build with
    pnut-ts -D HUB75_CORRUPT_PIXEL_ADDRESS  and pixelAddressAtRC() answers one pixel early, so every
    address-rule line must report FAIL.
+
+   Then the scroll oracle self-test: a short text scrolled along a whole text line, left and right
+   in SCROLL_FOREVER and left in SCROLL_ONCE_TO_CLEAR, is compared at character boundaries with the
+   same characters drawn as static text, an independent drawing; SCROLL ORACLE PASS/FAIL.
+   Falsification: build it against the scroller as committed before 09 Oct 2026 and all 15 frames
+   must report FAIL (a window's last column left undrawn, the text wrapped only once, the window
+   drawn before its mode was set).
 
    With the adapter at base P0 the instrument reports its monitors unavailable (the strobes would
    be that adapter's colour lines) and this program prints only draw and commit times.
@@ -184,7 +191,26 @@ CON ' ---- Colour table self-test ----
     GAMMA_CASE_ON           = 1
     GAMMA_CASE_COUNT        = 2
 
-CON ' ---- Row-run self-test ----
+CON ' ---- Scroll oracle self-test ----
+
+    ' Each case scrolls ORACLE_TEXT on text line ORACLE_LINE across the whole line, which holds the
+    ' text more than twice on every panel width this driver runs, and compares the screen buffer with
+    ' the same characters drawn as static text (display.setColoredTextAtLnCol()): an independent
+    ' drawing, so a frame wrong in both scroller paths alike is still seen. A case is compared on the
+    ' steps whose frame lies on a character boundary.
+    '  ORACLE_LEFT_FOREVER  - scrolling left in SCROLL_FOREVER: the text repeats along the line
+    '  ORACLE_RIGHT_FOREVER - scrolling right in SCROLL_FOREVER
+    '  ORACLE_LEFT_CLEAR    - scrolling left in SCROLL_ONCE_TO_CLEAR, the mode set after the start
+    '  ORACLE_CASE_COUNT    - number of cases
+    #0, ORACLE_LEFT_FOREVER, ORACLE_RIGHT_FOREVER, ORACLE_LEFT_CLEAR, ORACLE_CASE_COUNT
+
+    ORACLE_LINE             = 1                             ' text line the cases scroll on
+    ORACLE_FIELD_PIX        = 6                             ' 5x7 font: 5 pixel columns and a 1 pixel gap
+    ORACLE_RIGHT_LEAD       = 5                             ' a right scroll first lies on a boundary after this many steps
+    ORACLE_STEP_COUNT       = 5                             ' boundaries compared per case (oracleBoundaries)
+    ORACLE_MAX_COLUMNS      = 64                            ' longest text line the expected string holds
+    HASH_ROTATE             = 5                             ' bits each long rotates the buffer hash by
+
 
     ' Layouts the panels are laid out in for the test:
     '  LAYOUT_OWN        - the adapter's own wiring (DISP0_C0 .. C15), with every arrow replaced
@@ -226,6 +252,8 @@ CON ' ---- Row-run self-test ----
     '  ROW_CASE_SCROLL_IN_DOWN  - text scrolling down, dithered, inside one panel
     '  ROW_CASE_SCROLL_OVERDRAW - text scrolling left inside one panel while a box is drawn over its
     '                             window and the buffer is cleared between steps (the window watch)
+    '  ROW_CASE_SCROLL_CLEAR    - text scrolling left inside one panel in SCROLL_ONCE_TO_CLEAR, set after
+    '                             the scroll starts, in a window wider than the text (spaces past it)
     '  ROW_CASE_FILL_PANEL    - one whole panel filled (display.fillPanel())
     '  ROW_CASE_FILL_AREA     - layout rectangles across cells and off the layout (fillLayoutArea())
     '  ROW_CASE_BMP           - the BMP placed with a content rotation
@@ -234,7 +262,7 @@ CON ' ---- Row-run self-test ----
     #0, ROW_CASE_LINES, ROW_CASE_OFF_DISPLAY, ROW_CASE_PANEL_CLIP, ROW_CASE_COLUMNS, ROW_CASE_COLUMN_OFF, ...
     ROW_CASE_COLUMN_CLIP, ROW_CASE_BOXES, ROW_CASE_DIAGONALS, ROW_CASE_CIRCLES, ROW_CASE_TEXT_5X7, ROW_CASE_TEXT_DITHERED, ROW_CASE_TEXT_8X8, ...
     ROW_CASE_SCROLL_LEFT, ROW_CASE_SCROLL_RIGHT, ROW_CASE_SCROLL_UP, ROW_CASE_SCROLL_DOWN, ...
-    ROW_CASE_SCROLL_IN_LEFT, ROW_CASE_SCROLL_IN_RIGHT, ROW_CASE_SCROLL_IN_UP, ROW_CASE_SCROLL_IN_DOWN, ROW_CASE_SCROLL_OVERDRAW, ...
+    ROW_CASE_SCROLL_IN_LEFT, ROW_CASE_SCROLL_IN_RIGHT, ROW_CASE_SCROLL_IN_UP, ROW_CASE_SCROLL_IN_DOWN, ROW_CASE_SCROLL_OVERDRAW, ROW_CASE_SCROLL_CLEAR, ...
     ROW_CASE_FILL_PANEL, ROW_CASE_FILL_AREA, ROW_CASE_BMP, ROW_CASE_SEGMENTS, ROW_CASE_COUNT
 
     ' Cases run on every layout: those before the first text case
@@ -318,6 +346,10 @@ CON ' ---- Row-run self-test ----
     OVERDRAW_BOX_INSET      = 2
     OVERDRAW_BOX_SIZE       = 4
     OVERDRAW_COLOR          = $40_FF_40
+
+    ' The clear-mode scroll case: a window CLEAR_WINDOW_CHARS wide, wider than scrollText, so past
+    ' the text it shows the text again until SCROLL_ONCE_TO_CLEAR is set, and spaces after
+    CLEAR_WINDOW_CHARS      = 9
 
     ' Sloped lines run DIAG_REACH pixels past the display's edges; the steep ones lean
     ' DIAG_STEEP_RUN columns either side of the first cell boundary
@@ -431,6 +463,116 @@ DAT ' ---- Test State (singleton) ----
     insideDirections LONG   display.DIR_TO_LEFT, display.DIR_TO_RIGHT, display.DIR_UP, display.DIR_DOWN   ' the inside-a-panel scroll cases, in case order
     emptyNote       BYTE    0                               ' no note after a case line
 
+    ' the scroll oracle self-test (see runScrollOracleTest())
+    oracleText      BYTE    "AB12CD", 0                     ' shorter than half of every text line
+    oracleBoundaries LONG   0, 1, 3, 8, 13                  ' character boundaries compared: up to twice past the text
+    oracleExpected  BYTE    0[ORACLE_MAX_COLUMNS + 1]       ' the line the scroller should show, zero-terminated
+
+DAT ' ---- Debug text (in hub RAM, not in the DEBUG data, which is limited to 16 KB and fails silently near it) ----
+
+    ' Each string is a debug() literal without its first and last characters, which stay inline:
+    ' a literal on each side keeps the debugger from putting ", " between it and a value
+
+    dbgHub75Workload             BYTE    "ATES: ---- HUB75 rates workload ---", 0
+    dbgColourDepth               BYTE    "ATES: colour depth", 0
+    dbgBitsAdapterBaseP          BYTE    "bits, adapter base ", 0
+    dbgInstrumentNotStartedStatu BYTE    "ATES: instrument not started (status", 0
+    dbgDrawAndCommitTimesOnly    BYTE    ": draw and commit times onl", 0
+    dbgEndSession                BYTE    "ND_SESSIO", 0
+    dbgScrollOracleSelfTest      BYTE    "ATES: ---- SCROLL ORACLE self-test ---", 0
+    dbgScrollOracle              BYTE    "ATES: scroll oracle", 0
+    dbgStepsFailTheFrameDiffers  BYTE    "steps: FAIL, the frame differs from the static text ", 0
+    dbgScrollOraclePass          BYTE    "ATES: SCROLL ORACLE PASS:", 0
+    dbgFramesIdenticalToTheStati BYTE    "frames identical to the static tex", 0
+    dbgScrollOracleFail          BYTE    "ATES: SCROLL ORACLE FAIL:", 0
+    dbgFramesDifferFromTheStatic BYTE    "frames differ from the static tex", 0
+    dbgColourTableSelfTest       BYTE    "ATES: ---- COLOUR TABLE self-test ---", 0
+    dbgHub75CorruptColourTableIs BYTE    "ATES: HUB75_CORRUPT_COLOUR_TABLE is defined: colorUtils writes one wrong entry into every table, so every case must FAI", 0
+    dbgColourTableScratchDepth   BYTE    "ATES: colour table scratch depth", 0
+    dbgMismatchesOf              BYTE    "mismatches of", 0
+    dbgColourTableLiveDepth      BYTE    "ATES: colour table live depth", 0
+    dbgColourPackingPackedcorrec BYTE    "ATES: colour packing (packedCorrectedColor, packedCorrectedRgb) against the channel function:", 0
+    dbgColourTablePass           BYTE    "ATES: COLOUR TABLE PASS:", 0
+    dbgEntriesComparedWithTheOld BYTE    "entries compared with the old function, none diffe", 0
+    dbgColourTableFail           BYTE    "ATES: COLOUR TABLE FAIL:", 0
+    dbgEntriesDifferFromTheOld   BYTE    "entries differ from the old functio", 0
+    dbgColourPackingMismatchFirs BYTE    "ATES: colour packing MISMATCH first at", 0
+    dbgExpected                  BYTE    " expected", 0
+    dbgByValue                   BYTE    " by value", 0
+    dbgByChannels                BYTE    " by channels", 0
+    dbgColourTableMismatchDepth  BYTE    "ATES: colour table MISMATCH depth", 0
+    dbgOldFunction               BYTE    " old function", 0
+    dbgRowRunSelfTest            BYTE    "ATES: ---- ROW RUN self-test ---", 0
+    dbgHub75CorruptRowRunIs      BYTE    "ATES: HUB75_CORRUPT_ROW_RUN is defined: the run step is one byte short, so every run case must FAIL (the address-rule lines do not use it", 0
+    dbgHub75CorruptPixelAddressI BYTE    "ATES: HUB75_CORRUPT_PIXEL_ADDRESS is defined: pixelAddressAtRC() answers one pixel early, so every address-rule line must FAI", 0
+    dbgRowRun                    BYTE    "ATES: row run", 0
+    dbgNotRunItNeeds             BYTE    " not run, it needs", 0
+    dbgPanelsAndThisAdapterHas   BYTE    "panels and this adapter has", 0
+    dbgFailLayoutRefusedMessageA BYTE    " FAIL, layout refused (message above", 0
+    dbgAddressRulePass           BYTE    "address rule: PASS,", 0
+    dbgPointsEqualTheOldRule     BYTE    "points equal the old rul", 0
+    dbgAddressRuleFail           BYTE    "address rule: FAIL,", 0
+    dbgPointsDifferFromTheOld    BYTE    "points differ from the old rul", 0
+    dbgFailTheReferenceDrewNothi BYTE    " FAIL, the reference drew nothing, so nothing was compare", 0
+    dbgLongsDrawnBufferIdentical BYTE    "longs drawn, buffer identica", 0
+    dbgBytesDifferFirstAtByte    BYTE    "bytes differ, first at byte offset", 0
+    dbgLongsDrawn                BYTE    "longs drawn", 0
+    dbgRowRunPass                BYTE    "ATES: ROW RUN PASS:", 0
+    dbgCasesIdenticalByteForByte BYTE    "cases identical byte for byte, address rule equal on every layout run,", 0
+    dbgLayoutsNotRunPanelCount   BYTE    "layouts not run (panel count), in", 0
+    dbgRowRunFail                BYTE    "ATES: ROW RUN FAIL:", 0
+    dbgLayoutsRefused            BYTE    "layouts refused,", 0
+    dbgDifferingBytesAndPoints   BYTE    "differing bytes and points,", 0
+    dbgCasesRun                  BYTE    "cases ru", 0
+    dbgRowRunAddressMismatchFirs BYTE    "ATES: row run address MISMATCH first at row", 0
+    dbgFailFirstCommitAfterStart BYTE    "ATES: FAIL: first commit after start: a set was on display ", 0
+    dbgBeforeAnySetWasTaken      BYTE    " before any set was take", 0
+    dbgPassFirstCommitAfterStart BYTE    "ATES: PASS: first commit after start: nothing on display ", 0
+    dbgConvertedWithoutWaiting   BYTE    ", converted without waitin", 0
+    dbgTrace                     BYTE    "ATES: trace", 0
+    dbgConverted                 BYTE    " converted", 0
+    dbgShownAtPost               BYTE    "shown at post", 0
+    dbgShownNow                  BYTE    "shown now", 0
+    dbgFailCommit                BYTE    "ATES: FAIL: commit", 0
+    dbgConvertedIntoTheSetOn     BYTE    "converted into the set on display,", 0
+    dbgConvertedBeforeTheSetPost BYTE    "converted before the set posted by commit", 0
+    dbgWasTakenOnDisplayWas      BYTE    " was taken; on display was", 0
+    dbgFail                      BYTE    "ATES: FAIL:", 0
+    dbgCommitsCountedExpected    BYTE    "commits counted, expected", 0
+    dbgFailThePanelObjectCounted BYTE    "ATES: FAIL: the panel object counted", 0
+    dbgCommitsThatConvertedIntoT BYTE    "commits that converted into the set on displa", 0
+    dbgHandshakePass             BYTE    "ATES: HANDSHAKE PASS:", 0
+    dbgCommitsNoneConvertedIntoT BYTE    "commits, none converted into the set on display;", 0
+    dbgPostsWaitedForThePrevious BYTE    "posts waited for the previous post to be take", 0
+    dbgHandshakeFail             BYTE    "ATES: HANDSHAKE FAIL:", 0
+    dbgProblemSIn                BYTE    "problem(s) in", 0
+    dbgBrightnessLabelsOffTheDis BYTE    "ATES: brightness labels off: the display holds", 0
+    dbgTextColumnsAndALabel      BYTE    "text columns and a label needs", 0
+    dbgBrightness                BYTE    "ATES: brightness", 0
+    dbgNowShowing                BYTE    "now showin", 0
+    dbgRefresh                   BYTE    " refresh", 0
+    dbgTearingTestWhiteAndBlack  BYTE    "ATES: TEARING TEST: white and black alternating for", 0
+    dbgTearingTestDone           BYTE    "ATES: TEARING TEST done:", 0
+    dbgCommitsIn                 BYTE    "commits in", 0
+    dbgPattern                   BYTE    "ATES: PATTERN", 0
+    dbgFrameSetTakesWerePart     BYTE    "frame-set takes were part way through a frame (latest at row address", 0
+    dbgFailTheTakeCheckSaw       BYTE    "ATES: FAIL: the take check saw", 0
+    dbgTakesFor                  BYTE    "takes for", 0
+    dbgFailTheTakeCheckSaw2      BYTE    "ATES: FAIL: the take check saw no take", 0
+    dbgTakeCheckPass             BYTE    "ATES: TAKE CHECK PASS:", 0
+    dbgFrameSetTakesAtA          BYTE    "frame-set takes at a frame boundary (row address", 0
+    dbgOnThePinsOnePer           BYTE    "on the pins), one per commi", 0
+    dbgTakeCheckFail             BYTE    "ATES: TAKE CHECK FAIL:", 0
+    dbgProblemS                  BYTE    "problem(s);", 0
+    dbgOnTheBoundary             BYTE    "on the boundary,", 0
+    dbgPassShowframeset0RefusedI BYTE    "ATES: PASS: showFrameSet(0) refused (its message is the line above", 0
+    dbgFailShowframeset0WasNot   BYTE    "ATES: FAIL: showFrameSet(0) was not refused as a NULL frame set, status", 0
+    dbgDepth                     BYTE    "ATES: depth", 0
+    dbgRisesSClkHigh             BYTE    "rises/s, CLK high", 0
+    dbgNsDraw                    BYTE    "ns, draw", 0
+    dbgUsCommit                  BYTE    "uS, commit", 0
+    dbgMonitorsUnavailableDraw   BYTE    " monitors unavailable, draw", 0
+
 PUB main() : workerCog | nCommitsBefore, instrumentStatus, takeCheckStatus
 '' Start adapter 1 and the instrument, run every phase of the workload, report, and end the session.
 ''
@@ -441,18 +583,19 @@ PUB main() : workerCog | nCommitsBefore, instrumentStatus, takeCheckStatus
 ' @local instrumentStatus - instrument.SUCCESS if the instrument started a monitor, or the reason it did not
 ' @local takeCheckStatus - instrument.SUCCESS if the take check started
 
-  debug("RATES: ---- HUB75 rates workload ----")
+  debug("R", zstr_(@dbgHub75Workload), "-")
 
   workerCog := display.start(display.HUB75_ADAPTER_1)
   ' display.start() aborts with a message when no cog is free, so a return here is a started cog
   chainIndex := hub75Bffrs.indexForHub75ChainId(hub75Bffrs.HUB75_ADAPTER_1)
   colorDepth := hub75Bffrs.colorDepth(chainIndex)
-  debug("RATES: colour depth ", udec_(colorDepth), " bits, adapter base P", udec_(hub75Bffrs.pinBase(chainIndex)))
+  debug("R", zstr_(@dbgColourDepth), " ", udec_(colorDepth), " ", zstr_(@dbgBitsAdapterBaseP), "P", udec_(hub75Bffrs.pinBase(chainIndex)))
   runColourTableTest()
   runRowRunTest()
+  runScrollOracleTest()
   instrumentStatus := instrument.start(hub75Bffrs.pinBase(chainIndex), latchesPerRefresh())
   if instrumentStatus <> instrument.SUCCESS
-    debug("RATES: instrument not started (status ", sdec_(instrumentStatus), "): draw and commit times only")
+    debug("R", zstr_(@dbgInstrumentNotStartedStatu), " ", sdec_(instrumentStatus), ")", zstr_(@dbgDrawAndCommitTimesOnly), "y")
   nCommitsBefore := commitsPosted()
   takeCheckStatus := instrument.startTakeCheck(rowsPerRefresh() - 1)
   runPatterns()
@@ -465,7 +608,133 @@ PUB main() : workerCog | nCommitsBefore, instrumentStatus, takeCheckStatus
     reportTakeCheck(nCommitsBefore)
   instrument.stop()
   display.stop()
-  debug("END_SESSION")
+  debug("E", zstr_(@dbgEndSession), "N")
+
+PRI runScrollOracleTest() | caseIdx, boundaryIdx, nSteps, nFailed, nCompared, scrollHash, staticHash
+' Scroll ORACLE_TEXT along a whole text line in each ORACLE_* case and, at each character boundary
+' in oracleBoundaries, compare the screen buffer with the line's expected characters drawn as static
+' text. SCROLL ORACLE PASS only if every compared frame is identical. The font is put back and the
+' screen buffer cleared afterwards.
+'
+' Local Variables:
+' @local caseIdx - ORACLE_* case being run
+' @local boundaryIdx - entry of oracleBoundaries being compared
+' @local nSteps - animation steps to the boundary being compared
+' @local nFailed - frames that differed
+' @local nCompared - frames compared
+' @local scrollHash - hash of the screen buffer holding the scroller's frame
+' @local staticHash - hash of the screen buffer holding the static text
+
+  debug("R", zstr_(@dbgScrollOracleSelfTest), "-")
+  nFailed := 0
+  nCompared := 0
+  display.setTextFont(display.TEXT_FONT_5x7)
+  repeat caseIdx from 0 to ORACLE_CASE_COUNT - 1
+    repeat boundaryIdx from 0 to ORACLE_STEP_COUNT - 1
+      nSteps := LONG[@oracleBoundaries][boundaryIdx] * ORACLE_FIELD_PIX
+      if caseIdx == ORACLE_RIGHT_FOREVER
+        nSteps += ORACLE_RIGHT_LEAD
+      scrollHash := scrolledFrameHash(caseIdx, nSteps)
+      buildOracleLine(caseIdx, LONG[@oracleBoundaries][boundaryIdx])
+      display.clearScreenBuffer()
+      display.setColoredTextAtLnCol(ORACLE_LINE, 0, @oracleExpected, RUN_TEST_COLOR)
+      staticHash := screenHash()
+      nCompared++
+      if scrollHash <> staticHash
+        nFailed++
+        debug("R", zstr_(@dbgScrollOracle), " ", zstr_(oracleLabel(caseIdx)), " after ", udec_(nSteps), " ", zstr_(@dbgStepsFailTheFrameDiffers), "[", zstr_(@oracleExpected), "]")
+  display.setTextFont(display.TEXT_FONT_DEFAULT)
+  display.clearScreenBuffer()
+  if nFailed == 0
+    debug("R", zstr_(@dbgScrollOraclePass), " ", udec_(nCompared), " ", zstr_(@dbgFramesIdenticalToTheStati), "t")
+  else
+    debug("R", zstr_(@dbgScrollOracleFail), " ", udec_(nFailed), " of ", udec_(nCompared), " ", zstr_(@dbgFramesDifferFromTheStatic), "t")
+
+PRI scrolledFrameHash(caseIdx, nSteps) : frameHash | scrollerID
+' Start the case's scroller on a cleared buffer, step it nSteps times, hash the screen buffer, and
+' free the scroller.
+'
+' @param caseIdx - ORACLE_* case
+' @param nSteps - animation steps before the hash
+' @returns frameHash - hash of the screen buffer (screenHash())
+
+' Local Variables:
+' @local scrollerID - the scroller the case started
+
+  display.clearScreenBuffer()
+  if caseIdx == ORACLE_RIGHT_FOREVER
+    scrollerID := display.scrollColoredTextOnLn(ORACLE_LINE, @oracleText, display.DIR_TO_RIGHT, RUN_TEST_COLOR)
+  else
+    scrollerID := display.scrollColoredTextOnLn(ORACLE_LINE, @oracleText, display.DIR_TO_LEFT, RUN_TEST_COLOR)
+  if caseIdx == ORACLE_LEFT_CLEAR
+    display.configureScrollLoopMode(scrollerID, display.SCROLL_ONCE_TO_CLEAR)
+  else
+    display.configureScrollLoopMode(scrollerID, display.SCROLL_FOREVER)
+  repeat nSteps
+    display.animateScroll()
+  frameHash := screenHash()
+  display.releaseScroller(scrollerID)
+
+PRI buildOracleLine(caseIdx, nBoundary) | nColumns, nChars, firstChar, columnIdx, charIdx
+' Build in oracleExpected the characters the case's line shows at its nBoundary-th character
+' boundary: the text from its first visible character on, repeating end to end in SCROLL_FOREVER,
+' and spaces outside the text in SCROLL_ONCE_TO_CLEAR. A left scroll starts with the text's first
+' character at the left of the line and moves on one character per boundary; a right scroll starts
+' with the text's last character at the right of the line and moves back one per boundary.
+'
+' @param caseIdx - ORACLE_* case
+' @param nBoundary - character boundaries passed
+
+' Local Variables:
+' @local nColumns - characters the line holds
+' @local nChars - characters in the text
+' @local firstChar - text index of the line's first character (may lie outside the text)
+' @local columnIdx - line character being set
+' @local charIdx - text index that character shows
+
+  nColumns := display.numberTextColumns() <# ORACLE_MAX_COLUMNS
+  nChars := strsize(@oracleText)
+  if caseIdx == ORACLE_RIGHT_FOREVER
+    firstChar := nChars - nColumns - nBoundary
+  else
+    firstChar := nBoundary
+  repeat columnIdx from 0 to nColumns - 1
+    charIdx := firstChar + columnIdx
+    if caseIdx <> ORACLE_LEFT_CLEAR
+      charIdx := ((charIdx // nChars) + nChars) // nChars
+    if charIdx >= 0 and charIdx < nChars
+      oracleExpected[columnIdx] := oracleText[charIdx]
+    else
+      oracleExpected[columnIdx] := " "
+  oracleExpected[nColumns] := 0
+
+PRI screenHash() : bufferHash | pScreen, longIdx
+' Return a hash of the adapter's whole screen buffer: each long rotated in by HASH_ROTATE bits.
+'
+' @returns bufferHash - the hash
+
+' Local Variables:
+' @local pScreen - hub address of the screen buffer
+' @local longIdx - long being added
+
+  pScreen := hub75Bffrs.displayBufferAddress(chainIndex)
+  bufferHash := 0
+  repeat longIdx from 0 to hub75Bffrs.displaySizeInLongs(chainIndex) - 1
+    bufferHash := (bufferHash rol HASH_ROTATE) ^ LONG[pScreen][longIdx]
+
+PRI oracleLabel(caseIdx) : pLabel
+' Return the printable name of a scroll oracle case.
+'
+' @param caseIdx - ORACLE_* case
+' @returns pLabel - zero-terminated name
+
+  case caseIdx
+    ORACLE_LEFT_FOREVER:
+      pLabel := string("left forever")
+    ORACLE_RIGHT_FOREVER:
+      pLabel := string("right forever")
+    other:
+      pLabel := string("left to clear")
 
 PRI runColourTableTest() | depthIdx, gammaCase, bGamma, ledIdx, nCaseMismatches, nMismatches, nCompared
 ' Compare the colour table with the old per-pixel function for every input 0-255: a scratch table
@@ -485,35 +754,35 @@ PRI runColourTableTest() | depthIdx, gammaCase, bGamma, ledIdx, nCaseMismatches,
 
   nMismatches := 0
   nCompared := 0
-  debug("RATES: ---- COLOUR TABLE self-test ----")
+  debug("R", zstr_(@dbgColourTableSelfTest), "-")
 #IFDEF HUB75_CORRUPT_COLOUR_TABLE
-  debug("RATES: HUB75_CORRUPT_COLOUR_TABLE is defined: colorUtils writes one wrong entry into every table, so every case must FAIL")
+  debug("R", zstr_(@dbgHub75CorruptColourTableIs), "L")
 #ENDIF
   repeat depthIdx from TABLE_DEPTH_FIRST to TABLE_DEPTH_LAST
     repeat gammaCase from GAMMA_CASE_OFF to GAMMA_CASE_COUNT - 1
       bGamma := (gammaCase == GAMMA_CASE_ON)
       colorUtils.fillColorTable(@scratchTable, depthIdx, bGamma)
       nCaseMismatches := compareTable(depthIdx, bGamma, FALSE, colorUtils.LED_RED)
-      debug("RATES: colour table scratch depth ", udec_(depthIdx), " gamma ", zstr_(gammaLabel(bGamma)), ": ", udec_(nCaseMismatches), " mismatches of ", udec_(LEVEL_COUNT))
+      debug("R", zstr_(@dbgColourTableScratchDepth), " ", udec_(depthIdx), " gamma ", zstr_(gammaLabel(bGamma)), ": ", udec_(nCaseMismatches), " ", zstr_(@dbgMismatchesOf), " ", udec_(LEVEL_COUNT))
       nMismatches += nCaseMismatches
       nCompared += LEVEL_COUNT
 
   bGamma := colorUtils.isGammaEnabled()
   repeat ledIdx from colorUtils.LED_RED to colorUtils.LED_BLUE
     nCaseMismatches := compareTable(colorDepth, bGamma, TRUE, ledIdx)
-    debug("RATES: colour table live depth ", udec_(colorDepth), " gamma ", zstr_(gammaLabel(bGamma)), " channel ", udec_(ledIdx), ": ", udec_(nCaseMismatches), " mismatches of ", udec_(LEVEL_COUNT))
+    debug("R", zstr_(@dbgColourTableLiveDepth), " ", udec_(colorDepth), " gamma ", zstr_(gammaLabel(bGamma)), " channel ", udec_(ledIdx), ": ", udec_(nCaseMismatches), " ", zstr_(@dbgMismatchesOf), " ", udec_(LEVEL_COUNT))
     nMismatches += nCaseMismatches
     nCompared += LEVEL_COUNT
 
   nCaseMismatches := comparePacking()
-  debug("RATES: colour packing (packedCorrectedColor, packedCorrectedRgb) against the channel function: ", udec_(nCaseMismatches), " mismatches of ", udec_(LEVEL_COUNT * PACKING_FORMS))
+  debug("R", zstr_(@dbgColourPackingPackedcorrec), " ", udec_(nCaseMismatches), " ", zstr_(@dbgMismatchesOf), " ", udec_(LEVEL_COUNT * PACKING_FORMS))
   nMismatches += nCaseMismatches
   nCompared += LEVEL_COUNT * PACKING_FORMS
 
   if nMismatches == 0
-    debug("RATES: COLOUR TABLE PASS: ", udec_(nCompared), " entries compared with the old function, none differ")
+    debug("R", zstr_(@dbgColourTablePass), " ", udec_(nCompared), " ", zstr_(@dbgEntriesComparedWithTheOld), "r")
   else
-    debug("RATES: COLOUR TABLE FAIL: ", udec_(nMismatches), " of ", udec_(nCompared), " entries differ from the old function")
+    debug("R", zstr_(@dbgColourTableFail), " ", udec_(nMismatches), " of ", udec_(nCompared), " ", zstr_(@dbgEntriesDifferFromTheOld), "n")
 
 PRI comparePacking() : nMismatches | levelIdx, red, green, blue, expected, packedByValue, packedByChannels
 ' Compare colorUtils' packed conversions with correctedSingleColor(), channel by channel, for 256
@@ -543,7 +812,7 @@ PRI comparePacking() : nMismatches | levelIdx, red, green, blue, expected, packe
     packedByChannels := colorUtils.packedCorrectedRgb(chainIndex, red, green, blue)
     if packedByValue <> expected or packedByChannels <> expected
       if nMismatches == 0
-        debug("RATES: colour packing MISMATCH first at ", udec_(red), ",", udec_(green), ",", udec_(blue), ": expected ", uhex_long_(expected), ", by value ", uhex_long_(packedByValue), ", by channels ", uhex_long_(packedByChannels))
+        debug("R", zstr_(@dbgColourPackingMismatchFirs), " ", udec_(red), ",", udec_(green), ",", udec_(blue), ":", zstr_(@dbgExpected), " ", uhex_long_(expected), ",", zstr_(@dbgByValue), " ", uhex_long_(packedByValue), ",", zstr_(@dbgByChannels), " ", uhex_long_(packedByChannels))
       nMismatches += (packedByValue <> expected ? 1 : 0) + (packedByChannels <> expected ? 1 : 0)
 
 PRI compareTable(nDepthInBits, bGamma, bLive, ledIdx) : nMismatches | levelIdx, storedByte, expectedByte
@@ -569,13 +838,13 @@ PRI compareTable(nDepthInBits, bGamma, bLive, ledIdx) : nMismatches | levelIdx, 
       storedByte := BYTE[@scratchTable][levelIdx]
     expectedByte := referenceStored(nDepthInBits, bGamma, levelIdx)
     if storedByte <> expectedByte
-      debug("RATES: colour table MISMATCH depth ", udec_(nDepthInBits), " gamma ", zstr_(gammaLabel(bGamma)), " input ", udec_(levelIdx), ": stored ", udec_(storedByte), ", old function ", udec_(expectedByte))
+      debug("R", zstr_(@dbgColourTableMismatchDepth), " ", udec_(nDepthInBits), " gamma ", zstr_(gammaLabel(bGamma)), " input ", udec_(levelIdx), ": stored ", udec_(storedByte), ",", zstr_(@dbgOldFunction), " ", udec_(expectedByte))
       nMismatches++
 
 PRI referenceStored(nDepthInBits, bGamma, levelIdx) : storedByte | nPwmFrames, pGamma
 ' Reference copy of the old per-pixel function (colorUtils correctedSingleColor() with brightness
 ' 256, then colorAtDesiredBitWidth()): optional gamma, then (v * frames) / 255 << (8 - depth),
-' with the frame count from hub75Bffrs' PWM_FRAMES_nBIT constants as the old code took it.
+' with the frame count (1 << depth) - 1 the old code took from its PWM_FRAMES_nBIT constants.
 '
 ' @param nDepthInBits - color depth in bits per channel (3-8)
 ' @param bGamma - TRUE for gamma on
@@ -590,19 +859,7 @@ PRI referenceStored(nDepthInBits, bGamma, levelIdx) : storedByte | nPwmFrames, p
   storedByte := levelIdx
   if bGamma == TRUE
     storedByte := BYTE[pGamma][storedByte]
-  case nDepthInBits
-    hub75Bffrs.DEPTH_3BIT:
-      nPwmFrames := hub75Bffrs.PWM_FRAMES_3BIT
-    hub75Bffrs.DEPTH_4BIT:
-      nPwmFrames := hub75Bffrs.PWM_FRAMES_4BIT
-    hub75Bffrs.DEPTH_5BIT:
-      nPwmFrames := hub75Bffrs.PWM_FRAMES_5BIT
-    hub75Bffrs.DEPTH_6BIT:
-      nPwmFrames := hub75Bffrs.PWM_FRAMES_6BIT
-    hub75Bffrs.DEPTH_7BIT:
-      nPwmFrames := hub75Bffrs.PWM_FRAMES_7BIT
-    other:
-      nPwmFrames := hub75Bffrs.PWM_FRAMES_8BIT
+  nPwmFrames := (1 << nDepthInBits) - 1
   storedByte := (storedByte * nPwmFrames) / colorUtils.MAX_COLOR_VALUE
   storedByte <<= colorUtils.SOURCE_COLOR_BITS - nDepthInBits
 
@@ -651,12 +908,12 @@ PRI runRowRunTest() | startMs, layoutIdx, rotationIdx, arrowIdx, caseIdx, nCaseM
 
   startMs := getms()
   nMismatches := nFailedCases := nCases := nRefused := nSkipped := 0
-  debug("RATES: ---- ROW RUN self-test ----")
+  debug("R", zstr_(@dbgRowRunSelfTest), "-")
 #IFDEF HUB75_CORRUPT_ROW_RUN
-  debug("RATES: HUB75_CORRUPT_ROW_RUN is defined: the run step is one byte short, so every run case must FAIL (the address-rule lines do not use it)")
+  debug("R", zstr_(@dbgHub75CorruptRowRunIs), ")")
 #ENDIF
 #IFDEF HUB75_CORRUPT_PIXEL_ADDRESS
-  debug("RATES: HUB75_CORRUPT_PIXEL_ADDRESS is defined: pixelAddressAtRC() answers one pixel early, so every address-rule line must FAIL")
+  debug("R", zstr_(@dbgHub75CorruptPixelAddressI), "L")
 #ENDIF
   repeat layoutIdx from 0 to TEST_LAYOUT_COUNT - 1
     pLayout := layoutLabel(layoutIdx)
@@ -668,18 +925,18 @@ PRI runRowRunTest() | startMs, layoutIdx, rotationIdx, arrowIdx, caseIdx, nCaseM
         if layoutIdx <> LAYOUT_OWN and hub75Bffrs.maxPanels(chainIndex) <> L_LAYOUT_PANELS
           ' an L is drawn with exactly L_LAYOUT_PANELS panels, and a relayout keeps the adapter's count
           if rotationIdx == 0 and arrowIdx == 0
-            debug("RATES: row run ", zstr_(pLayout), ": not run, it needs ", udec_(L_LAYOUT_PANELS), " panels and this adapter has ", udec_(hub75Bffrs.maxPanels(chainIndex)))
+            debug("R", zstr_(@dbgRowRun), " ", zstr_(pLayout), ":", zstr_(@dbgNotRunItNeeds), " ", udec_(L_LAYOUT_PANELS), " ", zstr_(@dbgPanelsAndThisAdapterHas), " ", udec_(hub75Bffrs.maxPanels(chainIndex)))
           nSkipped++
         elseif hub75Bffrs.testRelayout(chainIndex, @testSentences, LONG[@testRotations][rotationIdx]) <> hub75Bffrs.RELAYOUT_DONE
-          debug("RATES: row run ", zstr_(pLayout), " ", zstr_(pRotation), " arrow ", zstr_(pArrow), ": FAIL, layout refused (message above)")
+          debug("R", zstr_(@dbgRowRun), " ", zstr_(pLayout), " ", zstr_(pRotation), " arrow ", zstr_(pArrow), ":", zstr_(@dbgFailLayoutRefusedMessageA), ")")
           nRefused++
         else
           display.refreshGeometry()
           nOracleMismatches, nOracleCompared := compareAddressRule()
           if nOracleMismatches == 0
-            debug("RATES: row run ", zstr_(pLayout), " ", zstr_(pRotation), " arrow ", zstr_(pArrow), " address rule: PASS, ", udec_(nOracleCompared), " points equal the old rule")
+            debug("R", zstr_(@dbgRowRun), " ", zstr_(pLayout), " ", zstr_(pRotation), " arrow ", zstr_(pArrow), " ", zstr_(@dbgAddressRulePass), " ", udec_(nOracleCompared), " ", zstr_(@dbgPointsEqualTheOldRule), "e")
           else
-            debug("RATES: row run ", zstr_(pLayout), " ", zstr_(pRotation), " arrow ", zstr_(pArrow), " address rule: FAIL, ", udec_(nOracleMismatches), " of ", udec_(nOracleCompared), " points differ from the old rule")
+            debug("R", zstr_(@dbgRowRun), " ", zstr_(pLayout), " ", zstr_(pRotation), " arrow ", zstr_(pArrow), " ", zstr_(@dbgAddressRuleFail), " ", udec_(nOracleMismatches), " of ", udec_(nOracleCompared), " ", zstr_(@dbgPointsDifferFromTheOld), "e")
             nMismatches += nOracleMismatches
             nFailedCases++
           lastCaseIdx := FULL_SET_CASES - 1
@@ -691,12 +948,12 @@ PRI runRowRunTest() | startMs, layoutIdx, rotationIdx, arrowIdx, caseIdx, nCaseM
             pNote := windowedNote(bWindowed)
             nCases++
             if nCaptured == 0
-              debug("RATES: row run ", zstr_(pLayout), " ", zstr_(pRotation), " arrow ", zstr_(pArrow), " ", zstr_(pCase), ": FAIL, the reference drew nothing, so nothing was compared")
+              debug("R", zstr_(@dbgRowRun), " ", zstr_(pLayout), " ", zstr_(pRotation), " arrow ", zstr_(pArrow), " ", zstr_(pCase), ":", zstr_(@dbgFailTheReferenceDrewNothi), "d")
               nFailedCases++
             elseif nCaseMismatches == 0
-              debug("RATES: row run ", zstr_(pLayout), " ", zstr_(pRotation), " arrow ", zstr_(pArrow), " ", zstr_(pCase), ": PASS, ", udec_(nCaptured), " longs drawn, buffer identical", zstr_(pNote))
+              debug("R", zstr_(@dbgRowRun), " ", zstr_(pLayout), " ", zstr_(pRotation), " arrow ", zstr_(pArrow), " ", zstr_(pCase), ": PASS, ", udec_(nCaptured), " ", zstr_(@dbgLongsDrawnBufferIdentical), "l", zstr_(pNote))
             else
-              debug("RATES: row run ", zstr_(pLayout), " ", zstr_(pRotation), " arrow ", zstr_(pArrow), " ", zstr_(pCase), ": FAIL, ", udec_(nCaseMismatches), " bytes differ, first at byte offset ", udec_(firstOffset), " (", udec_(nCaptured), " longs drawn)", zstr_(pNote))
+              debug("R", zstr_(@dbgRowRun), " ", zstr_(pLayout), " ", zstr_(pRotation), " arrow ", zstr_(pArrow), " ", zstr_(pCase), ": FAIL, ", udec_(nCaseMismatches), " ", zstr_(@dbgBytesDifferFirstAtByte), " ", udec_(firstOffset), " (", udec_(nCaptured), " ", zstr_(@dbgLongsDrawn), ")", zstr_(pNote))
               nMismatches += nCaseMismatches
               nFailedCases++
 
@@ -708,9 +965,9 @@ PRI runRowRunTest() | startMs, layoutIdx, rotationIdx, arrowIdx, caseIdx, nCaseM
   pixels.setPerPixelReference(FALSE)
   display.clearScreenBuffer()
   if nFailedCases == 0 and nRefused == 0
-    debug("RATES: ROW RUN PASS: ", udec_(nCases), " cases identical byte for byte, address rule equal on every layout run, ", udec_(nSkipped), " layouts not run (panel count), in ", udec_((getms() - startMs) / MS_PER_SECOND), " s")
+    debug("R", zstr_(@dbgRowRunPass), " ", udec_(nCases), " ", zstr_(@dbgCasesIdenticalByteForByte), " ", udec_(nSkipped), " ", zstr_(@dbgLayoutsNotRunPanelCount), " ", udec_((getms() - startMs) / MS_PER_SECOND), " s")
   else
-    debug("RATES: ROW RUN FAIL: ", udec_(nFailedCases), " failed, ", udec_(nRefused), " layouts refused, ", udec_(nMismatches), " differing bytes and points, ", udec_(nCases), " cases run")
+    debug("R", zstr_(@dbgRowRunFail), " ", udec_(nFailedCases), " failed, ", udec_(nRefused), " ", zstr_(@dbgLayoutsRefused), " ", udec_(nMismatches), " ", zstr_(@dbgDifferingBytesAndPoints), " ", udec_(nCases), " ", zstr_(@dbgCasesRun), "n")
 
 PRI buildTestSentences(layoutIdx, arrowWord) | cablePos, sentence
 ' Fill testSentences with one layout's wiring sentences, every panel's arrow replaced by arrowWord.
@@ -909,7 +1166,7 @@ PRI drawRowRunCase(caseIdx, caseVariant) | displayRows, displayColumns, cellRows
       display.setTextFont(rowCaseFont(caseIdx))
       display.setColoredTextAtLnCol(FIRST_TEXT_LINE, FIRST_TEXT_COLUMN, @runText, RUN_TEST_COLOR)
       display.setColoredTextAtLnCol(display.numberTextLines() - 1, display.numberTextColumns() - TEXT_TAIL_CHARS, @tailText, RUN_TEST_COLOR)
-    ROW_CASE_SCROLL_LEFT .. ROW_CASE_SCROLL_OVERDRAW:
+    ROW_CASE_SCROLL_LEFT .. ROW_CASE_SCROLL_CLEAR:
       ' each region is placed on a panel that every layout has, so it always draws something:
       ' the last panel in reading order is in the bottom cell row, P0 is the first panel, and
       ' edgePanelRow() finds a panel in the rightmost cell column
@@ -942,6 +1199,12 @@ PRI drawRowRunCase(caseIdx, caseVariant) | displayRows, displayColumns, cellRows
           repeat OVERDRAW_STEPS
             display.animateScroll()
           display.clearScreenBuffer()
+        ROW_CASE_SCROLL_CLEAR:
+          ' the window is drawn as the scroll starts, before its mode is set; setting the mode must
+          ' draw it again, or every later step moves a frame of the wrong mode
+          panelRow, panelColumn := hub75Bffrs.offsetToPanel(chainIndex, PANEL_P0)
+          scrollCaseRegion := display.scrollTextAtRCOfColor(panelRow + RUN_INSET, panelColumn + RUN_INSET, CLEAR_WINDOW_CHARS, @scrollText, display.DIR_TO_LEFT, RUN_TEST_COLOR)
+          display.configureScrollLoopMode(scrollCaseRegion, display.SCROLL_ONCE_TO_CLEAR)
         other:
           display.scrollTextAtRCOfColor(displayRows - SCROLL_EDGE_OVERLAP, panelColumn + RUN_INSET, SCROLL_WINDOW_CHARS, @scrollText, display.DIR_DOWN, RUN_TEST_COLOR)
       repeat SCROLL_COMPARE_STEPS
@@ -1001,7 +1264,7 @@ PRI finishRowRunCase(caseIdx)
 '
 ' @param caseIdx - ROW_CASE_* just compared
 
-  if caseIdx >= ROW_CASE_SCROLL_LEFT and caseIdx <= ROW_CASE_SCROLL_OVERDRAW
+  if caseIdx >= ROW_CASE_SCROLL_LEFT and caseIdx <= ROW_CASE_SCROLL_CLEAR
     repeat SCROLL_FINISH_STEPS
       if display.isScrollingComplete() == TRUE
         quit
@@ -1166,7 +1429,7 @@ PRI compareAddressRule() : nMismatches, nCompared | displayRows, displayColumns,
           nCompared++
           if pRule <> pOld
             if nMismatches == 0
-              debug("RATES: row run address MISMATCH first at row ", sdec_(rowIdx), " column ", sdec_(columnIdx), ": rule ", uhex_long_(pRule), ", old ", uhex_long_(pOld))
+              debug("R", zstr_(@dbgRowRunAddressMismatchFirs), " ", sdec_(rowIdx), " column ", sdec_(columnIdx), ": rule ", uhex_long_(pRule), ", old ", uhex_long_(pOld))
             nMismatches++
 
 PRI isRulePoint(coordIdx, displaySize, cellSize, latticeStep) : bPoint
@@ -1318,6 +1581,8 @@ PRI rowCaseLabel(caseIdx) : pLabel
       pLabel := string("scroll down dithered inside a panel")
     ROW_CASE_SCROLL_OVERDRAW:
       pLabel := string("scroll left with a box drawn over it and the buffer cleared")
+    ROW_CASE_SCROLL_CLEAR:
+      pLabel := string("scroll left to clear, mode set after the start")
     ROW_CASE_FILL_PANEL:
       pLabel := string("fill one panel")
     ROW_CASE_FILL_AREA:
@@ -1358,10 +1623,10 @@ PRI runHandshakeTrace() | commitIdx, nCommitsBefore, nCommitsAfter, nWaited, nBa
   nProblems := 0
   nCommitsBefore, nWaited, nBad, pFirstShown := display.commitTotals()
   if pFirstShown <> matrix.NO_FRAME_SET
-    debug("RATES: FAIL: first commit after start: a set was on display (", uhex_long_(pFirstShown), ") before any set was taken")
+    debug("R", zstr_(@dbgFailFirstCommitAfterStart), "(", uhex_long_(pFirstShown), ")", zstr_(@dbgBeforeAnySetWasTaken), "n")
     nProblems++
   else
-    debug("RATES: PASS: first commit after start: nothing on display (", uhex_long_(pFirstShown), "), converted without waiting")
+    debug("R", zstr_(@dbgPassFirstCommitAfterStart), "(", uhex_long_(pFirstShown), ")", zstr_(@dbgConvertedWithoutWaiting), "g")
 
   repeat commitIdx from 0 to TRACE_COMMITS - 1
     display.commitScreenToPanelSet()
@@ -1369,24 +1634,24 @@ PRI runHandshakeTrace() | commitIdx, nCommitsBefore, nCommitsAfter, nWaited, nBa
 
   nCommitsAfter, nWaited, nBad, pFirstShown := display.commitTotals()
   repeat commitIdx from 0 to TRACE_COMMITS - 1
-    debug("RATES: trace ", udec_(commitIdx), ": converted ", uhex_long_(traceConverted[commitIdx]), " shown at post ", uhex_long_(traceShownAtPost[commitIdx]), " shown now ", uhex_long_(traceShownNow[commitIdx]))
+    debug("R", zstr_(@dbgTrace), " ", udec_(commitIdx), ":", zstr_(@dbgConverted), " ", uhex_long_(traceConverted[commitIdx]), " ", zstr_(@dbgShownAtPost), " ", uhex_long_(traceShownAtPost[commitIdx]), " ", zstr_(@dbgShownNow), " ", uhex_long_(traceShownNow[commitIdx]))
     if traceConverted[commitIdx] == traceShownAtPost[commitIdx]
-      debug("RATES: FAIL: commit ", udec_(commitIdx), " converted into the set on display, ", uhex_long_(traceConverted[commitIdx]))
+      debug("R", zstr_(@dbgFailCommit), " ", udec_(commitIdx), " ", zstr_(@dbgConvertedIntoTheSetOn), " ", uhex_long_(traceConverted[commitIdx]))
       nProblems++
     if commitIdx > FIRST_TRACE_COMMIT and traceShownAtPost[commitIdx] <> traceConverted[commitIdx - 1]
-      debug("RATES: FAIL: commit ", udec_(commitIdx), " converted before the set posted by commit ", udec_(commitIdx - 1), " (", uhex_long_(traceConverted[commitIdx - 1]), ") was taken; on display was ", uhex_long_(traceShownAtPost[commitIdx]))
+      debug("R", zstr_(@dbgFailCommit), " ", udec_(commitIdx), " ", zstr_(@dbgConvertedBeforeTheSetPost), " ", udec_(commitIdx - 1), " (", uhex_long_(traceConverted[commitIdx - 1]), ")", zstr_(@dbgWasTakenOnDisplayWas), " ", uhex_long_(traceShownAtPost[commitIdx]))
       nProblems++
 
   if nCommitsAfter - nCommitsBefore <> TRACE_COMMITS
-    debug("RATES: FAIL: ", udec_(nCommitsAfter - nCommitsBefore), " commits counted, expected ", udec_(TRACE_COMMITS))
+    debug("R", zstr_(@dbgFail), " ", udec_(nCommitsAfter - nCommitsBefore), " ", zstr_(@dbgCommitsCountedExpected), " ", udec_(TRACE_COMMITS))
     nProblems++
   if nBad <> 0
-    debug("RATES: FAIL: the panel object counted ", udec_(nBad), " commits that converted into the set on display")
+    debug("R", zstr_(@dbgFailThePanelObjectCounted), " ", udec_(nBad), " ", zstr_(@dbgCommitsThatConvertedIntoT), "y")
     nProblems++
   if nProblems == 0
-    debug("RATES: HANDSHAKE PASS: ", udec_(TRACE_COMMITS), " commits, none converted into the set on display; ", udec_(nWaited), " of ", udec_(nCommitsAfter), " posts waited for the previous post to be taken")
+    debug("R", zstr_(@dbgHandshakePass), " ", udec_(TRACE_COMMITS), " ", zstr_(@dbgCommitsNoneConvertedIntoT), " ", udec_(nWaited), " of ", udec_(nCommitsAfter), " ", zstr_(@dbgPostsWaitedForThePrevious), "n")
   else
-    debug("RATES: HANDSHAKE FAIL: ", udec_(nProblems), " problem(s) in ", udec_(TRACE_COMMITS), " commits")
+    debug("R", zstr_(@dbgHandshakeFail), " ", udec_(nProblems), " ", zstr_(@dbgProblemSIn), " ", udec_(TRACE_COMMITS), " commits")
 
 PRI runBrightnessSteps() | stepIdx, windowIdx, brightness, fullLitX100, relativePercent, bLabels
 ' Measure the lit share at each brightness step while the last committed image is shown, then
@@ -1408,14 +1673,14 @@ PRI runBrightnessSteps() | stepIdx, windowIdx, brightness, fullLitX100, relative
   display.setTextFont(display.TEXT_FONT_5x7)
   bLabels := display.numberTextColumns() >= LABEL_LINE_CHARS
   if bLabels == FALSE
-    debug("RATES: brightness labels off: the display holds ", udec_(display.numberTextColumns()), " text columns and a label needs ", udec_(LABEL_LINE_CHARS))
+    debug("R", zstr_(@dbgBrightnessLabelsOffTheDis), " ", udec_(display.numberTextColumns()), " ", zstr_(@dbgTextColumnsAndALabel), " ", udec_(LABEL_LINE_CHARS))
   repeat stepIdx from 0 to BRIGHTNESS_STEP_COUNT - 1
     brightness := LONG[@brightnessSteps][stepIdx]
     display.setBrightness(brightness)
     if bLabels == TRUE
       showStepLabel(stepIdx + 1, brightness)
     relativePercent := 0
-    debug("RATES: brightness ", udec_(brightness), " now showing")
+    debug("R", zstr_(@dbgBrightness), " ", udec_(brightness), " ", zstr_(@dbgNowShowing), "g")
     repeat windowIdx from 1 to BRIGHTNESS_SAMPLE_SECONDS
       instrument.sampleSecond()
       if windowIdx == LABEL_WINDOW
@@ -1425,7 +1690,7 @@ PRI runBrightnessSteps() | stepIdx, windowIdx, brightness, fullLitX100, relative
           relativePercent := muldiv64(instrument.litShareX100(), colorUtils.PERCENT_SCALE, fullLitX100)
         if bLabels == TRUE
           showLitLabel(relativePercent)
-    debug("RATES: brightness ", udec_(brightness), ": refresh ", udec_(instrument.refreshRateX100() / matrix.FIXED_POINT_SCALE), ".", udec_((instrument.refreshRateX100() // matrix.FIXED_POINT_SCALE) / matrix.FRACTION_DIVISOR), " Hz, lit ", udec_(instrument.litShareX100() / matrix.FIXED_POINT_SCALE), ".", udec_((instrument.litShareX100() // matrix.FIXED_POINT_SCALE) / matrix.FRACTION_DIVISOR), "%, label ", udec_(relativePercent), "% of full")
+    debug("R", zstr_(@dbgBrightness), " ", udec_(brightness), ":", zstr_(@dbgRefresh), " ", udec_(instrument.refreshRateX100() / matrix.FIXED_POINT_SCALE), ".", udec_((instrument.refreshRateX100() // matrix.FIXED_POINT_SCALE) / matrix.FRACTION_DIVISOR), " Hz, lit ", udec_(instrument.litShareX100() / matrix.FIXED_POINT_SCALE), ".", udec_((instrument.litShareX100() // matrix.FIXED_POINT_SCALE) / matrix.FRACTION_DIVISOR), "%, label ", udec_(relativePercent), "% of full")
   display.setBrightness(matrix.FULL_BRIGHTNESS)
 
 PRI runTearingTest() | endMs, commitCount, pScreen, screenBytes
@@ -1443,7 +1708,7 @@ PRI runTearingTest() | endMs, commitCount, pScreen, screenBytes
   commitCount := 0
   pScreen := hub75Bffrs.displayBufferAddress(chainIndex)
   screenBytes := hub75Bffrs.displaySizeInLongs(chainIndex) * hub75Bffrs.BYTES_PER_LONG
-  debug("RATES: TEARING TEST: white and black alternating for ", udec_(TEAR_TEST_SECONDS), " s")
+  debug("R", zstr_(@dbgTearingTestWhiteAndBlack), " ", udec_(TEAR_TEST_SECONDS), " s")
   endMs := getms() + (TEAR_TEST_SECONDS * MS_PER_SECOND)
   repeat while getms() - endMs < 0
     bytefill(pScreen, SCREEN_BYTE_WHITE, screenBytes)
@@ -1451,7 +1716,7 @@ PRI runTearingTest() | endMs, commitCount, pScreen, screenBytes
     bytefill(pScreen, SCREEN_BYTE_BLACK, screenBytes)
     display.commitScreenToPanelSet()
     commitCount += 2
-  debug("RATES: TEARING TEST done: ", udec_(commitCount), " commits in ", udec_(TEAR_TEST_SECONDS), " s")
+  debug("R", zstr_(@dbgTearingTestDone), " ", udec_(commitCount), " ", zstr_(@dbgCommitsIn), " ", udec_(TEAR_TEST_SECONDS), " s")
 
 PRI runPatterns() | patternIdx, displayRows, displayColumns
 ' Draw each plan section 1 test pattern over the whole display, commit it, name it in the log
@@ -1468,7 +1733,7 @@ PRI runPatterns() | patternIdx, displayRows, displayColumns
     display.clearScreenBuffer()
     drawPattern(patternIdx, displayRows, displayColumns)
     display.commitScreenToPanelSet()
-    debug("RATES: PATTERN ", udec_(patternIdx + 1), " of ", udec_(PATTERN_COUNT), ": ", zstr_(patternLabel(patternIdx)))
+    debug("R", zstr_(@dbgPattern), " ", udec_(patternIdx + 1), " of ", udec_(PATTERN_COUNT), ": ", zstr_(patternLabel(patternIdx)))
     waitms(PATTERN_HOLD_SECONDS * MS_PER_SECOND)
 
 PRI drawPattern(patternIdx, displayRows, displayColumns) | columnIdx, rowIdx, level, bandIdx, bandRows
@@ -1579,18 +1844,18 @@ PRI reportTakeCheck(nCommitsBefore) | nCommitsAfter, nTakes, nOnBoundary, nOffBo
   nTakes, nOnBoundary, nOffBoundary, lastOffRow := instrument.takeTotals()
   nProblems := 0
   if nOffBoundary <> 0
-    debug("RATES: FAIL: ", udec_(nOffBoundary), " of ", udec_(nTakes), " frame-set takes were part way through a frame (latest at row address ", udec_(lastOffRow), ", expected ", udec_(rowsPerRefresh() - 1), ")")
+    debug("R", zstr_(@dbgFail), " ", udec_(nOffBoundary), " of ", udec_(nTakes), " ", zstr_(@dbgFrameSetTakesWerePart), " ", udec_(lastOffRow), ",", zstr_(@dbgExpected), " ", udec_(rowsPerRefresh() - 1), ")")
     nProblems++
   if nTakes <> nCommitsAfter - nCommitsBefore
-    debug("RATES: FAIL: the take check saw ", udec_(nTakes), " takes for ", udec_(nCommitsAfter - nCommitsBefore), " commits")
+    debug("R", zstr_(@dbgFailTheTakeCheckSaw), " ", udec_(nTakes), " ", zstr_(@dbgTakesFor), " ", udec_(nCommitsAfter - nCommitsBefore), " commits")
     nProblems++
   if nTakes == 0
-    debug("RATES: FAIL: the take check saw no takes")
+    debug("R", zstr_(@dbgFailTheTakeCheckSaw2), "s")
     nProblems++
   if nProblems == 0
-    debug("RATES: TAKE CHECK PASS: ", udec_(nOnBoundary), " of ", udec_(nTakes), " frame-set takes at a frame boundary (row address ", udec_(rowsPerRefresh() - 1), " on the pins), one per commit")
+    debug("R", zstr_(@dbgTakeCheckPass), " ", udec_(nOnBoundary), " of ", udec_(nTakes), " ", zstr_(@dbgFrameSetTakesAtA), " ", udec_(rowsPerRefresh() - 1), " ", zstr_(@dbgOnThePinsOnePer), "t")
   else
-    debug("RATES: TAKE CHECK FAIL: ", udec_(nProblems), " problem(s); ", udec_(nOnBoundary), " on the boundary, ", udec_(nOffBoundary), " off it, ", udec_(nTakes), " takes, ", udec_(nCommitsAfter - nCommitsBefore), " commits")
+    debug("R", zstr_(@dbgTakeCheckFail), " ", udec_(nProblems), " ", zstr_(@dbgProblemS), " ", udec_(nOnBoundary), " ", zstr_(@dbgOnTheBoundary), " ", udec_(nOffBoundary), " off it, ", udec_(nTakes), " takes, ", udec_(nCommitsAfter - nCommitsBefore), " commits")
 
 PRI commitsPosted() : nCommits
 ' Return the commits posted since start (the first of display.commitTotals()).
@@ -1684,9 +1949,9 @@ PRI refuseNullFrameSet() | showStatus
 
   showStatus := display.showFrameSet(matrix.NO_FRAME_SET)
   if showStatus == display.E_FRAMESET_NULL
-    debug("RATES: PASS: showFrameSet(0) refused (its message is the line above)")
+    debug("R", zstr_(@dbgPassShowframeset0RefusedI), ")")
   else
-    debug("RATES: FAIL: showFrameSet(0) was not refused as a NULL frame set, status ", sdec_(showStatus))
+    debug("R", zstr_(@dbgFailShowframeset0WasNot), " ", sdec_(showStatus))
 
 PRI drawPhase(phaseIdx) | drawStart, commitStart
 ' Draw one phase into the screen buffer and commit it, timing each step.
@@ -1759,9 +2024,9 @@ PRI reportPhase(phaseIdx) | windowIdx, sampleStatus
     if sampleStatus <> instrument.SUCCESS
       quit
   if sampleStatus == instrument.SUCCESS
-    debug("RATES: depth ", udec_(colorDepth), " ", zstr_(phaseLabel(phaseIdx)), ": refresh ", udec_(instrument.refreshRateX100() / matrix.FIXED_POINT_SCALE), ".", udec_((instrument.refreshRateX100() // matrix.FIXED_POINT_SCALE) / matrix.FRACTION_DIVISOR), " Hz, lit ", udec_(instrument.litShareX100() / matrix.FIXED_POINT_SCALE), ".", udec_((instrument.litShareX100() // matrix.FIXED_POINT_SCALE) / matrix.FRACTION_DIVISOR), "%, clock ", udec_(instrument.clockRisesPerSecond()), " rises/s, CLK high ", udec_(instrument.clockHighNsX100() / matrix.FIXED_POINT_SCALE), ".", udec_((instrument.clockHighNsX100() // matrix.FIXED_POINT_SCALE) / matrix.FRACTION_DIVISOR), " ns, draw ", udec_(drawMicros), " uS, commit ", udec_(commitMicros), " uS")
+    debug("R", zstr_(@dbgDepth), " ", udec_(colorDepth), " ", zstr_(phaseLabel(phaseIdx)), ":", zstr_(@dbgRefresh), " ", udec_(instrument.refreshRateX100() / matrix.FIXED_POINT_SCALE), ".", udec_((instrument.refreshRateX100() // matrix.FIXED_POINT_SCALE) / matrix.FRACTION_DIVISOR), " Hz, lit ", udec_(instrument.litShareX100() / matrix.FIXED_POINT_SCALE), ".", udec_((instrument.litShareX100() // matrix.FIXED_POINT_SCALE) / matrix.FRACTION_DIVISOR), "%, clock ", udec_(instrument.clockRisesPerSecond()), " ", zstr_(@dbgRisesSClkHigh), " ", udec_(instrument.clockHighNsX100() / matrix.FIXED_POINT_SCALE), ".", udec_((instrument.clockHighNsX100() // matrix.FIXED_POINT_SCALE) / matrix.FRACTION_DIVISOR), " ", zstr_(@dbgNsDraw), " ", udec_(drawMicros), " ", zstr_(@dbgUsCommit), " ", udec_(commitMicros), " uS")
   else
-    debug("RATES: depth ", udec_(colorDepth), " ", zstr_(phaseLabel(phaseIdx)), ": monitors unavailable, draw ", udec_(drawMicros), " uS, commit ", udec_(commitMicros), " uS")
+    debug("R", zstr_(@dbgDepth), " ", udec_(colorDepth), " ", zstr_(phaseLabel(phaseIdx)), ":", zstr_(@dbgMonitorsUnavailableDraw), " ", udec_(drawMicros), " ", zstr_(@dbgUsCommit), " ", udec_(commitMicros), " uS")
 
 PRI latchesPerRefresh() : latchCount
 ' Count the LATCH rises that make one refresh: one per row of every plane. The OE-weighted

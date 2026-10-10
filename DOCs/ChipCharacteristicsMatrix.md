@@ -339,6 +339,7 @@ CHIP_MANUAL_SPEC | CHIP_UNK_LAT_END_ENCL | SCAN_4 | INIT_PANEL_REQUIRED
 | Init Required | No | |
 | Latch Style | Offset | |
 | Latch Position | Overlap | |
+| Single Panel | Verified | 64x32, 8-bit, with 4.0.0 (2026-10-09) |
 | Multi-Panel | Untested | |
 
 **On-Board Chips:**

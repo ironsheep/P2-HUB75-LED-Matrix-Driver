@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Apr 2021
-''   Updated.... 08 Oct 2026
+''   Updated.... 09 Oct 2026
 ''
 '' =================================================================================================
 
@@ -28,18 +28,12 @@ CON ' ---- Demo Info ----
     ' (set DEMO_COUNT to DEMO_FILL_COLORS to include the fill demo)
     DEMO_COUNT  = DEMO_RANDOM_COLORS
 
-    ' Panel positions P0 .. P5 of a six-panel flat display, in reading order from the
-    ' top-left panel as the display is mounted. The names are labels for this demo's
-    ' picture of an unfolded cube only: they do not follow DISPn_CUBE_TOP / DISPn_CUBE_FRONT.
-    ' To draw on the faces of a real cube, use the face-centric calls (drawFace...).
-    ' On a display with fewer panels, the higher positions clamp to the last panel.
-    '  PNL_TOP    - labelled TOP    (P0)
-    '  PNL_FRONT  - labelled FRONT  (P1)
-    '  PNL_RIGHT  - labelled RIGHT  (P2)
-    '  PNL_BACK   - labelled BACK   (P3)
-    '  PNL_LEFT   - labelled LEFT   (P4)
-    '  PNL_BOTTOM - labelled BOTTOM (P5)
-    #0, PNL_TOP, PNL_FRONT, PNL_RIGHT, PNL_BACK, PNL_LEFT, PNL_BOTTOM
+    ' The labelled-panels demo names panels P0 .. P5, in reading order from the top-left panel
+    ' as the display is mounted, after the faces of an unfolded cube: Top, Front, Right, Back,
+    ' Left, Bot. The names are labels only: they do not follow DISPn_CUBE_TOP / DISPn_CUBE_FRONT.
+    ' To draw on the faces of a real cube, use the face-centric calls (drawFace...). A display
+    ' with fewer panels labels the panels it has; one with more labels the first LABELLED_PANELS.
+    LABELLED_PANELS     = 6
 
     ' demo timing and counts
     DEMO_PAUSE_SECONDS  = 3                                         ' pause between demos
@@ -64,15 +58,14 @@ CON ' ---- Demo Info ----
     ' text positions (panel-local line and column), for the 8x8 font
     ID_LINE             = 1                                         ' panel number
     ID_COLUMN           = 1
-    CAP_LABEL_LINE      = 4                                         ' "Top" and "Bot"
-    CAP_LABEL_COLUMN    = 3
-    SIDE_LABEL_LINE     = 7                                         ' "Front", "Right", "Back", "Left"
-    LONG_LABEL_COLUMN   = 1                                         ' the five-letter labels
-    SHORT_LABEL_COLUMN  = 2                                         ' the four-letter labels
+    LABEL_LINE          = 0                                         ' the panel's name
+    LABEL_COLUMN        = 1
 
-    ' the scrolling text: its line, the panels it crosses and how often it repeats
-    SCROLL_LINE         = 4
-    SCROLL_PANELS       = 4
+    ' the scrolling text crosses the top row of panels, on the middle text line of a panel
+    ' (the panel's text lines / SCROLL_LINE_DIVISOR), and repeats SCROLL_REPEATS times
+    SCROLL_LINE_DIVISOR = 2
+    PANEL_P0            = 0                                         ' the top-left panel, where the text starts
+    TOP_ROW             = 0                                         ' display row of the top row of panels
     SCROLL_REPEATS      = 2
 
 OBJ ' ---- Objects ----
@@ -162,12 +155,18 @@ PRI demoRandomPanelColors() | panelIndex, panelHue, panelColor
     ' update our screen
     display.commitScreenToPanelSet()
 
-PRI demoTopBottomScroll() | scrollerID
-' Label each panel face and scroll text across multiple panels.
+PRI demoTopBottomScroll() | scrollerID, panelIdx, nLabelled, nTopRowPanels, panelRow
+' Label each panel with a face name of an unfolded cube, and scroll text across the top row of
+' panels. Both follow the display's own layout: only the panels it has are labelled, and the
+' text crosses every panel in the top row.
 '
 
 ' Local Variables:
 ' @local scrollerID - identifier for the active text scroller
+' @local panelIdx - panel position being labelled or counted
+' @local nLabelled - panels labelled: the display's panels, at most LABELLED_PANELS
+' @local nTopRowPanels - panels in the display's top row, which the text crosses
+' @local panelRow - display row of a panel's top-left pixel (the top row is 0)
 
   display.setTextFont(display.TEXT_FONT_8x8A)           ' font size
   display.setTextColor(color.cBlueViolet)
@@ -175,32 +174,22 @@ PRI demoTopBottomScroll() | scrollerID
   ' start with blank screen on which to draw
   display.clearScreenBuffer()
 
-  display.fillPanel(PNL_TOP, color.cGreen)
-  display.setCursorOnPanel(CAP_LABEL_LINE, CAP_LABEL_COLUMN, PNL_TOP)
-  display.setTextAtCursor(@lblTop)
+  nLabelled := hub75Bffrs.maxPanels(chainIndex) <# LABELLED_PANELS
+  repeat panelIdx from 0 to nLabelled - 1
+    display.fillPanel(panelIdx, lookupz(panelIdx : color.cGreen, color.cYellow, color.cCyan, color.cOrange, color.cLime, color.cRed))
+    display.setCursorOnPanel(LABEL_LINE, LABEL_COLUMN, panelIdx)
+    display.setTextAtCursor(lookupz(panelIdx : @lblTop, @lblFrnt, @lblRight, @lblBack, @lblLeft, @lblBot))
 
-  display.fillPanel(PNL_BOTTOM, color.cRed)
-  display.setCursorOnPanel(CAP_LABEL_LINE, CAP_LABEL_COLUMN, PNL_BOTTOM)
-  display.setTextAtCursor(@lblBot)
-
-  display.fillPanel(PNL_FRONT, color.cYellow)
-  display.setCursorOnPanel(SIDE_LABEL_LINE, LONG_LABEL_COLUMN, PNL_FRONT)
-  display.setTextAtCursor(@lblFrnt)
-
-  display.fillPanel(PNL_RIGHT, color.cCyan)
-  display.setCursorOnPanel(SIDE_LABEL_LINE, LONG_LABEL_COLUMN, PNL_RIGHT)
-  display.setTextAtCursor(@lblRight)
-
-  display.fillPanel(PNL_BACK, color.cOrange)
-  display.setCursorOnPanel(SIDE_LABEL_LINE, SHORT_LABEL_COLUMN, PNL_BACK)
-  display.setTextAtCursor(@lblBack)
-
-  display.fillPanel(PNL_LEFT, color.cLime)
-  display.setCursorOnPanel(SIDE_LABEL_LINE, SHORT_LABEL_COLUMN, PNL_LEFT)
-  display.setTextAtCursor(@lblLeft)
+  ' the panels in the top row are the first in reading order, so count from P0 while the row is 0
+  nTopRowPanels := 0
+  repeat panelIdx from 0 to hub75Bffrs.maxPanels(chainIndex) - 1
+    panelRow, _ := hub75Bffrs.offsetToPanel(chainIndex, panelIdx)
+    if panelRow <> TOP_ROW
+      quit
+    nTopRowPanels++
 
   ' get scroller initialized with text to scroll and direction
-  scrollerID := display.scrollColoredTextOnLnOfNPanels(SCROLL_LINE, PNL_FRONT, SCROLL_PANELS, string("Multi-panel long test scroll   "), display.DIR_TO_LEFT, color.cBlue)
+  scrollerID := display.scrollColoredTextOnLnOfNPanels(display.textLinesPerPanel() / SCROLL_LINE_DIVISOR, PANEL_P0, nTopRowPanels, string("Multi-panel long test scroll   "), display.DIR_TO_LEFT, color.cBlue)
   ' configure scroll repeat count
   display.configureScrollLoopCount(scrollerID, display.SCROLL_N_TIMES, SCROLL_REPEATS)
 

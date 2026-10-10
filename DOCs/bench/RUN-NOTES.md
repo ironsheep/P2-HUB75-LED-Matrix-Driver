@@ -294,3 +294,38 @@ Each hand-back adds one dated entry with three parts: tree state (scoped to
 - Clock rises at two panels, 8-bit: 1,162,230/s = 256 column clocks x 8 row addresses x 8 planes x 70.9 Hz.
 
 **Steps completed:** the chain runs as one display at the chain-limit clock, by eye and by the rates self-tests. Not run: the rates runs were not watched by eye; the quad was not re-run (Stephen: no recabling); one panel was not checked by eye at the new clock. Stephen will check the panels by eye once, at the final release gate.
+
+### 2026-10-09 — 4.0.0 certification by eye: quad, MBI5124GP pair and single, FM6124; v3.0.2 against v4 («#111»)
+
+**Tree:** `driver/*.spin2` at `3fe70d9` plus the uncommitted certification fixes (`isp_hub75_scrollingText.spin2`: the window drawn again when a loop mode is set, the text index wrapped as often as needed, no gap painted over a window's last character; `test_hub75_rates.spin2`: a whole-window reference, a clear-mode scroll case, the scroll oracle self-test; `demo_hub75_multiPanel`, `demo_hub75_7seg`, `demo_hub75_color` layout and length; `pwmFrameCount()` removed). Scratch `DISP0` configs per panel, the committed quad config restored before commit. v3.0.2 was built from `git archive v3.0.2` in a scratch folder with `DISP0` = one FM6124, `ADDR_ABCD`, 64x32, 8-bit.
+**Rig:** P16 adapter, 335 MHz, `pnut-term-ts -r <bin> -p Parw7ukt --headless [--end-marker] --timeout N`. The board was found unpowered twice (download exit 3, "No Propeller v2 device found"); powering it fixed both.
+
+**Observed:**
+- Quad (committed config): every demo correct by eye (Stephen) except two findings. `demo_hub75_text` line 2 (left, `SCROLL_ONCE_TO_CLEAR`) stopped with "First long te" at the left edge: a buffer probe showed the first window drawn wrapped, before the mode was set, then moved frame by frame. `demo_hub75_multiPanel` and `demo_hub75_7seg` were laid out for a six-panel row and 64-column panels. Both fixed and seen correct on the quad.
+- Self-test with the clear-mode fix removed: 12 of 12 new clear-mode cases FAIL (`headless_261009-155746`); with it, ROW RUN PASS 636 cases (`-160319`).
+- MBI5124GP pair at 18.6 MHz: identify, colour, scroll, 7-seg correct. Scroll line 1 ("2nd shorter - ", left, forever): the "o" showed as "c" on the right panel and became "o" crossing the seam, as the next copy appeared (Stephen). A buffer probe: the whole-window draw left the window's last column undrawn (the last character's field passed with no gap, then a gap painted over its fifth column), and the edge column wrapped the text index once, so positions needing two wraps were blank until the next whole redraw. Fixed; Stephen: "text is now correct".
+- Scroll oracle self-test (scroller frames against the same characters drawn as static text): 15 of 15 FAIL against the scroller as committed at `3fe70d9`, 15 of 15 PASS with the fixes, on the pair (`-170749`); colour table, row runs (212), handshake, take check PASS.
+- One MBI5124GP at 18.6 MHz (the pair's second panel unplugged; Stephen noted the config alone would have done): identify, colour, scroll correct.
+- FM6124 (orange): identify, colour, scroll correct, no bad characters (Stephen).
+- v3.0.2 against v4 on the FM6124, 8-bit, the same measurement program: refresh counted from the frame-start mark with a pin-edge event (`SETSE1 %001_PPPPPP`) over 5 s (v3.0.2 mark on P25, which is also G1, so measured on a blank screen; v4 strobe P9 in an instrument build); draw and commit times the best of 5 by system counter.
+
+| Build | Refresh | Fill | 4 lines text | Diagonal | Commit |
+|---|---|---|---|---|---|
+| v3.0.2 | 74.0 Hz (370 marks / 5 s) | 183.2 ms | 129.2 ms | 5.8 ms | 1.37 ms |
+| v4 | 85.3 Hz (426 / 5 s; model 85.3) | 0.34 ms | 2.79 ms | 0.34 ms | 0.28 ms |
+
+**Steps completed:** quad, MBI5124GP pair and single, FM6124 certified by eye. Not run: 5-bit comparison (v3.0.2's 5-bit screen buffer is undersized, so its drawing figures there are not trusted); the scroll oracle on the quad. Remaining: FM6126A (pink) single, the pink pair, GS6238S (cyan).
+
+### 2026-10-09 (evening) — FM6126A pair and single, GS6238S; quad recheck; the self-test's debug-data overflow («#111»)
+
+**Tree:** as the entry above, plus `test_hub75_rates.spin2` debug prose moved to `DAT` (below). Scratch `DISP0` configs per panel; the committed quad config restored after (`git diff` empty for it).
+**Rig:** P16 adapter, 335 MHz. The board was unpowered after each recable until Stephen powered it (download exit 3).
+
+**Observed:**
+- Pink FM6126A, powered with no data cable: the good panel 0 A / 0 W, the suspect panel 1.2 A / 5.1 W (Stephen). The suspect panel was set aside.
+- Two good pink FM6126A, landscape, stacked, `C0` on top (`C1 = BELOW | C0`): first only sparse red on `C0` and `C1` dark; with the top panel alone, red only (right half filled, two 2-pixel bars on the left). Stephen replaced the diagonal link cable: identify correct on both panels, then colour and scroll correct (Stephen). One panel alone by config: identify and colour correct. 22.3 MHz, model 84.9 Hz (pair).
+- Cyan GS6238S (P2.5-16S, 64x32, ABCD, G/B swap): the driver held the clock to 20 MHz (no rating, 19.7 MHz actual), model 75.3 Hz; identify (white text), colour (eight solids in order, hues in order) and scroll correct (Stephen). First run of this chip with 4.0.0.
+- Quad recheck: scroll demo correct (line 3 phrase whole and continuous; Stephen). `test_hub75_rates` timed out (exit 124): its first workload report line printed junk from "CLK high" on for 17 minutes (`-190023`). The same line was already broken, shorter, in every full build since `17276dd` (this morning's `-160319`, a `HEAD` build). Cause, per P2KB `p2kbSpin2DbgDebugStrategyGuide`: the 16 KB debug-data cap fails silently below the compiler's error. Debug data (`-d` minus plain `.bin`): `9fc42ad` 15,183 bytes, report clean; `HEAD` 15,357, report dies; current 15,679, runaway. The self-test's long literals moved into `DAT` strings emitted with `zstr_()` (first and last character kept inline, so the debugger adds no ", "): 13,593 bytes. Then (`-204326`) every self-test PASS (colour table, row runs 636, scroll oracle 15, handshake, take check), the report lines clean: refresh 71.0 Hz, commit 4,087 us, fill 4,685 / lines 12,743 / text 24,474 / BMP 3,806 us.
+- Demo builds carry about 9.5 KB of debug data from the driver's own objects (`demo_hub75_text` 9,488, `color` 9,657, `scroll` 9,535 bytes).
+
+**Steps completed:** FM6126A pair and single, GS6238S, quad scroll recheck and full self-test. Panel certification by eye complete for every panel on hand.

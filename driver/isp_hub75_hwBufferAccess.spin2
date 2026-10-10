@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Nov 2022
-''   Updated.... 08 Oct 2026
+''   Updated.... 09 Oct 2026
 ''
 '' =================================================================================================
 
@@ -193,14 +193,6 @@ CON ' ---- Private internal constants ----
     PLACEHOLDER_PIN_BASE    = 0
     PLACEHOLDER_ADDR_LINES  = 0
     PLACEHOLDER_ADDRESS     = $0DF0ADDE
-
-    ' PWM frame counts per color depth: (1 << depth) - 1
-    PWM_FRAMES_3BIT         = 7
-    PWM_FRAMES_4BIT         = 15
-    PWM_FRAMES_5BIT         = 31
-    PWM_FRAMES_6BIT         = 63
-    PWM_FRAMES_7BIT         = 127
-    PWM_FRAMES_8BIT         = 255
 
     ' number of leading buffer-address LONGs in a chain descriptor entry
     ENTR_ADDR_LONGS_COUNT   = 3
@@ -667,32 +659,6 @@ PUB indexForHub75ChainId(eHub75Chain) : nChainIdx
             debug("ERROR: unknown chain id (", udec_(eHub75Chain), ") is not a HUB75 adapter ID")
             abort
     nChainIdx := (eHub75Chain / hwEnum.HUB75_ADAPTER_STEP) - 1   ' the IDs step from 1 x HUB75_ADAPTER_STEP: ID / step - 1 is the index
-
-PUB pwmFrameCount(nChainIdx) : nPwmFrames | nColorDepth
-'' Return the number of PWM frames to display for the selected bit depth.
-''
-'' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
-'' @returns nPwmFrames - number of PWM frames for the configured color depth
-
-' Local Variables:
-' @local nColorDepth - color depth in bits per channel
-
-    nColorDepth := colorDepth(nChainIdx)
-    case nColorDepth
-        hwEnum.DEPTH_3BIT:
-            nPwmFrames := PWM_FRAMES_3BIT
-        hwEnum.DEPTH_4BIT:
-            nPwmFrames := PWM_FRAMES_4BIT
-        hwEnum.DEPTH_5BIT:
-            nPwmFrames := PWM_FRAMES_5BIT
-        hwEnum.DEPTH_6BIT:
-            nPwmFrames := PWM_FRAMES_6BIT
-        hwEnum.DEPTH_7BIT:
-            nPwmFrames := PWM_FRAMES_7BIT
-        hwEnum.DEPTH_8BIT:
-            nPwmFrames := PWM_FRAMES_8BIT
-        other:
-            nPwmFrames := PWM_FRAMES_4BIT                  ' default to DEPTH_4BIT if set badly
 
 PUB displayPixelAddress(nChainIdx, row, column) : pPixel | layoutIdx, panelPosn, panelRow, panelCol, tableBase, pEntry, nativeRows, nativeCols, nativeRow, nativeCol
 '' Return the hub address of the pixel at display coordinates (row, column). This is the one
