@@ -51,10 +51,6 @@ CON ' ---- Hardware Interface Constants ----
 '  Allocation: distinct identity. The values start at $20, clear of the adapter identifiers
 '  (10 .. 30) and of the chain indexes (0 .. 2), so a rotation is never mistaken for either.
     #$20, ROT_UNKNOWN, ROT_0, ROT_90, ROT_180, ROT_270
-    ' aliases of the values above, kept for v3 configs (prefer ROT_0, ROT_270 and ROT_90):
-    ROT_NONE = ROT_0                                            ' alias kept for v3 configs; prefer ROT_0
-    ROT_LEFT_90 = ROT_270                                       ' alias kept for v3 configs; prefer ROT_270
-    ROT_RIGHT_90 = ROT_90                                       ' alias kept for v3 configs; prefer ROT_90
 
 '  (4) The Driver Chip on your panels
 ' Driver Pre-defined flag combinations (use these unless your hardware is not in this list)
@@ -243,7 +239,7 @@ CON ' ---- Status Codes ----
 '   SUCCESS             (0)  - the operation was done
 '   E_FRAMESET_NULL     (-1) - a frame set was expected and the address given was NULL
 '   E_FRAMESET_FOREIGN  (-2) - the frame set is not one of the adapter's own frame sets
-'   E_BAD_ROTATION      (-3) - the content rotation is not ROT_NONE, ROT_RIGHT_90, ROT_LEFT_90 or ROT_180
+'   E_BAD_ROTATION      (-3) - the content rotation is not ROT_0, ROT_90, ROT_180 or ROT_270
 '   E_BMP_NOT_24BIT     (-4) - the BMP file is not an uncompressed 24-bit image
 '   E_NOT_ONE_BLOCK     (-5) - the glyph does not lie wholly inside one panel, so it was not drawn as one block
     SUCCESS             = 0

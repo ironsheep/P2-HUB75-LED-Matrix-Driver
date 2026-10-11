@@ -54,7 +54,7 @@
    report FAIL.
 
    Next, still before anything is drawn for viewing, the row-run self-test (FRAME-RATE plan section 9).
-   It lays the adapter's panels out three ways (its own wiring, an L three cells wide, an L three cells
+   It lays the adapter's panels out three ways (its own panel list, an L three cells wide, an L three cells
    tall; the two Ls only on an adapter of exactly four panels, and the log says when they are not
    run), each at all four display rotations and with all four arrows, through the instrument-only
    hub75Bffrs.testRelayout(); the build's panel configuration is not changed. On each layout it first
@@ -423,7 +423,7 @@ OBJ
     matrix      : "isp_hub75_rgb3bit"                       ' constants only: flag mask, long size
     instrument  : "isp_hub75_instrument"                    ' monitors and stopwatches
     pixels      : "isp_hub75_screenUtils"                   ' row runs under test, and the address rule
-    user        : "isp_hub75_hwPanelConfig"                 ' the adapter's own wiring sentences
+    user        : "isp_hub75_hwPanelConfig"                 ' the adapter's own panel list
     segment     : "isp_hub75_segment"                       ' 7-segment lines under test
 
 DAT ' ---- Test State (singleton) ----
@@ -449,7 +449,7 @@ DAT ' ---- Test State (singleton) ----
     traceShownNow   LONG    0[TRACE_COMMITS]                ' frame set on display when the commit returned
 
     ' the row-run self-test (see runRowRunTest())
-    testRotations   LONG    bmpHandler.ROT_NONE, bmpHandler.ROT_RIGHT_90, bmpHandler.ROT_180, bmpHandler.ROT_LEFT_90
+    testRotations   LONG    bmpHandler.ROT_0, bmpHandler.ROT_90, bmpHandler.ROT_180, bmpHandler.ROT_270
     testMountings   LONG    hwEnum.AS_BUILT, hwEnum.TOP_TO_RIGHT, hwEnum.TOP_TO_BOTTOM, hwEnum.TOP_TO_LEFT  ' the same turns as testRotations
     testArrows      LONG    hwEnum.TOP_UP, hwEnum.TOP_RIGHT, hwEnum.TOP_DOWN, hwEnum.TOP_LEFT
     wideLSentences  LONG    hwEnum.ROW_0 | hwEnum.COL_0, hwEnum.ROW_0 | hwEnum.COL_1, hwEnum.ROW_0 | hwEnum.COL_2, hwEnum.ROW_1 | hwEnum.COL_0
@@ -1470,15 +1470,15 @@ PRI oldPixelAddress(row, column) : pPixel | layoutRows, layoutColumns, eRotation
 
   layoutRows, layoutColumns, eRotation := hub75Bffrs.layoutSizeAndRotation(chainIndex)
   mountedRows, mountedColumns := layoutRows, layoutColumns
-  if (eRotation == hub75Bffrs.ROT_LEFT_90) or (eRotation == hub75Bffrs.ROT_RIGHT_90)
+  if (eRotation == hub75Bffrs.ROT_270) or (eRotation == hub75Bffrs.ROT_90)
     mountedRows, mountedColumns := layoutColumns, layoutRows
   mountedRow := 0 #> row <# mountedRows - 1
   mountedColumn := 0 #> column <# mountedColumns - 1
   case eRotation
-    hub75Bffrs.ROT_RIGHT_90:
+    hub75Bffrs.ROT_90:
       layoutRow := (layoutRows - 1) - mountedColumn
       layoutColumn := mountedRow
-    hub75Bffrs.ROT_LEFT_90:
+    hub75Bffrs.ROT_270:
       layoutRow := mountedColumn
       layoutColumn := (layoutColumns - 1) - mountedRow
     hub75Bffrs.ROT_180:
@@ -1497,7 +1497,7 @@ PRI layoutLabel(layoutIdx) : pLabel
 
   case layoutIdx
     LAYOUT_OWN:
-      pLabel := string("own wiring")
+      pLabel := string("own list")
     LAYOUT_WIDE_L:
       pLabel := string("wide L")
     other:
@@ -1510,14 +1510,14 @@ PRI rotationLabel(rotationIdx) : pLabel
 ' @returns pLabel - zero-terminated name
 
   case LONG[@testRotations][rotationIdx]
-    bmpHandler.ROT_NONE:
-      pLabel := string("ROT_NONE")
-    bmpHandler.ROT_RIGHT_90:
-      pLabel := string("ROT_RIGHT_90")
+    bmpHandler.ROT_0:
+      pLabel := string("ROT_0")
+    bmpHandler.ROT_90:
+      pLabel := string("ROT_90")
     bmpHandler.ROT_180:
       pLabel := string("ROT_180")
     other:
-      pLabel := string("ROT_LEFT_90")
+      pLabel := string("ROT_270")
 
 PRI arrowLabel(arrowIdx) : pLabel
 ' Return the printable name of an entry of testArrows.

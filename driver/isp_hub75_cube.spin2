@@ -12,7 +12,7 @@
 '' =================================================================================================
 
 { The cube (a panel list that marks CUBE_TOP and CUBE_FRONT). isp_hub75_hwBufferAccess.spin2 reads the marks and the
-  wiring sentences and calls foldNet() and printCube() here; the display object draws through
+  panel list and calls foldNet() and printCube() here; the display object draws through
   homeFoldToDisplay() and homeOnFaceOfExtent().
 }
 

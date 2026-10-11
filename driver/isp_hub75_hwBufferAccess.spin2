@@ -96,10 +96,6 @@ CON ' ---- Values of the Interface Methods ----
     ROT_90                  = hwEnum.ROT_90
     ROT_180                 = hwEnum.ROT_180
     ROT_270                 = hwEnum.ROT_270
-    ' aliases of the above, kept for v3 configs (prefer ROT_0, ROT_270 and ROT_90):
-    ROT_NONE                = hwEnum.ROT_NONE
-    ROT_LEFT_90             = hwEnum.ROT_LEFT_90
-    ROT_RIGHT_90            = hwEnum.ROT_RIGHT_90
 
 CON ' ---- Drawing Path Results ----
     {Spin2_Doc_CON}
@@ -345,7 +341,7 @@ PUB displaySizeInPixels(nChainIdx) : nMaxRows, nMaxColumns | layoutIdx, eRotatio
         nMaxColumns := layoutPixelRows[layoutIdx]
 
 PUB layoutSizeAndRotation(nChainIdx) : nLayoutRows, nLayoutColumns, eDisplayRotation | layoutIdx, pEntry
-'' Return the size of the display as its panels are laid out (the wiring's bounding box, before
+'' Return the size of the display as its panels are laid out (the panels' bounding box, before
 '' display rotation) and the display rotation, in one call. displayPixelAddress() takes
 '' coordinates over this size. It is the per-pixel read for isp_hub75_screenUtils, which runs it
 '' for every pixel drawn; other drawing code uses displaySizeInPixels() (the size as mounted).
@@ -368,7 +364,7 @@ PUB layoutSizeAndRotation(nChainIdx) : nLayoutRows, nLayoutColumns, eDisplayRota
 PUB displaySizeInPanels(nChainIdx) : nPanelsPerColumn, nPanelsPerRow | layoutIdx
 '' Return the size of the display's grid of cells for the nChainIdx HUB75 adapter as its panels
 '' are laid out (before display rotation, the geometry of the screen buffer), derived from the
-'' wiring sentences at startup. A cell may hold no panel (an L shape, for example), so the grid
+'' panel list at startup. A cell may hold no panel (an L shape, for example), so the grid
 '' can have more cells than the display has panels; maxPanels() is the panel count. At 90 and
 '' 270 degrees the display as mounted has these two numbers exchanged.
 ''
@@ -665,7 +661,7 @@ PUB displayPixelAddress(nChainIdx, row, column) : pPixel | layoutIdx, panelPosn,
 ''   slot -> address in the screen buffer.
 '' Display rotation is applied before this call, by isp_hub75_screenUtils: row and column are
 '' display coordinates with the rotation already undone, so they run over the display as its
-'' panels are laid out (the size of the wiring's bounding box), not over the display as mounted.
+'' panels are laid out (the size of the panels' bounding box), not over the display as mounted.
 ''
 '' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @param row - pixel row on the display as laid out (display rotation already applied)

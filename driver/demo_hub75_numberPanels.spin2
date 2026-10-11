@@ -8,20 +8,32 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Apr 2021
-''   Updated.... 09 Oct 2026
+''   Updated.... 10 Oct 2026
 ''
 '' =================================================================================================
 
 {
-  How to read the image (the wiring sentences are DISPn_C0 .. DISPn_C15 in isp_hub75_hwPanelConfig):
+  Identify: run this first, then describe the display from what it shows.
+
+  The panel list (disp0Panels in isp_hub75_hwPanelConfig.spin2) holds one sentence per panel,
+  in cable order: ROW_n | COL_n | TOP_x.
+    1. Cable and hang the panels as you like. Mark the top edge of the frame.
+    2. Write starter sentences, every panel in one row with its top up:
+           ROW_0 | COL_0 | TOP_UP, ROW_0 | COL_1 | TOP_UP, ROW_0 | COL_2 | TOP_UP ...
+       (they always pass the startup checks), then run this program.
+    3. On the wall, panel Ck is the k-th sentence. Write its place (ROW_ from the top, COL_
+       from the left) and the way its arrow points (TOP_UP, TOP_DOWN, TOP_LEFT, TOP_RIGHT).
+    4. Run it again: the P labels now read in order and every arrow points up.
+
+  How to read the image:
     - Each panel gets its own background colour, so panels are easy to tell apart.
     - Each panel shows an arrow (^), its cable position Ck and its panel position Pp.
       Large panels show the three on separate lines, centred. Small panels (32x16 with the
       5x7 font, for example) show the compact form: the arrow and "C2P1" on one line.
-    - P labels in reading order and every arrow up: the wiring sentences are right.
+    - P labels in reading order and every arrow up: the panel list is right.
     - P labels out of order: the sentences place panels wrongly. Read the C labels to fix them.
-    - An arrow pointing another way: that panel's arrow word is wrong, and the arrow shows
-      which way the panel's own top points as mounted.
+    - An arrow pointing another way: that panel's TOP_ word is wrong, and the arrow shows
+      which way the panel's own top points as hung.
     - The C labels are physically correct even when the config is wrong. The routine draws Ck
       on the screen position the config gives that cable position, and the panel at that
       position is the one the ribbon cable feeds as Ck, so Ck lands on the real panel at

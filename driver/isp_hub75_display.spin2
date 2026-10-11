@@ -60,9 +60,9 @@ CON ' ---- Object Interface: PUBLIC ENUMs ----
 
     ' cube faces, for face-centric drawing on a cube (panels marked CUBE_TOP and CUBE_FRONT)
     ' (forwarded from hwEnum; face coordinates and each face's up are described there):
-    '  FACE_TOP    - the face at DISPn_CUBE_TOP
+    '  FACE_TOP    - the face marked CUBE_TOP
     '  FACE_BOTTOM - the face opposite the top
-    '  FACE_FRONT  - the face at DISPn_CUBE_FRONT
+    '  FACE_FRONT  - the face marked CUBE_FRONT
     '  FACE_BACK   - the face opposite the front
     '  FACE_LEFT   - the face on the viewer's left, standing at the front
     '  FACE_RIGHT  - the face on the viewer's right, standing at the front
@@ -198,10 +198,10 @@ PUB null()
 
 PUB start(eHub75Adapter) : workerCog
 '' Start one HUB75 adapter's display, in one call (adapter k drives display DISPn with n = k-1).
-'' This reads the adapter's settings and buffers, checks its wiring sentences, and starts the
+'' This reads the adapter's settings and buffers, checks its panel list, and starts the
 '' underlying driver(s). Each adapter in use gets its own display object instance. An adapter whose display has no panels
-'' (every DISPn_C0 .. DISPn_C15 is NO_PANEL) stops startup with a message. Aborts (and so never
-'' returns) when the adapter's settings or wiring sentences are refused, or when no cog is free
+'' (no panel list) stops startup with a message. Aborts (and so never
+'' returns) when the adapter's settings or panel list are refused, or when no cog is free
 '' for the underlying driver.
 ''
 '' @param eHub75Adapter - the HUB75 adapter identifier (display.HUB75_ADAPTER_1, display.HUB75_ADAPTER_2 or display.HUB75_ADAPTER_3)
@@ -212,7 +212,7 @@ PUB start(eHub75Adapter) : workerCog
 PUB startWithId(nId, eHub75Adapter) : workerCog | scrollerIndex, dvrConfig
 '' Start one HUB75 adapter's display with a debug instance ID for multi-hub75 card configurations.
 '' Same as start(), plus the debug instance identifier. Aborts (and so never returns) when the
-'' adapter's settings or wiring sentences are refused, or when no cog is free for the
+'' adapter's settings or panel list are refused, or when no cog is free for the
 '' underlying driver.
 ''
 '' @param nId - debug instance identifier
@@ -223,7 +223,7 @@ PUB startWithId(nId, eHub75Adapter) : workerCog | scrollerIndex, dvrConfig
 ' @local scrollerIndex - loop index for scroller initialization
 ' @local dvrConfig - driver configuration flags
 
-  chainIndex := hub75Bffrs.configureAdapter(eHub75Adapter)   ' settings, wiring check, buffer pointers
+  chainIndex := hub75Bffrs.configureAdapter(eHub75Adapter)   ' settings, panel-list check, buffer pointers
   colorUtils.buildColorTable(chainIndex)                 ' this adapter's color table, from its depth and the gamma setting
   instanceID := nId
   bytefill(@padBuffer, 0, MAX_PAD_BUFFER_BYTES)
@@ -313,7 +313,7 @@ PUB fillScreen(rgbColor) | panelIndex
 PUB fillPanel(panelIndex, rgbColor) | offsetPixelRows, offsetPixelColumns
 '' Fill the specified panel with 24-bit color value. Panels are named by panel position as the
 '' display is mounted: reading order from the top-left panel as the viewer sees it, over the
-'' cells of the display's grid that hold a panel. At ROT_NONE this is the layout's order.
+'' cells of the display's grid that hold a panel. With the display hung as built this is the layout's order.
 ''   2x2 grid: [0][1]    3x3 grid: [0][1][2]
 ''             [2][3]              [3][4][5]
 ''                                 [6][7][8]
@@ -411,7 +411,7 @@ PUB setCursorOnPanel(line, column, panelIndex) | boundedPanelPosn, boundedLine, 
   boundedLine := 0 #> line <# maxPanelTextLines - 1
   boundedColumn := 0 #> column <# maxPanelTextColumns - 1
 
-  ' the panel's cell in the display's grid, derived from the wiring sentences
+  ' the panel's cell in the display's grid, derived from the panel list
   offsetPixelRows, offsetPixelColumns := hub75Bffrs.offsetToPanel(chainIndex, boundedPanelPosn)
   panelGridRow := offsetPixelRows / rowsPerPanel
   panelGridCol := offsetPixelColumns / columnsPerPanel
@@ -1096,7 +1096,7 @@ PUB drawFaceLine(eFace, fmRow, fmColumn, toRow, toColumn)
   drawFaceLineOfColor(eFace, fmRow, fmColumn, toRow, toColumn, currTextColor)
 
 PUB drawFaceLineOfColor(eFace, fmRow, fmColumn, toRow, toColumn, rgbColor) | eHomeFace
-'' Draw line fromRC -> toRC using rgbColor on a face of the cube (DISPn_SHAPE = SHAPE_CUBE).
+'' Draw line fromRC -> toRC using rgbColor on a face of the cube (panels marked CUBE_TOP and CUBE_FRONT).
 '' Uses face coordinates: every face is seen from outside the cube, row 0 at the face's up edge
 '' and column 0 at its left edge. The part of the line past the face's edges is not clipped: it
 '' folds onto the neighbouring faces, across as many edges as it crosses. The line is drawn in
@@ -1677,7 +1677,7 @@ PRI drawFoldedPixel(faceRow, faceColumn, rgbColor, eHomeFace) | displayRow, disp
 ' there; a pixel in a corner gap is not drawn. Kept apart from drawPixelInternal() so flat
 ' pixels do not carry these locals. The cube answers with display coordinates only, no panel.
 ' The display coordinates it draws at are passed straight to drawPixelAtRC(), which applies
-' display rotation; that is correct only because a cube's rotation is forced to ROT_NONE at
+' display rotation; that is correct only because a cube's rotation is forced to ROT_0 at
 ' startup (hub75Bffrs, ignoreCubeRotation). A rotated cube would need the rotation undone here.
 '
 ' @param faceRow - pixel row in face coordinates (may run past the face's edges)

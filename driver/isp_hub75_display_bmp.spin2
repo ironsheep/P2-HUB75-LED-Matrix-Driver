@@ -18,16 +18,15 @@
 CON ' ---- Values of the Interface Methods ----
     {Spin2_Doc_CON}
 
-    ' content rotations, taken by placeBMP() (forwarded from hwEnum, which defines them; the
-    ' names are aliases of hwEnum's ROT_0, ROT_90 and ROT_270, kept as the content-rotation words):
-    '  ROT_NONE     - the image is not turned
-    '  ROT_RIGHT_90 - the image is turned 90 degrees clockwise
-    '  ROT_LEFT_90  - the image is turned 90 degrees counter-clockwise
-    '  ROT_180      - the image is turned 180 degrees
-    ROT_NONE                = hwEnum.ROT_NONE
-    ROT_RIGHT_90            = hwEnum.ROT_RIGHT_90
-    ROT_LEFT_90             = hwEnum.ROT_LEFT_90
+    ' content rotations, taken by placeBMP() (forwarded from hwEnum, which defines them):
+    '  ROT_0   - the image is not turned
+    '  ROT_90  - the image is turned 90 degrees clockwise
+    '  ROT_180 - the image is turned 180 degrees
+    '  ROT_270 - the image is turned 90 degrees counter-clockwise
+    ROT_0                   = hwEnum.ROT_0
+    ROT_90                  = hwEnum.ROT_90
     ROT_180                 = hwEnum.ROT_180
+    ROT_270                 = hwEnum.ROT_270
 
     ' status codes returned by placeBMP() and fillScreenFromBMP() (forwarded from hwEnum, which defines them):
     '  SUCCESS         - the image was placed
@@ -99,13 +98,13 @@ PUB null()
 
 PUB fillScreenFromBMP(nChainIdx, pBmpFile) : status
 '' Load a 24-bit .bmp file image onto the display, centred and not turned. This is placeBMP()
-'' at ROT_NONE: a display-sized image lands exactly on the display, any other size is centred.
+'' at ROT_0: a display-sized image lands exactly on the display, any other size is centred.
 ''
 '' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @param pBmpFile - pointer to the in-memory .bmp file data
 '' @returns status - SUCCESS if the image was placed, E_BMP_NOT_24BIT if the file was rejected
 
-  status := placeBMP(nChainIdx, pBmpFile, hwEnum.ROT_NONE)
+  status := placeBMP(nChainIdx, pBmpFile, hwEnum.ROT_0)
 
 PUB placeBMP(nChainIdx, pBmpFile, eContentRotation) : status
 '' Place a 24-bit uncompressed .bmp image of any size on the display, centred, turned by a content
@@ -122,7 +121,7 @@ PUB placeBMP(nChainIdx, pBmpFile, eContentRotation) : status
 ''
 '' @param nChainIdx - the index of the desired chain of panels (hub75 adapter)
 '' @param pBmpFile - pointer to the in-memory .bmp file data
-'' @param eContentRotation - how the image is turned: ROT_NONE, ROT_RIGHT_90 (clockwise), ROT_LEFT_90 or ROT_180
+'' @param eContentRotation - how the image is turned: ROT_0, ROT_90 (clockwise), ROT_180 or ROT_270 (counter-clockwise)
 '' @returns status - SUCCESS if the image was placed, E_BAD_ROTATION if the rotation was refused,
 ''                   E_BMP_NOT_24BIT if the file was rejected
 
@@ -141,10 +140,10 @@ PRI isValidContentRotation(eContentRotation) : bIsValid
 ' Return TRUE if eContentRotation is one of the four content rotations.
 '
 ' @param eContentRotation - the value to check
-' @returns bIsValid - TRUE if the value is ROT_NONE, ROT_RIGHT_90, ROT_LEFT_90 or ROT_180
+' @returns bIsValid - TRUE if the value is ROT_0, ROT_90, ROT_180 or ROT_270
 
   case eContentRotation
-    hwEnum.ROT_NONE, hwEnum.ROT_RIGHT_90, hwEnum.ROT_LEFT_90, hwEnum.ROT_180:
+    hwEnum.ROT_0, hwEnum.ROT_90, hwEnum.ROT_270, hwEnum.ROT_180:
       bIsValid := TRUE
     other:
       bIsValid := FALSE
@@ -213,7 +212,7 @@ PRI sourcePixelOf(eContentRotation, nRowOffset2, nColumnOffset2, nImageWidth, nI
 ' centres of the display and the image (y grows downward; a clockwise turn sends image-top to
 ' display-right). The result may lie outside the image.
 '
-' @param eContentRotation - ROT_NONE, ROT_RIGHT_90, ROT_LEFT_90 or ROT_180
+' @param eContentRotation - ROT_0, ROT_90, ROT_180 or ROT_270
 ' @param nRowOffset2 - twice the row distance of the display pixel from the display centre
 ' @param nColumnOffset2 - twice the column distance of the display pixel from the display centre
 ' @param nImageWidth - image width in pixels
@@ -226,10 +225,10 @@ PRI sourcePixelOf(eContentRotation, nRowOffset2, nColumnOffset2, nImageWidth, nI
 ' @local nSourceY2 - twice the row distance of the source pixel from the image centre
 
   case eContentRotation
-    hwEnum.ROT_RIGHT_90:
+    hwEnum.ROT_90:
       nSourceX2 := nRowOffset2
       nSourceY2 := -nColumnOffset2
-    hwEnum.ROT_LEFT_90:
+    hwEnum.ROT_270:
       nSourceX2 := -nRowOffset2
       nSourceY2 := nColumnOffset2
     hwEnum.ROT_180:
@@ -262,14 +261,14 @@ PRI sourceAddressOf(nImageColumn, nImageRow, nImageHeight, bTopDown, nRowStride)
 
 PRI placeRowSpan(nDisplayRow, eContentRotation, nImageWidth, nImageHeight, bTopDown, nRowStride) | nRowOffset2, nImageColumn, nImageRow, bVaryRow, nVaryStep, nFixed, nFixedSize, nVary0, nVarySize, nFirstColumn, nLastColumn, pSource, nSourceStep, nColumn, nCellColumns, nPixels, pPixel, nRightStep, pTable
 ' Write one display row of the image: the display pixels it covers are one span, and along it
-' exactly one image coordinate changes, by one per display column (the column for ROT_NONE and
+' exactly one image coordinate changes, by one per display column (the column for ROT_0 and
 ' ROT_180, the row for the quarter turns), so the source bytes step by a constant amount. The
 ' span is written cell by cell, each part from one address lookup (hub75Bffrs.mountedPixelRun())
 ' in PASM (copyBgrSpan()). It writes the bytes drawPixelAtRCwithRGB() writes pixel by pixel; a
 ' cell that holds no panel is not drawn.
 '
 ' @param nDisplayRow - display row being painted, as mounted
-' @param eContentRotation - ROT_NONE, ROT_RIGHT_90, ROT_LEFT_90 or ROT_180
+' @param eContentRotation - ROT_0, ROT_90, ROT_180 or ROT_270
 ' @param nImageWidth - image width in pixels
 ' @param nImageHeight - image height in pixels
 ' @param bTopDown - TRUE when the file stores the top row first
@@ -300,9 +299,9 @@ PRI placeRowSpan(nDisplayRow, eContentRotation, nImageWidth, nImageHeight, bTopD
   ' the image pixel at display column 0; along the row one coordinate moves by nVaryStep per column
   nImageColumn, nImageRow := sourcePixelOf(eContentRotation, nRowOffset2, -(maxColPixels - BMP_LAST_INDEX_OFFSET), nImageWidth, nImageHeight)
   case eContentRotation
-    hwEnum.ROT_RIGHT_90:
+    hwEnum.ROT_90:
       bVaryRow, nVaryStep := TRUE, -1
-    hwEnum.ROT_LEFT_90:
+    hwEnum.ROT_270:
       bVaryRow, nVaryStep := TRUE, 1
     hwEnum.ROT_180:
       bVaryRow, nVaryStep := FALSE, -1

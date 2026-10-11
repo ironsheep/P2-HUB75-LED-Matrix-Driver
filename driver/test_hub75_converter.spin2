@@ -138,7 +138,7 @@ halfScanGeometries
     LONG    SCAN_HALF,   4,  64, 32
     LONG    SCAN_HALF,   9,  32, 16
     LONG    SCAN_HALF,  10,  32, 16
-    LONG    SCAN_HALF,  16,  32, 16                               ' the converter limit (hub75Bffrs.CONVERTER_MAX_PANELS)
+    LONG    SCAN_HALF,  16,  32, 16                               ' a 512-column row: the line buffer's limit (hub75Bffrs.LINE_BUFFER_BYTES)
 halfScanGeometriesEnd
 
 quarterScanGeometries
@@ -921,7 +921,7 @@ PRI nextRandom() : randomLong
 
 PRI frameBytesOf(pGeometry) : frameBytes
 ' Return the bytes in one frame (bit plane) of a geometry: one byte per column clock, for half
-' the panel rows of every panel (the configuration's DISPn_PWM_FRAME_SIZE_IN_BYTES).
+' the panel rows of every panel (the frame size hwBufferAccess pwmFrameSizeInBytes() gives).
 '
 ' @param pGeometry - address of the case's geometry
 ' @returns frameBytes - bytes in one frame

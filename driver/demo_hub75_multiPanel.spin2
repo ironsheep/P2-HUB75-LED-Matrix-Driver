@@ -30,7 +30,7 @@ CON ' ---- Demo Info ----
 
     ' The labelled-panels demo names panels P0 .. P5, in reading order from the top-left panel
     ' as the display is mounted, after the faces of an unfolded cube: Top, Front, Right, Back,
-    ' Left, Bot. The names are labels only: they do not follow DISPn_CUBE_TOP / DISPn_CUBE_FRONT.
+    ' Left, Bot. The names are labels only: they do not follow the CUBE_TOP / CUBE_FRONT marks.
     ' To draw on the faces of a real cube, use the face-centric calls (drawFace...). A display
     ' with fewer panels labels the panels it has; one with more labels the first LABELLED_PANELS.
     LABELLED_PANELS     = 6
