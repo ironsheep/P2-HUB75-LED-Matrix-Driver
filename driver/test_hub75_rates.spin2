@@ -54,9 +54,9 @@
    report FAIL.
 
    Next, still before anything is drawn for viewing, the row-run self-test (FRAME-RATE plan section 9).
-   It lays the adapter's panels out three ways (its own panel list, an L three cells wide, an L three cells
-   tall; the two Ls only on an adapter of exactly four panels, and the log says when they are not
-   run), each at all four display rotations and with all four arrows, through the instrument-only
+   It lays the adapter's panels out six ways (its own panel list, an L three cells wide, an L three cells
+   tall, a T, a Z and a plus; each only on an adapter with as many panels as it has - four, or five
+   for the plus - and the log says when one is not run), each at all four display rotations and with all four arrows, through the instrument-only
    hub75Bffrs.testRelayout(); the build's panel configuration is not changed. On each layout it first
    compares screenUtils.pixelAddressAtRC() with oldPixelAddress(), a copy of the per-pixel address rule
    as it stood before row runs, at the display's edges, cell edges and a lattice inside. Then, for each
@@ -216,11 +216,15 @@ CON ' ---- Scroll oracle self-test ----
     '  LAYOUT_OWN        - the adapter's own panel list (DISP0's, in the configuration), with every TOP_ word replaced
     '  LAYOUT_WIDE_L     - an L three cells wide: C0 C1 C2 along the top, C3 below C0
     '  LAYOUT_TALL_L     - an L three cells tall: C0 C1 C2 down the left, C3 right of C0
+    '  LAYOUT_T          - a T: C0 C1 C2 along the top, C3 below C1
+    '  LAYOUT_Z          - a Z: C0 C1 along the top, C2 C3 below, one cell to the right
+    '  LAYOUT_PLUS       - a plus: C0 on top, C1 C2 C3 across the middle, C4 below
     '  TEST_LAYOUT_COUNT - number of layouts
-    #0, LAYOUT_OWN, LAYOUT_WIDE_L, LAYOUT_TALL_L, TEST_LAYOUT_COUNT
+    #0, LAYOUT_OWN, LAYOUT_WIDE_L, LAYOUT_TALL_L, LAYOUT_T, LAYOUT_Z, LAYOUT_PLUS, TEST_LAYOUT_COUNT
 
-    ' Panels in each L layout (the adapter must have this many for those layouts to apply)
-    L_LAYOUT_PANELS         = 4
+    ' Panels in each fixed layout (the adapter must have this many for the layout to apply)
+    L_LAYOUT_PANELS         = 4                             ' each L, the T and the Z
+    PLUS_LAYOUT_PANELS      = 5
 
     ' The most panels testSentences holds: the adapter's own layout is run when its list fits
     TEST_SENTENCES_MAX      = 16
@@ -454,6 +458,10 @@ DAT ' ---- Test State (singleton) ----
     testArrows      LONG    hwEnum.TOP_UP, hwEnum.TOP_RIGHT, hwEnum.TOP_DOWN, hwEnum.TOP_LEFT
     wideLSentences  LONG    hwEnum.ROW_0 | hwEnum.COL_0, hwEnum.ROW_0 | hwEnum.COL_1, hwEnum.ROW_0 | hwEnum.COL_2, hwEnum.ROW_1 | hwEnum.COL_0
     tallLSentences  LONG    hwEnum.ROW_0 | hwEnum.COL_0, hwEnum.ROW_1 | hwEnum.COL_0, hwEnum.ROW_2 | hwEnum.COL_0, hwEnum.ROW_0 | hwEnum.COL_1
+    tSentences      LONG    hwEnum.ROW_0 | hwEnum.COL_0, hwEnum.ROW_0 | hwEnum.COL_1, hwEnum.ROW_0 | hwEnum.COL_2, hwEnum.ROW_1 | hwEnum.COL_1
+    zSentences      LONG    hwEnum.ROW_0 | hwEnum.COL_0, hwEnum.ROW_0 | hwEnum.COL_1, hwEnum.ROW_1 | hwEnum.COL_1, hwEnum.ROW_1 | hwEnum.COL_2
+    plusSentences   LONG    hwEnum.ROW_0 | hwEnum.COL_1, hwEnum.ROW_1 | hwEnum.COL_0, hwEnum.ROW_1 | hwEnum.COL_1, hwEnum.ROW_1 | hwEnum.COL_2
+                    LONG    hwEnum.ROW_2 | hwEnum.COL_1
     testSentences   LONG    0[TEST_SENTENCES_MAX]           ' the sentences of the layout under test
     ' the reference drawing: CAPTURE_LONGS long indices then their values, or one window of the buffer
     captureArea     LONG    0[CAPTURE_AREA_LONGS]
@@ -924,7 +932,7 @@ PRI runRowRunTest() | startMs, layoutIdx, rotationIdx, arrowIdx, caseIdx, nCaseM
         pArrow := arrowLabel(arrowIdx)
         nPanels := buildTestSentences(layoutIdx, LONG[@testArrows][arrowIdx])
         if nPanels <> hub75Bffrs.maxPanels(chainIndex)
-          ' an L is drawn with exactly L_LAYOUT_PANELS panels, and a relayout keeps the adapter's count
+          ' a fixed layout is drawn with exactly its own panel count, and a relayout keeps the adapter's count
           if rotationIdx == 0 and arrowIdx == 0
             debug("R", zstr_(@dbgRowRun), " ", zstr_(pLayout), ":", zstr_(@dbgNotRunItNeeds), " ", udec_(nPanels), " ", zstr_(@dbgPanelsAndThisAdapterHas), " ", udec_(hub75Bffrs.maxPanels(chainIndex)))
           nSkipped++
@@ -992,8 +1000,14 @@ PRI buildTestSentences(layoutIdx, topWord) : nPanels | pSource, nListBytes, cabl
         nPanels := 0
     LAYOUT_WIDE_L:
       pSource, nPanels := @wideLSentences, L_LAYOUT_PANELS
-    other:
+    LAYOUT_TALL_L:
       pSource, nPanels := @tallLSentences, L_LAYOUT_PANELS
+    LAYOUT_T:
+      pSource, nPanels := @tSentences, L_LAYOUT_PANELS
+    LAYOUT_Z:
+      pSource, nPanels := @zSentences, L_LAYOUT_PANELS
+    other:
+      pSource, nPanels := @plusSentences, PLUS_LAYOUT_PANELS
   repeat cablePos from 0 to nPanels - 1
     LONG[@testSentences][cablePos] := (LONG[pSource][cablePos] & !hwEnum.TOP_MASK) | topWord
 
@@ -1500,8 +1514,14 @@ PRI layoutLabel(layoutIdx) : pLabel
       pLabel := string("own list")
     LAYOUT_WIDE_L:
       pLabel := string("wide L")
-    other:
+    LAYOUT_TALL_L:
       pLabel := string("tall L")
+    LAYOUT_T:
+      pLabel := string("T")
+    LAYOUT_Z:
+      pLabel := string("Z")
+    other:
+      pLabel := string("plus")
 
 PRI rotationLabel(rotationIdx) : pLabel
 ' Return the printable name of an entry of testRotations.
