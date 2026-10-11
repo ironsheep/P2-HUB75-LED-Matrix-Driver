@@ -222,7 +222,7 @@ PUB main() | bReady
     monitorForever()
   debug("OE-BCM: stopped")
 
-PRI loadConfiguration() : bValid | eAddrLines, driverConfig, scanDivisor
+PRI loadConfiguration() : bValid | eAddrLines, driverConfig
 ' Read DISP0's chip, geometry and pins through hwBufferAccess, the way isp_hub75_rgb3bit.spin2
 ' start() does, and check the prototype can run on it.
 '
@@ -231,7 +231,6 @@ PRI loadConfiguration() : bValid | eAddrLines, driverConfig, scanDivisor
 ' Local Variables:
 ' @local eAddrLines - hwEnum.ADDR_* of the panels
 ' @local driverConfig - flags and chip type from getDriverFlags()
-' @local scanDivisor - panel rows per row address (2 for half scan, 4 for SCAN_4)
 
   bValid := TRUE
   adapterChainIndex := hub75Bffrs.configureAdapter(hub75Bffrs.HUB75_ADAPTER_1)
@@ -258,22 +257,21 @@ PRI loadConfiguration() : bValid | eAddrLines, driverConfig, scanDivisor
   quarterScan := (chipFlags & hwEnum.SCAN_4) <> 0
   shiftWhileDark := (SHIFT_MODE == SHIFT_WHILE_DARK)
 
+  ' derived at startup from the panel rows and the chip's scan: always one of the three below
   eAddrLines := hub75Bffrs.addressLines(adapterChainIndex)
   case eAddrLines
     hwEnum.ADDR_ABCDE:
       rowAddressCount := matrix.ROWS_ABCDE
     hwEnum.ADDR_ABCD:
       rowAddressCount := matrix.ROWS_ABCD
-    other:
+    hwEnum.ADDR_ABC:
       rowAddressCount := matrix.ROWS_ABC
 
   ' one row address shifts the whole cable; a SCAN_4 panel shifts twice its width
   if quarterScan == TRUE
     columnClocks := chainPixelColumns * hub75Bffrs.SCAN_4_COLUMN_FACTOR
-    scanDivisor := pnl.QUARTER_DIVISOR
   else
     columnClocks := chainPixelColumns * hub75Bffrs.SINGLE_COLUMN_FACTOR
-    scanDivisor := matrix.HALF_DIVISOR
 
   debug("OE-BCM: chip ", zstr_(chipName(chipTypeId)), ", flags ", uhex_word_(chipFlags), ", base P", udec_(basePinNumber), ", ", udec_(panelsOnChain), " panel(s) of ", udec_(panelPixelColumns), "x", udec_(panelPixelRows))
   debug("OE-BCM: ", udec_(rowAddressCount), " row addresses x ", udec_(columnClocks), " column clocks, scan 1/", udec_(rowAddressCount), " (", zstr_(quarterScan == TRUE ? string("SCAN_4") : string("half scan")), ")")
@@ -284,9 +282,6 @@ PRI loadConfiguration() : bValid | eAddrLines, driverConfig, scanDivisor
     bValid := FALSE
   if basePinNumber <> user.DISP0_ADAPTER_BASE_PIN
     debug("OE-BCM: REFUSED: adapter base P", udec_(basePinNumber), " does not match DISP0_ADAPTER_BASE_PIN")
-    bValid := FALSE
-  if rowAddressCount * scanDivisor <> panelPixelRows
-    debug("OE-BCM: REFUSED: ", udec_(rowAddressCount), " row addresses x ", udec_(scanDivisor), " rows each <> panel height ", udec_(panelPixelRows))
     bValid := FALSE
   if columnClocks > hub75Bffrs.LINE_BUFFER_BYTES
     debug("OE-BCM: REFUSED: ", udec_(columnClocks), " column clocks exceed the ", udec_(hub75Bffrs.LINE_BUFFER_BYTES), "-byte row buffer")
@@ -365,7 +360,7 @@ PRI reportModel() | predictedClockRises, predictedLatchRises, oeUnitNs
   debug("OE-BCM: MODEL (+load/latch): refresh ", udec_(modelRefreshX100 / matrix.FIXED_POINT_SCALE), ".", udec_((modelRefreshX100 // matrix.FIXED_POINT_SCALE) / pnl.DECIMAL_BASE), " Hz, lit ", udec_(modelDutyX100 / matrix.FIXED_POINT_SCALE), ".", udec_((modelDutyX100 // matrix.FIXED_POINT_SCALE) / pnl.DECIMAL_BASE), "%, expect CLK ", udec_(predictedClockRises), "/s, LATCH ", udec_(predictedLatchRises), "/s")
 
 PRI locateFrameSet() : bFits | pScreen, pSetOne, pSetTwo, screenBytes, setBytes
-' Place the test frame set in adapter 1's own buffers. isp_hub75_hwBuffers.spin2 lays out the
+' Place the test frame set in adapter 1's own buffers. isp_hub75_hwPanelConfig.spin2 lays out the
 ' screen buffer and both PWM frame sets back to back (3 + depth bytes per pixel); the
 ' prototype needs 4 bytes per pixel at 8-bit, so it uses that whole region and allocates
 ' nothing of its own. The layout is checked, not assumed.

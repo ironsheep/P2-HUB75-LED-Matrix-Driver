@@ -468,29 +468,21 @@ PUB start(nID, nChainIdx) : startedCog | columnClockHz, panelCount, colorDepthPl
       bSetLowPins := TRUE
       bUsePortA := FALSE
 
-  ' the row-address bits within the port, and one row address as a step
-  if bSetLowPins == TRUE
-    if hub75Bffrs.addressLines(chainIndex) == hwEnum.ADDR_ABCDE
-      maskAddr    := MASK_ADDR_LO16_ABCDE                     ' pins at 00-15 A/B-pins
+  ' the row-address bits within the port, and one row address as a step. The address lines are
+  ' derived at startup from the panel rows and the chip's scan; configureAdapter() stops the
+  ' program unless they are one of the three below.
+  case hub75Bffrs.addressLines(chainIndex)
+    hwEnum.ADDR_ABCDE:
       rowAddressCount   := ROWS_ABCDE
-    elseif hub75Bffrs.addressLines(chainIndex) == hwEnum.ADDR_ABCD
-      maskAddr    := MASK_ADDR_LO16_ABCD                      ' pins at 00-15 A/B-pins
+      maskAddr    := bSetLowPins == TRUE ? MASK_ADDR_LO16_ABCDE : MASK_ADDR_HI16_ABCDE
+    hwEnum.ADDR_ABCD:
       rowAddressCount   := ROWS_ABCD
-    else  '  == hwEnum.ADDR_ABC
-      maskAddr    := MASK_ADDR_LO16_ABC                       ' pins at 00-15 A/B-pins
+      maskAddr    := bSetLowPins == TRUE ? MASK_ADDR_LO16_ABCD : MASK_ADDR_HI16_ABCD
+    hwEnum.ADDR_ABC:
       rowAddressCount   := ROWS_ABC
-    addrValue1  := ADDR_VAL_ONE_LO16                            ' 1 but in upper 5-bits of byte
-  else
-    if hub75Bffrs.addressLines(chainIndex) == hwEnum.ADDR_ABCDE
-      maskAddr    := MASK_ADDR_HI16_ABCDE                     ' pins at 16-31 A/B-pins
-      rowAddressCount   := ROWS_ABCDE
-    elseif hub75Bffrs.addressLines(chainIndex) == hwEnum.ADDR_ABCD
-      maskAddr    := MASK_ADDR_HI16_ABCD                      ' pins at 16-31 A/B-pins
-      rowAddressCount   := ROWS_ABCD
-    else  '  == hwEnum.ADDR_ABC
-      maskAddr    := MASK_ADDR_HI16_ABC                       ' pins at 16-31 A/B-pins
-      rowAddressCount   := ROWS_ABC
-    addrValue1  := ADDR_VAL_ONE_HI16                          ' 1 but in upper 5-bits of byte
+      maskAddr    := bSetLowPins == TRUE ? MASK_ADDR_LO16_ABC : MASK_ADDR_HI16_ABC
+  ' pins at 00-15 or 16-31: 1 in the upper 5 bits of the low or the high byte
+  addrValue1  := bSetLowPins == TRUE ? ADDR_VAL_ONE_LO16 : ADDR_VAL_ONE_HI16
   debug("RG3:  --    ", ubin_long(maskAddr))
   debug("RG3:  -- ", sdec_long(bSetLowPins, bUsePortA))
 
