@@ -17,7 +17,6 @@ driver  driver/isp_hub75_display.spin2
 driver  driver/isp_hub75_display_bmp.spin2
 driver  driver/isp_hub75_fonts.spin2
 driver  driver/isp_hub75_hwBufferAccess.spin2
-driver  driver/isp_hub75_hwBuffers.spin2
 driver  driver/isp_hub75_hwEnums.spin2
 driver  driver/isp_hub75_hwPanelConfig.spin2
 driver  driver/isp_hub75_panel.spin2

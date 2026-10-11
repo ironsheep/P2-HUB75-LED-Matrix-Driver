@@ -58,7 +58,7 @@ CON ' ---- Object Interface: PUBLIC ENUMs ----
     '  ALIGN_LEFT    - align text to the left edge
     #0, ALIGN_UNKNOWN, ALIGN_RIGHT, ALIGN_CENTER, ALIGN_LEFT
 
-    ' cube faces, for face-centric drawing on a display with DISPn_SHAPE = SHAPE_CUBE
+    ' cube faces, for face-centric drawing on a cube (panels marked CUBE_TOP and CUBE_FRONT)
     ' (forwarded from hwEnum; face coordinates and each face's up are described there):
     '  FACE_TOP    - the face at DISPn_CUBE_TOP
     '  FACE_BOTTOM - the face opposite the top
@@ -1703,8 +1703,8 @@ PRI faceFrameOf(eFace) : eHomeFace
   eHomeFace := eFace
   faceHomeTurn := cube.QTURN_NONE
   faceHomeAddRow := faceHomeAddColumn := 0
-  if hub75Bffrs.displayShape(chainIndex) <> hwEnum.SHAPE_CUBE
-    debug("* Warning: face-centric drawing needs DISP", udec_(chainIndex), "_SHAPE = SHAPE_CUBE")
+  if hub75Bffrs.isCube(chainIndex) == FALSE
+    debug("* Warning: face-centric drawing needs a cube (DISP", udec_(chainIndex), " panels marked CUBE_TOP and CUBE_FRONT)")
     eHomeFace := cube.NO_FACE
 
 PRI faceHomeOf(eFace, firstRow, firstColumn, lastRow, lastColumn) : eHomeFace

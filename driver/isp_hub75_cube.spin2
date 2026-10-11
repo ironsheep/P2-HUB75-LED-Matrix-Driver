@@ -11,7 +11,7 @@
 ''
 '' =================================================================================================
 
-{ The cube (DISPn_SHAPE = SHAPE_CUBE). isp_hub75_hwBufferAccess.spin2 reads the settings and the
+{ The cube (a panel list that marks CUBE_TOP and CUBE_FRONT). isp_hub75_hwBufferAccess.spin2 reads the marks and the
   wiring sentences and calls foldNet() and printCube() here; the display object draws through
   homeFoldToDisplay() and homeOnFaceOfExtent().
 }
@@ -113,7 +113,7 @@ OBJ
 
 DAT ' ---- Cube faces, edges and folded tables ----
 
-{ The cube's faces and edges (DISPn_SHAPE = SHAPE_CUBE).
+{ The cube's faces and edges (a panel list that marks CUBE_TOP and CUBE_FRONT).
 
   Each face has a fixed frame, seen from outside the cube: an outward normal n, an up U and
   a right R = U x n. Face coordinates (row, column) put row 0 at the face's up edge and
@@ -124,7 +124,7 @@ DAT ' ---- Cube faces, edges and folded tables ----
     TOP                      - up points toward BACK (standing at FRONT, text on TOP reads correctly)
     BOTTOM                   - up points toward FRONT
 
-  TOP and FRONT are the faces at DISPn_CUBE_TOP and DISPn_CUBE_FRONT; BOTTOM and BACK are
+  TOP and FRONT are the faces marked CUBE_TOP and CUBE_FRONT; BOTTOM and BACK are
   opposite them; RIGHT is on the viewer's right standing at FRONT, and LEFT is opposite it.
 
   Because the up directions are fixed, the edge table is the same for every net; foldNet()
@@ -176,7 +176,7 @@ PUB foldNet(nChainIdx, pCellRows, pCellColumns, pCablePositions, topCable, front
 '' Fold a net of six panels into a cube and build the nChainIdx cube's tables: the face table
 '' (each face's cable position, panel position and turn in its cell) and the edge table (all 12
 '' edges, in both directions: the neighbour across each edge of each face and the transform of
-'' coordinates across it). configureAdapter() calls it for a display with DISPn_SHAPE = SHAPE_CUBE;
+'' coordinates across it). configureAdapter() calls it for a display whose panels are marked CUBE_TOP and CUBE_FRONT;
 '' a fold self-test calls it with a reference net. A net that is not one of the 11 cube nets, or
 '' a front face that does not share an edge with the top face, prints its message and leaves the
 '' display without faces; the caller decides whether to stop.
@@ -201,15 +201,15 @@ PUB foldNet(nChainIdx, pCellRows, pCellColumns, pCablePositions, topCable, front
     rollNet(pCellRows, pCellColumns)
     cableA, cableB := findFoldCollision()
     if cableB <> NO_POSITION
-        ' a cable position that shares no edge with the others cannot happen after placePanels(),
-        ' which places every panel next to its neighbour; it is reported against C0
+        ' a cable position that shares no edge with the others cannot happen after the one-piece
+        ' check of the panel list; it is reported against C0
         if cableA == NO_POSITION
             cableA := FIRST_CABLE_POSITION
         debug("HUB75: DISP", udec_(checkedChainIdx), ": the panels do not fold into a cube (C", udec_(cableA), " and C", udec_(cableB), " fold onto the same face); arrange the six panels as one of the 11 cube nets")
         mistakeCount++
     elseif (rollNormal[frontCable] >> AXIS_SIGN_BITS) == (rollNormal[topCable] >> AXIS_SIGN_BITS)
         ' the front's normal lies on the top's axis: it is the face opposite the top
-        debug("HUB75: DISP", udec_(checkedChainIdx), "_CUBE_FRONT: C", udec_(frontCable), " is opposite the top face (C", udec_(topCable), ") when the panels are folded; the front face must share an edge with the top face")
+        debug("HUB75: DISP", udec_(checkedChainIdx), " C", udec_(frontCable), ": marked CUBE_FRONT, is opposite the CUBE_TOP face (C", udec_(topCable), ") when the panels are folded; the front face must share an edge with the top face")
         mistakeCount++
     else
         buildFaceFrames(topCable, frontCable)

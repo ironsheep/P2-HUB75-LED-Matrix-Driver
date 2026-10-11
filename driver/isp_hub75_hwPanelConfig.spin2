@@ -7,327 +7,197 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Jan 2024
-''   Updated.... 09 Oct 2026
+''   Updated.... 10 Oct 2026
 ''
 '' =================================================================================================
 
-CON ' ---- User Panel Connection and Configuration ----
+{
+  How to describe your display (the full guide is DOCs/WiringGuide.md):
+
+    One display per HUB75 adapter. The first adapter drives DISP0, the second DISP1, the third DISP2.
+
+    1. Say once for the display: the adapter's pin group, the panel driver chip, one panel's
+       columns and rows, and the colour depth.
+    2. List the panels in cable order, one LONG sentence per panel. The first sentence is the
+       panel the adapter plugs into, the next is the panel its ribbon cable goes to, and so on.
+       A sentence says where the panel sits and which way its own top points, as you see it
+       from the front:
+           LONG    hwEnum.ROW_1 | hwEnum.COL_0 | hwEnum.TOP_DOWN
+       Row 0 is the top row of panels and column 0 the left column.
+    3. Not sure? Write every panel as hwEnum.ROW_0 | hwEnum.COL_k | hwEnum.TOP_UP (k = 0, 1, 2 ...),
+       run demo_hub75_numberPanels, and copy what each panel shows: its place on the wall and
+       which way its arrow points. Run it again: the labels then read in order and every arrow
+       points up.
+
+    Join the words with | only. A cube: mark its top face hwEnum.CUBE_TOP and its front face
+    hwEnum.CUBE_FRONT. The panels must form one piece: each shares a full edge with the rest.
+
+    Only the displays you have are described. A second or third display, and each optional
+    setting, is switched on with one #DEFINE line next to it (see the templates below DISP0):
+        #DEFINE DISP1_PRESENT         then the DISP1 block
+        #DEFINE DISPn_ROTATED         then DISPn_ROTATION = hwEnum.TOP_TO_RIGHT (or TOP_TO_LEFT,
+                                      TOP_TO_BOTTOM): the display, built and identified, is hung turned
+        #DEFINE DISPn_REFRESH_GIVEN   then DISPn_TARGET_REFRESH_HZ = <Hz> (default 60)
+
+    What the compiler says when a #DEFINE and its setting do not match:
+        setting written, #DEFINE missing   - Symbol is already defined (m541), at the setting's
+                                             default in the Defaults section below
+        #DEFINE written, setting missing   - Expected an object constant, structure, or method
+                                             (reported in isp_hub75_hwBufferAccess.spin2)
+        DISP1_PRESENT, no DISP1 block      - Undefined symbol (in the storage section below)
+
+    Everything below the USER SECTION is not edited.
+}
+
+' ==================================== USER SECTION ====================================
+
+CON ' ---- DISP0: the display on the 1st HUB75 adapter ----
     {Spin2_Doc_CON}
 
-' Reference: addr width for known chips:
-'
-'       DP5125D                 ABC
-'       MBI5124GP               ABC
-'
-'       FM6124                  ABCD
-'       FM6126A                 ABCD
-'       GS6238S                 ABCD
-'
-'       ICN2037                 ABCDE
-'       ICN2038S                ABCDE
+    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
+    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
+    DISP0_PANEL_COLUMNS     = 128
+    DISP0_PANEL_ROWS        = 64
+    ' hub RAM per pixel: 3 screen-buffer bytes plus one byte per bit of depth (11 bytes at 8 bits);
+    ' lower the depth only when the display does not fit
+    DISP0_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
 
-'  User wiring section
-'
-' Wiring: one sentence per cable position, DISPn_C0 .. DISPn_C15
-'
-'  Cable position C0 is the panel the adapter plugs into, C1 is the next panel
-'  along the ribbon cable, and so on. The sentence DISPn_Ck describes the panel at
-'  cable position k: where it sits next to a panel already described, and the
-'  direction its identify arrow points (its panel rotation).
-'
-'  The words (all from isp_hub75_hwEnums, so each is written hwEnum.WORD):
-'    direction - hwEnum.ABOVE, hwEnum.BELOW, hwEnum.LEFT_OF, hwEnum.RIGHT_OF
-'    neighbor - hwEnum.C0 through hwEnum.C15, the neighbor's cable position
-'    arrow     - hwEnum.ARROW_UP, hwEnum.ARROW_DOWN, hwEnum.ARROW_LEFT, hwEnum.ARROW_RIGHT
-'  Example: hwEnum.RIGHT_OF | hwEnum.C0 | hwEnum.ARROW_DOWN means "this panel sits to
-'  the right of C0, and its arrow points down".
-'
-'  Three forms:
-'    hwEnum.FIRST_PANEL | arrow     - for C0 only
-'    direction | neighbor | arrow  - for every other panel in use
-'    hwEnum.NO_PANEL                - for unused cable positions
-'
-'  Five rules:
-'    1. Join the words with | only, never +, in any order. Each word is a single
-'       bit, so + carries into the next word: C2 + C2 silently becomes C3.
-'    2. The neighbor shares a full edge with this panel. It may come earlier or
-'       later in the cable.
-'    3. Every panel connects back to C0 through its neighbors.
-'    4. No two panels share a cell.
-'    5. Panels in use are numbered C0, C1, C2 and so on with no gaps, and NO_PANEL
-'       comes only after the last one.
-'
-'  An adapter whose DISPn_C0 is hwEnum.NO_PANEL has no panels: its buffers are zero
-'  length and cost no memory.
+DAT ' ---- DISP0 panels, in cable order ----
 
-' panel set on 1st HUB75 adapter board - DISP0_* constants
+'  Seen from the front, every panel hung upside-down; the adapter plugs into the bottom-left panel:
+'     [C2][C3]
+'     [C0][C1]
+disp0Panels     LONG    hwEnum.ROW_1 | hwEnum.COL_0 | hwEnum.TOP_DOWN
+                LONG    hwEnum.ROW_1 | hwEnum.COL_1 | hwEnum.TOP_DOWN
+                LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_DOWN
+                LONG    hwEnum.ROW_0 | hwEnum.COL_1 | hwEnum.TOP_DOWN
+disp0PanelsEnd
 
-    ' User configure
+' ---- A second display: remove the leading ' from each line below, then edit it ----
+'#DEFINE DISP1_PRESENT
+'CON
+'    DISP1_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P32_P47
+'    DISP1_PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6126A
+'    DISP1_PANEL_COLUMNS     = 64
+'    DISP1_PANEL_ROWS        = 32
+'    DISP1_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
+'DAT
+'disp1Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
+'disp1PanelsEnd
+' (a third display is the same block with DISP2_, disp2Panels, disp2PanelsEnd and PIN_GROUP_P0_P15)
 
-    ' (1) describe the panel connections, addressing and chips
-    DISP0_ADAPTER_BASE_PIN         = hwEnum.PIN_GROUP_P16_P31
-    DISP0_PANEL_DRIVER_CHIP        = hwEnum.CHIP_ICN2037
-    DISP0_PANEL_ADDR_LINES         = hwEnum.ADDR_ABCDE
+' ---- Optional settings: remove the leading ' from both lines of the one you want ----
+'#DEFINE DISP0_ROTATED
+'CON DISP0_ROTATION = hwEnum.TOP_TO_RIGHT
+'#DEFINE DISP0_REFRESH_GIVEN
+'CON DISP0_TARGET_REFRESH_HZ = 30
 
-    ' (2) describe the single panel physical size
-    DISP0_MAX_PANEL_COLUMNS        = 128
-    DISP0_MAX_PANEL_ROWS           = 64
+' ================================== END USER SECTION ==================================
 
-    ' (3) describe the color depth you want to support [3-8] bits per LED
-    '    NOTE the default is hwEnum.DEPTH_8BIT, full 24bit color
-    '    NOTE hub RAM: each pixel of the panels in use takes 3 screen-buffer bytes plus
-    '         one byte per bit of depth (two PWM frame sets of depth x 4 bits), so 11
-    '         bytes at 8 bits; lower the depth only when the buffers do not fit
-    DISP0_COLOR_DEPTH              = hwEnum.DEPTH_8BIT
+CON ' ---- Defaults (not edited) ----
 
-    ' (4) Say how the whole display is mounted (the rotation is physical)
-    '    hwEnum.ROT_RIGHT_90 = hung turned 90 degrees clockwise, hwEnum.ROT_LEFT_90 = counter-clockwise,
-    '    hwEnum.ROT_180 = upside-down. Content then reads upright as mounted.
-    ' NOTE: Use ROT_NONE first to verify panel orientation, then adjust if needed
-    DISP0_ROTATION                 = hwEnum.ROT_NONE
-    'DISP0_ROTATION = hwEnum.ROT_180  ' uncomment if display is upside-down
+'  Each optional setting not switched on above takes its default here, and each display not
+'  present gets an empty panel list: it has no panels and its buffers cost no memory.
 
-    ' (5) Describe the wiring: one sentence per cable position (rules above)
-    '
-    '  Looking at the display front, every arrow points down:
-    '     [C2][C3]
-    '     [C0][C1]   the adapter plugs into C0
-    '
-    DISP0_C0                       = hwEnum.FIRST_PANEL | hwEnum.ARROW_DOWN
-    DISP0_C1                       = hwEnum.RIGHT_OF | hwEnum.C0 | hwEnum.ARROW_DOWN
-    DISP0_C2                       = hwEnum.ABOVE | hwEnum.C0 | hwEnum.ARROW_DOWN
-    DISP0_C3                       = hwEnum.RIGHT_OF | hwEnum.C2 | hwEnum.ARROW_DOWN
-    DISP0_C4                       = hwEnum.NO_PANEL
-    DISP0_C5                       = hwEnum.NO_PANEL
-    DISP0_C6                       = hwEnum.NO_PANEL
-    DISP0_C7                       = hwEnum.NO_PANEL
-    DISP0_C8                       = hwEnum.NO_PANEL
-    DISP0_C9                       = hwEnum.NO_PANEL
-    DISP0_C10                      = hwEnum.NO_PANEL
-    DISP0_C11                      = hwEnum.NO_PANEL
-    DISP0_C12                      = hwEnum.NO_PANEL
-    DISP0_C13                      = hwEnum.NO_PANEL
-    DISP0_C14                      = hwEnum.NO_PANEL
-    DISP0_C15                      = hwEnum.NO_PANEL
+    DEFAULT_REFRESH_HZ      = 60                                ' the refresh rate the driver aims for
 
-    ' (6) Describe the display shape: hwEnum.SHAPE_FLAT or hwEnum.SHAPE_CUBE
-    '  For a cube, DISP0_CUBE_TOP and DISP0_CUBE_FRONT are the cable positions
-    '  (hwEnum.C0 through hwEnum.C15) of the top face and the front face.
-    '  They are not used by a flat display. DISP0_ROTATION does not apply to a cube.
-    DISP0_SHAPE                    = hwEnum.SHAPE_FLAT
-    DISP0_CUBE_TOP                 = hwEnum.NO_PANEL
-    DISP0_CUBE_FRONT               = hwEnum.NO_PANEL
+#IFNDEF DISP0_ROTATED
+CON
+    DISP0_ROTATION          = hwEnum.AS_BUILT
+#ENDIF
+#IFNDEF DISP0_REFRESH_GIVEN
+CON
+    DISP0_TARGET_REFRESH_HZ = DEFAULT_REFRESH_HZ
+#ENDIF
 
-    ' (7) The refresh rate to aim for, in Hz (default 60)
-    '    The driver picks the brightest panel timing that reaches this rate. A long chain at
-    '    deep colour may not reach it; the driver then runs at the fastest rate it can and
-    '    prints that rate at startup. Lower it for more brightness on a large display.
-    DISP0_TARGET_REFRESH_HZ        = 60
+#IFNDEF DISP1_PRESENT
+CON
+    DISP1_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P32_P47
+    DISP1_PANEL_DRIVER_CHIP = hwEnum.CHIP_UNKNOWN
+    DISP1_PANEL_COLUMNS     = 0
+    DISP1_PANEL_ROWS        = 0
+    DISP1_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
+DAT
+disp1Panels
+disp1PanelsEnd
+#ENDIF
+#IFNDEF DISP1_ROTATED
+CON
+    DISP1_ROTATION          = hwEnum.AS_BUILT
+#ENDIF
+#IFNDEF DISP1_REFRESH_GIVEN
+CON
+    DISP1_TARGET_REFRESH_HZ = DEFAULT_REFRESH_HZ
+#ENDIF
 
-    ' End User configure
+#IFNDEF DISP2_PRESENT
+CON
+    DISP2_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P0_P15
+    DISP2_PANEL_DRIVER_CHIP = hwEnum.CHIP_UNKNOWN
+    DISP2_PANEL_COLUMNS     = 0
+    DISP2_PANEL_ROWS        = 0
+    DISP2_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
+DAT
+disp2Panels
+disp2PanelsEnd
+#ENDIF
+#IFNDEF DISP2_ROTATED
+CON
+    DISP2_ROTATION          = hwEnum.AS_BUILT
+#ENDIF
+#IFNDEF DISP2_REFRESH_GIVEN
+CON
+    DISP2_TARGET_REFRESH_HZ = DEFAULT_REFRESH_HZ
+#ENDIF
 
-' panel set on 2nd HUB75 adapter board - DISP1_* constants
+CON ' ---- Storage sizes (not edited) ----
 
-    ' User configure
+'  Every buffer is sized from its display's panel count, the length of its panel list:
+'  (dispNPanelsEnd - dispNPanels) / hwEnum.BYTES_PER_LONG. A CON cannot count a DAT list, so
+'  the sizes are written out in the DAT section below. Hub RAM is the only limit on the panel
+'  count the compiler applies; a display too large for hub RAM does not compile.
 
-    ' (1) describe the panel connections, addressing and chips
-    '    NOTE each adapter needs its own pin group: when you use this adapter, set the base pin
-    '         to the group it is plugged into (the default differs from the other two adapters)
-    DISP1_ADAPTER_BASE_PIN         = hwEnum.PIN_GROUP_P32_P47
-    DISP1_PANEL_DRIVER_CHIP        = hwEnum.CHIP_ICN2037
-    DISP1_PANEL_ADDR_LINES         = hwEnum.ADDR_ABCDE
+    BYTES_PER_COLOR         = 3                                 ' the screen buffer holds one byte each of R, G, B
+    PIXELS_PER_PWM_BYTE     = 2                                 ' a PWM frame holds 4 bits per pixel
 
-    ' (2) describe the single panel physical size
-    DISP1_MAX_PANEL_COLUMNS        = 64
-    DISP1_MAX_PANEL_ROWS           = 64
+    ' The layout tables of one display (isp_hub75_hwBufferAccess.spin2 builds and reads them),
+    ' in one block: first the LONG tables of one entry per grid cell, then the BYTE tables of
+    ' one entry per panel, then the BYTE tables of one entry per grid cell. The panels form one
+    ' piece, so N panels fit a grid of ((N + 2) / 2) x ((N + 1) / 2) cells.
+    LAYOUT_LONGS_PER_CELL   = 3                                 ' cell offset, right step, down step
+    LAYOUT_BYTES_PER_PANEL  = 8                                 ' the per-panel position tables
+    LAYOUT_BYTES_PER_CELL   = 2                                 ' the layout grid and the mounted grid
+    GRID_LONG_SIDE_EXTRA    = 2                                 ' grid cells: ((N + 2) / 2) x ((N + 1) / 2)
+    GRID_SHORT_SIDE_EXTRA   = 1
+    GRID_SIDES              = 2
 
-    ' (3) describe the color depth you want to support [3-8] bits per LED
-    '    NOTE the default is hwEnum.DEPTH_8BIT, full 24bit color
-    '    NOTE hub RAM: each pixel of the panels in use takes 3 screen-buffer bytes plus
-    '         one byte per bit of depth (two PWM frame sets of depth x 4 bits), so 11
-    '         bytes at 8 bits; lower the depth only when the buffers do not fit
-    DISP1_COLOR_DEPTH              = hwEnum.DEPTH_8BIT
+    ' guard patterns around the first display's buffers; nothing reads them
+    GUARD_FRONT             = $0DF0ADDE
+    GUARD_BACK              = $0DF1ADDE
+    GUARD_TABLES            = $0DF2ADDE
 
-    ' (4) Say how the whole display is mounted (rules above DISP0)
-    DISP1_ROTATION                 = hwEnum.ROT_NONE
+DAT ' ---- Storage (not edited) ----
 
-    ' (5) Describe the wiring: one sentence per cable position (rules above DISP0)
-    '  This adapter has no panels: every cable position is NO_PANEL.
-    DISP1_C0                       = hwEnum.NO_PANEL
-    DISP1_C1                       = hwEnum.NO_PANEL
-    DISP1_C2                       = hwEnum.NO_PANEL
-    DISP1_C3                       = hwEnum.NO_PANEL
-    DISP1_C4                       = hwEnum.NO_PANEL
-    DISP1_C5                       = hwEnum.NO_PANEL
-    DISP1_C6                       = hwEnum.NO_PANEL
-    DISP1_C7                       = hwEnum.NO_PANEL
-    DISP1_C8                       = hwEnum.NO_PANEL
-    DISP1_C9                       = hwEnum.NO_PANEL
-    DISP1_C10                      = hwEnum.NO_PANEL
-    DISP1_C11                      = hwEnum.NO_PANEL
-    DISP1_C12                      = hwEnum.NO_PANEL
-    DISP1_C13                      = hwEnum.NO_PANEL
-    DISP1_C14                      = hwEnum.NO_PANEL
-    DISP1_C15                      = hwEnum.NO_PANEL
+' DISP0: screen buffer, two PWM frame sets, layout tables
+disp0Guard      LONG    GUARD_FRONT
+disp0Screen     LONG    0[((((disp0PanelsEnd - disp0Panels) / hwEnum.BYTES_PER_LONG) * DISP0_PANEL_COLUMNS * DISP0_PANEL_ROWS * BYTES_PER_COLOR) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG]
+disp0Frames1    LONG    0[DISP0_COLOR_DEPTH * ((((((disp0PanelsEnd - disp0Panels) / hwEnum.BYTES_PER_LONG) * DISP0_PANEL_COLUMNS * DISP0_PANEL_ROWS) / PIXELS_PER_PWM_BYTE) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG)]
+disp0Frames2    LONG    0[DISP0_COLOR_DEPTH * ((((((disp0PanelsEnd - disp0Panels) / hwEnum.BYTES_PER_LONG) * DISP0_PANEL_COLUMNS * DISP0_PANEL_ROWS) / PIXELS_PER_PWM_BYTE) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG)]
+disp0GuardBack  LONG    GUARD_BACK
+disp0Tables     LONG    0[(LAYOUT_LONGS_PER_CELL * ((((disp0PanelsEnd - disp0Panels) / hwEnum.BYTES_PER_LONG) + GRID_LONG_SIDE_EXTRA) / GRID_SIDES) * ((((disp0PanelsEnd - disp0Panels) / hwEnum.BYTES_PER_LONG) + GRID_SHORT_SIDE_EXTRA) / GRID_SIDES)) + ((((LAYOUT_BYTES_PER_PANEL * ((disp0PanelsEnd - disp0Panels) / hwEnum.BYTES_PER_LONG)) + (LAYOUT_BYTES_PER_CELL * ((((disp0PanelsEnd - disp0Panels) / hwEnum.BYTES_PER_LONG) + GRID_LONG_SIDE_EXTRA) / GRID_SIDES) * ((((disp0PanelsEnd - disp0Panels) / hwEnum.BYTES_PER_LONG) + GRID_SHORT_SIDE_EXTRA) / GRID_SIDES))) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG)]
+disp0GuardTbl   LONG    GUARD_TABLES
 
-    ' (6) Describe the display shape: hwEnum.SHAPE_FLAT or hwEnum.SHAPE_CUBE
-    '  For a cube, DISP1_CUBE_TOP and DISP1_CUBE_FRONT are the cable positions
-    '  (hwEnum.C0 through hwEnum.C15) of the top face and the front face.
-    '  They are not used by a flat display. DISP1_ROTATION does not apply to a cube.
-    DISP1_SHAPE                    = hwEnum.SHAPE_FLAT
-    DISP1_CUBE_TOP                 = hwEnum.NO_PANEL
-    DISP1_CUBE_FRONT               = hwEnum.NO_PANEL
+' DISP1: screen buffer, two PWM frame sets, layout tables (zero length when not present)
+disp1Screen     LONG    0[((((disp1PanelsEnd - disp1Panels) / hwEnum.BYTES_PER_LONG) * DISP1_PANEL_COLUMNS * DISP1_PANEL_ROWS * BYTES_PER_COLOR) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG]
+disp1Frames1    LONG    0[DISP1_COLOR_DEPTH * ((((((disp1PanelsEnd - disp1Panels) / hwEnum.BYTES_PER_LONG) * DISP1_PANEL_COLUMNS * DISP1_PANEL_ROWS) / PIXELS_PER_PWM_BYTE) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG)]
+disp1Frames2    LONG    0[DISP1_COLOR_DEPTH * ((((((disp1PanelsEnd - disp1Panels) / hwEnum.BYTES_PER_LONG) * DISP1_PANEL_COLUMNS * DISP1_PANEL_ROWS) / PIXELS_PER_PWM_BYTE) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG)]
+disp1Tables     LONG    0[(LAYOUT_LONGS_PER_CELL * ((((disp1PanelsEnd - disp1Panels) / hwEnum.BYTES_PER_LONG) + GRID_LONG_SIDE_EXTRA) / GRID_SIDES) * ((((disp1PanelsEnd - disp1Panels) / hwEnum.BYTES_PER_LONG) + GRID_SHORT_SIDE_EXTRA) / GRID_SIDES)) + ((((LAYOUT_BYTES_PER_PANEL * ((disp1PanelsEnd - disp1Panels) / hwEnum.BYTES_PER_LONG)) + (LAYOUT_BYTES_PER_CELL * ((((disp1PanelsEnd - disp1Panels) / hwEnum.BYTES_PER_LONG) + GRID_LONG_SIDE_EXTRA) / GRID_SIDES) * ((((disp1PanelsEnd - disp1Panels) / hwEnum.BYTES_PER_LONG) + GRID_SHORT_SIDE_EXTRA) / GRID_SIDES))) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG)]
 
-    ' (7) The refresh rate to aim for, in Hz (default 60; rules above DISP0)
-    DISP1_TARGET_REFRESH_HZ        = 60
-
-    ' End User configure
-
-' panel set on 3rd HUB75 adapter board - DISP2_* constants
-
-    ' User configure
-
-    ' (1) describe the panel connections, addressing and chips
-    '    NOTE each adapter needs its own pin group: when you use this adapter, set the base pin
-    '         to the group it is plugged into (the default differs from the other two adapters)
-    DISP2_ADAPTER_BASE_PIN         = hwEnum.PIN_GROUP_P0_P15
-    DISP2_PANEL_DRIVER_CHIP        = hwEnum.CHIP_ICN2037
-    DISP2_PANEL_ADDR_LINES         = hwEnum.ADDR_ABCDE
-
-    ' (2) describe the single panel physical size
-    DISP2_MAX_PANEL_COLUMNS        = 64
-    DISP2_MAX_PANEL_ROWS           = 64
-
-    ' (3) describe the color depth you want to support [3-8] bits per LED
-    '    NOTE the default is hwEnum.DEPTH_8BIT, full 24bit color
-    '    NOTE hub RAM: each pixel of the panels in use takes 3 screen-buffer bytes plus
-    '         one byte per bit of depth (two PWM frame sets of depth x 4 bits), so 11
-    '         bytes at 8 bits; lower the depth only when the buffers do not fit
-    DISP2_COLOR_DEPTH              = hwEnum.DEPTH_8BIT
-
-    ' (4) Say how the whole display is mounted (rules above DISP0)
-    DISP2_ROTATION                 = hwEnum.ROT_NONE
-
-    ' (5) Describe the wiring: one sentence per cable position (rules above DISP0)
-    '  This adapter has no panels: every cable position is NO_PANEL.
-    DISP2_C0                       = hwEnum.NO_PANEL
-    DISP2_C1                       = hwEnum.NO_PANEL
-    DISP2_C2                       = hwEnum.NO_PANEL
-    DISP2_C3                       = hwEnum.NO_PANEL
-    DISP2_C4                       = hwEnum.NO_PANEL
-    DISP2_C5                       = hwEnum.NO_PANEL
-    DISP2_C6                       = hwEnum.NO_PANEL
-    DISP2_C7                       = hwEnum.NO_PANEL
-    DISP2_C8                       = hwEnum.NO_PANEL
-    DISP2_C9                       = hwEnum.NO_PANEL
-    DISP2_C10                      = hwEnum.NO_PANEL
-    DISP2_C11                      = hwEnum.NO_PANEL
-    DISP2_C12                      = hwEnum.NO_PANEL
-    DISP2_C13                      = hwEnum.NO_PANEL
-    DISP2_C14                      = hwEnum.NO_PANEL
-    DISP2_C15                      = hwEnum.NO_PANEL
-
-    ' (6) Describe the display shape: hwEnum.SHAPE_FLAT or hwEnum.SHAPE_CUBE
-    '  For a cube, DISP2_CUBE_TOP and DISP2_CUBE_FRONT are the cable positions
-    '  (hwEnum.C0 through hwEnum.C15) of the top face and the front face.
-    '  They are not used by a flat display. DISP2_ROTATION does not apply to a cube.
-    DISP2_SHAPE                    = hwEnum.SHAPE_FLAT
-    DISP2_CUBE_TOP                 = hwEnum.NO_PANEL
-    DISP2_CUBE_FRONT               = hwEnum.NO_PANEL
-
-    ' (7) The refresh rate to aim for, in Hz (default 60; rules above DISP0)
-    DISP2_TARGET_REFRESH_HZ        = 60
-
-    ' End User configure
-
-CON ' ---- Derived Buffer Sizes (not edited) ----
-
-' Everything below is computed from the settings above. It is not part of the
-' user's configuration, so it is kept out of the generated interface doc.
-' The display's size, its grid of panels and each panel's place and rotation are
-' derived from the wiring sentences at startup, not set here.
-
-    ' buffer sizes round up to whole longs (hwEnum.BYTES_PER_LONG)
-    PIXELS_PER_PWM_BYTE           = 2                          ' a PWM frame holds 4 bits per pixel
-
-' first HUB75 adapter board - DISP0_* derived values
-
-    ' Screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
-    ' Color depth only affects which bits are significant in BCM conversion
-    DISP0_BYTES_PER_COLOR          = 3
-
-    ' how many panels are in use: each cable position that is not NO_PANEL
-    DISP0_PANEL_COUNT              = (DISP0_C0 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C1 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP0_C2 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C3 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP0_C4 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C5 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP0_C6 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C7 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP0_C8 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C9 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP0_C10 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C11 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP0_C12 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C13 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP0_C14 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP0_C15 <> hwEnum.NO_PANEL ? 1 : 0)
-
-    ' buffers hold only the panels in use (panel count x panel pixels), not the bounding box
-    DISP0_SCRN_SIZE_IN_BYTES       = (((DISP0_PANEL_COUNT * DISP0_MAX_PANEL_COLUMNS * DISP0_MAX_PANEL_ROWS * DISP0_BYTES_PER_COLOR) + (hwEnum.BYTES_PER_LONG - 1)) / hwEnum.BYTES_PER_LONG) * hwEnum.BYTES_PER_LONG
-    DISP0_SCRN_SIZE_IN_LONGS       = (DISP0_SCRN_SIZE_IN_BYTES / hwEnum.BYTES_PER_LONG)
-
-    ' what is our PWM frame size
-    ' PWM Frames are 4 bits per pixel for every pixel of the panels in use
-    DISP0_PWM_FRAME_SIZE_IN_BYTES  = (DISP0_PANEL_COUNT * DISP0_MAX_PANEL_COLUMNS * DISP0_MAX_PANEL_ROWS) / PIXELS_PER_PWM_BYTE
-    DISP0_PWM_FRAME_SIZE_IN_LONGS  = (DISP0_PWM_FRAME_SIZE_IN_BYTES + (hwEnum.BYTES_PER_LONG - 1)) / hwEnum.BYTES_PER_LONG
-
-    DISP0_FRAMESET_SIZE_IN_LONGS   = DISP0_COLOR_DEPTH * DISP0_PWM_FRAME_SIZE_IN_LONGS
-
-' second HUB75 adapter board - DISP1_* derived values
-
-    ' Screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
-    DISP1_BYTES_PER_COLOR          = 3
-
-    ' how many panels are in use: each cable position that is not NO_PANEL
-    DISP1_PANEL_COUNT              = (DISP1_C0 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C1 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP1_C2 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C3 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP1_C4 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C5 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP1_C6 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C7 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP1_C8 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C9 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP1_C10 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C11 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP1_C12 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C13 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP1_C14 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP1_C15 <> hwEnum.NO_PANEL ? 1 : 0)
-
-    ' buffers hold only the panels in use (panel count x panel pixels), not the bounding box
-    DISP1_SCRN_SIZE_IN_BYTES       = (((DISP1_PANEL_COUNT * DISP1_MAX_PANEL_COLUMNS * DISP1_MAX_PANEL_ROWS * DISP1_BYTES_PER_COLOR) + (hwEnum.BYTES_PER_LONG - 1)) / hwEnum.BYTES_PER_LONG) * hwEnum.BYTES_PER_LONG
-    DISP1_SCRN_SIZE_IN_LONGS       = (DISP1_SCRN_SIZE_IN_BYTES / hwEnum.BYTES_PER_LONG)
-
-    ' what is our PWM frame size
-    ' PWM Frames are 4 bits per pixel for every pixel of the panels in use
-    DISP1_PWM_FRAME_SIZE_IN_BYTES  = (DISP1_PANEL_COUNT * DISP1_MAX_PANEL_COLUMNS * DISP1_MAX_PANEL_ROWS) / PIXELS_PER_PWM_BYTE
-    DISP1_PWM_FRAME_SIZE_IN_LONGS  = (DISP1_PWM_FRAME_SIZE_IN_BYTES + (hwEnum.BYTES_PER_LONG - 1)) / hwEnum.BYTES_PER_LONG
-
-    DISP1_FRAMESET_SIZE_IN_LONGS   = DISP1_COLOR_DEPTH * DISP1_PWM_FRAME_SIZE_IN_LONGS
-
-' third HUB75 adapter board - DISP2_* derived values
-
-    ' Screen buffer always uses 3 bytes per pixel (one byte per R/G/B channel)
-    DISP2_BYTES_PER_COLOR          = 3
-
-    ' how many panels are in use: each cable position that is not NO_PANEL
-    DISP2_PANEL_COUNT              = (DISP2_C0 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP2_C1 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP2_C2 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP2_C3 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP2_C4 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP2_C5 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP2_C6 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP2_C7 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP2_C8 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP2_C9 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP2_C10 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP2_C11 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP2_C12 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP2_C13 <> hwEnum.NO_PANEL ? 1 : 0) + ...
-                                     (DISP2_C14 <> hwEnum.NO_PANEL ? 1 : 0) + (DISP2_C15 <> hwEnum.NO_PANEL ? 1 : 0)
-
-    ' buffers hold only the panels in use (panel count x panel pixels), not the bounding box
-    DISP2_SCRN_SIZE_IN_BYTES       = (((DISP2_PANEL_COUNT * DISP2_MAX_PANEL_COLUMNS * DISP2_MAX_PANEL_ROWS * DISP2_BYTES_PER_COLOR) + (hwEnum.BYTES_PER_LONG - 1)) / hwEnum.BYTES_PER_LONG) * hwEnum.BYTES_PER_LONG
-    DISP2_SCRN_SIZE_IN_LONGS       = (DISP2_SCRN_SIZE_IN_BYTES / hwEnum.BYTES_PER_LONG)
-
-    ' what is our PWM frame size
-    ' PWM Frames are 4 bits per pixel for every pixel of the panels in use
-    DISP2_PWM_FRAME_SIZE_IN_BYTES  = (DISP2_PANEL_COUNT * DISP2_MAX_PANEL_COLUMNS * DISP2_MAX_PANEL_ROWS) / PIXELS_PER_PWM_BYTE
-    DISP2_PWM_FRAME_SIZE_IN_LONGS  = (DISP2_PWM_FRAME_SIZE_IN_BYTES + (hwEnum.BYTES_PER_LONG - 1)) / hwEnum.BYTES_PER_LONG
-
-    DISP2_FRAMESET_SIZE_IN_LONGS   = DISP2_COLOR_DEPTH * DISP2_PWM_FRAME_SIZE_IN_LONGS
+' DISP2: screen buffer, two PWM frame sets, layout tables (zero length when not present)
+disp2Screen     LONG    0[((((disp2PanelsEnd - disp2Panels) / hwEnum.BYTES_PER_LONG) * DISP2_PANEL_COLUMNS * DISP2_PANEL_ROWS * BYTES_PER_COLOR) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG]
+disp2Frames1    LONG    0[DISP2_COLOR_DEPTH * ((((((disp2PanelsEnd - disp2Panels) / hwEnum.BYTES_PER_LONG) * DISP2_PANEL_COLUMNS * DISP2_PANEL_ROWS) / PIXELS_PER_PWM_BYTE) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG)]
+disp2Frames2    LONG    0[DISP2_COLOR_DEPTH * ((((((disp2PanelsEnd - disp2Panels) / hwEnum.BYTES_PER_LONG) * DISP2_PANEL_COLUMNS * DISP2_PANEL_ROWS) / PIXELS_PER_PWM_BYTE) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG)]
+disp2Tables     LONG    0[(LAYOUT_LONGS_PER_CELL * ((((disp2PanelsEnd - disp2Panels) / hwEnum.BYTES_PER_LONG) + GRID_LONG_SIDE_EXTRA) / GRID_SIDES) * ((((disp2PanelsEnd - disp2Panels) / hwEnum.BYTES_PER_LONG) + GRID_SHORT_SIDE_EXTRA) / GRID_SIDES)) + ((((LAYOUT_BYTES_PER_PANEL * ((disp2PanelsEnd - disp2Panels) / hwEnum.BYTES_PER_LONG)) + (LAYOUT_BYTES_PER_CELL * ((((disp2PanelsEnd - disp2Panels) / hwEnum.BYTES_PER_LONG) + GRID_LONG_SIDE_EXTRA) / GRID_SIDES) * ((((disp2PanelsEnd - disp2Panels) / hwEnum.BYTES_PER_LONG) + GRID_SHORT_SIDE_EXTRA) / GRID_SIDES))) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG)]
 
 OBJ
 
@@ -336,6 +206,48 @@ OBJ
 PUB null()
 '' Placeholder to prevent this object from being used as a top-level file.
 ''
+
+PUB panelList(eHub75Adapter) : pPanels, nListBytes
+'' Return one display's panel list: the address of its first sentence and the list's length in
+'' bytes (one LONG per panel, so the panel count is nListBytes / hwEnum.BYTES_PER_LONG). The
+'' adapter set-up (isp_hub75_hwBufferAccess.spin2) reads it; programs do not.
+''
+'' @param eHub75Adapter - the HUB75 adapter (hwEnum.HUB75_ADAPTER_1 .. HUB75_ADAPTER_3; adapter k drives DISP(k-1))
+'' @returns pPanels - hub address of the display's first panel sentence (0 for any other value)
+'' @returns nListBytes - the list's length in bytes (0 for a display that is not present)
+
+    pPanels := nListBytes := 0
+    case eHub75Adapter
+        hwEnum.HUB75_ADAPTER_1:
+            pPanels := @disp0Panels
+            nListBytes := @disp0PanelsEnd - @disp0Panels
+        hwEnum.HUB75_ADAPTER_2:
+            pPanels := @disp1Panels
+            nListBytes := @disp1PanelsEnd - @disp1Panels
+        hwEnum.HUB75_ADAPTER_3:
+            pPanels := @disp2Panels
+            nListBytes := @disp2PanelsEnd - @disp2Panels
+
+PUB displayStorage(eHub75Adapter) : pScreen, pFrameSet1, pFrameSet2, pTables
+'' Return the addresses of one display's storage: its screen buffer (BYTES_PER_COLOR bytes per
+'' pixel), its two PWM frame sets (depth x pixels / PIXELS_PER_PWM_BYTE bytes each) and its
+'' layout-table block (the LAYOUT_ sizes above), each sized here from the display's panel count.
+'' The adapter set-up (isp_hub75_hwBufferAccess.spin2) reads it; programs do not.
+''
+'' @param eHub75Adapter - the HUB75 adapter (hwEnum.HUB75_ADAPTER_1 .. HUB75_ADAPTER_3; adapter k drives DISP(k-1))
+'' @returns pScreen - hub address of the screen buffer (0 for any other value)
+'' @returns pFrameSet1 - hub address of PWM frame set 1
+'' @returns pFrameSet2 - hub address of PWM frame set 2
+'' @returns pTables - hub address of the layout-table block
+
+    pScreen := pFrameSet1 := pFrameSet2 := pTables := 0
+    case eHub75Adapter
+        hwEnum.HUB75_ADAPTER_1:
+            pScreen, pFrameSet1, pFrameSet2, pTables := @disp0Screen, @disp0Frames1, @disp0Frames2, @disp0Tables
+        hwEnum.HUB75_ADAPTER_2:
+            pScreen, pFrameSet1, pFrameSet2, pTables := @disp1Screen, @disp1Frames1, @disp1Frames2, @disp1Tables
+        hwEnum.HUB75_ADAPTER_3:
+            pScreen, pFrameSet1, pFrameSet2, pTables := @disp2Screen, @disp2Frames1, @disp2Frames2, @disp2Tables
 
 CON ' ---- License ----
 

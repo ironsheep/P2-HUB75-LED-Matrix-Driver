@@ -213,7 +213,7 @@ CON ' ---- Scroll oracle self-test ----
 
 
     ' Layouts the panels are laid out in for the test:
-    '  LAYOUT_OWN        - the adapter's own wiring (DISP0_C0 .. C15), with every arrow replaced
+    '  LAYOUT_OWN        - the adapter's own panel list (DISP0's, in the configuration), with every TOP_ word replaced
     '  LAYOUT_WIDE_L     - an L three cells wide: C0 C1 C2 along the top, C3 below C0
     '  LAYOUT_TALL_L     - an L three cells tall: C0 C1 C2 down the left, C3 right of C0
     '  TEST_LAYOUT_COUNT - number of layouts
@@ -221,6 +221,9 @@ CON ' ---- Scroll oracle self-test ----
 
     ' Panels in each L layout (the adapter must have this many for those layouts to apply)
     L_LAYOUT_PANELS         = 4
+
+    ' The most panels testSentences holds: the adapter's own layout is run when its list fits
+    TEST_SENTENCES_MAX      = 16
 
     ' Entries in testRotations and in testArrows
     ROTATION_COUNT          = 4
@@ -447,14 +450,11 @@ DAT ' ---- Test State (singleton) ----
 
     ' the row-run self-test (see runRowRunTest())
     testRotations   LONG    bmpHandler.ROT_NONE, bmpHandler.ROT_RIGHT_90, bmpHandler.ROT_180, bmpHandler.ROT_LEFT_90
-    testArrows      LONG    hwEnum.ARROW_UP, hwEnum.ARROW_RIGHT, hwEnum.ARROW_DOWN, hwEnum.ARROW_LEFT
-    ownSentences    LONG    user.DISP0_C0, user.DISP0_C1, user.DISP0_C2, user.DISP0_C3
-                    LONG    user.DISP0_C4, user.DISP0_C5, user.DISP0_C6, user.DISP0_C7
-                    LONG    user.DISP0_C8, user.DISP0_C9, user.DISP0_C10, user.DISP0_C11
-                    LONG    user.DISP0_C12, user.DISP0_C13, user.DISP0_C14, user.DISP0_C15
-    wideLSentences  LONG    hwEnum.FIRST_PANEL, hwEnum.RIGHT_OF | hwEnum.C0, hwEnum.RIGHT_OF | hwEnum.C1, hwEnum.BELOW | hwEnum.C0
-    tallLSentences  LONG    hwEnum.FIRST_PANEL, hwEnum.BELOW | hwEnum.C0, hwEnum.BELOW | hwEnum.C1, hwEnum.RIGHT_OF | hwEnum.C0
-    testSentences   LONG    0[hub75Bffrs.MAX_CABLE_POSITIONS]   ' the sentences of the layout under test
+    testMountings   LONG    hwEnum.AS_BUILT, hwEnum.TOP_TO_RIGHT, hwEnum.TOP_TO_BOTTOM, hwEnum.TOP_TO_LEFT  ' the same turns as testRotations
+    testArrows      LONG    hwEnum.TOP_UP, hwEnum.TOP_RIGHT, hwEnum.TOP_DOWN, hwEnum.TOP_LEFT
+    wideLSentences  LONG    hwEnum.ROW_0 | hwEnum.COL_0, hwEnum.ROW_0 | hwEnum.COL_1, hwEnum.ROW_0 | hwEnum.COL_2, hwEnum.ROW_1 | hwEnum.COL_0
+    tallLSentences  LONG    hwEnum.ROW_0 | hwEnum.COL_0, hwEnum.ROW_1 | hwEnum.COL_0, hwEnum.ROW_2 | hwEnum.COL_0, hwEnum.ROW_0 | hwEnum.COL_1
+    testSentences   LONG    0[TEST_SENTENCES_MAX]           ' the sentences of the layout under test
     ' the reference drawing: CAPTURE_LONGS long indices then their values, or one window of the buffer
     captureArea     LONG    0[CAPTURE_AREA_LONGS]
     runText         BYTE    "RUN 0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz", 0
@@ -874,7 +874,7 @@ PRI gammaLabel(bGamma) : pLabel
   else
     pLabel := string("off")
 
-PRI runRowRunTest() | startMs, layoutIdx, rotationIdx, arrowIdx, caseIdx, nCaseMismatches, firstOffset, nCaptured, bWindowed, nOracleMismatches, nOracleCompared, nMismatches, nFailedCases, nCases, nRefused, nSkipped, pLayout, pRotation, pArrow, pCase, lastCaseIdx, pNote
+PRI runRowRunTest() | startMs, layoutIdx, rotationIdx, arrowIdx, caseIdx, nCaseMismatches, firstOffset, nCaptured, bWindowed, nOracleMismatches, nOracleCompared, nMismatches, nFailedCases, nCases, nRefused, nSkipped, pLayout, pRotation, pArrow, pCase, lastCaseIdx, pNote, nPanels
 ' Compare every run primitive with the pixel-by-pixel path it replaces, byte for byte, on three
 ' layouts x four display rotations x four arrows (the cases after FULL_SET_CASES on one arrow per
 ' layout and rotation), and compare the address rule with the old one on each. The adapter's own
@@ -905,6 +905,7 @@ PRI runRowRunTest() | startMs, layoutIdx, rotationIdx, arrowIdx, caseIdx, nCaseM
 ' @local pRotation - printable name of the rotation
 ' @local pArrow - printable name of the arrow
 ' @local pCase - printable name of the case
+' @local nPanels - panels in the layout under test
 
   startMs := getms()
   nMismatches := nFailedCases := nCases := nRefused := nSkipped := 0
@@ -921,13 +922,13 @@ PRI runRowRunTest() | startMs, layoutIdx, rotationIdx, arrowIdx, caseIdx, nCaseM
       pRotation := rotationLabel(rotationIdx)
       repeat arrowIdx from 0 to ARROW_COUNT - 1
         pArrow := arrowLabel(arrowIdx)
-        buildTestSentences(layoutIdx, LONG[@testArrows][arrowIdx])
-        if layoutIdx <> LAYOUT_OWN and hub75Bffrs.maxPanels(chainIndex) <> L_LAYOUT_PANELS
+        nPanels := buildTestSentences(layoutIdx, LONG[@testArrows][arrowIdx])
+        if nPanels <> hub75Bffrs.maxPanels(chainIndex)
           ' an L is drawn with exactly L_LAYOUT_PANELS panels, and a relayout keeps the adapter's count
           if rotationIdx == 0 and arrowIdx == 0
-            debug("R", zstr_(@dbgRowRun), " ", zstr_(pLayout), ":", zstr_(@dbgNotRunItNeeds), " ", udec_(L_LAYOUT_PANELS), " ", zstr_(@dbgPanelsAndThisAdapterHas), " ", udec_(hub75Bffrs.maxPanels(chainIndex)))
+            debug("R", zstr_(@dbgRowRun), " ", zstr_(pLayout), ":", zstr_(@dbgNotRunItNeeds), " ", udec_(nPanels), " ", zstr_(@dbgPanelsAndThisAdapterHas), " ", udec_(hub75Bffrs.maxPanels(chainIndex)))
           nSkipped++
-        elseif hub75Bffrs.testRelayout(chainIndex, @testSentences, LONG[@testRotations][rotationIdx]) <> hub75Bffrs.RELAYOUT_DONE
+        elseif hub75Bffrs.testRelayout(chainIndex, @testSentences, nPanels, LONG[@testMountings][rotationIdx]) <> hub75Bffrs.RELAYOUT_DONE
           debug("R", zstr_(@dbgRowRun), " ", zstr_(pLayout), " ", zstr_(pRotation), " arrow ", zstr_(pArrow), ":", zstr_(@dbgFailLayoutRefusedMessageA), ")")
           nRefused++
         else
@@ -969,30 +970,32 @@ PRI runRowRunTest() | startMs, layoutIdx, rotationIdx, arrowIdx, caseIdx, nCaseM
   else
     debug("R", zstr_(@dbgRowRunFail), " ", udec_(nFailedCases), " failed, ", udec_(nRefused), " ", zstr_(@dbgLayoutsRefused), " ", udec_(nMismatches), " ", zstr_(@dbgDifferingBytesAndPoints), " ", udec_(nCases), " ", zstr_(@dbgCasesRun), "n")
 
-PRI buildTestSentences(layoutIdx, arrowWord) | cablePos, sentence
-' Fill testSentences with one layout's wiring sentences, every panel's arrow replaced by arrowWord.
+PRI buildTestSentences(layoutIdx, topWord) : nPanels | pSource, nListBytes, cablePos
+' Fill testSentences with one layout's panel sentences, every panel's TOP_ word replaced by topWord.
+' The adapter's own list is copied only when it fits testSentences; otherwise nPanels is 0 and the
+' layout is skipped as not matching the adapter's panel count.
 '
 ' @param layoutIdx - LAYOUT_* under test
-' @param arrowWord - hwEnum.ARROW_* every panel is given
+' @param topWord - hwEnum.TOP_* every panel is given
+' @returns nPanels - the sentences filled in
 
 ' Local Variables:
+' @local pSource - the layout's sentences
+' @local nListBytes - the length of the adapter's own panel list, in bytes
 ' @local cablePos - cable position being filled
-' @local sentence - the sentence at that cable position
 
-  repeat cablePos from 0 to hub75Bffrs.MAX_CABLE_POSITIONS - 1
-    sentence := hwEnum.NO_PANEL
-    case layoutIdx
-      LAYOUT_OWN:
-        sentence := LONG[@ownSentences][cablePos]
-      LAYOUT_WIDE_L:
-        if cablePos < L_LAYOUT_PANELS
-          sentence := LONG[@wideLSentences][cablePos]
-      other:
-        if cablePos < L_LAYOUT_PANELS
-          sentence := LONG[@tallLSentences][cablePos]
-    if sentence <> hwEnum.NO_PANEL
-      sentence := (sentence & !hwEnum.ARROW_MASK) | arrowWord
-    LONG[@testSentences][cablePos] := sentence
+  case layoutIdx
+    LAYOUT_OWN:
+      pSource, nListBytes := user.panelList(hwEnum.HUB75_ADAPTER_1)
+      nPanels := nListBytes / hwEnum.BYTES_PER_LONG
+      if nPanels > TEST_SENTENCES_MAX
+        nPanels := 0
+    LAYOUT_WIDE_L:
+      pSource, nPanels := @wideLSentences, L_LAYOUT_PANELS
+    other:
+      pSource, nPanels := @tallLSentences, L_LAYOUT_PANELS
+  repeat cablePos from 0 to nPanels - 1
+    LONG[@testSentences][cablePos] := (LONG[pSource][cablePos] & !hwEnum.TOP_MASK) | topWord
 
 PRI isReducedLayout(layoutIdx, rotationIdx, arrowIdx) : bReduced
 ' Return TRUE for the one arrow per layout and rotation on which the cases after FULL_SET_CASES
@@ -1523,11 +1526,11 @@ PRI arrowLabel(arrowIdx) : pLabel
 ' @returns pLabel - zero-terminated name
 
   case LONG[@testArrows][arrowIdx]
-    hwEnum.ARROW_UP:
+    hwEnum.TOP_UP:
       pLabel := string("up")
-    hwEnum.ARROW_RIGHT:
+    hwEnum.TOP_RIGHT:
       pLabel := string("right")
-    hwEnum.ARROW_DOWN:
+    hwEnum.TOP_DOWN:
       pLabel := string("down")
     other:
       pLabel := string("left")

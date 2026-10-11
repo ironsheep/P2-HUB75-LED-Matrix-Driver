@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Nov 2022
-''   Updated.... 09 Oct 2026
+''   Updated.... 10 Oct 2026
 ''
 '' =================================================================================================
 
@@ -39,8 +39,9 @@ CON ' ---- Hardware Interface Constants ----
     HUB75_ADAPTER_BASE = HUB75_ADAPTER_1
 
 '  (3) rotation values
-'  One set of values for the display's mounting (DISPn_ROTATION), for a panel's own turn (the
-'  driver derives it from the panel's arrow word) and for content rotation (placeBMP).
+'  One set of values for a panel's own turn (the driver derives it from the panel's TOP_ word),
+'  for the display's mounting (the driver derives it from DISPn_ROTATION, see (9)) and for
+'  content rotation (placeBMP).
 '  Clockwise degrees:
 '   ROT_UNKNOWN - rotation not yet specified
 '   ROT_0       - no rotation (0 degrees)
@@ -54,9 +55,6 @@ CON ' ---- Hardware Interface Constants ----
     ROT_NONE = ROT_0                                            ' alias kept for v3 configs; prefer ROT_0
     ROT_LEFT_90 = ROT_270                                       ' alias kept for v3 configs; prefer ROT_270
     ROT_RIGHT_90 = ROT_90                                       ' alias kept for v3 configs; prefer ROT_90
-'  For DISPn_ROTATION the value is physical, how the whole display is mounted:
-'   ROT_RIGHT_90 = hung turned 90 degrees clockwise, ROT_LEFT_90 = counter-clockwise;
-'   the driver turns the content so it reads upright as mounted.
 
 '  (4) The Driver Chip on your panels
 ' Driver Pre-defined flag combinations (use these unless your hardware is not in this list)
@@ -104,7 +102,9 @@ CON ' ---- Hardware Interface Constants ----
 '  Allocation: bit field. Each flag is one bit above the chip byte, so flags combine with |.
     #$100, LAT_STYLE_OFFSET, #$200, LAT_POSN_OVERLAP, #$400, INIT_PANEL_REQUIRED, #$1000, RB_SWAP, #$2000, SCAN_4, #$4000, GB_SWAP
 
-'  (5) Describe the overall layout of your hardware panel(s):
+'  (5) Row-address lines (not a configuration word: the driver derives the count at startup
+'  from the panel rows and the chip's scan, log2(rows / rows lit per address), where a chip
+'  with SCAN_4 lights 4 rows per address and every other chip 2).
 ' SUPPORTED address widths:  A-B-C, or A-B-C-D, or A-B-C-D-E
 '  Row-address line widths:
 '   ADDR_UNKNOWN - address width not yet specified
@@ -127,16 +127,16 @@ CON ' ---- Hardware Interface Constants ----
 '  Allocation: quantity. The value is the number of bits per channel (DEPTH_3BIT = 3), used in arithmetic.
     #3, DEPTH_3BIT, DEPTH_4BIT, DEPTH_5BIT, DEPTH_6BIT, DEPTH_7BIT, DEPTH_8BIT
 
-'  (7) Cube faces (a display with DISPn_SHAPE = SHAPE_CUBE):
+'  (7) Cube faces (a display whose panel list marks CUBE_TOP and CUBE_FRONT):
 '
-'  Six square panels, wired as one of the 11 cube nets, form a cube. DISPn_CUBE_TOP
-'  and DISPn_CUBE_FRONT name the cable positions of the top face and the front face;
-'  the front face shares an edge with the top face. At startup the driver folds the
-'  net and derives the other four faces from those two.
+'  Six square panels, laid out as one of the 11 cube nets, form a cube. The sentence
+'  marked CUBE_TOP is the top face and the one marked CUBE_FRONT the front face; the
+'  front face shares an edge with the top face. At startup the driver folds the net
+'  and derives the other four faces from those two.
 '  Cube face identifiers:
-'   FACE_TOP    - the face at DISPn_CUBE_TOP
+'   FACE_TOP    - the face marked CUBE_TOP
 '   FACE_BOTTOM - the face opposite the top
-'   FACE_FRONT  - the face at DISPn_CUBE_FRONT
+'   FACE_FRONT  - the face marked CUBE_FRONT
 '   FACE_BACK   - the face opposite the front
 '   FACE_LEFT   - the face on the viewer's left, standing at the front
 '   FACE_RIGHT  - the face on the viewer's right, standing at the front
@@ -149,87 +149,91 @@ CON ' ---- Hardware Interface Constants ----
 '   BOTTOM                   - up points toward FRONT
 '  The 12 edges: FRONT-TOP, FRONT-RIGHT, FRONT-BOTTOM, FRONT-LEFT, BACK-TOP, BACK-LEFT,
 '  BACK-BOTTOM, BACK-RIGHT, LEFT-TOP, LEFT-BOTTOM, RIGHT-TOP and RIGHT-BOTTOM.
-'  Allocation: distinct identity. The face identifiers start at $50, apart from the rotations ($20 ..)
-'  and the shapes ($60 ..), so a face is never mistaken for either.
+'  Allocation: distinct identity. The face identifiers start at $50, apart from the rotations ($20 ..),
+'  so a face is never mistaken for one.
 #$50, FACE_TOP, FACE_BOTTOM, FACE_FRONT, FACE_BACK, FACE_LEFT, FACE_RIGHT
 
-'  (8) Wiring words: the words of the per-panel sentences DISPn_C0 .. DISPn_C15
+'  (8) Panel words: the words of a panel sentence, one LONG per panel in the display's panel list
 '
-'  Each sentence describes the panel at one cable position. Each word is a single
-'  bit, and each kind of word has its own bit range, so a sentence that holds two
-'  words of the same kind can always be detected:
-'   C0 .. C15   - bits 0-15:  neighbor, the cable position of the panel this one sits next to
-'   ABOVE       - bit 16:     direction, this panel sits above its neighbor
-'   BELOW       - bit 17:     direction, this panel sits below its neighbor
-'   LEFT_OF     - bit 18:     direction, this panel sits left of its neighbor
-'   RIGHT_OF    - bit 19:     direction, this panel sits right of its neighbor
-'   ARROW_UP    - bit 20:     arrow, this panel's identify arrow points up
-'   ARROW_DOWN  - bit 21:     arrow, this panel's identify arrow points down (mounted at 180 degrees)
-'   ARROW_LEFT  - bit 22:     arrow, this panel's identify arrow points left
-'   ARROW_RIGHT - bit 23:     arrow, this panel's identify arrow points right
-'   FIRST_PANEL - bit 24:     this is C0, the panel the adapter plugs into
-'   NO_PANEL    - bit 25:     no panel at this cable position
+'  A panel sentence says where one panel sits in the display and which way its own top points,
+'  as read from the front off the identify screen (demo_hub75_numberPanels):
+'      hwEnum.ROW_1 | hwEnum.COL_0 | hwEnum.TOP_DOWN
+'  The list is in cable order: the first sentence is the panel the adapter plugs into.
+'   ROW_0 .. ROW_62  - the panel's row of panels, row 0 at the top (bits 0-5)
+'   COL_0 .. COL_62  - the panel's column of panels, column 0 at the left (bits 6-11)
+'   TOP_UP           - the panel's own top points up (bit 12)
+'   TOP_DOWN         - the panel's own top points down: hung upside-down (bit 13)
+'   TOP_LEFT         - the panel's own top points left (bit 14)
+'   TOP_RIGHT        - the panel's own top points right (bit 15)
+'   CUBE_TOP         - this panel is the top face of a cube (bit 16)
+'   CUBE_FRONT       - this panel is the front face of a cube (bit 17)
 '
-'  Allocation: bit field. See the table above; each kind of word has its own bits.
-'  Join the words with | only, never +: C2 + C2 silently becomes C3.
-'  The C0 .. C15 words also name a cable position in DISPn_CUBE_TOP and DISPn_CUBE_FRONT.
+'  Allocation: bit field. A row or column is stored as its number + 1, so a sentence without
+'  one has 0 there and is reported; the TOP_ words are one bit each, so a sentence without
+'  one, or with two, is reported. Join the words with | only.
+'  CUBE_TOP and CUBE_FRONT on two panels of one list make the display a cube.
 
-    ' lowest bit of each kind of word
-    NEIGHBOR_LSB        = 0                                 ' bit of C0
-    DIRECTION_LSB       = 16                                ' bit of ABOVE
-    ARROW_LSB           = 20                                ' bit of ARROW_UP
-    FIRST_PANEL_LSB     = 24                                ' bit of FIRST_PANEL
-    NO_PANEL_LSB        = 25                                ' bit of NO_PANEL
+    ' field widths and lowest bits
+    ROW_LSB             = 0                                 ' bit of the row field
+    ROW_FIELD_BITS      = 6                                 ' a row is 0 .. 62, stored as 1 .. 63
+    COL_LSB             = ROW_LSB + ROW_FIELD_BITS          ' bit of the column field
+    COL_FIELD_BITS      = 6                                 ' a column is 0 .. 62, stored as 1 .. 63
+    TOP_LSB             = COL_LSB + COL_FIELD_BITS          ' bit of TOP_UP
+    TOP_FIELD_BITS      = 4                                 ' one bit for each TOP_ word
+    CUBE_MARK_LSB       = TOP_LSB + TOP_FIELD_BITS          ' bit of CUBE_TOP
 
-    ' neighbor words: the neighbor's cable position
-    C0                  = 1 << NEIGHBOR_LSB
-    C1                  = C0 << 1
-    C2                  = C1 << 1
-    C3                  = C2 << 1
-    C4                  = C3 << 1
-    C5                  = C4 << 1
-    C6                  = C5 << 1
-    C7                  = C6 << 1
-    C8                  = C7 << 1
-    C9                  = C8 << 1
-    C10                 = C9 << 1
-    C11                 = C10 << 1
-    C12                 = C11 << 1
-    C13                 = C12 << 1
-    C14                 = C13 << 1
-    C15                 = C14 << 1
+    ' one step of the row and column fields
+    ROW_UNIT            = 1 << ROW_LSB
+    COL_UNIT            = 1 << COL_LSB
 
-    ' direction words: where this panel sits relative to its neighbor
-    ABOVE               = 1 << DIRECTION_LSB
-    BELOW               = ABOVE << 1
-    LEFT_OF             = BELOW << 1
-    RIGHT_OF            = LEFT_OF << 1
+    ' row words: the panel's row of panels (stored as the row + 1)
+    #ROW_UNIT[ROW_UNIT], ROW_0, ROW_1, ROW_2, ROW_3, ROW_4, ROW_5, ROW_6, ROW_7, ROW_8, ROW_9, ...
+        ROW_10, ROW_11, ROW_12, ROW_13, ROW_14, ROW_15, ROW_16, ROW_17, ROW_18, ROW_19, ...
+        ROW_20, ROW_21, ROW_22, ROW_23, ROW_24, ROW_25, ROW_26, ROW_27, ROW_28, ROW_29, ...
+        ROW_30, ROW_31, ROW_32, ROW_33, ROW_34, ROW_35, ROW_36, ROW_37, ROW_38, ROW_39, ...
+        ROW_40, ROW_41, ROW_42, ROW_43, ROW_44, ROW_45, ROW_46, ROW_47, ROW_48, ROW_49, ...
+        ROW_50, ROW_51, ROW_52, ROW_53, ROW_54, ROW_55, ROW_56, ROW_57, ROW_58, ROW_59, ...
+        ROW_60, ROW_61, ROW_62
 
-    ' arrow words: the panel rotation, as the direction the identify arrow points
-    ARROW_UP            = 1 << ARROW_LSB
-    ARROW_DOWN          = ARROW_UP << 1
-    ARROW_LEFT          = ARROW_DOWN << 1
-    ARROW_RIGHT         = ARROW_LEFT << 1
+    ' column words: the panel's column of panels (stored as the column + 1)
+    #COL_UNIT[COL_UNIT], COL_0, COL_1, COL_2, COL_3, COL_4, COL_5, COL_6, COL_7, COL_8, COL_9, ...
+        COL_10, COL_11, COL_12, COL_13, COL_14, COL_15, COL_16, COL_17, COL_18, COL_19, ...
+        COL_20, COL_21, COL_22, COL_23, COL_24, COL_25, COL_26, COL_27, COL_28, COL_29, ...
+        COL_30, COL_31, COL_32, COL_33, COL_34, COL_35, COL_36, COL_37, COL_38, COL_39, ...
+        COL_40, COL_41, COL_42, COL_43, COL_44, COL_45, COL_46, COL_47, COL_48, COL_49, ...
+        COL_50, COL_51, COL_52, COL_53, COL_54, COL_55, COL_56, COL_57, COL_58, COL_59, ...
+        COL_60, COL_61, COL_62
 
-    ' first-panel word: marks C0, and is used only in DISPn_C0
-    FIRST_PANEL         = 1 << FIRST_PANEL_LSB
+    ' top words: which way the panel's own top points, as the viewer sees it
+    TOP_UP              = 1 << TOP_LSB
+    TOP_DOWN            = TOP_UP << 1
+    TOP_LEFT            = TOP_DOWN << 1
+    TOP_RIGHT           = TOP_LEFT << 1
 
-    ' no-panel word: this cable position is unused
-    NO_PANEL            = 1 << NO_PANEL_LSB
+    ' cube marks: the two faces that set a cube's orientation
+    CUBE_TOP            = 1 << CUBE_MARK_LSB
+    CUBE_FRONT          = CUBE_TOP << 1
 
-    ' field masks: all the bits of one kind of word
-    NEIGHBOR_MASK       = C0 | C1 | C2 | C3 | C4 | C5 | C6 | C7 | C8 | C9 | C10 | C11 | C12 | C13 | C14 | C15
-    DIRECTION_MASK      = ABOVE | BELOW | LEFT_OF | RIGHT_OF
-    ARROW_MASK          = ARROW_UP | ARROW_DOWN | ARROW_LEFT | ARROW_RIGHT
-    FIRST_PANEL_MASK    = FIRST_PANEL
-    NO_PANEL_MASK       = NO_PANEL
+    ' field masks: all the bits of one field
+    ROW_MASK            = ((1 << ROW_FIELD_BITS) - 1) << ROW_LSB
+    COL_MASK            = ((1 << COL_FIELD_BITS) - 1) << COL_LSB
+    TOP_MASK            = TOP_UP | TOP_DOWN | TOP_LEFT | TOP_RIGHT
+    CUBE_MARK_MASK      = CUBE_TOP | CUBE_FRONT
 
-'  (9) Display shape (DISPn_SHAPE):
-'   SHAPE_FLAT - the panels form one flat display; DISPn_ROTATION applies
-'   SHAPE_CUBE - six square panels form a cube; DISPn_CUBE_TOP and DISPn_CUBE_FRONT apply
-'  Allocation: distinct identity. The shapes start at $60, apart from the faces ($50 ..) and the
-'  rotations ($20 ..).
-    #$60, SHAPE_FLAT, SHAPE_CUBE
+'  (9) Mounting words: the optional override DISPn_ROTATION, for a built display hung another way
+'
+'  The panel sentences describe the display as it was built and identified. To hang it turned,
+'  without rewriting the sentences, say where the top edge it was built with now points:
+'   AS_BUILT      - hung as built (the default when DISPn_ROTATION is not given)
+'   TOP_TO_RIGHT  - the built top edge is now at the right (turned 90 degrees clockwise)
+'   TOP_TO_BOTTOM - the built top edge is now at the bottom (turned 180 degrees)
+'   TOP_TO_LEFT   - the built top edge is now at the left (turned 90 degrees counter-clockwise)
+'  The driver turns the content so it reads upright as hung.
+'  Allocation: distinct identity, above every panel-word bit, so a mounting word written into a
+'  panel sentence is reported as bits that no panel word uses.
+    MOUNT_LSB           = 20                                ' above CUBE_FRONT (bit 17)
+    MOUNT_UNIT          = 1 << MOUNT_LSB
+    #MOUNT_UNIT[MOUNT_UNIT], AS_BUILT, TOP_TO_RIGHT, TOP_TO_BOTTOM, TOP_TO_LEFT
 
 CON ' ---- Status Codes ----
     {Spin2_Doc_CON}
