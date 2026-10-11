@@ -1,15 +1,18 @@
 # Wiring Guide
 
-How to tell the driver where your panels are, which way they hang, and how they are cabled: the wiring sentences, the identify screen that confirms them, display rotation, the cube, the limits of the driver, every message the driver prints when a sentence is wrong, and seven worked examples.
+How to tell the driver which panels you have, where each one sits and which way each one's top points: the per-display settings, the panel list, the identify screen that lets you fill the list in from the wall, the mounting override, the cube, the limits of the driver, every message the driver prints when a configuration is wrong, and seven worked examples.
 
 Pages: [README](../README.md) | [Driver Details (THEOPS)](../THEOPS.md) | [Multi-Panel Configuration](MultiPanelConfiguration.md)
 
 Within this page:
 
 - [Words used here](#words-used-here)
-- [The wiring sentences](#the-wiring-sentences) - the grammar: three forms, four kinds of word, five rules
-- [Filling in your config from the identify screen](#filling-in-your-config-from-the-identify-screen)
-- [Display rotation](#display-rotation) - how the whole display hangs, and how to turn an image
+- [The configuration at a glance](#the-configuration-at-a-glance) - what you write, and the order to write it in
+- [The display block](#the-display-block) - pins, chip, panel size, colour depth, derived address lines
+- [The wiring sentences](#the-wiring-sentences) - the panel list: the words, the rules
+- [Filling in your config from the identify screen](#filling-in-your-config-from-the-identify-screen) - the identify-first workflow
+- [More displays and optional settings](#more-displays-and-optional-settings) - presence and override flags, the template blocks, the compile-error table
+- [Display rotation](#display-rotation) - the mounting override, and how to turn an image
 - [The cube](#the-cube) - six panels as one object
 - [Driver limits](#driver-limits) - how many panels per adapter, by panel type
 - [Startup messages](#startup-messages) - what the driver prints, every mistake it catches
@@ -17,95 +20,211 @@ Within this page:
 
 ## Words used here
 
-This page uses the terms defined in the [glossary](../THEOPS.md#glossary), and only those: **adapter**, **display**, **display coordinates**, **panel position** (`P0`, `P1`, ... in reading order), **cable position** (`C0` is the panel the adapter plugs into), **panel rotation**, **display rotation**, **wiring**, **face** and **cube orientation**. Read the glossary once if any of them is new to you.
+This page uses the terms defined in the [glossary](../THEOPS.md#glossary): **adapter**, **display**, **display coordinates**, **panel position** (`P0`, `P1`, ... in reading order), **cable position** (`C0` is the panel the adapter plugs into) and **face**. Three more are used the way this page defines them:
 
-The short version: a **cable position** names a piece of hardware and never changes; a **panel position** names a place on the display as the viewer sees it. The wiring sentences are what connect the two.
+- the **panel list** is the list of panels of one display, in cable order, one `LONG` per panel;
+- a **panel sentence** is one entry of that list: the words that say where the panel sits and which way its own top points;
+- a panel's **top** is the edge that is up when the panel is hung the way the manufacturer drew it. The identify screen draws an arrow (`^`) near that edge.
+
+The short version: a **cable position** names a piece of hardware and never changes (it is the panel's place in the list); a **panel position** names a place on the display as the viewer sees it. The panel list is what connects the two.
+
+## The configuration at a glance
+
+All configuration lives in one file, `isp_hub75_hwPanelConfig.spin2`, between the lines `USER SECTION` and `END USER SECTION`. For each HUB75 adapter you use, it holds one display:
+
+1. **The display block**: the adapter's pin group, the panel driver chip, one panel's columns and rows, and the colour depth. Said once for the display.
+2. **The panel list**: one `LONG` sentence per panel, in cable order. Each sentence says the panel's row, its column and the way its top points, all as you see them from the front of the display.
+
+The first adapter drives `DISP0`, the second `DISP1`, the third `DISP2`. A display you do not have is not written at all; the file ships with `DISP0` filled in and a ready template for a second display (see [More displays and optional settings](#more-displays-and-optional-settings)).
+
+The shipped `DISP0` is four ICN2037 128x64 panels in a 2 x 2 block, hung upside down ([example 3](#example-3-2x2-in-z-order-from-bottom-left-the-rig)):
+
+```
+CON
+    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
+    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
+    DISP0_PANEL_COLUMNS     = 128
+    DISP0_PANEL_ROWS        = 64
+    DISP0_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
+
+DAT
+disp0Panels     LONG    hwEnum.ROW_1 | hwEnum.COL_0 | hwEnum.TOP_DOWN
+                LONG    hwEnum.ROW_1 | hwEnum.COL_1 | hwEnum.TOP_DOWN
+                LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_DOWN
+                LONG    hwEnum.ROW_0 | hwEnum.COL_1 | hwEnum.TOP_DOWN
+disp0PanelsEnd
+```
+
+You do not need to work out the panel list by hand. Cable and hang the panels as you like, write a starter list, and let the identify screen show you what to write ([the workflow](#filling-in-your-config-from-the-identify-screen)).
+
+Your program starts each adapter with one call, `display.start(hub75Bffrs.HUB75_ADAPTER_n)`; adapter `n` drives display `DISP(n-1)`.
+
+## The display block
+
+Every setting name starts with the display's prefix: `DISP0_`, `DISP1_` or `DISP2_`. The block says, once for the display:
+
+| Setting (after the prefix) | Value |
+|---|---|
+| `ADAPTER_BASE_PIN` | the adapter's 16-pin group: `hwEnum.PIN_GROUP_P0_P15`, `PIN_GROUP_P16_P31` or `PIN_GROUP_P32_P47` |
+| `PANEL_DRIVER_CHIP` | a canned chip name, or `hwEnum.CHIP_MANUAL_SPEC` joined with flags (below) |
+| `PANEL_COLUMNS`, `PANEL_ROWS` | the pixel columns and rows of **one** panel |
+| `COLOR_DEPTH` | `hwEnum.DEPTH_3BIT` to `hwEnum.DEPTH_8BIT`, bits per colour channel |
+
+Then the panel list: a `DAT` section with the label `disp0Panels` (`disp1Panels`, `disp2Panels`) before the first sentence and `disp0PanelsEnd` after the last. The number of panels is the length of the list; there is no separate count to keep in step.
+
+**The chip.** Use the canned name for your panels: `CHIP_FM6126A`, `CHIP_FM6124`, `CHIP_ICN2037`, `CHIP_ICN2038S`, `CHIP_MBI5124GP`, `CHIP_GS6238S` or `CHIP_DP5125D`. For panels with a chip that is not listed, join `CHIP_MANUAL_SPEC` with the flags that describe it, using `|`:
+
+```
+    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_MANUAL_SPEC | hwEnum.LAT_STYLE_OFFSET | hwEnum.SCAN_4
+```
+
+The flags are `LAT_STYLE_OFFSET`, `LAT_POSN_OVERLAP`, `INIT_PANEL_REQUIRED`, `RB_SWAP`, `SCAN_4` and `GB_SWAP`. The [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md) gives what each canned name stands for.
+
+**The address lines are derived.** You never say how many row-address lines a panel has. At startup the driver computes `log2(panel rows / rows lit per address)`, where the rows lit per address are 4 for a chip with the `SCAN_4` flag (ICN2038S, MBI5124GP, DP5125D) and 2 for every other chip. The result must be 8, 16 or 32 row addresses (3, 4 or 5 lines); anything else is reported ([M4](#startup-messages)). A 64x32 FM6126A panel (32 / 2 = 16 addresses) gets 4 lines; a 128x64 ICN2037 (64 / 2 = 32) gets 5; a 64x32 MBI5124GP (32 / 4 = 8) gets 3. The scan of the ICN2038S road-sign panel is being settled at the bench; until that is recorded here, treat the address lines the driver derives for that panel as provisional.
+
+**The depth** sets the hub RAM each pixel costs: 3 bytes of screen buffer plus one byte per bit of depth (11 bytes per pixel at 8 bits). Lower the depth only when the display does not fit ([Hub RAM](#hub-ram)).
 
 ## The wiring sentences
 
-Wiring is described in `isp_hub75_hwPanelConfig.spin2`, one sentence per cable position: `DISPn_C0` through `DISPn_C15`, where `n` is the display (adapter 1 drives `DISP0`). Each sentence describes the panel at that cable position: where it sits next to a panel already described, and which way its arrow points.
-
-A sentence is a few words joined with `|`:
+The panel list holds one sentence per panel, in cable order: the first sentence is the panel the adapter plugs into (`C0`), the second is the panel its ribbon goes to (`C1`), and so on. A sentence is a few words joined with `|`:
 
 ```
-DISP0_C1 = hwEnum.RIGHT_OF | hwEnum.C0 | hwEnum.ARROW_DOWN
+LONG    hwEnum.ROW_1 | hwEnum.COL_0 | hwEnum.TOP_DOWN
 ```
 
-Read it aloud: "C1 sits to the right of C0, and its arrow points down."
+Read it aloud: "this panel is in row 1, column 0, and its top points down." Row 0 is the top row of panels and column 0 the left column, **as you see them from the front of the display**.
 
-### Three forms
+### The words
 
-Every sentence is exactly one of these:
+Each word is written with the `hwEnum.` prefix.
 
-| Form | Used for |
+| Word | Meaning |
 |---|---|
-| `FIRST_PANEL \| arrow` | `C0`, and only `C0` |
-| `direction \| neighbour \| arrow` | every other panel in use |
-| `NO_PANEL` | every unused cable position |
+| `ROW_0` ... `ROW_62` | the panel's row of panels, row 0 at the top |
+| `COL_0` ... `COL_62` | the panel's column of panels, column 0 at the left |
+| `TOP_UP` | the panel's own top points up |
+| `TOP_DOWN` | the panel's own top points down: the panel is hung upside down |
+| `TOP_LEFT` | the panel's own top points left |
+| `TOP_RIGHT` | the panel's own top points right |
+| `CUBE_TOP` | this panel is the top face of a cube (see [the cube](#the-cube)) |
+| `CUBE_FRONT` | this panel is the front face of a cube |
 
-### Four kinds of word
+The `TOP_` word is the way the arrow that the identify screen draws on this panel points, read from the front. Rows and columns are numbered from the top-left; the smallest row and the smallest column you use are taken as the display's top row and left column, so a list that starts at `ROW_3` hangs the same as one that starts at `ROW_0`.
 
-Each word is written with the `hwEnum.` prefix (`hwEnum.RIGHT_OF`).
+### Rules
 
-| Kind | Words | Meaning |
-|---|---|---|
-| direction | `ABOVE`, `BELOW`, `LEFT_OF`, `RIGHT_OF` | where this panel sits relative to its neighbour: `ABOVE` means this panel is above the neighbour |
-| neighbour | `C0` ... `C15` | the cable position of the panel this one sits next to |
-| arrow | `ARROW_UP`, `ARROW_DOWN`, `ARROW_LEFT`, `ARROW_RIGHT` | the way the arrow the identify screen draws on this panel points, which is the panel's own up as it hangs (its panel rotation) |
-| marker | `FIRST_PANEL`, `NO_PANEL` | `FIRST_PANEL` marks the panel the adapter plugs into; `NO_PANEL` marks an unused cable position |
+1. **Join the words with `|` only, never `+`, and in any order.** `ROW_1 | COL_0 | TOP_DOWN` and `TOP_DOWN | COL_0 | ROW_1` mean the same thing.
+2. **One of each kind.** A sentence has one `ROW_` word, one `COL_` word and one `TOP_` word. The cube marks are optional. A missing `ROW_` or `COL_` word, and a missing or doubled `TOP_` word, are reported ([M8, M9, M10](#startup-messages)).
+3. **No two panels share a cell.**
+4. **The panels form one piece.** Every panel shares a full edge with the rest. T, L, Z, S and plus shapes are allowed; two panels that touch only at a corner, and gaps between panels, are not ([M12](#startup-messages)). Empty cells inside the bounding box of an L or a T are fine.
+5. **Non-square panels are all upright or all sideways.** On panels that are not square, every `TOP_` word is `TOP_UP` or `TOP_DOWN`, or every one is `TOP_LEFT` or `TOP_RIGHT`; a panel turned sideways fills a cell of a different shape, so the two cannot be mixed in one grid ([M13](#startup-messages)). Square panels may point any way, in any mix.
 
-A sentence uses at most one word of each kind. The panel shapes are `SHAPE_FLAT` and `SHAPE_CUBE`, set separately in `DISPn_SHAPE`; they are not part of a sentence.
+### The doubled row or column that cannot be detected
 
-### Five rules
-
-1. **Join the words with `|` only, never `+`, and in any order.** `RIGHT_OF | C0 | ARROW_UP` and `ARROW_UP | C0 | RIGHT_OF` mean the same thing.
-2. **The neighbour shares a full edge with this panel.** It may come earlier or later along the cable.
-3. **Every panel connects back to `C0` through its neighbours.**
-4. **No two panels share a cell.**
-5. **Panels in use are numbered `C0`, `C1`, `C2` and so on with no gaps, and `NO_PANEL` comes only after the last one.**
+A row is one number stored in a field, not a set of separate bits. Writing two `ROW_` words with `|` sets the bits of both and gives a different row: `ROW_0 | ROW_1` is `ROW_2`, and `ROW_1 + ROW_1` is `ROW_3`. The driver cannot tell that from a panel that really is in that row. The same holds for two `COL_` words. The usual result is two panels in one cell or a panel that no longer touches the others, and those are caught ([M11, M12](#startup-messages), and the second mistake of [example 2](#example-2-two-panels)); a doubled word that happens to land on an empty cell is not.
 
 ### Why `|` and never `+`
 
-Every word is a single bit, and the neighbour words `C0` ... `C15` are consecutive bits. Joining with `|` sets each bit without disturbing the others. Adding with `+` lets a repeated word carry into the next bit: `C2 + C2` silently becomes `C3`, and your panel quietly names the wrong neighbour. The driver catches what it can (see the [catalogue](#startup-messages)), but the surest protection is to write `|` every time. Example 2 shows exactly what happens.
-
-### Unused cable positions, and the other adapters
-
-Set every cable position you do not use to `hwEnum.NO_PANEL`. An adapter whose `DISPn_C0` is `NO_PANEL` has no panels: its buffers are zero length and cost no memory. You never comment code in or out to add a second or third adapter; describe its panels in its own `DISP1_` or `DISP2_` group.
+The `TOP_` words and the cube marks are single bits. Joining with `|` sets each bit without disturbing the others. Adding with `+` lets a repeated word carry into the next bit: `TOP_UP + TOP_UP` silently becomes `TOP_DOWN`, and the panel quietly points the wrong way. The driver catches what it can (a mounting word or a stray bit in a sentence, [M7](#startup-messages); a doubled or missing `TOP_` word, [M10](#startup-messages)), but the surest protection is to write `|` every time.
 
 ### What a good config prints
 
-When the sentences are right, the driver prints the layout it derived, at startup, before it starts the panels: the size of the display, one line of picture per grid row, and a table of where every panel went. The picture shows a cell as `[Ck a]`, where `k` is the cable position and `a` is the arrow (`^`, `v`, `<` or `>`). A cell that holds no panel prints as `  --  `. When the display has more than ten panels, single-digit cells are padded (`[C2  v]`) so the columns line up.
+When the display block and the panel list are right, the driver prints the layout it derived at startup, before it starts the panels. This is the shape of those lines (letters stand for numbers the driver prints):
 
-Each example below shows its picture. The line `cable -> panel position` is the one to keep in mind: it says which panel position each cable position ended up at.
+```
+HUB75: DISPn panels: N panels in a grid of R rows x C columns, W x H pixels (columns x rows)
+HUB75: DISPn   [Ck a][Ck a] ...           one line per grid row
+HUB75: DISPn Pp = Ck, buffer slot s, cell row r column c, rotation d
+HUB75: DISPn cable -> panel position:
+HUB75: DISPn  C0->Pp C1->Pp ...
+```
+
+- The header gives the number of panels, the grid in panels, and the size of the display in pixels.
+- The grid lines show a cell as `[Ck a]`, where `k` is the cable position and `a` is the way the panel's top points (`^`, `v`, `<` or `>`). A cell that holds no panel prints as `  --`. When the display has more than ten panels, single-digit cells are padded (`[C2  v]`) so the columns line up. A line wraps at 96 characters.
+- There is one `Pp = Ck` line per panel position, in reading order. `rotation d` is how many degrees (0, 90, 180 or 270) the driver turns that panel's content so it reads upright.
+- The last line is the one to keep in mind: it says which panel position each cable position ended up at. The grid lines show the panels as built; the `P` lines are as mounted (they differ only when a [mounting override](#display-rotation) is set).
+
+Each worked example below has a slot for its picture.
 
 ## Filling in your config from the identify screen
 
 The identify program, `demo_hub75_numberPanels.spin2`, draws on every panel:
 
-- an arrow (`^`) near the top, pointing the way the panel's own up points;
-- `C`*k*, the cable position of that panel;
+- an arrow (`^`) near the top, pointing the way the panel's own top points as it hangs;
+- `C`*k*, the cable position of that panel (its place in the list);
 - `P`*p*, the panel position of that panel.
 
-Each panel also gets its own background colour, which makes the panels easy to tell apart when you describe them. Small panels (for example 64x32 with the 5x7 font) get a compact layout: the `^` and then `C2P1` on one line.
+Each panel also gets its own background colour, which makes the panels easy to tell apart. Small panels (for example 64x32 with the 5x7 font) get a compact layout: the `^` and then `C2P1` on one line.
 
-Because the `C` labels are drawn through the driver's inverse table, they are **physically correct even when your config is wrong**. A panel labelled `C2` is the panel at cable position 2. The labels tell you the truth; the sentences are what you are checking.
+Because the `C` labels are drawn through the driver's inverse table, they are **physically correct even when your panel list is wrong**. A panel labelled `C2` is the panel at cable position 2, the third sentence. The labels tell you the truth; the sentences are what you are checking.
 
 ### The procedure
 
-1. Describe the chip, address lines, panel size and colour depth for your panels.
-2. For every panel, write `ARROW_UP`. Do not try to work out the arrows yet.
-3. Looking at the **front** of your display, write each direction and neighbour: follow the ribbon from the adapter, and for each panel say which earlier panel it touches and on which side (`RIGHT_OF`, `BELOW`, ...). Leave unused cable positions `NO_PANEL`.
-4. Build and run identify. The startup picture appears first; if the driver names a mistake, fix that sentence and run again (see the [catalogue](#startup-messages)).
-5. Read the panels:
-   - **`P` labels in reading order and every arrow up: the config is right.** Reading order is left to right along the top row, then each row below.
-   - **`P` labels out of order, `C` labels where you expect them:** the directions or neighbours place panels wrongly. The `C` labels show where each cable position really is, so use them to correct the sentences.
-   - **An arrow pointing another way, or text upside down:** that panel's arrow word is wrong. Write the arrow word for the direction the arrow actually points on that panel, and run again.
+1. **Cable and mount the panels as you like.** Nothing about the order of the ribbon or the way a panel hangs needs to be planned. **Mark the top edge of the frame** (the edge that is up now); you need it if you ever hang the display another way ([Display rotation](#display-rotation)).
+2. **Write the display block** for your pins, chip, panel size and colour depth ([the display block](#the-display-block)).
+3. **Write a starter sentence for every panel**, in cable order, with every panel in one row and its top up: `ROW_0 | COL_0 | TOP_UP`, `ROW_0 | COL_1 | TOP_UP`, `ROW_0 | COL_2 | TOP_UP`, and so on. A starter list passes every startup check except the [panel limit](#driver-limits).
+4. **Build and run identify.** The startup picture appears first; if the driver names a mistake, fix that sentence and run again ([the catalogue](#startup-messages)).
+5. **Copy each panel from the wall into its sentence, reading from the front.** Panel `Ck` is the `k`-th sentence (counting from 0). For each panel write the row it is in (from the top), the column it is in (from the left) and the direction its arrow points: `TOP_UP`, `TOP_DOWN`, `TOP_LEFT` or `TOP_RIGHT`.
+6. **Run it again.** When the `P` labels read in order and every arrow points up, the panel list is right. If not:
+   - **`P` labels out of order, `C` labels where you expect them:** a `ROW_` or `COL_` word places a panel wrongly. The `C` labels show where each cable position really is; use them to correct the sentences.
+   - **An arrow pointing another way, or text upside down:** that panel's `TOP_` word is wrong. Write the word for the direction the arrow actually points on that panel, and run again.
 
-A fresh config with every arrow `ARROW_UP` shows each panel's native up. On a panel hung upside down, the text is upside down and the arrows point down; the labels are still in the right places, because a wrong arrow word turns a panel's content and never moves it. On the rig of example 3, a run with every arrow written `ARROW_UP` showed *"all text is upside down but C\* and P\* seem to be in correct locations ... ^ all point down"*. Changing each to `ARROW_DOWN` fixed it.
-
-A wrong **direction** word does the opposite: it moves the `P` labels and leaves the content upright. On the same rig, describing `C1` as `ABOVE` `C0` showed *"text and arrows right side up. P\* numbers are wrong, C\* numbers correct"*.
+A wrong `TOP_` word turns a panel's content and never moves it; a wrong `ROW_` or `COL_` word moves the `P` labels and leaves the content upright.
 
 When the identify screen is up, the driver prints `END_SESSION` and holds the image.
+
+For a cube, do the same, then mark the top and front faces ([the cube](#the-cube)).
+
+## More displays and optional settings
+
+Only the displays you have are described. A second or third display, and each optional setting, is switched on with one `#DEFINE` line placed next to it. The first display needs no flag. A typical configuration writes none.
+
+| To add | Write |
+|---|---|
+| a second display | `#DEFINE DISP1_PRESENT`, then the `DISP1_` block and the `disp1Panels` list |
+| a third display | `#DEFINE DISP2_PRESENT`, then the `DISP2_` block and the `disp2Panels` list |
+| a mounting override for display *n* | `#DEFINE DISPn_ROTATED`, then `DISPn_ROTATION = hwEnum.TOP_TO_RIGHT` (or `TOP_TO_BOTTOM`, `TOP_TO_LEFT`) |
+| a refresh target for display *n* | `#DEFINE DISPn_REFRESH_GIVEN`, then `DISPn_TARGET_REFRESH_HZ = <Hz>` (default 60) |
+
+Every display not flagged present gets an empty panel list: it has no panels and its buffers cost no memory. Adapter 3 runs without adapter 2.
+
+The template for a second display, as it ships in the file (remove the leading `'` from each line to use it, then edit it):
+
+```
+#DEFINE DISP1_PRESENT
+CON
+    DISP1_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P32_P47
+    DISP1_PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6126A
+    DISP1_PANEL_COLUMNS     = 64
+    DISP1_PANEL_ROWS        = 32
+    DISP1_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
+DAT
+disp1Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
+disp1PanelsEnd
+```
+
+A third display is the same block with `DISP2_`, `disp2Panels`, `disp2PanelsEnd` and `PIN_GROUP_P0_P15`.
+
+The optional settings, as they ship (remove the leading `'` from both lines of the one you want):
+
+```
+#DEFINE DISP0_ROTATED
+CON DISP0_ROTATION = hwEnum.TOP_TO_RIGHT
+#DEFINE DISP0_REFRESH_GIVEN
+CON DISP0_TARGET_REFRESH_HZ = 30
+```
+
+### When a `#DEFINE` and its setting do not match
+
+The flag and the setting go together. The compiler reports a mismatch (measured with pnut-ts 1.55.8):
+
+| You wrote | The compiler says | Where |
+|---|---|---|
+| the setting, without its `#DEFINE` | `Symbol is already defined (m541)` | at the setting's default, in the Defaults section below the user section |
+| the `#DEFINE`, without its setting | `Expected an object constant, structure, or method` | reported in `isp_hub75_hwBufferAccess.spin2` |
+| `#DEFINE DISP1_PRESENT`, without a `DISP1_` block | `Undefined symbol` | in the storage section below the defaults |
+
+Everything below the user section is not edited.
 
 ## Display rotation
 
@@ -113,25 +232,32 @@ Two things can be turned, and they are different:
 
 | What | How you set it | Meaning |
 |---|---|---|
-| each panel | the arrow word in its sentence | how that one panel is hung within the display |
-| the whole display | `DISPn_ROTATION` | how the assembled display is hung |
+| each panel | the `TOP_` word in its sentence | which way that one panel's top points within the display |
+| the whole display | the mounting override, `DISPn_ROTATION` | how the assembled display is hung now, compared with how it was built and identified |
 
-**`DISPn_ROTATION` is physical.** It says how the display is mounted, and the driver draws so the content reads upright to the person looking at it:
+**The mounting override is a convenience for re-hanging a built display.** The panel list describes the display as it was first built and identified, with the top edge of the frame at the top. If you later hang that display another way, you do not rewrite the list: you say where the frame's top edge now points, and the driver turns the content so it reads upright to the person looking at the display. The default needs no flag and no line:
 
-| Value | The display hangs |
+| Word | The frame's built top edge is now at |
 |---|---|
-| `ROT_NONE` | as the sentences describe |
-| `ROT_RIGHT_90` | turned 90 degrees clockwise |
-| `ROT_LEFT_90` | turned 90 degrees counter-clockwise |
-| `ROT_180` | upside down |
+| `AS_BUILT` | where it was built: the display hangs as the list describes (the default) |
+| `TOP_TO_RIGHT` | the right: the display is turned 90 degrees clockwise |
+| `TOP_TO_BOTTOM` | the bottom: the display is turned 180 degrees |
+| `TOP_TO_LEFT` | the left: the display is turned 90 degrees counter-clockwise |
 
-On a flat bench rig, `ROT_RIGHT_90` therefore looks turned to the left: you are looking at the display as if it hung turned right. Set `ROT_NONE` first, verify the panels with identify, then set the rotation that matches how you hung the display. Display rotation applies to flat displays only; on a cube it is ignored (see [the cube](#the-cube)).
+It is set with its flag ([More displays and optional settings](#more-displays-and-optional-settings)):
+
+```
+#DEFINE DISP0_ROTATED
+CON DISP0_ROTATION = hwEnum.TOP_TO_BOTTOM
+```
+
+This is why step 1 of the [procedure](#the-procedure) asks you to mark the frame's top edge: identify, then re-hang, then run identify again as the check. A value that is not one of the four words is reported ([M3](#startup-messages)). The override applies to flat displays only; on a cube it is ignored with a notice ([N1](#startup-messages)).
 
 With the display hung at 90 or 270 degrees, the display size the driver reports is the size **as mounted**: width and height swap, and so do the text grid's columns and lines.
 
 ### Everything is in the viewer's frame
 
-Your program never sees cables, arrows or the way the display was mounted; the wiring sentences and `DISPn_ROTATION` are translated away at startup. Drawing calls use the display as the viewer sees it:
+Your program never sees cables, tops or the way the display was mounted; the panel list and the override are translated away at startup. Drawing calls use the display as the viewer sees it:
 
 - display coordinates start at the top-left as mounted;
 - `P0` is the top-left panel as the display hangs, and panel positions run in reading order as mounted;
@@ -139,25 +265,24 @@ Your program never sees cables, arrows or the way the display was mounted; the w
 
 ### Turning an image: content rotation
 
-Turning an image is separate from mounting. The image-placing call, `placeBMP`, takes a content rotation (`bmp.ROT_NONE`, `bmp.ROT_RIGHT_90` for clockwise, `bmp.ROT_LEFT_90` or `bmp.ROT_180`). The image is turned about the centre of the display as it is placed; the part that falls off the display is simply not shown, and nothing is wrapped or moved. Placing again with another rotation re-places the picture from the source, so nothing is lost. Content rotation works for an image of any size, composes with mounting, and does not affect text or shapes you draw (a drawn display already follows the display's geometry). A cube has no face-aware image call: `placeBMP` places the image on the flat layout of the net, not carried across the folded edges.
+Turning an image is separate from mounting. The image-placing call, `placeBMP`, takes a content rotation (`bmp.ROT_0`, `bmp.ROT_90` for clockwise, `bmp.ROT_180` or `bmp.ROT_270` for counter-clockwise). The image is turned about the centre of the display as it is placed; the part that falls off the display is simply not shown, and nothing is wrapped or moved. Placing again with another rotation re-places the picture from the source, so nothing is lost. Content rotation works for an image of any size, composes with mounting, and does not affect text or shapes you draw (a drawn display already follows the display's geometry). A cube has no face-aware image call: `placeBMP` places the image on the flat layout of the net, not carried across the folded edges.
 
 ## The cube
 
-Six **square** panels, wired as one of the 11 nets of a cube, form a cube display. Set:
+Six **square** panels, laid out as one of the 11 nets of a cube, form a cube display. You do not set a shape: you **mark two panels**. `CUBE_TOP` on one sentence says that panel is the top face, and `CUBE_FRONT` on a different sentence says that panel is the front face:
 
 ```
-DISP0_SHAPE      = hwEnum.SHAPE_CUBE
-DISP0_CUBE_TOP   = hwEnum.C4
-DISP0_CUBE_FRONT = hwEnum.C1
+                LONG    hwEnum.ROW_0 | hwEnum.COL_1 | hwEnum.TOP_UP | hwEnum.CUBE_TOP
+                LONG    hwEnum.ROW_1 | hwEnum.COL_1 | hwEnum.TOP_UP | hwEnum.CUBE_FRONT
 ```
 
-`DISPn_CUBE_TOP` and `DISPn_CUBE_FRONT` are cable positions (`hwEnum.C0` ... `hwEnum.C15`). The front face must share an edge with the top face. Together they are the **cube orientation**; they take the place of display rotation, which is ignored on a cube. If you set a rotation anyway, the driver prints a notice and carries on (see the [catalogue](#startup-messages)).
+With no marks the display is flat. With both marks it is a cube, and the display must then have exactly six square panels (messages [M14 to M16](#startup-messages)). The front face must share an edge with the top face once the net is folded. The two marks together are the **cube orientation**; they take the place of the mounting override, which is ignored on a cube. If you set the override anyway, the driver prints a notice and carries on ([N1](#startup-messages)).
 
-The wiring sentences describe the panels laid flat, as a net: the sentences are the same as for any flat display, and the driver checks that they fold into a cube.
+The other sentences describe the panels laid flat, as a net, exactly as for any flat display, and the driver checks that they fold into a cube ([M17, M18](#startup-messages)).
 
 ### Face names
 
-From Top and Front the driver derives the six face names: `TOP` and `FRONT` are the two you named; `BOTTOM` is opposite the top; `BACK` is opposite the front; `LEFT` and `RIGHT` are the faces on the viewer's left and right when standing at the front.
+From Top and Front the driver derives the six face names: `TOP` and `FRONT` are the two you marked; `BOTTOM` is opposite the top; `BACK` is opposite the front; `LEFT` and `RIGHT` are the faces on the viewer's left and right when standing at the front.
 
 ### Up on each face
 
@@ -171,7 +296,7 @@ These conventions do not change between releases, so anything you build on them 
 
 ### Folding
 
-At startup the driver folds the net and works out all 12 edges, including those the flat picture does not show, and how coordinates carry across each one. The startup log prints one line per face; example 7 shows them. In each line the four edges of the face are named `N`, `E`, `S`, `W` (as the face is seen from outside, with `N` its up edge), and each entry says which face lies beyond that edge and which of its edges meets it: `N->TOP.S` on the front face says the front's top edge meets the top face's south edge.
+At startup the driver folds the net and works out all 12 edges, including those the flat picture does not show, and how coordinates carry across each one. The startup log prints one line per face; example 7 shows their form. In each line the four edges of the face are named `N`, `E`, `S`, `W` (as the face is seen from outside, with `N` its up edge), and each entry says which face lies beyond that edge and which of its edges meets it: `N->TOP.S` on the front face says the front's top edge meets the top face's south edge.
 
 ### Drawing on faces
 
@@ -188,19 +313,19 @@ The fold is checked without any panels attached by `test_hub75_cube_fold.spin2`,
 
 ## Driver limits
 
-How many panels one adapter can drive depends on the panel. The hard limit for every panel type is the **refresh line buffer**: the refresh core holds one row of the whole chain, 512 column clocks. The driver checks this at startup (message in the [catalogue](#startup-messages)). Hub RAM sets a separate limit that the compiler enforces.
+How many panels one adapter can drive depends on the panel. The hard limit for every panel type is the **refresh line buffer**: the refresh core holds one row of the whole chain, 512 column clocks. The driver checks this at startup (message [M6](#startup-messages)). Hub RAM sets a separate limit that the compiler enforces. There is no fixed cap on the number of panels beyond these: a panel list may name rows and columns up to 62.
 
-A display must pass all four limits, and the tightest decides:
+A display must pass all five limits, and the tightest decides:
 
 | Limit | What sets it | Where it binds |
 |---|---|---|
 | Refresh line buffer | One row of the whole chain, 512 column clocks | Per adapter |
-| Hub RAM | All three adapters' buffers share what is left of 512 KB | Across adapters |
+| Hub RAM | The buffers of every display present share what is left of 512 KB | Across adapters |
 | Refresh rate | The chain's column clocks, row addresses and colour depth, against `DISPn_TARGET_REFRESH_HZ` ([Refresh rate](#refresh-rate)); a display that cannot reach the target runs at its fastest rate | Per adapter |
 | Pins and cogs | Each adapter takes a 16-pin group and one refresh cog | Board-wide |
-| Panel width | `DISPn_MAX_PANEL_COLUMNS` must be a multiple of 4 (every common panel is: 32, 64, 80, 128); startup stops with a message otherwise | Per adapter |
+| Panel width | `DISPn_PANEL_COLUMNS` must be a multiple of 4 (every common panel is: 32, 64, 80, 128); startup stops with a message otherwise ([M5](#startup-messages)) | Per adapter |
 
-**Max panels per adapter = 512 / (panel columns x scan factor)**, never more than 16 (the number of cable positions). The scan factor is 2 for chips the driver flags as quarter-scan (`SCAN_4`: ICN2038S, MBI5124GP, DP5125D) and 1 for every other chip.
+**Max panels per adapter = 512 / (panel columns x scan factor).** The scan factor is 2 for chips the driver flags as quarter-scan (`SCAN_4`: ICN2038S, MBI5124GP, DP5125D) and 1 for every other chip.
 
 | Panel type | Columns | Scan factor | 512 / (columns x factor) | **Max panels per adapter** | Status |
 |---|---|---|---|---|---|
@@ -216,12 +341,12 @@ A display must pass all four limits, and the tightest decides:
 Notes on the table:
 
 - The 4 x 128x64 ICN2037 rig sits exactly at the limit: 4 x 128 = 512 column clocks.
-- The ICN2038S has five address lines (which fits 1/32 scan and would give a limit of 8), but the driver flags the chip as quarter-scan, so the limit it enforces is 4.
+- The ICN2038S has five address lines (which fits 1/32 scan and would give a limit of 8), but the driver flags the chip as quarter-scan, so the limit it enforces is 4. The scan of the ICN2038S road-sign panel is being settled at the bench; the row and its note will be updated with the result.
 - The ICN2038S panel is single-ended, so it cannot be chained. Multi-panel use of the FM6124 and GS6238S has not been proven on hardware, and the MBI5124GP has been run with two panels, so for those rows the number is the driver's cap, not a demonstrated working count.
 
 ### Hub RAM
 
-One panel of P pixels at colour depth N takes **P x (3 + N) bytes**: the screen buffer (3 bytes per pixel) plus two PWM frame sets (N x P / 2 bytes each). The compiler builds all three adapters' buffers into the same program, so the buffers of every adapter share what is left of the 512 KB hub RAM.
+One panel of P pixels at colour depth N takes **P x (3 + N) bytes**: the screen buffer (3 bytes per pixel) plus two PWM frame sets (N x P / 2 bytes each). The compiler builds the buffers of every display that is present into the same program, so they share what is left of the 512 KB hub RAM. A display that is not present has a zero-length panel list and costs nothing. A display too big for hub RAM does not compile.
 
 Measured with the largest demo (`demo_hub75_7seg.spin2`) and five 128x64 panels at 8-bit (450,560 bytes of buffers): built with DEBUG (`pnut-ts -d`) it fails with `Program requirement exceeds 512KB hub RAM by 8684 bytes`, so a DEBUG build leaves **441,876 bytes** for buffers; built without DEBUG it compiles (508,492 bytes in all), leaving about 466,000 bytes. Your own program's size moves these figures, so the compiler's report for your build is the authority.
 
@@ -264,7 +389,7 @@ On the author's rig the column clock is 15 system clocks per column at 335 MHz. 
 
 #### The target refresh rate
 
-`DISPn_TARGET_REFRESH_HZ` (default 60) says how fast the display should refresh. At startup the driver takes S, the clocks to shift one row of one plane (the chain's column clocks x the clocks per column), and tries T = S / 2^*j* for *j* = 0, 1, 2, ... until the predicted refresh reaches the target. T never goes below the chip's shortest /OE pulse. The smallest *j* that meets the target gives the longest T, and so the brightest picture. *j* = 0 lights every plane for its whole slot.
+`DISPn_TARGET_REFRESH_HZ` (default 60; switched on with `#DEFINE DISPn_REFRESH_GIVEN`, see [More displays and optional settings](#more-displays-and-optional-settings)) says how fast the display should refresh. At startup the driver takes S, the clocks to shift one row of one plane (the chain's column clocks x the clocks per column), and tries T = S / 2^*j* for *j* = 0, 1, 2, ... until the predicted refresh reaches the target. T never goes below the chip's shortest /OE pulse. The smallest *j* that meets the target gives the longest T, and so the brightest picture. *j* = 0 lights every plane for its whole slot.
 
 When no *j* reaches the target, the driver runs at the fastest rate the display has (the largest *j*, the colour depth) and prints the [notice](#startup-messages). On the author's rig at 8-bit, a target of 200 Hz printed `running at 165.7 Hz, its fastest (j = 8)` and the monitors measured 165.0 Hz.
 
@@ -320,53 +445,45 @@ Drawing calls take their pixels from the cell address tables and write them in P
 
 ## Startup messages
 
-When the driver starts an adapter it decodes the sentences, checks them, and either prints the picture and tables or prints the problems and stops. Nothing is checked at compile time, so a wrong sentence compiles and then reports itself the moment the program starts.
+When the driver starts an adapter it checks the display block and the panel list, and either prints the picture and tables or prints the problems and stops. Nothing about the panel list is checked at compile time, so a wrong sentence compiles and then reports itself the moment the program starts. (A `#DEFINE` that does not match its setting is the exception: the compiler reports it, see [When a `#DEFINE` and its setting do not match](#when-a-define-and-its-setting-do-not-match).)
 
 How to read the messages:
 
 - Every line starts `HUB75: `.
-- A message about one sentence names the setting as `DISPn_Ck`. A message about the whole display names it as `DISPn`.
-- In the text below, `n`, `k`, `j`, `N`, `L`, `W` and `R` stand for numbers the driver prints.
+- A message about one panel names it as `DISPn Ck`, where `k` is the panel's cable position, its place in the list counting from 0. A message about the whole display names it as `DISPn`; a message about a setting names the setting.
+- In the text below, `n`, `k`, `j`, `N`, `T`, `F`, `R`, `L`, `A`, `W`, `X` and `E` stand for numbers the driver prints.
 - After the last message the driver prints the summary line, then `END_SESSION`, and stops every cog.
 
-The checks run in two passes, so one mistake does not set off a chain of others:
+The checks run in order, so one mistake does not set off a chain of others:
 
-1. Every sentence on its own (rows 1-7, 11, 13 and 14), then the whole display (rows 10, 12, 15-18, 21 and 22). All of these are reported in one run.
-2. The walk out from `C0` (rows 8 and 9), then, for a cube, the fold (rows 19 and 20). It runs only when pass 1 found nothing, because it needs well-formed sentences.
+1. M1 and M2 stop the checks for that display.
+2. Then the display settings: M3 and M4, then M5 and M6.
+3. When M5 and M6 are clear, every sentence on its own (M7 to M10). When those are clear, the panels together: M11 (two in one cell), then M12 (one piece, only when there is no M11), and M13. The cube marks (M14 to M16) are checked when M5 and M6 are clear.
+4. The fold of a cube (M17, M18) runs after the layout is built, only when M1 to M16 found nothing.
 
 | # | Check | Exact message |
 |---|---|---|
-| 1 | more than one word of a kind | `HUB75: DISPn_Ck: has more than one direction word; use exactly one of ABOVE, BELOW, LEFT_OF, RIGHT_OF` |
-| | | `HUB75: DISPn_Ck: has more than one neighbour word; use exactly one of C0 .. C15` |
-| | | `HUB75: DISPn_Ck: has more than one arrow word; use exactly one of ARROW_UP, ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT` |
-| 2 | a required word missing | `HUB75: DISPn_Ck: has no direction word; add one of ABOVE, BELOW, LEFT_OF, RIGHT_OF` |
-| | | `HUB75: DISPn_Ck: has no neighbour word; add the cable position (C0 .. C15) of the panel it sits next to` |
-| | | `HUB75: DISPn_Ck: has no arrow word; add one of ARROW_UP, ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT` (C0 too) |
-| 3 | `FIRST_PANEL` on anything but C0 | `HUB75: DISPn_Ck: uses FIRST_PANEL, which belongs only to C0; write direction \| neighbour \| arrow` |
-| 4 | C0 not `FIRST_PANEL` while panels are in use | `HUB75: DISPn_C0: must be FIRST_PANEL \| arrow, because panels are in use` |
-| 5 | a panel as its own neighbour | `HUB75: DISPn_Ck: names itself as its neighbour; name the panel it sits next to` |
-| 6 | the neighbour is a `NO_PANEL` | `HUB75: DISPn_Ck: names Cj as its neighbour, but that cable position is NO_PANEL` |
-| 7 | a gap in the numbering | `HUB75: DISPn_Ck: is in use, but Cj before it is NO_PANEL; number the panels in use C0, C1, C2 ... with no gaps` |
-| 8 | two panels in one cell | `HUB75: DISPn_Ck: sits in the same cell as Cj` |
-| 9 | a panel that doesn't connect back to C0 | `HUB75: DISPn_Ck: does not connect back to C0 through its neighbours` |
-| 10 | more panels than the driver limit | `HUB75: DISPn: N panels exceed the driver limit of L for panels W columns wide; one row along the cable would be R columns, and the refresh line buffer holds 512` |
-| 11 | `+` where `\|` was meant, where detectable | `HUB75: DISPn_Ck: looks like + joined a word to itself and carried into the next kind of word; join the words with \| only, never +` |
-| | | `HUB75: DISPn_Ck: has bits that no wiring word uses; join the words with \| only, never +` |
-| 12 | starting an adapter with no panels | `HUB75: DISPn: has no panels (every DISPn_C0 .. DISPn_C15 is NO_PANEL), so its adapter cannot be started` |
-| 13 | a word the form does not allow | `HUB75: DISPn_C0: takes only FIRST_PANEL and an arrow; remove its direction and neighbour words` |
-| | | `HUB75: DISPn_Ck: joins NO_PANEL with other words; NO_PANEL stands alone` |
-| 14 | on panels that are not square, arrows that mix sideways with upright | `HUB75: DISPn_Ck: has its arrow at right angles to C0's arrow; on panels that are not square, every arrow is ARROW_UP or ARROW_DOWN, or every arrow is ARROW_LEFT or ARROW_RIGHT` |
-| 15 | a cube without exactly six panels | `HUB75: DISPn: a cube needs exactly 6 panels, but N are in use` |
-| 16 | a cube of panels that are not square | `HUB75: DISPn: a cube needs square panels, but each panel is W columns x R rows (DISPn_MAX_PANEL_COLUMNS, DISPn_MAX_PANEL_ROWS)` |
-| 17 | `DISPn_CUBE_TOP` / `DISPn_CUBE_FRONT` not one cable position in use | `HUB75: DISPn_CUBE_TOP: must be exactly one of C0 .. C5, the cable position of the top face` (and the same for `DISPn_CUBE_FRONT`, the front face); `HUB75: DISPn_CUBE_TOP: names Cj, but that cable position is NO_PANEL` (and for `DISPn_CUBE_FRONT`) |
-| 18 | Front is the same panel as Top | `HUB75: DISPn_CUBE_FRONT: names the same panel as DISPn_CUBE_TOP; the front face is a different panel that shares an edge with the top face` |
-| 19 | the panels are not one of the 11 cube nets | `HUB75: DISPn: the panels do not fold into a cube (Cj and Ck fold onto the same face); arrange the six panels as one of the 11 cube nets` |
-| 20 | Front opposite Top once folded | `HUB75: DISPn_CUBE_FRONT: Cj is opposite the top face (Ck) when the panels are folded; the front face must share an edge with the top face` |
-| 21 | a shape value other than flat or cube | `HUB75: DISPn: DISPn_SHAPE must be SHAPE_FLAT or SHAPE_CUBE` |
-| 22 | a panel width that is not a multiple of 4 | `HUB75: DISPn: panels W columns wide (DISPn_MAX_PANEL_COLUMNS) are not supported; the width must be a multiple of 4` |
-| notice | a mounting rotation on a cube (not a mistake; startup continues) | `HUB75: DISPn: DISPn_ROTATION does not apply to a cube and is ignored` |
+| M1 | the panel list is not whole `LONG`s | `HUB75: DISPn: the panel list is not whole LONGs; write each panel sentence with LONG` |
+| M2 | the display has no panels | `HUB75: DISPn: has no panels, so its adapter cannot be started; give it a panel list (and #DEFINE DISPn_PRESENT)` |
+| M3 | the mounting override is not a mounting word | `HUB75: DISPn_ROTATION: must be AS_BUILT, TOP_TO_RIGHT, TOP_TO_BOTTOM or TOP_TO_LEFT` |
+| M4 | the derived row-address count is not 8, 16 or 32 | `HUB75: DISPn: panels R rows tall, lit L rows per address, need A row addresses; the driver drives 8, 16 or 32` |
+| M5 | a panel width that is not a multiple of 4 | `HUB75: DISPn: panels W columns wide (DISPn_PANEL_COLUMNS) are not supported; the width must be a multiple of 4` |
+| M6 | more panels than the line buffer allows | `HUB75: DISPn: N panels exceed the driver limit of L for panels W columns wide; one row along the cable would be X columns, and the refresh line buffer holds 512` |
+| M7 | stray bits in a sentence: a mounting word, or words joined with `+` | `HUB75: DISPn Ck: has bits that no panel word uses (a mounting word, or words joined with +); join ROW_, COL_ and TOP_ words with \|` |
+| M8 | no `ROW_` word | `HUB75: DISPn Ck: has no ROW_ word` |
+| M9 | no `COL_` word | `HUB75: DISPn Ck: has no COL_ word` |
+| M10 | no `TOP_` word, or more than one | `HUB75: DISPn Ck: needs exactly one of TOP_UP, TOP_DOWN, TOP_LEFT, TOP_RIGHT` |
+| M11 | two panels in one cell | `HUB75: DISPn Ck: is in the same cell as Cj` |
+| M12 | a panel that shares no full edge with the rest | `HUB75: DISPn Ck: shares no full edge with the panels joined to C0; the panels must form one piece` |
+| M13 | on panels that are not square, tops that mix sideways with upright | `HUB75: DISPn Ck: has its top at right angles to C0's; panels that are not square are all TOP_UP or TOP_DOWN, or all TOP_LEFT or TOP_RIGHT` |
+| M14 | the cube marks misused | `HUB75: DISPn: a cube marks one panel CUBE_TOP and a different panel CUBE_FRONT; found T CUBE_TOP and F CUBE_FRONT` |
+| M15 | a cube without exactly six panels | `HUB75: DISPn: a cube needs exactly 6 panels, but N are in use` |
+| M16 | a cube of panels that are not square | `HUB75: DISPn: a cube needs square panels, but each panel is W columns x R rows` |
+| M17 | the panels are not one of the 11 cube nets | `HUB75: DISPn: the panels do not fold into a cube (Cj and Ck fold onto the same face); arrange the six panels as one of the 11 cube nets` |
+| M18 | Front opposite Top once folded | `HUB75: DISPn Ck: marked CUBE_FRONT, is opposite the CUBE_TOP face (Cj) when the panels are folded; the front face must share an edge with the top face` |
+| N1 | notice: a mounting override on a cube (not a mistake; startup continues) | `HUB75: DISPn: DISPn_ROTATION does not apply to a cube and is ignored` |
+| End | summary, after any of M1 to M18 | `HUB75: DISPn: E problem(s) above; startup stopped` |
 | stop | `DISPn_ADAPTER_BASE_PIN` is not one of `PIN_GROUP_P0_P15`, `PIN_GROUP_P16_P31`, `PIN_GROUP_P32_P47` (startup aborts at this message, with no summary line) | `HUB75: configureAdapter() Invalid PinBase/PinGroup specified: [isp_hub75_hwBufferAccess.spin2] Aborted!` |
-| - | summary, after any of the above | `HUB75: DISPn: K wiring problem(s) above; startup stopped` |
 | notice | no refresh rate the driver can reach meets `DISPn_TARGET_REFRESH_HZ` (not a mistake; startup continues at the fastest rate) | `HUB75: DISPn: DISPn_TARGET_REFRESH_HZ = N Hz is out of reach for this display; running at N.N Hz, its fastest (j = j)` |
 | notice | a panel chip with no /OE rating in the driver's table: any chip but FM6124, FM6126A, ICN2037, ICN2038S and MBI5124GP (not a mistake; startup continues) | `HUB75: DISPn: this panel chip has no /OE rating in the driver's table; the shortest /OE pulse is set to 50 ns` |
 | notice | a panel chip with no clock rating in the driver's table (not a mistake; startup continues with the clock held to 20 MHz) | `HUB75: DISPn: this panel chip has no clock rating in the driver's table; the clock is held to 20 MHz` |
@@ -376,26 +493,28 @@ The checks run in two passes, so one mistake does not set off a chain of others:
 
 Notes on the table:
 
-- Row 10 fires on the line-buffer limit (see [Driver limits](#driver-limits)). The converter's own limit of 16 panels cannot fire, because the wiring names at most 16 cable positions.
-- Row 11 fires only where the carry is visible. Joining *different* words with `+` gives the same value as `|` and is harmless. Repeating a word inside its own kind (`C2 + C2` = `C3`) cannot be told apart from the word it carries into; rows 1-9 catch what that does to the layout, and example 2 shows one.
-- Row 14 exists because a panel turned sideways fills a cell of a different shape, so mixed arrows cannot form a grid. Square panels are exempt, and `ARROW_LEFT` with `ARROW_RIGHT` (or `ARROW_UP` with `ARROW_DOWN`) is allowed. The cell size follows `C0`'s arrow.
-- Every message in the worked examples below was captured from a real run of that example's config, on the P2 with no panels attached.
+- M6 fires on the line-buffer limit (see [Driver limits](#driver-limits)). There is no other cap on the number of panels.
+- M7 fires on any bit that is not a panel word. A mounting word written into a sentence sets such a bit; so does a `+` that carries out of a field. A repeated word inside its own kind (`TOP_UP + TOP_UP` = `TOP_DOWN`, `ROW_1 + ROW_1` = `ROW_3`) is a valid word and cannot be told apart from one that was meant; see [the doubled row or column](#the-doubled-row-or-column-that-cannot-be-detected). M11 and M12 catch what that does to the layout when it lands on another panel's cell or away from the rest.
+- M13 exists because a panel turned sideways fills a cell of a different shape, so mixed tops cannot form a grid. Square panels are exempt, and `TOP_LEFT` with `TOP_RIGHT` (or `TOP_UP` with `TOP_DOWN`) is allowed. The cell size follows `C0`'s top.
+- M17 and M18 are produced by the cube layer after the layout is built, so they appear only when every earlier check passed.
+- The startup picture wraps at 96 characters, so a long chain prints several lines per grid row rather than one very long line.
+- The mistake messages in the worked examples below are this table's text with that example's numbers filled in, read from the driver's checks; each is confirmed on the rig at bench run B-7 (to be marked when «#139» runs).
 
 ## Seven worked examples
 
-Each example has the same five parts:
+Each example has the same parts:
 
 1. a front-view sketch with the cable route;
-2. the sentences;
-3. the picture the driver prints at startup;
-4. what the identify screen shows when the config is right;
+2. the display block and panel list;
+3. the picture the driver prints at startup, as a marked slot;
+4. what the identify screen shows when the list is right, as a marked slot;
 5. one or two common mistakes, each with the exact startup message.
 
-In every sketch the arrow `-->` is the ribbon running from one panel to the next, and `C0` is where the adapter plugs in. The startup blocks are the driver's lines for the display, with the time stamp removed. Each block begins with the wiring line, then the picture, then one line per panel position, then the cable-to-panel table.
+In every sketch the arrow `-->` is the ribbon running from one panel to the next, and `C0` is where the adapter plugs in. The startup pictures and the identify descriptions are captured from the bench, not written by hand, so each is a slot for now: examples 3 and 4 run on the author's four-panel rig; the others are produced from a scratch layout build and are labelled as such when they are filled in.
 
 ### Example 1: a row of 4
 
-Four 64x32 FM6126A panels (`CHIP_FM6126A`, `ADDR_ABCD`, 64 columns x 32 rows), the adapter at the left end, the ribbon running left to right.
+Four 64x32 FM6126A panels (`CHIP_FM6126A`, 64 columns x 32 rows), the adapter at the left end, the ribbon running left to right. The derived address count is 32 / 2 = 16 (4 lines).
 
 ```
  front view
@@ -405,57 +524,65 @@ Four 64x32 FM6126A panels (`CHIP_FM6126A`, `ADDR_ABCD`, 64 columns x 32 rows), t
  +------+     +------+     +------+     +------+
 ```
 
-The sentences:
+The display block and panel list:
 
 ```
-DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP
-DISP0_C1 = hwEnum.RIGHT_OF | hwEnum.C0 | hwEnum.ARROW_UP
-DISP0_C2 = hwEnum.RIGHT_OF | hwEnum.C1 | hwEnum.ARROW_UP
-DISP0_C3 = hwEnum.RIGHT_OF | hwEnum.C2 | hwEnum.ARROW_UP
+CON
+    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
+    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6126A
+    DISP0_PANEL_COLUMNS     = 64
+    DISP0_PANEL_ROWS        = 32
+    DISP0_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
+
+DAT
+disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
+                LONG    hwEnum.ROW_0 | hwEnum.COL_1 | hwEnum.TOP_UP
+                LONG    hwEnum.ROW_0 | hwEnum.COL_2 | hwEnum.TOP_UP
+                LONG    hwEnum.ROW_0 | hwEnum.COL_3 | hwEnum.TOP_UP
+disp0PanelsEnd
 ```
+
+This is also the starter list of the [procedure](#the-procedure) for four panels in one row.
 
 The picture printed at startup:
 
 ```
-HUB75: DISP0 wiring: 4 panels in a grid of 1 rows x 4 columns, 256 x 32 pixels (columns x rows)
-HUB75: DISP0   [C0 ^][C1 ^][C2 ^][C3 ^]
-HUB75: DISP0 P0 = C0, buffer slot 3, cell row 0 column 0, rotation 0
-HUB75: DISP0 P1 = C1, buffer slot 2, cell row 0 column 1, rotation 0
-HUB75: DISP0 P2 = C2, buffer slot 1, cell row 0 column 2, rotation 0
-HUB75: DISP0 P3 = C3, buffer slot 0, cell row 0 column 3, rotation 0
-HUB75: DISP0 cable -> panel position: C0->P0 C1->P1 C2->P2 C3->P3
+(from a scratch layout build, labelled as such — to be filled by «#139»)
 ```
 
-When identify is right: the cable position and the panel position agree on every panel (`C0->P0 C1->P1 C2->P2 C3->P3`), so the four panels read `C0P0`, `C1P1`, `C2P2`, `C3P3` from left to right. The panels are small, so identify uses the compact layout: an upright `^` and the label on one line. Every arrow points up.
+What the identify screen shows when the list is right:
+
+```
+(this example is not on the rig — to be filled by «#139» from a scratch-layout build, labelled as such)
+```
 
 Common mistakes:
 
-- **A wrong direction word.** `C2` written `LEFT_OF` `C1` instead of `RIGHT_OF` puts `C2` back in `C0`'s cell, and `C3`, which hangs off `C2`, lands in `C1`'s cell.
+- **Two panels in one cell.** `C2` written in column 0, where `C0` already is.
 
   ```
-  DISP0_C2 = hwEnum.LEFT_OF | hwEnum.C1 | hwEnum.ARROW_UP
-  ```
-
-  ```
-  HUB75: DISP0_C2: sits in the same cell as C0
-  HUB75: DISP0_C3: sits in the same cell as C1
-  HUB75: DISP0: 2 wiring problem(s) above; startup stopped
-  ```
-
-- **A forgotten arrow.** `C3` with no arrow word.
-
-  ```
-  DISP0_C3 = hwEnum.RIGHT_OF | hwEnum.C2
+  LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
   ```
 
   ```
-  HUB75: DISP0_C3: has no arrow word; add one of ARROW_UP, ARROW_DOWN, ARROW_LEFT, ARROW_RIGHT
-  HUB75: DISP0: 1 wiring problem(s) above; startup stopped
+  HUB75: DISP0 C2: is in the same cell as C0
+  HUB75: DISP0: 1 problem(s) above; startup stopped
+  ```
+
+- **A forgotten top.** `C3` with no `TOP_` word.
+
+  ```
+  LONG    hwEnum.ROW_0 | hwEnum.COL_3
+  ```
+
+  ```
+  HUB75: DISP0 C3: needs exactly one of TOP_UP, TOP_DOWN, TOP_LEFT, TOP_RIGHT
+  HUB75: DISP0: 1 problem(s) above; startup stopped
   ```
 
 ### Example 2: two panels
 
-Two 64x64 ICN2037 panels (`CHIP_ICN2037`, `ADDR_ABCDE`, 64 columns x 64 rows), one above the other, the adapter at the top panel and the ribbon running down.
+Two 64x64 ICN2037 panels (`CHIP_ICN2037`, 64 columns x 64 rows), one above the other, the adapter at the top panel and the ribbon running down. The derived address count is 64 / 2 = 32 (5 lines).
 
 ```
  front view
@@ -470,53 +597,63 @@ Two 64x64 ICN2037 panels (`CHIP_ICN2037`, `ADDR_ABCDE`, 64 columns x 64 rows), o
  +------+
 ```
 
-The sentences:
+The display block and panel list:
 
 ```
-DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP
-DISP0_C1 = hwEnum.BELOW | hwEnum.C0 | hwEnum.ARROW_UP
+CON
+    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
+    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
+    DISP0_PANEL_COLUMNS     = 64
+    DISP0_PANEL_ROWS        = 64
+    DISP0_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
+
+DAT
+disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
+                LONG    hwEnum.ROW_1 | hwEnum.COL_0 | hwEnum.TOP_UP
+disp0PanelsEnd
 ```
 
 The picture printed at startup:
 
 ```
-HUB75: DISP0 wiring: 2 panels in a grid of 2 rows x 1 columns, 64 x 128 pixels (columns x rows)
-HUB75: DISP0   [C0 ^]
-HUB75: DISP0   [C1 ^]
-HUB75: DISP0 P0 = C0, buffer slot 1, cell row 0 column 0, rotation 0
-HUB75: DISP0 P1 = C1, buffer slot 0, cell row 1 column 0, rotation 0
-HUB75: DISP0 cable -> panel position: C0->P0 C1->P1
+(from a scratch layout build, labelled as such — to be filled by «#139»)
 ```
 
-When identify is right: the top panel reads `C0` and `P0`, the bottom panel `C1` and `P1` (`C0->P0 C1->P1`), each with its arrow pointing up. Because these panels are larger, identify uses the full layout with the arrow, `C` label and `P` label stacked.
+What the identify screen shows when the list is right:
+
+```
+(this example is not on the rig — to be filled by «#139» from a scratch-layout build, labelled as such)
+```
 
 Common mistakes:
 
-- **`FIRST_PANEL` forgotten.** `C0` is just an arrow, but the display has panels in use.
+- **A forgotten column.** `C1` with a row and a top but no `COL_` word.
 
   ```
-  DISP0_C0 = hwEnum.ARROW_UP
-  ```
-
-  ```
-  HUB75: DISP0_C0: must be FIRST_PANEL | arrow, because panels are in use
-  HUB75: DISP0: 1 wiring problem(s) above; startup stopped
-  ```
-
-- **`+` instead of `|`.** `C0 + C0` is `C1`, so the neighbour word becomes the panel's own cable position.
-
-  ```
-  DISP0_C1 = hwEnum.BELOW | hwEnum.C0 + hwEnum.C0 | hwEnum.ARROW_UP
+  LONG    hwEnum.ROW_1 | hwEnum.TOP_UP
   ```
 
   ```
-  HUB75: DISP0_C1: names itself as its neighbour; name the panel it sits next to
-  HUB75: DISP0: 1 wiring problem(s) above; startup stopped
+  HUB75: DISP0 C1: has no COL_ word
+  HUB75: DISP0: 1 problem(s) above; startup stopped
   ```
+
+- **Two row words joined.** `ROW_0 | ROW_1` is not "rows 0 and 1": it is the single value `ROW_2`. The panel lands two rows down, leaving a gap, so it no longer shares an edge with `C0`.
+
+  ```
+  LONG    hwEnum.ROW_0 | hwEnum.ROW_1 | hwEnum.COL_0 | hwEnum.TOP_UP
+  ```
+
+  ```
+  HUB75: DISP0 C1: shares no full edge with the panels joined to C0; the panels must form one piece
+  HUB75: DISP0: 1 problem(s) above; startup stopped
+  ```
+
+  Had that panel landed on a free cell next to the others, nothing could have told it from a panel written there on purpose.
 
 ### Example 3: 2x2 in Z order from bottom-left (the rig)
 
-Four 128x64 ICN2037 panels (`CHIP_ICN2037`, `ADDR_ABCDE`, 128 columns x 64 rows), hung upside down, so every arrow is `ARROW_DOWN`. The adapter plugs into the bottom-left panel; the ribbon runs bottom-left, bottom-right, then jumps back to the left edge for top-left and top-right: a Z.
+Four 128x64 ICN2037 panels (`CHIP_ICN2037`, 128 columns x 64 rows), hung upside down, so every `TOP_` word is `TOP_DOWN`. The adapter plugs into the bottom-left panel; the ribbon runs bottom-left, bottom-right, then jumps back to the left edge for top-left and top-right: a Z. This is the list the file ships with. The derived address count is 64 / 2 = 32 (5 lines), and four panels of 128 columns sit exactly at the 512-column limit.
 
 ```
  front view  (every panel hangs upside down)
@@ -532,55 +669,55 @@ Four 128x64 ICN2037 panels (`CHIP_ICN2037`, `ADDR_ABCDE`, 128 columns x 64 rows)
  +--------+     +--------+
 ```
 
-The sentences:
+The display block and panel list:
 
 ```
-DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_DOWN
-DISP0_C1 = hwEnum.RIGHT_OF | hwEnum.C0 | hwEnum.ARROW_DOWN
-DISP0_C2 = hwEnum.ABOVE | hwEnum.C0 | hwEnum.ARROW_DOWN
-DISP0_C3 = hwEnum.RIGHT_OF | hwEnum.C2 | hwEnum.ARROW_DOWN
+CON
+    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
+    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
+    DISP0_PANEL_COLUMNS     = 128
+    DISP0_PANEL_ROWS        = 64
+    DISP0_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
+
+DAT
+disp0Panels     LONG    hwEnum.ROW_1 | hwEnum.COL_0 | hwEnum.TOP_DOWN
+                LONG    hwEnum.ROW_1 | hwEnum.COL_1 | hwEnum.TOP_DOWN
+                LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_DOWN
+                LONG    hwEnum.ROW_0 | hwEnum.COL_1 | hwEnum.TOP_DOWN
+disp0PanelsEnd
 ```
 
 The picture printed at startup:
 
 ```
-HUB75: DISP0 wiring: 4 panels in a grid of 2 rows x 2 columns, 256 x 128 pixels (columns x rows)
-HUB75: DISP0   [C2 v][C3 v]
-HUB75: DISP0   [C0 v][C1 v]
-HUB75: DISP0 P0 = C2, buffer slot 1, cell row 0 column 0, rotation 180
-HUB75: DISP0 P1 = C3, buffer slot 0, cell row 0 column 1, rotation 180
-HUB75: DISP0 P2 = C0, buffer slot 3, cell row 1 column 0, rotation 180
-HUB75: DISP0 P3 = C1, buffer slot 2, cell row 1 column 1, rotation 180
-HUB75: DISP0 cable -> panel position: C0->P2 C1->P3 C2->P0 C3->P1
+(captured on the rig at bench run B-1/B-8 — to be filled by «#139»)
 ```
 
-When identify is right: `C0` is at the bottom-left, `C1` at the bottom-right, `C2` at the top-left and `C3` at the top-right, and the `P` labels read `P0`, `P1` across the top and `P2`, `P3` across the bottom (`C0->P2 C1->P3 C2->P0 C3->P1`). Every arrow points up and the text reads upright, even though the panels hang upside down; that is what `ARROW_DOWN` is for. On the rig the observation was *"all four panels now labelled correctly"*.
+What the identify screen shows when the list is right:
+
+```
+(captured on the rig at bench run B-1/B-8 — to be filled by «#139»)
+```
 
 Common mistakes:
 
-- **The wrong neighbour.** `C3` described as the right of `C0` instead of the right of `C2` lands on `C1`'s cell.
+- **Every top written `TOP_UP` although the panels hang upside down.** This is not a startup message: the list is perfectly valid, so the driver prints a normal picture. The mistake shows only on the identify screen, where the text is upside down and every arrow points down, but the `C` and `P` labels are still on the right panels. A wrong `TOP_` word turns a panel's content; it never moves it. Change each to the direction the arrows actually point (here `TOP_DOWN`) and run again.
+
+- **A mounting word where a top belongs.** `TOP_TO_RIGHT` is for the [mounting override](#display-rotation), not for a sentence.
 
   ```
-  DISP0_C3 = hwEnum.RIGHT_OF | hwEnum.C0 | hwEnum.ARROW_DOWN
+  LONG    hwEnum.ROW_1 | hwEnum.COL_1 | hwEnum.TOP_TO_RIGHT
   ```
 
   ```
-  HUB75: DISP0_C3: sits in the same cell as C1
-  HUB75: DISP0: 1 wiring problem(s) above; startup stopped
+  HUB75: DISP0 C1: has bits that no panel word uses (a mounting word, or words joined with +); join ROW_, COL_ and TOP_ words with |
+  HUB75: DISP0 C1: needs exactly one of TOP_UP, TOP_DOWN, TOP_LEFT, TOP_RIGHT
+  HUB75: DISP0: 2 problem(s) above; startup stopped
   ```
-
-- **Every arrow written `ARROW_UP` although the panels hang upside down.** This is not a startup message: the sentences are perfectly valid, so the driver prints a normal picture, with `^` arrows:
-
-  ```
-  HUB75: DISP0   [C2 ^][C3 ^]
-  HUB75: DISP0   [C0 ^][C1 ^]
-  ```
-
-  The mistake shows only on the identify screen, where it looks like this: all the text is upside down and every `^` points down, but the `C` and `P` labels are still on the right panels. A wrong arrow word turns a panel's content; it never moves it. Change each arrow word to the direction the arrows actually point (here `ARROW_DOWN`) and run again.
 
 ### Example 4: 2x2 serpentine
 
-Four 128x64 ICN2037 panels. The ribbon runs right along the bottom row, up to the top row, then left along the top row. The top row is hung upside down so the ribbon can turn around, so its arrows point down and the bottom row's point up.
+Four 128x64 ICN2037 panels. The ribbon runs right along the bottom row, up to the top row, then left along the top row. The top row is hung upside down so the ribbon can turn around, so its tops point down and the bottom row's point up.
 
 ```
  front view  (bottom row upright, top row upside down)
@@ -595,57 +732,63 @@ Four 128x64 ICN2037 panels. The ribbon runs right along the bottom row, up to th
  +--------+     +--------+
 ```
 
-The sentences:
+The display block (the same as example 3) and panel list:
 
 ```
-DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP
-DISP0_C1 = hwEnum.RIGHT_OF | hwEnum.C0 | hwEnum.ARROW_UP
-DISP0_C2 = hwEnum.ABOVE | hwEnum.C1 | hwEnum.ARROW_DOWN
-DISP0_C3 = hwEnum.LEFT_OF | hwEnum.C2 | hwEnum.ARROW_DOWN
+CON
+    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
+    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
+    DISP0_PANEL_COLUMNS     = 128
+    DISP0_PANEL_ROWS        = 64
+    DISP0_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
+
+DAT
+disp0Panels     LONG    hwEnum.ROW_1 | hwEnum.COL_0 | hwEnum.TOP_UP
+                LONG    hwEnum.ROW_1 | hwEnum.COL_1 | hwEnum.TOP_UP
+                LONG    hwEnum.ROW_0 | hwEnum.COL_1 | hwEnum.TOP_DOWN
+                LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_DOWN
+disp0PanelsEnd
 ```
 
 The picture printed at startup:
 
 ```
-HUB75: DISP0 wiring: 4 panels in a grid of 2 rows x 2 columns, 256 x 128 pixels (columns x rows)
-HUB75: DISP0   [C3 v][C2 v]
-HUB75: DISP0   [C0 ^][C1 ^]
-HUB75: DISP0 P0 = C3, buffer slot 0, cell row 0 column 0, rotation 180
-HUB75: DISP0 P1 = C2, buffer slot 1, cell row 0 column 1, rotation 180
-HUB75: DISP0 P2 = C0, buffer slot 3, cell row 1 column 0, rotation 0
-HUB75: DISP0 P3 = C1, buffer slot 2, cell row 1 column 1, rotation 0
-HUB75: DISP0 cable -> panel position: C0->P2 C1->P3 C2->P1 C3->P0
+(captured on the rig at bench run B-1/B-8 — to be filled by «#139»)
 ```
 
-When identify is right: the top row reads `C3` `P0` then `C2` `P1`, the bottom row reads `C0` `P2` then `C1` `P3` (`C0->P2 C1->P3 C2->P1 C3->P0`). All the text is upright and every arrow points up, including the upside-down top row, whose `ARROW_DOWN` words make the driver turn its content.
+What the identify screen shows when the list is right:
+
+```
+(captured on the rig at bench run B-1/B-8 — to be filled by «#139»)
+```
 
 Common mistakes:
 
-- **The right word, the wrong neighbour.** `C3` is `LEFT_OF` `C1`, which is `C0`'s cell.
+- **The right words, the wrong cell.** `C3` written in the bottom-left cell, which is `C0`'s.
 
   ```
-  DISP0_C3 = hwEnum.LEFT_OF | hwEnum.C1 | hwEnum.ARROW_DOWN
-  ```
-
-  ```
-  HUB75: DISP0_C3: sits in the same cell as C0
-  HUB75: DISP0: 1 wiring problem(s) above; startup stopped
-  ```
-
-- **A typo that names an unused position.** `C4` instead of `C2`; position 4 is `NO_PANEL`.
-
-  ```
-  DISP0_C3 = hwEnum.LEFT_OF | hwEnum.C4 | hwEnum.ARROW_DOWN
+  LONG    hwEnum.ROW_1 | hwEnum.COL_0 | hwEnum.TOP_DOWN
   ```
 
   ```
-  HUB75: DISP0_C3: names C4 as its neighbour, but that cable position is NO_PANEL
-  HUB75: DISP0: 1 wiring problem(s) above; startup stopped
+  HUB75: DISP0 C3: is in the same cell as C0
+  HUB75: DISP0: 1 problem(s) above; startup stopped
+  ```
+
+- **Two tops in one sentence.** Trying to say "upright and upside down" at once. A panel has exactly one top.
+
+  ```
+  LONG    hwEnum.ROW_0 | hwEnum.COL_1 | hwEnum.TOP_DOWN | hwEnum.TOP_UP
+  ```
+
+  ```
+  HUB75: DISP0 C2: needs exactly one of TOP_UP, TOP_DOWN, TOP_LEFT, TOP_RIGHT
+  HUB75: DISP0: 1 problem(s) above; startup stopped
   ```
 
 ### Example 5: 3 across x 2 down
 
-Six 64x32 FM6126A panels (`CHIP_FM6126A`, `ADDR_ABCD`, 64 columns x 32 rows), three across and two down, all upright. The ribbon runs down the left column, across the bottom, up the middle column, across the top, and down the right column: a snake by columns.
+Six 64x32 FM6126A panels (`CHIP_FM6126A`, 64 columns x 32 rows), three across and two down, all upright. The ribbon runs down the left column, across the bottom, up the middle column, across the top, and down the right column: a snake by columns.
 
 ```
  front view
@@ -660,56 +803,62 @@ Six 64x32 FM6126A panels (`CHIP_FM6126A`, `ADDR_ABCD`, 64 columns x 32 rows), th
  +------+     +------+     +------+
 ```
 
-The sentences:
+The display block and panel list:
 
 ```
-DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP
-DISP0_C1 = hwEnum.BELOW | hwEnum.C0 | hwEnum.ARROW_UP
-DISP0_C2 = hwEnum.RIGHT_OF | hwEnum.C1 | hwEnum.ARROW_UP
-DISP0_C3 = hwEnum.ABOVE | hwEnum.C2 | hwEnum.ARROW_UP
-DISP0_C4 = hwEnum.RIGHT_OF | hwEnum.C3 | hwEnum.ARROW_UP
-DISP0_C5 = hwEnum.BELOW | hwEnum.C4 | hwEnum.ARROW_UP
+CON
+    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
+    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6126A
+    DISP0_PANEL_COLUMNS     = 64
+    DISP0_PANEL_ROWS        = 32
+    DISP0_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
+
+DAT
+disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
+                LONG    hwEnum.ROW_1 | hwEnum.COL_0 | hwEnum.TOP_UP
+                LONG    hwEnum.ROW_1 | hwEnum.COL_1 | hwEnum.TOP_UP
+                LONG    hwEnum.ROW_0 | hwEnum.COL_1 | hwEnum.TOP_UP
+                LONG    hwEnum.ROW_0 | hwEnum.COL_2 | hwEnum.TOP_UP
+                LONG    hwEnum.ROW_1 | hwEnum.COL_2 | hwEnum.TOP_UP
+disp0PanelsEnd
 ```
+
+The `P` numbers run along the rows while the `C` numbers run along the ribbon, so the two sets of numbers disagree on four of the six panels; that is correct.
 
 The picture printed at startup:
 
 ```
-HUB75: DISP0 wiring: 6 panels in a grid of 2 rows x 3 columns, 192 x 64 pixels (columns x rows)
-HUB75: DISP0   [C0 ^][C3 ^][C4 ^]
-HUB75: DISP0   [C1 ^][C2 ^][C5 ^]
-HUB75: DISP0 P0 = C0, buffer slot 5, cell row 0 column 0, rotation 0
-HUB75: DISP0 P1 = C3, buffer slot 2, cell row 0 column 1, rotation 0
-HUB75: DISP0 P2 = C4, buffer slot 1, cell row 0 column 2, rotation 0
-HUB75: DISP0 P3 = C1, buffer slot 4, cell row 1 column 0, rotation 0
-HUB75: DISP0 P4 = C2, buffer slot 3, cell row 1 column 1, rotation 0
-HUB75: DISP0 P5 = C5, buffer slot 0, cell row 1 column 2, rotation 0
-HUB75: DISP0 cable -> panel position: C0->P0 C1->P3 C2->P4 C3->P1 C4->P2 C5->P5
+(from a scratch layout build, labelled as such — to be filled by «#139»)
 ```
 
-When identify is right: reading across the top row you see `C0P0`, `C3P1`, `C4P2`, and across the bottom row `C1P3`, `C2P4`, `C5P5` (`C0->P0 C1->P3 C2->P4 C3->P1 C4->P2 C5->P5`). The panels are small, so identify uses the compact layout, and every arrow points up. The `P` numbers run along the rows while the `C` numbers run along the ribbon, so the two sets of numbers disagree on four of the six panels; that is correct.
+What the identify screen shows when the list is right:
+
+```
+(this example is not on the rig — to be filled by «#139» from a scratch-layout build, labelled as such)
+```
 
 Common mistakes:
 
-- **`FIRST_PANEL` copied onto a second panel.** `C3` written as a copy of `C0`'s line.
+- **A sideways top on non-square panels.** On panels that are not square, every top must be vertical or every top must be sideways.
 
   ```
-  DISP0_C3 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP
-  ```
-
-  ```
-  HUB75: DISP0_C3: uses FIRST_PANEL, which belongs only to C0; write direction | neighbour | arrow
-  HUB75: DISP0: 1 wiring problem(s) above; startup stopped
-  ```
-
-- **A sideways arrow on non-square panels.** On panels that are not square, every arrow must be vertical or every arrow must be sideways.
-
-  ```
-  DISP0_C4 = hwEnum.RIGHT_OF | hwEnum.C3 | hwEnum.ARROW_LEFT
+  LONG    hwEnum.ROW_0 | hwEnum.COL_2 | hwEnum.TOP_LEFT
   ```
 
   ```
-  HUB75: DISP0_C4: has its arrow at right angles to C0's arrow; on panels that are not square, every arrow is ARROW_UP or ARROW_DOWN, or every arrow is ARROW_LEFT or ARROW_RIGHT
-  HUB75: DISP0: 1 wiring problem(s) above; startup stopped
+  HUB75: DISP0 C4: has its top at right angles to C0's; panels that are not square are all TOP_UP or TOP_DOWN, or all TOP_LEFT or TOP_RIGHT
+  HUB75: DISP0: 1 problem(s) above; startup stopped
+  ```
+
+- **A panel that touches only at a corner.** `C5` written in column 3, a cell beyond the right column and one row down: it meets `C4` only at a corner.
+
+  ```
+  LONG    hwEnum.ROW_1 | hwEnum.COL_3 | hwEnum.TOP_UP
+  ```
+
+  ```
+  HUB75: DISP0 C5: shares no full edge with the panels joined to C0; the panels must form one piece
+  HUB75: DISP0: 1 problem(s) above; startup stopped
   ```
 
 ### Example 6: an L shape
@@ -734,58 +883,65 @@ Four 64x64 ICN2037 panels in an L: three up the left side and one to the right o
  +------+     +------+
 ```
 
-The sentences:
+The display block and panel list:
 
 ```
-DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP
-DISP0_C1 = hwEnum.RIGHT_OF | hwEnum.C0 | hwEnum.ARROW_UP
-DISP0_C2 = hwEnum.ABOVE | hwEnum.C0 | hwEnum.ARROW_UP
-DISP0_C3 = hwEnum.ABOVE | hwEnum.C2 | hwEnum.ARROW_UP
+CON
+    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
+    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
+    DISP0_PANEL_COLUMNS     = 64
+    DISP0_PANEL_ROWS        = 64
+    DISP0_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
+
+DAT
+disp0Panels     LONG    hwEnum.ROW_2 | hwEnum.COL_0 | hwEnum.TOP_UP
+                LONG    hwEnum.ROW_2 | hwEnum.COL_1 | hwEnum.TOP_UP
+                LONG    hwEnum.ROW_1 | hwEnum.COL_0 | hwEnum.TOP_UP
+                LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
+disp0PanelsEnd
 ```
 
-The picture printed at startup (a cell with no panel prints as `  --  `):
+The empty cells stay dark; panel positions count only the cells that hold a panel, so they run with no gaps. The display is the size of the whole grid including its empty cells.
+
+The picture printed at startup (a cell with no panel prints as `  --`):
 
 ```
-HUB75: DISP0 wiring: 4 panels in a grid of 3 rows x 2 columns, 128 x 192 pixels (columns x rows)
-HUB75: DISP0   [C3 ^]  --  
-HUB75: DISP0   [C2 ^]  --  
-HUB75: DISP0   [C0 ^][C1 ^]
-HUB75: DISP0 P0 = C3, buffer slot 0, cell row 0 column 0, rotation 0
-HUB75: DISP0 P1 = C2, buffer slot 1, cell row 1 column 0, rotation 0
-HUB75: DISP0 P2 = C0, buffer slot 3, cell row 2 column 0, rotation 0
-HUB75: DISP0 P3 = C1, buffer slot 2, cell row 2 column 1, rotation 0
-HUB75: DISP0 cable -> panel position: C0->P2 C1->P3 C2->P1 C3->P0
+(from a scratch layout build, labelled as such — to be filled by «#139»)
 ```
 
-When identify is right: down the left column you see `C3P0`, `C2P1`, `C0P2` from top to bottom, and `C1P3` to the right of the bottom panel (`C0->P2 C1->P3 C2->P1 C3->P0`). The empty cells stay dark; panel positions count only the cells that hold a panel, so the numbers run `P0` ... `P3` with no gaps. All arrows point up, and the display is 128 x 192 pixels, the size of the whole grid including its empty cells.
+What the identify screen shows when the list is right:
+
+```
+(this example is not on the rig — to be filled by «#139» from a scratch-layout build, labelled as such)
+```
 
 Common mistakes:
 
-- **The wrong neighbour.** `C3` written `ABOVE` `C0` instead of `ABOVE` `C2` lands on `C2`'s cell.
+- **A gap in the piece.** `C3` written in column 1 of the top row: it meets `C2` only at a corner and has an empty cell between it and `C1`.
 
   ```
-  DISP0_C3 = hwEnum.ABOVE | hwEnum.C0 | hwEnum.ARROW_UP
-  ```
-
-  ```
-  HUB75: DISP0_C3: sits in the same cell as C2
-  HUB75: DISP0: 1 wiring problem(s) above; startup stopped
-  ```
-
-- **Two direction words.** Trying to say "diagonal" by writing two directions. A panel touches its neighbour along one full edge, so every sentence has exactly one direction word.
-
-  ```
-  DISP0_C1 = hwEnum.RIGHT_OF | hwEnum.ABOVE | hwEnum.C0 | hwEnum.ARROW_UP
+  LONG    hwEnum.ROW_0 | hwEnum.COL_1 | hwEnum.TOP_UP
   ```
 
   ```
-  HUB75: DISP0_C1: has more than one direction word; use exactly one of ABOVE, BELOW, LEFT_OF, RIGHT_OF
-  HUB75: DISP0: 1 wiring problem(s) above; startup stopped
+  HUB75: DISP0 C3: shares no full edge with the panels joined to C0; the panels must form one piece
+  HUB75: DISP0: 1 problem(s) above; startup stopped
+  ```
+
+- **A forgotten row.** `C1` with a column and a top but no `ROW_` word.
+
+  ```
+  LONG    hwEnum.COL_1 | hwEnum.TOP_UP
+  ```
+
+  ```
+  HUB75: DISP0 C1: has no ROW_ word
+  HUB75: DISP0: 1 problem(s) above; startup stopped
   ```
 
 ### Example 7: the cube, wired in a ring, with Top and Front
 
-Six 64x64 ICN2037 panels (`CHIP_ICN2037`, `ADDR_ABCDE`), all upright, laid out as the cross-shaped net: the four side faces in a row (`C0` ... `C3`, the ribbon left to right), the top face above the second of them, the bottom face below it. `DISP0_CUBE_TOP` is `C4` and `DISP0_CUBE_FRONT` is `C1`.
+Six 64x64 ICN2037 panels (`CHIP_ICN2037`, 64 columns x 64 rows), all upright, laid out as the cross-shaped net: the four side faces in a row (`C0` ... `C3`, the ribbon left to right), the top face above the second of them, the bottom face below it. `C4` is marked `CUBE_TOP` and `C1` is marked `CUBE_FRONT`.
 
 ```
  front view  (the net, laid flat)
@@ -808,70 +964,67 @@ Six 64x64 ICN2037 panels (`CHIP_ICN2037`, `ADDR_ABCDE`), all upright, laid out a
  (the panels fold along their shared edges into a cube)
 ```
 
-The sentences:
+The display block and panel list:
 
 ```
-DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP
-DISP0_C1 = hwEnum.RIGHT_OF | hwEnum.C0 | hwEnum.ARROW_UP
-DISP0_C2 = hwEnum.RIGHT_OF | hwEnum.C1 | hwEnum.ARROW_UP
-DISP0_C3 = hwEnum.RIGHT_OF | hwEnum.C2 | hwEnum.ARROW_UP
-DISP0_C4 = hwEnum.ABOVE | hwEnum.C1 | hwEnum.ARROW_UP
-DISP0_C5 = hwEnum.BELOW | hwEnum.C1 | hwEnum.ARROW_UP
-DISP0_SHAPE = hwEnum.SHAPE_CUBE
-DISP0_CUBE_TOP = hwEnum.C4
-DISP0_CUBE_FRONT = hwEnum.C1
+CON
+    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
+    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
+    DISP0_PANEL_COLUMNS     = 64
+    DISP0_PANEL_ROWS        = 64
+    DISP0_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
+
+DAT
+disp0Panels     LONG    hwEnum.ROW_1 | hwEnum.COL_0 | hwEnum.TOP_UP
+                LONG    hwEnum.ROW_1 | hwEnum.COL_1 | hwEnum.TOP_UP | hwEnum.CUBE_FRONT
+                LONG    hwEnum.ROW_1 | hwEnum.COL_2 | hwEnum.TOP_UP
+                LONG    hwEnum.ROW_1 | hwEnum.COL_3 | hwEnum.TOP_UP
+                LONG    hwEnum.ROW_0 | hwEnum.COL_1 | hwEnum.TOP_UP | hwEnum.CUBE_TOP
+                LONG    hwEnum.ROW_2 | hwEnum.COL_1 | hwEnum.TOP_UP
+disp0PanelsEnd
 ```
 
-The picture printed at startup. After the cable-to-panel table the driver prints the faces it derived, one line each:
+The picture printed at startup. After the cable-to-panel table the driver prints the faces it derived, one line each, in the order `TOP`, `BOTTOM`, `FRONT`, `BACK`, `LEFT`, `RIGHT`:
 
 ```
-HUB75: DISP0 wiring: 6 panels in a grid of 3 rows x 4 columns, 256 x 192 pixels (columns x rows)
-HUB75: DISP0     --  [C4 ^]  --    --  
-HUB75: DISP0   [C0 ^][C1 ^][C2 ^][C3 ^]
-HUB75: DISP0     --  [C5 ^]  --    --  
-HUB75: DISP0 P0 = C4, buffer slot 1, cell row 0 column 1, rotation 0
-HUB75: DISP0 P1 = C0, buffer slot 5, cell row 1 column 0, rotation 0
-HUB75: DISP0 P2 = C1, buffer slot 4, cell row 1 column 1, rotation 0
-HUB75: DISP0 P3 = C2, buffer slot 3, cell row 1 column 2, rotation 0
-HUB75: DISP0 P4 = C3, buffer slot 2, cell row 1 column 3, rotation 0
-HUB75: DISP0 P5 = C5, buffer slot 0, cell row 2 column 1, rotation 0
-HUB75: DISP0 cable -> panel position: C0->P1 C1->P2 C2->P3 C3->P4 C4->P0 C5->P5
-HUB75: DISP0 cube TOP = C4 (P0, up ^): N->BACK.N E->RIGHT.N S->FRONT.N W->LEFT.N
-HUB75: DISP0 cube BOTTOM = C5 (P5, up ^): N->FRONT.S E->RIGHT.S S->BACK.S W->LEFT.S
-HUB75: DISP0 cube FRONT = C1 (P2, up ^): N->TOP.S E->RIGHT.W S->BOTTOM.N W->LEFT.E
-HUB75: DISP0 cube BACK = C3 (P4, up ^): N->TOP.N E->LEFT.W S->BOTTOM.S W->RIGHT.E
-HUB75: DISP0 cube LEFT = C0 (P1, up ^): N->TOP.W E->FRONT.W S->BOTTOM.W W->BACK.E
-HUB75: DISP0 cube RIGHT = C2 (P3, up ^): N->TOP.E E->BACK.W S->BOTTOM.E W->FRONT.E
+(from a scratch layout build, labelled as such — to be filled by «#139»)
 ```
 
-Reading a face line: `cube FRONT = C1 (P2, up ^)` says the front face is the panel at cable position `C1`, panel position `P2`, and its up arrow points up in the picture. Then each of the face's four edges, `N`, `E`, `S`, `W`, names the face beyond it and which of that face's edges meets this one: the front's `N` edge meets `TOP`'s `S` edge, its `E` edge meets `RIGHT`'s `W` edge, and so on. Every face line is the same kind of line, and together they list all 12 edges of the cube from both sides.
+The form of a face line is `HUB75: DISP0 cube FRONT = Ck (Pp, up a): N->face.edge E->face.edge S->face.edge W->face.edge`. It says the front face is the panel at cable position `k`, panel position `p`, and its up arrow `a` points as the picture shows. Then each of the face's four edges, `N`, `E`, `S`, `W`, names the face beyond it and which of that face's edges meets this one. Every face line is the same kind of line, and together they list all 12 edges of the cube from both sides.
 
-When identify is right: the identify screen shows the net exactly as the picture shows it. `C4P0` is in the top row above the second panel, `C0P1`, `C1P2`, `C2P3`, `C3P4` run across the middle, and `C5P5` is below the second panel (`C0->P1 C1->P2 C2->P3 C3->P4 C4->P0 C5->P5`). Every arrow points up. The empty cells stay dark. Identify checks the wiring of the net; it does not show the folded cube.
+What the identify screen shows when the list is right:
+
+```
+(this example is not on the rig — to be filled by «#139» from a scratch-layout build, labelled as such)
+```
+
+Identify checks the wiring of the net; it does not show the folded cube.
 
 Common mistakes:
 
 - **Not a cube net.** Both `C4` and `C5` placed above the ring: two panels would fold onto the same face.
 
   ```
-  DISP0_C5 = hwEnum.ABOVE | hwEnum.C2 | hwEnum.ARROW_UP
+  LONG    hwEnum.ROW_0 | hwEnum.COL_2 | hwEnum.TOP_UP
   ```
 
   ```
   HUB75: DISP0: the panels do not fold into a cube (C4 and C5 fold onto the same face); arrange the six panels as one of the 11 cube nets
-  HUB75: DISP0: 1 wiring problem(s) above; startup stopped
+  HUB75: DISP0: 1 problem(s) above; startup stopped
   ```
 
-- **Front opposite Top.** `DISP0_CUBE_FRONT` set to `C5`, the face that lies opposite the top once folded. The front face must share an edge with the top face.
+- **Front opposite Top.** `CUBE_FRONT` moved to `C5`, the face that lies opposite the top once folded. The front face must share an edge with the top face.
 
   ```
-  DISP0_CUBE_FRONT = hwEnum.C5
+  LONG    hwEnum.ROW_1 | hwEnum.COL_1 | hwEnum.TOP_UP
+  LONG    hwEnum.ROW_2 | hwEnum.COL_1 | hwEnum.TOP_UP | hwEnum.CUBE_FRONT
   ```
 
   ```
-  HUB75: DISP0_CUBE_FRONT: C5 is opposite the top face (C4) when the panels are folded; the front face must share an edge with the top face
-  HUB75: DISP0: 1 wiring problem(s) above; startup stopped
+  HUB75: DISP0 C5: marked CUBE_FRONT, is opposite the CUBE_TOP face (C4) when the panels are folded; the front face must share an edge with the top face
+  HUB75: DISP0: 1 problem(s) above; startup stopped
   ```
 
 ---
 
-*Questions about a configuration that this guide does not cover? File an issue with your sentences and the startup lines your driver printed.*
+*Questions about a configuration that this guide does not cover? File an issue with your panel list and the startup lines your driver printed.*
