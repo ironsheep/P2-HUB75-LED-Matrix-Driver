@@ -8,7 +8,7 @@ This document tracks known technical debt and potential future optimizations.
 
 **Status:** Retired in 4.0.0 (October 2026).
 
-**Why retired:** the debt was the code that computed a wire-order table at startup from the two wire-pattern settings, and the idea of compiling it out for simple grids. That table, the settings and the code that built it are gone. Wiring is now described by one sentence per panel and decoded once at startup into lookup tables (see the [Wiring Guide](WiringGuide.md)), so there is no wire-order table left to optimise.
+**Why retired:** the debt was the code that computed a wire-order table at startup from the two wire-pattern settings, and the idea of compiling it out for simple grids. That table, the settings and the code that built it are gone. Wiring is now described by a panel list, one sentence per panel, checked and decoded once at startup into lookup tables (see the [Wiring Guide](WiringGuide.md)), so there is no wire-order table left to optimise.
 
 ---
 
@@ -22,7 +22,7 @@ The project documentation is two groups.
 
 **Driver and configuration (user-facing):**
 - `README.md` and `THEOPS.md` - overview, driver file organization, glossary, configuration, driver internals
-- `DOCs/WiringGuide.md` - the wiring sentences, driver limits, refresh rate
+- `DOCs/WiringGuide.md` - the panel list, driver limits, refresh rate
 - `DOCs/ChipCharacteristicsMatrix.md` - per-chip ratings and behaviour
 - `DOCs/AuthorTestConfigurations.md`, `DOCs/MultiPanelConfiguration.md` - panel configurations
 

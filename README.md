@@ -68,7 +68,7 @@ Additional pages:
 
 - [HardwareTurnon](HardwareTurnon.md) - Describes the initial turn-on effort of this driver
 - [Driver Details](THEOPS.md) - Provides more detail about the driver and driver-configuration
-- [Wiring Guide](DOCs/WiringGuide.md) - How to describe your panels' layout, cabling and rotation, with seven worked examples
+- [Wiring Guide](DOCs/WiringGuide.md) - How to describe your panels' layout, cabling and mounting, with seven worked examples
 - [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md) - Notes about each panel-driver chip this P2 driver supports
 - [Panel Config/Timing Details (history)](HUB75-Driver-SWver1.md) - The v3-era notes on panel configuration and timing; kept as history
 - [HUB75 Card Details](HUB75-brd-config.md) - Pins and Probing Support provided by HUB75 card
@@ -93,9 +93,9 @@ What's working today with the current driver:
 - Displaying text in both 5x7 and 8x8 fonts
 - Scrolling text in four directions (up, down, right, and left). A step moves the last frame one place and draws only the new edge, so a full-width line steps in 1.3 ms sideways and 3.3 to 4.1 ms up or down on the author's four-panel rig
 - Fast drawing: every drawing call (pixels, lines, boxes, fills, circles, text, scrolling, BMP) takes its pixel addresses from a table built when the adapter starts and writes straight runs in PASM. Measured on the four-panel rig at 8-bit: full-screen fill 4.7 ms, fanned lines 13.0 ms, lines of text 24.6 ms, a 64x32 BMP 3.8 ms
-- **Wiring sentences**: panel grids of any shape you can cable (a row, a 2x2 in Z or serpentine order, 3x2, an L shape, ...) are described by one short sentence per panel, with each panel's own up (its arrow). The driver checks the sentences at startup and names any mistake. See the [Wiring Guide](DOCs/WiringGuide.md)
-- **Identify screen** (`demo_hub75_numberPanels.spin2`) labels each panel with its cable position and its place in the display, so you can fill in and confirm your sentences
-- **Display mounting**: say how the whole display hangs (`ROT_NONE`, `ROT_RIGHT_90`, `ROT_LEFT_90`, `ROT_180`) and the driver draws so the content reads upright, with width and height swapped for the sideways mountings
+- **Panel list**: panel grids of any shape you can cable (a row, a 2x2 in Z or serpentine order, 3x2, an L shape, ...) are described by one short sentence per panel: its row, its column and which way its own top points. The driver checks the list at startup and names any mistake. See the [Wiring Guide](DOCs/WiringGuide.md)
+- **Identify screen** (`demo_hub75_numberPanels.spin2`) labels each panel with its cable position and its place in the display, so you can fill in and confirm your panel list
+- **Display mounting**: hang a built display another way and say where its top edge now points (`TOP_TO_RIGHT`, `TOP_TO_BOTTOM`, `TOP_TO_LEFT`); the driver draws so the content reads upright, with width and height swapped for the sideways mountings
 - Clock-frequency-independent panel timing (signal timing derived from `_clkfreq`)
 - Basic color pixel placement at row, column (whole panel-set and Single-panel-of-set forms)
 - Basic drawing primitives (whole panel-set and Single-panel-of-set forms): panel-centric calls clip at the panel's edge; text and scrolling cross panel seams whole
@@ -134,13 +134,13 @@ Morphing digits Matrix displays can be found at [P2 LED-Matrix Morphing Digits](
 
 ## Driver Setup and Configuration
 
-Once you have the driver downloaded and the source files added to your project you configure the driver by adjusting the constants which describe your panel(s) in one file: **isp\_hub75_hwPanelConfig.spin2**. It has a group of settings for each of the three hub75 adapters the driver supports on a single P2; a group left with `NO_PANEL` everywhere costs no memory. No other driver file is edited per setup, and nothing is commented in or out to add a second or third adapter.
+Once you have the driver downloaded and the source files added to your project you configure the driver in one file, in its user section: **isp\_hub75_hwPanelConfig.spin2**. For each of the (up to three) hub75 adapters you use, it holds one display: a few settings and a list of the display's panels. The file ships with the first display filled in; a second or third display is added with one `#DEFINE` and its own block, and a display you do not describe costs no memory. No other driver file is edited per setup.
 
 Your program then starts each adapter it uses with one call, for example `display.start(display.HUB75_ADAPTER_1)`. Adapter *k* drives the display configured by the `DISP(k-1)_` settings (see the [glossary](THEOPS.md#glossary)).
 
 ### Updating from v3.x?
 
-Conversion from v3.x to v4.x changes how your panel layout is described and how the driver is started. For help, refer to [Update to v4.0 Checklist](Checklist-v3-v4.md).
+Conversion from v3.x to v4.x changes how your panel layout is described (a panel list replaces the panels-per-row and panels-per-column counts) and how the driver is started. For help, refer to [Update to v4.0 Checklist](Checklist-v3-v4.md).
 
 ### Updating from v1.x?
 
@@ -156,28 +156,27 @@ The one file to adjust to your hardware:
 
 | Filename | use | what's needing adjustment |
 | --- | --- | --- |
-| isp\_hub75_hwPanelConfig.spin2 | Inform driver of panel geometry, type, wiring and mounting for each hub75 adapter | There is a live section for each of three adapters. For any adapters you will use, adjust adapter location, chip type, address lines, panel size, color depth, mounting rotation, and the wiring sentences (one per panel)
+| isp\_hub75_hwPanelConfig.spin2 | Inform driver of panel geometry, type, wiring and mounting for each hub75 adapter | In its user section: for each adapter you will use, adjust the pin group, chip type, panel size, color depth and the panel list (one sentence per panel); optionally the mounting override and the refresh target
 
-The files **isp\_hub75_hwBufferAccess.spin2** and **isp\_hub75_hwBuffers.spin2** are no longer edited for your setup: all three adapters are always present, sized from the panels you describe in **isp\_hub75_hwPanelConfig.spin2**.
+Everything below that user section, and **isp\_hub75_hwBufferAccess.spin2**, is not edited for your setup: the buffers are sized from the panel lists you write.
 
 
-Definition of the constants specified in the file **isp\_hub75_hwPanelConfig.spin2**:
+Definition of the settings specified in the file **isp\_hub75_hwPanelConfig.spin2**:
 
 | Name            | Default | Description |
 |-----------------|-------------|-------------|
-| `DISPx_ADAPTER_BASE_PIN` | {none}  |  Identify which pin-group your HUB75 board is connected |
-| `DISPx_PANEL_DRIVER_CHIP` | CHIP_UNKNOWN | in most cases UNKNOWN will work. Some specialized panels need a specific driver chip (e.g., those using the FM6126A, ICN2037, MBI5124GP, etc.) |
-| `DISPx_PANEL_ADDR_LINES` | {none} | The number of Address lines driving your panels (ADDR\_ABC, ADDR\_ABCD, or ADDR\_ABCDE) |
-| `DISPx_MAX_PANEL_COLUMNS` | {none} | The number of LEDs in each row of your panel ( # pixels-wide); must be a multiple of 4, or startup stops with a message |
-| `DISPx_MAX_PANEL_ROWS` | {none} | The number of LEDs in each column of your panel ( # pixels-high) |
-| `DISPx_COLOR_DEPTH` | `DEPTH_8BIT` | The color depth you wish to display on your panels (compile-time selectable from 3-bit to 8-bit; 8-bit is full 24-bit color) |
-| `DISPx_TARGET_REFRESH_HZ` | 60 | The refresh rate to aim for, in Hz. The driver picks the brightest panel timing that reaches it. A long chain at deep color may not reach it; the driver then runs at the fastest rate it can and prints that rate at startup. Lower it for more brightness on a large display. How it works and what it reaches: [refresh rate](DOCs/WiringGuide.md#refresh-rate) |
-| `DISPx_ROTATION` | ROT\_NONE | How the whole assembled display is **mounted** (physical): `ROT_NONE`, `ROT_RIGHT_90` (hung turned 90 degrees clockwise), `ROT_LEFT_90` (counter-clockwise) or `ROT_180` (upside down). The driver draws so content reads upright as mounted; at 90 and 270 degrees the display's width and height swap. Does not apply to a cube |
-| `DISPx_C0` ... `DISPx_C15` | `NO_PANEL` | The wiring sentences: one per cable position, each saying where that panel sits next to an earlier one and which way its arrow points. `DISPx_C0` is the panel the adapter plugs into, `FIRST_PANEL \| arrow`; unused positions are `NO_PANEL`. The grammar is in the [Wiring Guide](DOCs/WiringGuide.md#the-wiring-sentences) |
-| `DISPx_SHAPE` | `SHAPE_FLAT` | `SHAPE_FLAT` for an ordinary display, `SHAPE_CUBE` for six square panels wired as a cube net |
-| `DISPx_CUBE_TOP`, `DISPx_CUBE_FRONT` | `NO_PANEL` | Used only with `SHAPE_CUBE`: the cable position (`C0` ... `C5`) of the top face and of the front face. The front face shares an edge with the top face. See [the cube](DOCs/WiringGuide.md#the-cube) |
+| `DISPx_ADAPTER_BASE_PIN` | {none}  |  Identify which pin-group your HUB75 board is connected: `PIN_GROUP_P0_P15`, `PIN_GROUP_P16_P31` or `PIN_GROUP_P32_P47` |
+| `DISPx_PANEL_DRIVER_CHIP` | {none} | The chip your panels use (e.g., `CHIP_FM6126A`, `CHIP_ICN2037`, `CHIP_MBI5124GP`; the [chip table](#chips-supported) lists them), or `CHIP_MANUAL_SPEC` joined with flags for a chip not listed |
+| `DISPx_PANEL_COLUMNS` | {none} | The number of LEDs in each row of your panel ( # pixels-wide); must be a multiple of 4, or startup stops with a message |
+| `DISPx_PANEL_ROWS` | {none} | The number of LEDs in each column of your panel ( # pixels-high). The address lines are worked out from the rows and the chip's scan; you do not set them |
+| `DISPx_COLOR_DEPTH` | `DEPTH_8BIT` as shipped | The color depth you wish to display on your panels (compile-time selectable from 3-bit to 8-bit; 8-bit is full 24-bit color) |
+| the panel list (`dispNPanels` .. `dispNPanelsEnd`) | {none} | One `LONG` sentence per panel, in cable order: its `ROW_`, its `COL_` and its `TOP_` word (and `CUBE_TOP` / `CUBE_FRONT` on two panels of a cube). The first sentence is the panel the adapter plugs into. The grammar is in the [Wiring Guide](DOCs/WiringGuide.md#the-wiring-sentences) |
+| `DISPx_TARGET_REFRESH_HZ` | 60 | Optional, switched on with `#DEFINE DISPx_REFRESH_GIVEN`. The refresh rate to aim for, in Hz. The driver picks the brightest panel timing that reaches it. A long chain at deep color may not reach it; the driver then runs at the fastest rate it can and prints that rate at startup. Lower it for more brightness on a large display. How it works and what it reaches: [refresh rate](DOCs/WiringGuide.md#refresh-rate) |
+| `DISPx_ROTATION` | `AS_BUILT` | Optional, switched on with `#DEFINE DISPx_ROTATED`. The mounting override: where the built display's top edge now points, `AS_BUILT`, `TOP_TO_RIGHT`, `TOP_TO_BOTTOM` or `TOP_TO_LEFT`. The driver draws so content reads upright as mounted; at 90 and 270 degrees the display's width and height swap. Does not apply to a cube; see [display rotation](DOCs/WiringGuide.md#display-rotation) |
 
-The number of panels, the display's size and its grid, and where each panel sits are all worked out from the wiring sentences when the adapter starts; you do not set them. The driver prints what it worked out, or names the sentence that is wrong, and stops.
+A second or third display is added with `#DEFINE DISP1_PRESENT` or `#DEFINE DISP2_PRESENT` and its own block ([More displays and optional settings](DOCs/WiringGuide.md#more-displays-and-optional-settings)). A cube needs no setting: mark two panels of the list, `CUBE_TOP` and `CUBE_FRONT` ([the cube](DOCs/WiringGuide.md#the-cube)).
+
+The number of panels (the length of the list), the display's size and its grid, and where each panel sits are all worked out when the adapter starts; you do not set them. The driver prints what it worked out, or names the sentence that is wrong, and stops.
 
 **NOTE**: the DISPx_ is a place holder for DISP0\_\*, DISP1\_\* and DISP2\_\* constants indicating the 1st, 2nd, and 3rd HUB75 cards.
 
@@ -185,7 +184,7 @@ The number of panels, the display's size and its grid, and where each panel sits
 
 **NOTE:** the panels in a display must all use the same chip, and one adapter can only drive so many panels: see the [driver limits per panel type](DOCs/WiringGuide.md#driver-limits).
 
-Once these values are set correctly, according to your own hardware set up, then you should be able to compile your code and run. Run the identify screen (`demo_hub75_numberPanels.spin2`) first to confirm your sentences; the [Wiring Guide](DOCs/WiringGuide.md#filling-in-your-config-from-the-identify-screen) explains how to read it.
+Once these values are set correctly, according to your own hardware set up, then you should be able to compile your code and run. Run the identify screen (`demo_hub75_numberPanels.spin2`) first to confirm your panel list; the [Wiring Guide](DOCs/WiringGuide.md#filling-in-your-config-from-the-identify-screen) explains how to read it.
 
 
 More detail can be found in [Driver Introduction & Configuration](THEOPS.md)
@@ -197,122 +196,66 @@ Now let's look at examples as would be specified in the panel configuration file
 
 (Within the file **isp\_hub75_hwPanelConfig.spin2**)
 
-```python
-    ' /-------------------------------------------
-    ' |  User configure
-
-    ' (1) describe the panel connections, addressing and chips
-    DISP0_ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
+```spin2
+' one panel, the adapter plugs into it:   [C0]
+CON
+    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
     DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6126A
-    DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
+    DISP0_PANEL_COLUMNS     = 64
+    DISP0_PANEL_ROWS        = 32
+    DISP0_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
 
-    ' (2) describe the single panel physical size
-    DISP0_MAX_PANEL_COLUMNS = 64
-    DISP0_MAX_PANEL_ROWS = 32
-
-    ' (3) describe the color depth you want to support [3-8] bits per LED
-    '    NOTE the default, full 24bit color, is hwEnum.DEPTH_8BIT
-    DISP0_COLOR_DEPTH = hwEnum.DEPTH_8BIT
-
-    ' (4) say how the whole display is mounted (physical)
-    DISP0_ROTATION = hwEnum.ROT_NONE
-
-    ' (5) describe the wiring: one panel, the adapter plugs into it
-    '   [C0]
-    DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP
-    DISP0_C1 = hwEnum.NO_PANEL
-    '   (DISP0_C2 through DISP0_C15 are each hwEnum.NO_PANEL, one line each)
-
-    ' (6) the display is flat
-    DISP0_SHAPE = hwEnum.SHAPE_FLAT
-
-    ' |  End User configure
-    ' \-------------------------------------------
+DAT
+disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
+disp0PanelsEnd
 ```
 
-Here's an example for **twin 64x32 panels**, which uses the third adapter's group (`DISP2_`), so the program starts it with `display.start(display.HUB75_ADAPTER_3)`:
+Here's an example for **twin 64x32 panels**, which uses the third adapter's display (`DISP2_`), so the program starts it with `display.start(display.HUB75_ADAPTER_3)`. The two panels are one above the other (a 64x64 display), the adapter plugs into the top one and the ribbon runs down to the next; the built display is hung upside down, which the mounting override says:
 
 (Within the file **isp\_hub75_hwPanelConfig.spin2**)
 
-```python
-    ' /-------------------------------------------
-    ' |  User configure
-
-    ' (1) describe the panel connections, addressing and chips
-    DISP2_ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
+```spin2
+#DEFINE DISP2_PRESENT
+#DEFINE DISP2_ROTATED
+CON
+    DISP2_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P0_P15
     DISP2_PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6126A
-    DISP2_PANEL_ADDR_LINES = hwEnum.ADDR_ABCD
+    DISP2_PANEL_COLUMNS     = 64
+    DISP2_PANEL_ROWS        = 32
+    DISP2_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
+    DISP2_ROTATION          = hwEnum.TOP_TO_BOTTOM
 
-    ' (2) describe the single panel physical size
-    DISP2_MAX_PANEL_COLUMNS = 64
-    DISP2_MAX_PANEL_ROWS = 32
-
-    ' (3) describe the color depth you want to support [3-8] bits per LED
-    '    NOTE the default, full 24bit color, is hwEnum.DEPTH_8BIT
-    DISP2_COLOR_DEPTH = hwEnum.DEPTH_8BIT
-
-    ' (4) say how the whole display is mounted (physical): hung upside down
-    DISP2_ROTATION = hwEnum.ROT_180
-
-    ' (5) describe the wiring: two panels, one above the other (a 64x64 display),
-    '     the adapter plugs into the top one and the ribbon runs down to the next
-    '   [C0]
-    '   [C1]
-    DISP2_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP
-    DISP2_C1 = hwEnum.BELOW | hwEnum.C0 | hwEnum.ARROW_UP
-    '   (DISP2_C2 through DISP2_C15 are each hwEnum.NO_PANEL, one line each)
-
-    ' (6) the display is flat
-    DISP2_SHAPE = hwEnum.SHAPE_FLAT
-
-    ' |  End User configure
-    ' \-------------------------------------------
+DAT
+disp2Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP      ' C0, the top panel
+                LONG    hwEnum.ROW_1 | hwEnum.COL_0 | hwEnum.TOP_UP      ' C1, the one below it
+disp2PanelsEnd
 ```
 
 Here's an example for **P2 P2 Cube: 6 - 64x64 panels** (the [Wiring Guide](DOCs/WiringGuide.md#example-7-the-cube-wired-in-a-ring-with-top-and-front) works this one through, along with six other layouts):
 
 (Within the file **isp\_hub75_hwPanelConfig.spin2**)
 
-```python
-    ' /-------------------------------------------
-    ' |  User configure
-
-    ' (1) describe the panel connections, addressing and chips
-    DISP0_ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
+```spin2
+' six panels laid out as a cube net (a cross): the four sides in a row C0 .. C3,
+' the top above C1 and the bottom below it; C4 is marked as the top face, C1 as the front
+'           [C4]
+'     [C0]  [C1]  [C2]  [C3]
+'           [C5]
+CON
+    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
     DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
-    DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
+    DISP0_PANEL_COLUMNS     = 64
+    DISP0_PANEL_ROWS        = 64
+    DISP0_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
 
-    ' (2) describe the single panel physical size
-    DISP0_MAX_PANEL_COLUMNS = 64
-    DISP0_MAX_PANEL_ROWS = 64
-
-    ' (3) describe the color depth you want to support [3-8] bits per LED
-    '    NOTE the default, full 24bit color, is hwEnum.DEPTH_8BIT
-    DISP0_COLOR_DEPTH = hwEnum.DEPTH_8BIT
-
-    ' (4) a cube is mounted by its Top and Front faces, set below, so this is not used
-    DISP0_ROTATION = hwEnum.ROT_NONE
-
-    ' (5) describe the wiring: six panels laid out as a cube net (a cross), the
-    '     four sides in a row C0 .. C3, the top above C1 and the bottom below it
-    '           [C4]
-    '     [C0]  [C1]  [C2]  [C3]
-    '           [C5]
-    DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP
-    DISP0_C1 = hwEnum.RIGHT_OF | hwEnum.C0 | hwEnum.ARROW_UP
-    DISP0_C2 = hwEnum.RIGHT_OF | hwEnum.C1 | hwEnum.ARROW_UP
-    DISP0_C3 = hwEnum.RIGHT_OF | hwEnum.C2 | hwEnum.ARROW_UP
-    DISP0_C4 = hwEnum.ABOVE | hwEnum.C1 | hwEnum.ARROW_UP
-    DISP0_C5 = hwEnum.BELOW | hwEnum.C1 | hwEnum.ARROW_UP
-    '   (DISP0_C6 through DISP0_C15 are each hwEnum.NO_PANEL, one line each)
-
-    ' (6) the display is a cube: say which panel is its top and which its front
-    DISP0_SHAPE = hwEnum.SHAPE_CUBE
-    DISP0_CUBE_TOP = hwEnum.C4
-    DISP0_CUBE_FRONT = hwEnum.C1
-
-    ' |  End User configure
-    ' \-------------------------------------------
+DAT
+disp0Panels     LONG    hwEnum.ROW_1 | hwEnum.COL_0 | hwEnum.TOP_UP
+                LONG    hwEnum.ROW_1 | hwEnum.COL_1 | hwEnum.TOP_UP | hwEnum.CUBE_FRONT
+                LONG    hwEnum.ROW_1 | hwEnum.COL_2 | hwEnum.TOP_UP
+                LONG    hwEnum.ROW_1 | hwEnum.COL_3 | hwEnum.TOP_UP
+                LONG    hwEnum.ROW_0 | hwEnum.COL_1 | hwEnum.TOP_UP | hwEnum.CUBE_TOP
+                LONG    hwEnum.ROW_2 | hwEnum.COL_1 | hwEnum.TOP_UP
+disp0PanelsEnd
 ```
 
 
@@ -332,7 +275,7 @@ There are a couple of demos which you can review then copy and paste from.  Thes
 | demo\_hub75_5x7font.spin2 | Present pages (every 10 sec) showing the latest 5x7 full character-set font |
 | demo\_hub75_scroll.spin2 | Shows off the 4 supported text-scrolling directions (albeit slowly ;-)
 | demo\_hub75_colorPad.spin2 | **TEST** Simple single-screen demo so you can check if Red Green Blue LEDs are set correctly. (*color patch will match color name underneath if settings for color-swap are correct*) |
-| demo\_hub75_numberPanels.spin2 | **IDENTIFY** Labels every panel with its cable position (`C`*k*), its place in the display (`P`*p*) and an arrow, so you can check your wiring sentences |
+| demo\_hub75_numberPanels.spin2 | **IDENTIFY** Labels every panel with its cable position (`C`*k*), its place in the display (`P`*p*) and an arrow, so you can check your panel list |
 | demo\_hub75_boundary.spin2 | **TEST** Draws lines, a box, a circle and text across the panel seams of a multi-panel display, and a panel-centric line that must stop at its panel's edge; prints the time of one full draw |
 | demo\_hub75_quadPanel.spin2, demo\_hub75_multi2x2panel.spin2 | Show off drawing to a 2x2 display and to its individual panels |
 | test\_hub75\_cube\_fold.spin2 | **TEST** Checks the cube's edge folding with no panels attached: one PASS or FAIL line per case |

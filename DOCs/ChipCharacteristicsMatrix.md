@@ -12,7 +12,7 @@ This document provides a comprehensive matrix of all driver chip characteristics
 | **FM6124** | Orange | ABCD | 1/16 | - | - | - | Standard | ⚠️ Untested |
 | **FM6124C** | - | ABCDE | 1/32 | - | - | - | Standard | ⚠️ Untested |
 | **ICN2037/BP** | - | ABCDE | 1/32 | **Yes** | - | - | Enclosed | ✅ Tested |
-| **ICN2038S** | - | ABCDE | disputed* | - | - | Untested | Enclosed | N/A (single) |
+| **ICN2038S** | - | derived* | being settled* | - | - | Untested | Enclosed | N/A (single-ended) |
 | **MBI5124GP** | Green | ABC | 1/8 | - | - | **Yes** | Enclosed | ✅ Tested (two panels) |
 | **GS6238S** | Cyan | ABCD | 1/16 | - | **Yes** | - | Offset+Overlap | ⚠️ Untested |
 | **DP5125D** | - | ABC | 1/8 | - | - | - | Offset+Overlap | ✅ Tested |
@@ -24,7 +24,7 @@ The driver has no `CHIP_FM6124C` setting; FM6124C is a variant of FM6124, and `C
 **Notes:**
 - ICN2037BP is the same chip as ICN2037 in SSOP24-P-150 package
 - Supporting chipsets vary by panel (see detailed sections below)
-- *ICN2038S scan is **disputed**: the driver flags the chip `SCAN_4` (four rows lit at once), but the panel is described with five address lines (ABCDE, 32 row addresses), which suggests 1/32 scan (two rows lit at once). It is an open item (`DOCs/plans/PUNCH-LIST.md`); no scan value is given for this chip until it is settled.
+- *ICN2038S scan is being settled at the bench. The driver flags the chip `SCAN_4` (four rows lit at once), and it derives the address lines from the panel's rows and that flag ([Wiring Guide](WiringGuide.md#the-display-block)): a 64-row panel gets 64 / 4 = 16 row addresses, 4 lines. If the panel proves to be two rows lit at once, it has 32 row addresses, 5 lines (ABCDE). Until the bench result is recorded here, no scan value is given for this chip and its derived address lines are provisional.
 
 ## Datasheet Clock and /OE Ratings
 
@@ -246,8 +246,8 @@ CHIP_MANUAL_SPEC | RB_SWAP
 
 | Characteristic | Value | Notes |
 |----------------|-------|-------|
-| Address Lines | ABCDE (5) | 32 row addressing |
-| Scan Rate | Disputed | The code sets the `SCAN_4` flag (four rows lit at once); ABCDE (32 addresses) suggests 1/32 scan. Open item, see the note under the Quick Reference Matrix |
+| Address Lines | Derived | Worked out at startup from the panel rows and the scan (provisional: 4 lines for a 64-row panel while `SCAN_4` is set; 5 if the panel proves two rows lit at once) |
+| Scan Rate | Being settled at the bench | The driver sets the `SCAN_4` flag (four rows lit at once). See the note under the Quick Reference Matrix |
 | Max Clock | 30 MHz rated; 25 MHz cap | 20ns min pulse high and low caps the clock at 25 MHz |
 | Min /OE Pulse | 40 ns | |
 | R/B Swap | No | **Different from ICN2037** |
@@ -255,7 +255,7 @@ CHIP_MANUAL_SPEC | RB_SWAP
 | Init Required | Untested | The datasheet has FM6126A-style register commands; whether the panels need them is untested |
 | Latch Style | Enclosed | |
 | Latch Position | Standard | |
-| Multi-Panel | N/A | Single-ended panel (no daisy-chain by design) |
+| Multi-Panel | N/A | Single-ended panel (no daisy-chain by construction) |
 
 **Driver Flags:**
 ```spin2
@@ -263,7 +263,7 @@ CHIP_MANUAL_SPEC | SCAN_4
 ```
 
 **Notes:**
-- Similar to ICN2037 but with **no R/B swap**, and the driver flags it `SCAN_4` (four rows lit at once); whether that flag or the five address lines is right is disputed (see the note under the Quick Reference Matrix)
+- Similar to ICN2037 but with **no R/B swap**, and the driver flags it `SCAN_4` (four rows lit at once); whether the flag is right is being settled at the bench (see the note under the Quick Reference Matrix)
 - Commercial all-weather panel, single-ended construction
 - Working in production road-sign display application
 
@@ -311,11 +311,11 @@ CHIP_MANUAL_SPEC | SCAN_4
 
 **Driver Flags:**
 ```spin2
-CHIP_MANUAL_SPEC | CHIP_UNK_LAT_END_ENCL | SCAN_4 | INIT_PANEL_REQUIRED
+CHIP_MANUAL_SPEC | SCAN_4 | INIT_PANEL_REQUIRED
 ```
 
 **Notes:**
-- Uses `CHIP_UNK_LAT_END_ENCL` flag indicating special latch handling
+- Its latch and clock timing come from the chip name itself: the refresh core treats `CHIP_MBI5124GP` specially, so a `CHIP_MANUAL_SPEC | flags` value cannot stand in for it
 - 1/8 scan creates complexity for multi-panel
 - MBI5124 has built-in ghosting elimination (pre-charge circuit)
 - Panel has both input and output HUB75 connectors (daisy-chain capable hardware)

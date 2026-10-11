@@ -31,8 +31,8 @@
 
 | Category | Files | Purpose |
 |----------|-------|---------|
-| User Configuration | `isp_hub75_hwPanelConfig.spin2` (about 350 lines) | The one file edited per hardware setup: chip, panel size, color depth, mounting, the wiring sentences, target refresh |
-| Layout and buffers | `isp_hub75_hwBufferAccess.spin2` (about 2,300), `isp_hub75_hwBuffers.spin2` (about 150) | Decode and check the wiring sentences at startup, hold the layout and cell address tables; allocate the large buffers, sized from each adapter's panel count. Not edited per setup |
+| User Configuration | `isp_hub75_hwPanelConfig.spin2` (about 280 lines) | The one file edited per hardware setup: chip, panel size, color depth, the panel list, optional mounting and target refresh. Below its user section it holds the buffers of every display, sized from each panel list's length (not edited) |
+| Layout | `isp_hub75_hwBufferAccess.spin2` (about 2,300) | Decode and check the panel list at startup, hold the layout and cell address tables. Not edited per setup |
 | Refresh and conversion | `isp_hub75_rgb3bit.spin2` (about 1,300), `isp_hub75_panel.spin2` (about 900) | The PASM2 refresh cog; the screen-to-PWM converter and frame-set hand-off |
 | Display API | `isp_hub75_display.spin2` (about 1,900), `isp_hub75_screenUtils.spin2` (about 1,000), `isp_hub75_cube.spin2` (about 950) | Text, drawing, scrolling, face-centric drawing; pixel and run primitives; the cube fold |
 | Utilities | `isp_hub75_colorUtils.spin2` (about 375), `isp_hub75_fonts.spin2` (about 6,100, mostly font data) | Color table and gamma; fonts |
@@ -50,16 +50,16 @@
 - Every drawing path resolves its screen-buffer addresses through one rule (`mountedRuleAddress` in `hwBufferAccess`), so rotation and panel placement live in one place
 
 **Could Be Improved:**
-- `isp_hub75_hwBufferAccess.spin2` is the largest driver file and holds both the wiring-sentence decode and check and the lookup tables the drawing paths read at run time
+- `isp_hub75_hwBufferAccess.spin2` is the largest driver file and holds both the panel-list decode and check and the lookup tables the drawing paths read at run time
 - `isp_hub75_display.spin2` carries grid text, panel-centric, display-centric and face-centric drawing in one object
 
 ### 1.3 Configuration File Design
 
-Panel configuration is one file, `isp_hub75_hwPanelConfig.spin2`. All three adapters are always present, and each adapter's buffers are sized at compile time from the panels its sentences name (`DISPn_PANEL_COUNT`), so an adapter with no panels costs no memory. The sentences are decoded and checked once at startup (`configureAdapter()` in `hwBufferAccess`), which prints the grid it found or the problems and stops.
+Panel configuration is one file, `isp_hub75_hwPanelConfig.spin2`. A display is described by its settings and a panel list, one sentence per panel; a display that is not described has an empty list and its buffers cost no memory. Each display's buffers are sized at compile time from the length of its panel list. The list is decoded and checked once at startup (`configureAdapter()` in `hwBufferAccess`), which prints the grid it found or the problems and stops.
 
 **Assessment:**
 - Compile-time sizing is appropriate for an embedded driver: a display too large for hub RAM does not compile
-- Everything else about the layout is checked at startup rather than at compile time, which is what lets the sentences stay readable
+- Everything else about the layout is checked at startup rather than at compile time, which is what lets the panel list stay readable
 - The constants are documented inline
 
 ---

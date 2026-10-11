@@ -37,7 +37,7 @@ The driver stores all buffers in hub RAM, sized at compile time from the panels 
 
 At 8-bit a pixel takes 3 + 8 = 11 bytes (the screen buffer plus the two frame sets), so 32,768 pixels take 360,448 bytes (352 KB). Hub RAM alone holds fewer than 47,000 pixels at 8-bit (512 KB ÷ 11), before the program's code and other data.
 
-Hub RAM is not the only limit. One adapter's refresh core holds one row of its whole chain in a 512-byte line buffer, one byte per column clock, so a chain is at most 512 column clocks wide (half as many columns for a quarter-scan panel), and one adapter drives at most 16 panels. With 64-row panels that is 32,768 pixels on one adapter, and three adapters drive three separate displays (see the [Wiring Guide's driver limits](WiringGuide.md#driver-limits)). Every configuration in the "Massive Display Configurations" table below exceeds the per-adapter limit, so it needs both PSRAM and a refresh core that does not hold a whole row in cog RAM.
+Hub RAM is not the only limit. One adapter's refresh core holds one row of its whole chain in a 512-byte line buffer, one byte per column clock, so a chain is at most 512 column clocks wide (half as many columns for a quarter-scan panel): 8 panels of 64 columns, or 4 of 128. With 64x64 panels that is 8 panels, 32,768 pixels, on one adapter, and three adapters drive three separate displays (see the [Wiring Guide's driver limits](WiringGuide.md#driver-limits)). Every configuration in the "Massive Display Configurations" table below exceeds the per-adapter limit, so it needs both PSRAM and a refresh core that does not hold a whole row in cog RAM.
 
 ## What 32MB PSRAM Enables
 

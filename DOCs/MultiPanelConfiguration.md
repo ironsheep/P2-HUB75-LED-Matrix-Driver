@@ -2,21 +2,19 @@
 
 This guide explains the hardware and memory side of configuring the P2 HUB75 LED Matrix Driver for multi-panel displays: the adapter pins, the driver chip, the panel size, the colour depth and the memory a display needs.
 
-**Where the panels are, how they are cabled and which way they hang** is described by the wiring sentences, and that is covered in the [Wiring Guide](WiringGuide.md): the sentence grammar, filling in a config from the identify screen, display rotation, the cube, the driver limits per panel type, every startup message, and seven worked examples (a row of 4, two panels, a 2x2 in Z order, a 2x2 serpentine, 3 across by 2 down, an L shape and the cube).
+**Where the panels are, how they are cabled and which way they hang** is described by the panel list, and that is covered in the [Wiring Guide](WiringGuide.md): the sentence grammar, filling in a config from the identify screen, the mounting override, the cube, the driver limits per panel type, every startup message, and seven worked examples (a row of 4, two panels, a 2x2 in Z order, a 2x2 serpentine, 3 across by 2 down, an L shape and the cube).
 
 ## Configuration File
 
-All panel configuration is done in `isp_hub75_hwPanelConfig.spin2`. Each HUB75 adapter (up to 3) has its own set of `DISPn_*` constants.
+All panel configuration is done in the user section of `isp_hub75_hwPanelConfig.spin2`. Each HUB75 adapter in use (up to 3) has its own display, `DISP0_*` for the first adapter, `DISP1_*` for the second, `DISP2_*` for the third. The file ships with `DISP0` filled in; the second and third displays are added with one `#DEFINE` each ([More displays and optional settings](WiringGuide.md#more-displays-and-optional-settings)).
 
 ## Configuration Steps
 
 ### Step 1: Hardware Connection
 
 ```spin2
-' (1) describe the panel connections, addressing and chips
-DISP0_ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
+DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
 DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
-DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 ```
 
 **Pin Groups:**
@@ -26,19 +24,13 @@ DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
 | `PIN_GROUP_P16_P31` | P16-P31 |
 | `PIN_GROUP_P32_P47` | P32-P47 |
 
-**Driver Chips:**
-| Constant | Address Lines |
-|----------|---------------|
-| `CHIP_DP5125D`, `CHIP_MBI5124GP` | ABC (3) |
-| `CHIP_FM6124`, `CHIP_FM6126A`, `CHIP_GS6238S` | ABCD (4) |
-| `CHIP_ICN2037`, `CHIP_ICN2038S` | ABCDE (5) |
+**Driver Chips:** the canned names are `CHIP_FM6126A`, `CHIP_FM6124`, `CHIP_ICN2037`, `CHIP_ICN2038S`, `CHIP_MBI5124GP`, `CHIP_GS6238S` and `CHIP_DP5125D`. You do not say how many address lines a panel has: the driver derives them from the panel's rows and the chip's scan ([the display block](WiringGuide.md#the-display-block)). Each chip's characteristics are in the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md).
 
 ### Step 2: Single Panel Size
 
 ```spin2
-' (2) describe the single panel physical size
-DISP0_MAX_PANEL_COLUMNS = 128
-DISP0_MAX_PANEL_ROWS = 64
+DISP0_PANEL_COLUMNS = 128
+DISP0_PANEL_ROWS    = 64
 ```
 
 Common panel sizes:
@@ -51,7 +43,6 @@ The panel width must be a multiple of 4 (every common panel is). Startup stops w
 ### Step 3: Color Depth
 
 ```spin2
-' (3) describe the color depth you want to support [3-8] bits per LED
 DISP0_COLOR_DEPTH = hwEnum.DEPTH_8BIT
 ```
 
@@ -66,26 +57,17 @@ DISP0_COLOR_DEPTH = hwEnum.DEPTH_8BIT
 
 (The screen buffer is 3 bytes per pixel at every depth; the rest is the two PWM frame sets, see below. 8-bit is the default; lower the depth only when the buffers do not fit.)
 
-### Step 4: Display Rotation and Panel Layout
+### Step 4: The Panel List
 
-Say how the whole display hangs with `DISPn_ROTATION`, and describe the layout and cabling with the wiring sentences (`DISPn_C0` ... `DISPn_C15`). Both are covered, with worked examples, in the [Wiring Guide](WiringGuide.md).
+List the panels in cable order, one sentence each, saying the panel's row, its column and the way its top points. The list also carries the cube's two marks, `CUBE_TOP` and `CUBE_FRONT`, on a cube of six square panels; see [the panel list](WiringGuide.md#the-wiring-sentences) and [the cube](WiringGuide.md#the-cube). The whole display's mounting, when it hangs other than as it was built, is the optional mounting override ([display rotation](WiringGuide.md#display-rotation)). All of it is covered, with worked examples, in the [Wiring Guide](WiringGuide.md).
 
-### Step 5: Display Shape
+### Step 5: Refresh Target
 
-```spin2
-' (6) describe the display shape: hwEnum.SHAPE_FLAT or hwEnum.SHAPE_CUBE
-DISP0_SHAPE = hwEnum.SHAPE_FLAT
-DISP0_CUBE_TOP = hwEnum.NO_PANEL
-DISP0_CUBE_FRONT = hwEnum.NO_PANEL
-```
-
-A flat display leaves the two cube settings at `NO_PANEL`. A cube of six square panels names its top and front faces there; see [the cube](WiringGuide.md#the-cube).
-
-### Step 6: Refresh Target
+The refresh rate to aim for, in Hz, is optional and defaults to 60. It is switched on with a flag:
 
 ```spin2
-' (7) the refresh rate to aim for, in Hz
-DISP0_TARGET_REFRESH_HZ = 60
+#DEFINE DISP0_REFRESH_GIVEN
+CON DISP0_TARGET_REFRESH_HZ = 30
 ```
 
 The driver picks the brightest panel timing that reaches this rate and runs at the fastest rate it has when the display cannot reach it. What the target does, and the rates measured, are in the [Wiring Guide's refresh rate section](WiringGuide.md#refresh-rate).
@@ -100,7 +82,7 @@ The P2 has **512 KB** of hub RAM. The driver requires three buffers:
 | PWM Frameset 1 | `panel count × panel pixels × 0.5 × color_depth` |
 | PWM Frameset 2 | `panel count × panel pixels × 0.5 × color_depth` |
 
-The buffers hold the panels in use, not the display's bounding box: a display with a hole in it (an L shape) holds no memory for the hole, and an adapter with no panels holds none at all.
+The buffers hold the panels in use, not the display's bounding box: a display with a hole in it (an L shape) holds no memory for the hole, and a display that is not described holds none at all.
 
 ### Memory Calculator
 
@@ -156,17 +138,17 @@ For multi-panel displays, the chips run in chains are **FM6126A (Pink)**, **ICN2
 - Ensure panel dimensions match physical panels (columns × rows)
 
 ### Startup stops with a `HUB75:` message
-- A wiring sentence is wrong. Every message the driver can print is listed, with its cause, in the [Wiring Guide](WiringGuide.md#startup-messages).
+- A panel sentence or a display setting is wrong. Every message the driver can print is listed, with its cause, in the [Wiring Guide](WiringGuide.md#startup-messages).
 
 ### Pixels appear on wrong panel, or the panels are in the wrong order
-- Run the identify program and compare the `P` labels with where the panels hang; the [Wiring Guide](WiringGuide.md#filling-in-your-config-from-the-identify-screen) explains how to read it and correct the sentences
+- Run the identify program and compare the `P` labels with where the panels hang; the [Wiring Guide](WiringGuide.md#filling-in-your-config-from-the-identify-screen) explains how to read it and correct the panel list
 
 ### Colors are wrong
 - Some chips swap R/B or G/B - check chip documentation
 - The driver handles known chip color swaps automatically
 
 ### Display is upside down or mirrored
-- If one panel's content is turned, correct its arrow word; if the whole display is turned, set `DISP0_ROTATION` to how the display hangs. Both are explained in the [Wiring Guide](WiringGuide.md#display-rotation)
+- If one panel's content is turned, correct its `TOP_` word; if the whole display was built and identified and is now hung another way, set the mounting override (`DISP0_ROTATION`, with `#DEFINE DISP0_ROTATED`) to where the frame's top edge now points. Both are explained in the [Wiring Guide](WiringGuide.md#display-rotation)
 
 ### Out of memory errors
 - Reduce color depth (a pixel takes 3 + depth bytes, so 8-bit → 5-bit takes 11 bytes down to 8, about 27% less)
@@ -174,8 +156,8 @@ For multi-panel displays, the chips run in chains are **FM6126A (Pink)**, **ICN2
 - Check total pixel count against memory limits
 
 ### Panel dimensions: Columns vs Rows
-- `MAX_PANEL_COLUMNS` = horizontal pixel count (width)
-- `MAX_PANEL_ROWS` = vertical pixel count (height)
+- `PANEL_COLUMNS` = horizontal pixel count (width)
+- `PANEL_ROWS` = vertical pixel count (height)
 - Common sizes: 64×32, 64×64, 128×64
 - A 128×64 panel is 128 pixels wide and 64 pixels tall (landscape)
 

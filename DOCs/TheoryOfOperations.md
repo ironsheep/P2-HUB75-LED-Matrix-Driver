@@ -42,10 +42,9 @@ The P2 HUB75 LED Matrix Driver is a multi-layered system designed to drive HUB75
                            │
 ┌──────────────────────────▼──────────────────────────────────────┐
 │                    BUFFER MANAGEMENT LAYER                       │
-│  isp_hub75_hwBufferAccess.spin2 - Wiring check, layout, cell     │
+│  isp_hub75_hwBufferAccess.spin2 - Panel-list check, layout, cell │
 │     address tables, window watch                                 │
-│  isp_hub75_hwBuffers.spin2 - Screen and frame set RAM            │
-│  isp_hub75_hwPanelConfig.spin2 - User configuration              │
+│  isp_hub75_hwPanelConfig.spin2 - User configuration, buffer RAM  │
 │  isp_hub75_cube.spin2 - Cube faces and edge folding              │
 │  isp_hub75_hwEnums.spin2 - Constants and enumerations            │
 └──────────────────────────┬──────────────────────────────────────┘
@@ -79,7 +78,6 @@ demo_hub75_*.spin2 (top-level)
             ├── isp_hub75_hwBufferAccess.spin2
             │       ├── isp_hub75_hwPanelConfig.spin2
             │       │       └── isp_hub75_hwEnums.spin2
-            │       ├── isp_hub75_hwBuffers.spin2
             │       └── isp_hub75_cube.spin2
             ├── isp_hub75_screenUtils.spin2
             │       ├── isp_hub75_colorUtils.spin2
@@ -98,11 +96,11 @@ isp_hub75_display_bmp.spin2 (optional) is used by the program that loads a .bmp
 ### 1.3 Key Design Principles
 
 1. **Separation of Concerns**: Each layer handles a specific responsibility
-2. **Compile-Time Configuration**: the panel count, color depth and buffer sizes are fixed at compile time from the `DISPn_` settings, so the buffers are sized to the panels in use
+2. **Compile-Time Configuration**: the panel count, color depth and buffer sizes are fixed at compile time from the `DISPn_` settings and the length of each panel list, so the buffers are sized to the panels in use
 3. **Tear-free commit**: a commit converts into the PWM frame set that is not on display and the refresh cog switches to it at a frame start (see 2.3)
 4. **Dedicated COG Execution**: PASM2 driver runs in its own COG for deterministic timing
 5. **Multi-Adapter Support**: Up to 3 independent HUB75 adapters per P2
-6. **Configure by description**: you describe where each panel is and which way it points in one sentence per panel; the driver checks the sentences at startup and derives the grid, its lookup tables and the cell address tables once, so drawing only looks things up
+6. **Configure by description**: you describe where each panel is and which way its top points in one sentence per panel (the panel list); the driver checks the list at startup and derives the grid, its lookup tables and the cell address tables once, so drawing only looks things up
 
 ---
 
@@ -177,15 +175,15 @@ The rule is not worked out per draw. `hwBufferAccess` evaluates it once, at star
 
 The rule itself, for a pixel of the display as mounted (steps 1 to 3 are evaluated at startup, into the tables; steps 4 and 5 happen on every write):
 
-1. **Hold to the mounted size.** The size the accessors report is the size as mounted: width and height swap when `DISPn_ROTATION` is 90 or 270 degrees.
+1. **Hold to the mounted size.** The size the accessors report is the size as mounted: width and height swap when the mounting override `DISPn_ROTATION` is `TOP_TO_RIGHT` or `TOP_TO_LEFT` (90 or 270 degrees).
 
-2. **Undo the display rotation** (`mountedRuleAddress`). `DISPn_ROTATION` is physical (how the display hangs); this step turns mounted coordinates into layout coordinates, the display as its panels are laid out. `ROT_NONE` leaves them unchanged.
+2. **Undo the display rotation** (`mountedRuleAddress`). The mounting override `DISPn_ROTATION` is physical (how the display hangs now, against how it was built); this step turns mounted coordinates into layout coordinates, the display as its panels are laid out. `AS_BUILT`, the default, leaves them unchanged.
 
-3. **Map to the buffer** (`displayPixelAddress`). Each step is a table lookup, built once at startup from the wiring sentences, so this step does no searching:
+3. **Map to the buffer** (`displayPixelAddress`). Each step is a table lookup, built once at startup from the panel list, so this step does no searching:
    - layout coordinates → the cell of the display's grid;
    - cell → panel position (a cell that holds no panel, such as the hole in an L shape, has none, and the pixel is not drawn);
    - panel position → panel coordinates (row and column within that panel, as the viewer sees it);
-   - panel rotation (the panel's arrow) → native coordinates (as the panel's own chips address it);
+   - panel rotation (the panel's `TOP_` word) → native coordinates (as the panel's own chips address it);
    - panel position → buffer slot (slot = N-1-C for the panel at cable position C of N);
    - `offset = ((((slot × panelRows) + nativeRow) × panelColumns) + nativeColumn) × bytesPerColor`.
 
@@ -312,7 +310,7 @@ L is T × brightness / 256, never below the chip's shortest /OE pulse (see 5.1).
 
 ### 4.2 Memory Calculation
 
-Buffers are sized by the **number of panels in use** (`DISPn_PANEL_COUNT`, counted from the wiring sentences), not by the display's bounding box: a display with a hole in it (an L shape) holds no memory for the hole. An adapter with no panels has zero-length buffers. For a display of `panelCount` panels of `panelColumns × panelRows` pixels:
+Buffers are sized by the **number of panels in use** (the length of the display's panel list, counted at compile time), not by the display's bounding box: a display with a hole in it (an L shape) holds no memory for the hole. A display that is not described has an empty panel list and zero-length buffers. For a display of `panelCount` panels of `panelColumns × panelRows` pixels:
 
 ```
 Panel pixels P:
@@ -366,7 +364,7 @@ The bounding box would be 128×128, but the buffers hold only the three panels.
 
 ### 4.4 Buffer Table Structure
 
-The `isp_hub75_hwBufferAccess.spin2` file maintains one descriptor for each HUB75 adapter. All three are always present, and the descriptor's buffer addresses, chip type, pin base and address lines are filled in when the adapter is started (`configureAdapter`, which the display's start call makes):
+The `isp_hub75_hwBufferAccess.spin2` file maintains one descriptor for each of the three HUB75 adapters. The descriptor's buffer addresses (which come from `isp_hub75_hwPanelConfig.spin2`), chip type, pin base and derived address line count are filled in when the adapter is started (`configureAdapter`, which the display's start call makes):
 
 ```
 Descriptor Structure (14 LONGs per adapter):
@@ -377,25 +375,25 @@ Descriptor Structure (14 LONGs per adapter):
   [4]  Bytes per color (3)
   [5]  Screen size in longs
   [6]  PWM frame size in bytes
-  [7]  Display rotation (DISPn_ROTATION, how the display is mounted)
+  [7]  Display rotation (the mounting override DISPn_ROTATION, as a rotation)
   [8]  Panel columns (single panel width, native)
   [9]  Panel rows (single panel height, native)
   [10] Panel chip type
   [11] HUB75 pin base
-  [12] Address line count (ABC/ABCD/ABCDE)
+  [12] Address line count (derived: 3, 4 or 5 lines)
   [13] Refresh target in Hz (DISPn_TARGET_REFRESH_HZ)
 ```
 
-The display's size and grid are **not** in the descriptor. The wiring sentences are decoded and checked once at startup (at most 16 cable positions per adapter), and the layout derived from them lives in lookup tables, one entry per cable or panel position, per adapter:
+The display's size and grid are **not** in the descriptor. The panel list is checked and decoded once at startup (as many panels as the refresh core's line buffer allows, see the [Wiring Guide's driver limits](WiringGuide.md#driver-limits)), and the layout derived from it lives in lookup tables, one entry per panel or per grid cell, per adapter:
 
 | Table | Maps | Used for |
 |---|---|---|
 | panel position (layout) → buffer slot | the panel's place in the screen buffer (slot = N-1-C) | the mapping (2.2) |
-| panel position (layout) → panel rotation | the panel's arrow | the mapping (2.2) |
+| panel position (layout) → panel rotation | the panel's `TOP_` word | the mapping (2.2) |
 | cell → panel position | the display's grid; a cell with no panel has none | the mapping (2.2), and which panel holds a pixel |
 | panel position (as mounted) → layout position, and its cell | display rotation applied to whole panels | panel-centric calls and `fillPanel` in the viewer's frame |
 | cable position → panel position | the inverse | the identify screen's `C` and `P` labels |
-| mounted cell → screen-buffer offset, right step, down step | the **cell address tables** (`mountedCellOffset`, `mountedCellRightStep`, `mountedCellDownStep`), built from the one address rule at startup; up to 72 cells per adapter | every pixel, run, block and plot (2.2) |
+| mounted cell → screen-buffer offset, right step, down step | the **cell address tables** (`mountedCellOffset`, `mountedCellRightStep`, `mountedCellDownStep`), built from the one address rule at startup; for N panels, a grid of ((N + 2) / 2) × ((N + 1) / 2) cells per adapter | every pixel, run, block and plot (2.2) |
 | watched window slot → rectangle, adapter, dirty flag | the window watch: up to 16 windows over all adapters | scrolling regions moving the last frame (2.2) |
 
 For a cube, `isp_hub75_cube.spin2` additionally holds the edge table: for each face, which face lies beyond each edge and how coordinates carry across it.
@@ -473,34 +471,37 @@ There is no group for pins 48-63: they overlap the P2's reserved pins.
 
 ### 6.3 Configuration
 
-Adapter *k* drives display `DISP(k-1)_`, configured by `DISPx_` constants in `isp_hub75_hwPanelConfig.spin2`. The panels' layout, cabling and mounting are the wiring sentences (`DISPx_C0` ... `DISPx_C15`), `DISPx_ROTATION` and, for a cube, `DISPx_SHAPE`; see the [Wiring Guide](WiringGuide.md). A 2×2 grid of 128×64 panels on the first adapter, with the adapter plugged into the bottom-left panel and the ribbon running along the bottom row and then the top row, looks like this:
+Adapter *k* drives display `DISP(k-1)_`, configured in the user section of `isp_hub75_hwPanelConfig.spin2`: the `DISPx_` settings (pin group, chip, panel size, color depth) and the display's panel list, whose sentences give each panel's row, column and top. Optional settings are switched on with a `#DEFINE`. See the [Wiring Guide](WiringGuide.md). A 2×2 grid of 128×64 panels on the first adapter, hung upright, with the adapter plugged into the bottom-left panel and the ribbon running along the bottom row and then the top row, looks like this:
 
 ```spin2
 ' Display 0, driven by HUB75_ADAPTER_1
-DISP0_ADAPTER_BASE_PIN = hwEnum.PIN_GROUP_P16_P31
-DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
-DISP0_PANEL_ADDR_LINES = hwEnum.ADDR_ABCDE
-DISP0_MAX_PANEL_COLUMNS = 128
-DISP0_MAX_PANEL_ROWS = 64
-DISP0_COLOR_DEPTH = hwEnum.DEPTH_8BIT
-DISP0_ROTATION = hwEnum.ROT_NONE
-DISP0_C0 = hwEnum.FIRST_PANEL | hwEnum.ARROW_UP         ' bottom-left
-DISP0_C1 = hwEnum.RIGHT_OF | hwEnum.C0 | hwEnum.ARROW_UP   ' bottom-right
-DISP0_C2 = hwEnum.ABOVE | hwEnum.C0 | hwEnum.ARROW_UP      ' top-left
-DISP0_C3 = hwEnum.RIGHT_OF | hwEnum.C2 | hwEnum.ARROW_UP   ' top-right
-' DISP0_C4 through DISP0_C15 = hwEnum.NO_PANEL, one per line: the unused cable positions
-DISP0_SHAPE = hwEnum.SHAPE_FLAT
-DISP0_TARGET_REFRESH_HZ = 60
+CON
+    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
+    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
+    DISP0_PANEL_COLUMNS     = 128
+    DISP0_PANEL_ROWS        = 64
+    DISP0_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
 
-' Display 1, driven by HUB75_ADAPTER_2: set every DISP1_C0 ... DISP1_C15 to
-' hwEnum.NO_PANEL until it has panels
+DAT
+disp0Panels     LONG    hwEnum.ROW_1 | hwEnum.COL_0 | hwEnum.TOP_UP    ' C0 bottom-left
+                LONG    hwEnum.ROW_1 | hwEnum.COL_1 | hwEnum.TOP_UP    ' C1 bottom-right
+                LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP    ' C2 top-left
+                LONG    hwEnum.ROW_0 | hwEnum.COL_1 | hwEnum.TOP_UP    ' C3 top-right
+disp0PanelsEnd
+
+' A refresh target other than the default 60 Hz:
+#DEFINE DISP0_REFRESH_GIVEN
+CON DISP0_TARGET_REFRESH_HZ = 30
+
+' Display 1, driven by HUB75_ADAPTER_2: not described, so it has no panels
+' and its buffers cost no memory, until #DEFINE DISP1_PRESENT and its block are added
 ```
 
 ### 6.4 Enabling Additional Adapters
 
-All three adapters are always present in `isp_hub75_hwBufferAccess.spin2` and `isp_hub75_hwBuffers.spin2`, and nothing in those files is edited. An adapter whose `DISPx_C0` is `NO_PANEL` has zero-length buffers and costs no memory. To use another adapter:
+A display that is not described has an empty panel list, zero-length buffers and costs no memory, and nothing outside the user section of `isp_hub75_hwPanelConfig.spin2` is edited to add one. To use another adapter:
 
-1. **In `isp_hub75_hwPanelConfig.spin2`**: describe the panels of `DISP1_` (second adapter) or `DISP2_` (third adapter): pin group, chip, address lines, panel size, color depth, and the wiring sentences.
+1. **In `isp_hub75_hwPanelConfig.spin2`**: write `#DEFINE DISP1_PRESENT` (second adapter) or `#DEFINE DISP2_PRESENT` (third adapter), then describe that display: pin group, chip, panel size, color depth, and its panel list (the shipped template shows the form; [More displays and optional settings](WiringGuide.md#more-displays-and-optional-settings)).
 2. **In your program**: give each adapter its own display object (`display[2] : "isp_hub75_display"`) and start it with its adapter ID, `display[1].startWithId(1, display.HUB75_ADAPTER_2)` (or `HUB75_ADAPTER_3`); `startWithId` is `start` plus a number that labels the adapter's debug messages. Each adapter runs its own display object and refresh COG, and each display commits its own screen buffer. Brightness is the one setting shared by all adapters.
 
 The startup check halts with a message if a display that is started has no panels, or if the combined buffers of all three adapters do not fit hub RAM (the compiler reports the second). See the [upgrade checklist](../Checklist-v3-v4.md#starting-a-second-or-third-adapter) for the call sequence.
@@ -511,17 +512,17 @@ The startup check halts with a message if a display that is started has no panel
 
 ### 7.1 Supported Chips
 
-| Chip | Address Lines | Driver flags | Notes |
+| Chip | Address Lines (derived) | Driver flags | Notes |
 |------|---------------|--------------|-------|
 | ICN2037 | ABCDE | `RB_SWAP` | P2 Cube panels |
-| ICN2038S | ABCDE | `SCAN_4` | |
+| ICN2038S | provisional | `SCAN_4` | Scan being settled at the bench |
 | FM6126A | ABCD | `LAT_STYLE_OFFSET`, `LAT_POSN_OVERLAP`, `INIT_PANEL_REQUIRED` | Register init at startup |
 | FM6124 | ABCD | none | |
 | DP5125D | ABC | `LAT_STYLE_OFFSET`, `LAT_POSN_OVERLAP`, `SCAN_4` | |
 | GS6238S | ABCD | `LAT_STYLE_OFFSET`, `LAT_POSN_OVERLAP`, `GB_SWAP` | Green/Blue swap |
 | MBI5124GP | ABC | `SCAN_4`, `INIT_PANEL_REQUIRED` | 1/8 scan; configuration-register init at startup |
 
-The driver flags are the ones `hwBufferAccess.getDriverFlags()` gives each chip; a chip not in the table is described as `CHIP_MANUAL_SPEC` ORed with flags. The address lines are the reference list in `isp_hub75_hwPanelConfig.spin2`. Which chips and chain lengths have been run on panels is in the [Change Log](../ChangeLog.md)'s Known Issues, and each chip's datasheet clock and /OE ratings are in the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings).
+The driver flags are the ones `hwBufferAccess.getDriverFlags()` gives each chip; a chip not in the table is described as `CHIP_MANUAL_SPEC` ORed with flags. The address lines are not set: the driver derives them from the panel rows and the chip's scan ([the display block](WiringGuide.md#the-display-block)); the table gives the lines the author's panels of each chip come out with. Which chips and chain lengths have been run on panels is in the [Change Log](../ChangeLog.md)'s Known Issues, and each chip's datasheet clock and /OE ratings are in the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings).
 
 ### 7.2 Chip-Specific Features
 
