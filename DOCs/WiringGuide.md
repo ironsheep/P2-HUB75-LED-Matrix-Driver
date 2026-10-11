@@ -80,7 +80,7 @@ Then the panel list: a `DAT` section with the label `disp0Panels` (`disp1Panels`
 
 The flags are `LAT_STYLE_OFFSET`, `LAT_POSN_OVERLAP`, `INIT_PANEL_REQUIRED`, `RB_SWAP`, `SCAN_4` and `GB_SWAP`. The [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md) gives what each canned name stands for.
 
-**The address lines are derived.** You never say how many row-address lines a panel has. At startup the driver computes `log2(panel rows / rows lit per address)`, where the rows lit per address are 4 for a chip with the `SCAN_4` flag (ICN2038S, MBI5124GP, DP5125D) and 2 for every other chip. The result must be 8, 16 or 32 row addresses (3, 4 or 5 lines); anything else is reported ([M4](#startup-messages)). A 64x32 FM6126A panel (32 / 2 = 16 addresses) gets 4 lines; a 128x64 ICN2037 (64 / 2 = 32) gets 5; a 64x32 MBI5124GP (32 / 4 = 8) gets 3. The scan of the ICN2038S road-sign panel is being settled at the bench; until that is recorded here, treat the address lines the driver derives for that panel as provisional.
+**The address lines are derived.** You never say how many row-address lines a panel has. At startup the driver computes `log2(panel rows / rows lit per address)`, where the rows lit per address are 4 for a chip with the `SCAN_4` flag and 2 for every other chip. The result must be 8, 16 or 32 row addresses (3, 4 or 5 lines); anything else is reported ([M4](#startup-messages)). A 64x32 panel with two rows lit at once (32 / 2 = 16 addresses) gets 4 lines; a 128x64 panel with two rows lit at once (64 / 2 = 32) gets 5; a 64x32 panel with four rows lit at once (32 / 4 = 8) gets 3. Each panel type's scan and address lines are in the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix).
 
 **The depth** sets the hub RAM each pixel costs: 3 bytes of screen buffer plus one byte per bit of depth (11 bytes per pixel at 8 bits). Lower the depth only when the display does not fit ([Hub RAM](#hub-ram)).
 
@@ -168,6 +168,7 @@ Because the `C` labels are drawn through the driver's inverse table, they are **
 6. **Run it again.** When the `P` labels read in order and every arrow points up, the panel list is right. If not:
    - **`P` labels out of order, `C` labels where you expect them:** a `ROW_` or `COL_` word places a panel wrongly. The `C` labels show where each cable position really is; use them to correct the sentences.
    - **An arrow pointing another way, or text upside down:** that panel's `TOP_` word is wrong. Write the word for the direction the arrow actually points on that panel, and run again.
+   - **Every panel shows its labels twice, one copy above the other, or every other horizontal band stays dark:** the panel list is not the problem; the chip setting's scan does not match the panel. The picture repeated top to bottom means the panel lights four rows at once and needs the `SCAN_4` flag; dark bands mean it lights two rows at once and must not have it. Change the chip setting (or use `CHIP_MANUAL_SPEC` with the flags that fit), not the sentences.
 
 A wrong `TOP_` word turns a panel's content and never moves it; a wrong `ROW_` or `COL_` word moves the `P` labels and leaves the content upright.
 
@@ -309,7 +310,7 @@ Two rules govern corners:
 
 A shape centred on a face, on an edge or on a corner is seamless while it stays within that face, that edge's span, or the three faces of that corner. A shape centred on an edge but large enough to reach the corners at the ends of the edge meets those corners' gaps.
 
-The fold is checked without any panels attached by `test_hub75_cube_fold.spin2`, which pushes a fixed list of face coordinates through the fold and prints PASS or FAIL for each. A cube on six real panels has not yet been run on hardware.
+The fold is checked without any panels attached by `test_hub75_cube_fold.spin2`, which pushes a fixed list of face coordinates through the fold and prints PASS or FAIL for each. What has not yet run on real panels is listed in the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#not-yet-proven-on-hardware-with-400).
 
 ## Driver limits
 
@@ -325,24 +326,27 @@ A display must pass all five limits, and the tightest decides:
 | Pins and cogs | Each adapter takes a 16-pin group and one refresh cog | Board-wide |
 | Panel width | `DISPn_PANEL_COLUMNS` must be a multiple of 4 (every common panel is: 32, 64, 80, 128); startup stops with a message otherwise ([M5](#startup-messages)) | Per adapter |
 
-**Max panels per adapter = 512 / (panel columns x scan factor).** The scan factor is 2 for chips the driver flags as quarter-scan (`SCAN_4`: ICN2038S, MBI5124GP, DP5125D) and 1 for every other chip.
+**Max panels per adapter = 512 / (panel columns x scan factor).** The scan factor is 2 for chips the driver flags as quarter-scan (`SCAN_4`) and 1 for every other chip. Which panel types are quarter-scan is in the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix).
 
-| Panel type | Columns | Scan factor | 512 / (columns x factor) | **Max panels per adapter** | Status |
-|---|---|---|---|---|---|
-| FM6126A 64x32, 1/16 scan | 64 | 1 | 8 | **8** | calculated; one panel run on the bench |
-| FM6124 64x32, 1/16 scan | 64 | 1 | 8 | **8** | calculated; one panel run on the bench |
-| MBI5124GP 64x32, 1/8 scan, quarter-scan conversion | 64 | 2 | 4 | **4** | calculated; two panels run on the bench |
-| GS6238S 64x32, 1/16 scan | 64 | 1 | 8 | **8** | calculated |
-| ICN2037 64x64, 1/32 scan | 64 | 1 | 8 | **8** | calculated |
-| ICN2037 128x64, 1/32 scan | 128 | 1 | 4 | **4** | calculated; checked with 4 panels on the bench |
-| ICN2038S 64x64, quarter-scan flag | 64 | 2 | 4 | **4** | calculated; see the note below |
-| DP5125D, 1/8 scan, quarter-scan conversion | W | 2 | 8 for W=32, 4 for W=64, 2 for W=128 | **by width** | calculated; no panel documented |
+| Panel type | Columns | Scan factor | 512 / (columns x factor) | **Max panels per adapter** |
+|---|---|---|---|---|
+| FM6126A 64x32 | 64 | 1 | 8 | **8** |
+| FM6124 64x32 | 64 | 1 | 8 | **8** |
+| MBI5124GP 64x32, quarter-scan conversion | 64 | 2 | 4 | **4** |
+| GS6238S 64x32 | 64 | 1 | 8 | **8** |
+| ICN2037 64x64 | 64 | 1 | 8 | **8** |
+| FM6124C 64x64 (`CHIP_FM6124`) | 64 | 1 | 8 | **8** |
+| ICN2037 128x64 | 128 | 1 | 4 | **4** |
+| ICN2038S 64x64, quarter-scan conversion | 64 | 2 | 4 | **4** (single-ended: one panel) |
+| DP5125D, quarter-scan conversion | W | 2 | 8 for W=32, 4 for W=64, 2 for W=128 | **by width** |
+
+Every number here is calculated from the driver's constants. Which panel types and counts have run on hardware is in the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix).
 
 Notes on the table:
 
 - The 4 x 128x64 ICN2037 rig sits exactly at the limit: 4 x 128 = 512 column clocks.
-- The ICN2038S has five address lines (which fits 1/32 scan and would give a limit of 8), but the driver flags the chip as quarter-scan, so the limit it enforces is 4. The scan of the ICN2038S road-sign panel is being settled at the bench; the row and its note will be updated with the result.
-- The ICN2038S panel is single-ended, so it cannot be chained. Multi-panel use of the FM6124 and GS6238S has not been proven on hardware, and the MBI5124GP has been run with two panels, so for those rows the number is the driver's cap, not a demonstrated working count.
+- Scan follows how a panel is built, not which column-driver chip it uses, so two panels of the same size can need opposite settings; the matrix note under the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix) says how to tell, and the identify screen shows it (see [the procedure](#the-procedure)).
+- The ICN2038S panel is single-ended, so it cannot be chained. For the other rows the number is the driver's cap, not a demonstrated working count.
 
 ### Hub RAM
 
@@ -498,7 +502,7 @@ Notes on the table:
 - M13 exists because a panel turned sideways fills a cell of a different shape, so mixed tops cannot form a grid. Square panels are exempt, and `TOP_LEFT` with `TOP_RIGHT` (or `TOP_UP` with `TOP_DOWN`) is allowed. The cell size follows `C0`'s top.
 - M17 and M18 are produced by the cube layer after the layout is built, so they appear only when every earlier check passed.
 - The startup picture wraps at 96 characters, so a long chain prints several lines per grid row rather than one very long line.
-- The mistake messages in the worked examples below are this table's text with that example's numbers filled in, read from the driver's checks; each is confirmed on the rig at bench run B-7 (to be marked when «#139» runs).
+- The mistake messages in the worked examples below are this table's text with that example's numbers filled in, each copied from the driver's own startup output.
 
 ## Seven worked examples
 
@@ -510,7 +514,7 @@ Each example has the same parts:
 4. what the identify screen shows when the list is right, as a marked slot;
 5. one or two common mistakes, each with the exact startup message.
 
-In every sketch the arrow `-->` is the ribbon running from one panel to the next, and `C0` is where the adapter plugs in. The startup pictures and the identify descriptions are captured from the bench, not written by hand, so each is a slot for now: examples 3 and 4 run on the author's four-panel rig; the others are produced from a scratch layout build and are labelled as such when they are filled in.
+In every sketch the arrow `-->` is the ribbon running from one panel to the next, and `C0` is where the adapter plugs in. The startup pictures are copied from the driver's own output for each example's list; the picture depends only on the list, not on the panels attached. The identify sketches show what each panel displays when the list is right: an up arrow, its cable position `C` and its panel position `P`, with the `P` labels in reading order. Example 3 is the author's four-panel rig.
 
 ### Example 1: a row of 4
 
@@ -547,13 +551,24 @@ This is also the starter list of the [procedure](#the-procedure) for four panels
 The picture printed at startup:
 
 ```
-(from a scratch layout build, labelled as such — to be filled by «#139»)
+HUB75: DISP0 panels: 4 panels in a grid of 1 rows x 4 columns, 256 x 32 pixels (columns x rows)
+HUB75: DISP0   [C0 ^][C1 ^][C2 ^][C3 ^]
+HUB75: DISP0 P0 = C0, buffer slot 3, cell row 0 column 0, rotation 0
+HUB75: DISP0 P1 = C1, buffer slot 2, cell row 0 column 1, rotation 0
+HUB75: DISP0 P2 = C2, buffer slot 1, cell row 0 column 2, rotation 0
+HUB75: DISP0 P3 = C3, buffer slot 0, cell row 0 column 3, rotation 0
+HUB75: DISP0 cable -> panel position:
+HUB75: DISP0    C0->P0 C1->P1 C2->P2 C3->P3
 ```
 
 What the identify screen shows when the list is right:
 
 ```
-(this example is not on the rig — to be filled by «#139» from a scratch-layout build, labelled as such)
+ +--------+--------+--------+--------+
+ |   ^    |   ^    |   ^    |   ^    |
+ |   C0   |   C1   |   C2   |   C3   |
+ |   P0   |   P1   |   P2   |   P3   |
+ +--------+--------+--------+--------+
 ```
 
 Common mistakes:
@@ -616,13 +631,27 @@ disp0PanelsEnd
 The picture printed at startup:
 
 ```
-(from a scratch layout build, labelled as such — to be filled by «#139»)
+HUB75: DISP0 panels: 2 panels in a grid of 2 rows x 1 columns, 64 x 128 pixels (columns x rows)
+HUB75: DISP0   [C0 ^]
+HUB75: DISP0   [C1 ^]
+HUB75: DISP0 P0 = C0, buffer slot 1, cell row 0 column 0, rotation 0
+HUB75: DISP0 P1 = C1, buffer slot 0, cell row 1 column 0, rotation 0
+HUB75: DISP0 cable -> panel position:
+HUB75: DISP0    C0->P0 C1->P1
 ```
 
 What the identify screen shows when the list is right:
 
 ```
-(this example is not on the rig — to be filled by «#139» from a scratch-layout build, labelled as such)
+ +--------+
+ |   ^    |
+ |   C0   |
+ |   P0   |
+ +--------+
+ |   ^    |
+ |   C1   |
+ |   P1   |
+ +--------+
 ```
 
 Common mistakes:
@@ -690,13 +719,29 @@ disp0PanelsEnd
 The picture printed at startup:
 
 ```
-(captured on the rig at bench run B-1/B-8 — to be filled by «#139»)
+HUB75: DISP0 panels: 4 panels in a grid of 2 rows x 2 columns, 256 x 128 pixels (columns x rows)
+HUB75: DISP0   [C2 v][C3 v]
+HUB75: DISP0   [C0 v][C1 v]
+HUB75: DISP0 P0 = C2, buffer slot 1, cell row 0 column 0, rotation 180
+HUB75: DISP0 P1 = C3, buffer slot 0, cell row 0 column 1, rotation 180
+HUB75: DISP0 P2 = C0, buffer slot 3, cell row 1 column 0, rotation 180
+HUB75: DISP0 P3 = C1, buffer slot 2, cell row 1 column 1, rotation 180
+HUB75: DISP0 cable -> panel position:
+HUB75: DISP0    C0->P2 C1->P3 C2->P0 C3->P1
 ```
 
 What the identify screen shows when the list is right:
 
 ```
-(captured on the rig at bench run B-1/B-8 — to be filled by «#139»)
+ +--------+--------+
+ |   ^    |   ^    |
+ |   C2   |   C3   |
+ |   P0   |   P1   |
+ +--------+--------+
+ |   ^    |   ^    |
+ |   C0   |   C1   |
+ |   P2   |   P3   |
+ +--------+--------+
 ```
 
 Common mistakes:
@@ -753,13 +798,29 @@ disp0PanelsEnd
 The picture printed at startup:
 
 ```
-(captured on the rig at bench run B-1/B-8 — to be filled by «#139»)
+HUB75: DISP0 panels: 4 panels in a grid of 2 rows x 2 columns, 256 x 128 pixels (columns x rows)
+HUB75: DISP0   [C3 v][C2 v]
+HUB75: DISP0   [C0 ^][C1 ^]
+HUB75: DISP0 P0 = C3, buffer slot 0, cell row 0 column 0, rotation 180
+HUB75: DISP0 P1 = C2, buffer slot 1, cell row 0 column 1, rotation 180
+HUB75: DISP0 P2 = C0, buffer slot 3, cell row 1 column 0, rotation 0
+HUB75: DISP0 P3 = C1, buffer slot 2, cell row 1 column 1, rotation 0
+HUB75: DISP0 cable -> panel position:
+HUB75: DISP0    C0->P2 C1->P3 C2->P1 C3->P0
 ```
 
 What the identify screen shows when the list is right:
 
 ```
-(captured on the rig at bench run B-1/B-8 — to be filled by «#139»)
+ +--------+--------+
+ |   ^    |   ^    |
+ |   C3   |   C2   |
+ |   P0   |   P1   |
+ +--------+--------+
+ |   ^    |   ^    |
+ |   C0   |   C1   |
+ |   P2   |   P3   |
+ +--------+--------+
 ```
 
 Common mistakes:
@@ -828,13 +889,31 @@ The `P` numbers run along the rows while the `C` numbers run along the ribbon, s
 The picture printed at startup:
 
 ```
-(from a scratch layout build, labelled as such — to be filled by «#139»)
+HUB75: DISP0 panels: 6 panels in a grid of 2 rows x 3 columns, 192 x 64 pixels (columns x rows)
+HUB75: DISP0   [C0 ^][C3 ^][C4 ^]
+HUB75: DISP0   [C1 ^][C2 ^][C5 ^]
+HUB75: DISP0 P0 = C0, buffer slot 5, cell row 0 column 0, rotation 0
+HUB75: DISP0 P1 = C3, buffer slot 2, cell row 0 column 1, rotation 0
+HUB75: DISP0 P2 = C4, buffer slot 1, cell row 0 column 2, rotation 0
+HUB75: DISP0 P3 = C1, buffer slot 4, cell row 1 column 0, rotation 0
+HUB75: DISP0 P4 = C2, buffer slot 3, cell row 1 column 1, rotation 0
+HUB75: DISP0 P5 = C5, buffer slot 0, cell row 1 column 2, rotation 0
+HUB75: DISP0 cable -> panel position:
+HUB75: DISP0    C0->P0 C1->P3 C2->P4 C3->P1 C4->P2 C5->P5
 ```
 
 What the identify screen shows when the list is right:
 
 ```
-(this example is not on the rig — to be filled by «#139» from a scratch-layout build, labelled as such)
+ +--------+--------+--------+
+ |   ^    |   ^    |   ^    |
+ |   C0   |   C3   |   C4   |
+ |   P0   |   P1   |   P2   |
+ +--------+--------+--------+
+ |   ^    |   ^    |   ^    |
+ |   C1   |   C2   |   C5   |
+ |   P3   |   P4   |   P5   |
+ +--------+--------+--------+
 ```
 
 Common mistakes:
@@ -906,13 +985,34 @@ The empty cells stay dark; panel positions count only the cells that hold a pane
 The picture printed at startup (a cell with no panel prints as `  --`):
 
 ```
-(from a scratch layout build, labelled as such — to be filled by «#139»)
+HUB75: DISP0 panels: 4 panels in a grid of 3 rows x 2 columns, 128 x 192 pixels (columns x rows)
+HUB75: DISP0   [C3 ^]  --
+HUB75: DISP0   [C2 ^]  --
+HUB75: DISP0   [C0 ^][C1 ^]
+HUB75: DISP0 P0 = C3, buffer slot 0, cell row 0 column 0, rotation 0
+HUB75: DISP0 P1 = C2, buffer slot 1, cell row 1 column 0, rotation 0
+HUB75: DISP0 P2 = C0, buffer slot 3, cell row 2 column 0, rotation 0
+HUB75: DISP0 P3 = C1, buffer slot 2, cell row 2 column 1, rotation 0
+HUB75: DISP0 cable -> panel position:
+HUB75: DISP0    C0->P2 C1->P3 C2->P1 C3->P0
 ```
 
 What the identify screen shows when the list is right:
 
 ```
-(this example is not on the rig — to be filled by «#139» from a scratch-layout build, labelled as such)
+ +--------+
+ |   ^    |
+ |   C3   |
+ |   P0   |
+ +--------+
+ |   ^    |
+ |   C2   |
+ |   P1   |
+ +--------+--------+
+ |   ^    |   ^    |
+ |   C0   |   C1   |
+ |   P2   |   P3   |
+ +--------+--------+
 ```
 
 Common mistakes:
@@ -987,7 +1087,24 @@ disp0PanelsEnd
 The picture printed at startup. After the cable-to-panel table the driver prints the faces it derived, one line each, in the order `TOP`, `BOTTOM`, `FRONT`, `BACK`, `LEFT`, `RIGHT`:
 
 ```
-(from a scratch layout build, labelled as such — to be filled by «#139»)
+HUB75: DISP0 panels: 6 panels in a grid of 3 rows x 4 columns, 256 x 192 pixels (columns x rows)
+HUB75: DISP0     --  [C4 ^]  --    --
+HUB75: DISP0   [C0 ^][C1 ^][C2 ^][C3 ^]
+HUB75: DISP0     --  [C5 ^]  --    --
+HUB75: DISP0 P0 = C4, buffer slot 1, cell row 0 column 1, rotation 0
+HUB75: DISP0 P1 = C0, buffer slot 5, cell row 1 column 0, rotation 0
+HUB75: DISP0 P2 = C1, buffer slot 4, cell row 1 column 1, rotation 0
+HUB75: DISP0 P3 = C2, buffer slot 3, cell row 1 column 2, rotation 0
+HUB75: DISP0 P4 = C3, buffer slot 2, cell row 1 column 3, rotation 0
+HUB75: DISP0 P5 = C5, buffer slot 0, cell row 2 column 1, rotation 0
+HUB75: DISP0 cable -> panel position:
+HUB75: DISP0    C0->P1 C1->P2 C2->P3 C3->P4 C4->P0 C5->P5
+HUB75: DISP0 cube TOP = C4 (P0, up ^): N->BACK.N E->RIGHT.N S->FRONT.N W->LEFT.N
+HUB75: DISP0 cube BOTTOM = C5 (P5, up ^): N->FRONT.S E->RIGHT.S S->BACK.S W->LEFT.S
+HUB75: DISP0 cube FRONT = C1 (P2, up ^): N->TOP.S E->RIGHT.W S->BOTTOM.N W->LEFT.E
+HUB75: DISP0 cube BACK = C3 (P4, up ^): N->TOP.N E->LEFT.W S->BOTTOM.S W->RIGHT.E
+HUB75: DISP0 cube LEFT = C0 (P1, up ^): N->TOP.W E->FRONT.W S->BOTTOM.W W->BACK.E
+HUB75: DISP0 cube RIGHT = C2 (P3, up ^): N->TOP.E E->BACK.W S->BOTTOM.E W->FRONT.E
 ```
 
 The form of a face line is `HUB75: DISP0 cube FRONT = Ck (Pp, up a): N->face.edge E->face.edge S->face.edge W->face.edge`. It says the front face is the panel at cable position `k`, panel position `p`, and its up arrow `a` points as the picture shows. Then each of the face's four edges, `N`, `E`, `S`, `W`, names the face beyond it and which of that face's edges meets this one. Every face line is the same kind of line, and together they list all 12 edges of the cube from both sides.
@@ -995,7 +1112,19 @@ The form of a face line is `HUB75: DISP0 cube FRONT = Ck (Pp, up a): N->face.edg
 What the identify screen shows when the list is right:
 
 ```
-(this example is not on the rig — to be filled by «#139» from a scratch-layout build, labelled as such)
+          +--------+
+          |   ^    |
+          |   C4   |
+          |   P0   |
+ +--------+--------+--------+--------+
+ |   ^    |   ^    |   ^    |   ^    |
+ |   C0   |   C1   |   C2   |   C3   |
+ |   P1   |   P2   |   P3   |   P4   |
+ +--------+--------+--------+--------+
+          |   ^    |
+          |   C5   |
+          |   P5   |
+          +--------+
 ```
 
 Identify checks the wiring of the net; it does not show the folded cube.

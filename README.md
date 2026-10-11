@@ -85,10 +85,10 @@ What's working today with the current driver:
 - **5x7 dithered font with descenders** - full upper/lower case plus all control characters found in standard ASCII set
 - Up to **3 HUB75 cards** supported on a single P2, each started with one call and no driver-file edits
 - Compile-time selectable color depth from 3 to 8-bits per color, per hub75 card
-- **Cube display**: six square panels wired as a cube net draw as one object. Face-centric calls (`drawFace*`, `scrollFaceTextAtRC*`) draw lines, boxes, circles, text and scrolling that carry across all 12 edges. *The cube's drawing is proven by a 163-case self-test (`test_hub75_cube_fold.spin2`); it has not yet been run on six real panels.*
+- **Cube display**: six square panels wired as a cube net draw as one object. Face-centric calls (`drawFace*`, `scrollFaceTextAtRC*`) draw lines, boxes, circles, text and scrolling that carry across all 12 edges. *The cube's drawing is proven by a 163-case self-test (`test_hub75_cube_fold.spin2`); what has not yet run on hardware is listed in the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md#not-yet-proven-on-hardware-with-400).*
 - Single panel support working well for supported chips, up to 8192 leds (128x64)
-- Supported Panel Driver Chips: DP5125D, FM6124, FM6126A, GS6238S, ICN2037, ICN2037BP, ICN2038S, and MBI5124GP (1/8 scan); see the [chip table](#chips-supported) for the status of each
-- Multi-panel status differs by chip: the [chip table](#chips-supported) marks each chip `Multi-panel` or `Single-panel`
+- Supported Panel Driver Chips: DP5125D, FM6124, FM6126A, GS6238S, ICN2037, ICN2037BP, ICN2038S, and MBI5124GP; see the [chip table](#chips-supported)
+- Scan, address lines and test status differ by panel type; the [Quick Reference Matrix](DOCs/ChipCharacteristicsMatrix.md#quick-reference-matrix) states them
 - PWM'ing images to achieve 3-bit to 8-bit color per LED (9-bit to 24-bit color per pixel)
 - Displaying text in both 5x7 and 8x8 fonts
 - Scrolling text in four directions (up, down, right, and left). A step moves the last frame one place and draws only the new edge, so a full-width line steps in 1.3 ms sideways and 3.3 to 4.1 ms up or down on the author's four-panel rig
@@ -108,18 +108,18 @@ What's working today with the current driver:
 **NOTE:** *With every update we post we also update the [ChangeLog](ChangeLog.md). It will have the most up-to-date driver code/feature status.*
 
 ## Chips Supported
-This driver works with the following chips. Other chips may well work since the adaptation to a chip is selecting various driver settings control signalling to the chip.  Here are the chips we have tested and proven working in Single- or Multi-panel configurations:
+This driver works with the following chips. Other chips may well work since the adaptation to a chip is selecting various driver settings control signalling to the chip. The scan, address lines and test status of each panel type are in one place, the [Quick Reference Matrix](DOCs/ChipCharacteristicsMatrix.md#quick-reference-matrix).
 
-| Chip | Address | Status | Manufacturer | Notes
-| --- | --- | --- | --- | --- |
-| DP5125D | ABC | working `Multi-panel` | Shenzhen Developer Microelectronics Co., Ltd |
-| FM6124 | ABCD | working `Single-panel` | Shenzhen Funman Electronics Group Co., Ltd. 
-| FM6126A | ABCD | working `Multi-panel` | Shenzhen Funman Electronics Group Co., Ltd. | The driver sends the panel init sequence at start
-| GS6238S | ABCD | working `Single-panel` | ?? | ??
-| ICN2037 | ABCDE | working `Multi-panel` | Chipone Technology (Beijing) Co., Ltd. | Our P2 P2 cube panels 
-| ICN2037BP | ABCDE | working `Multi-panel` |Chipone Technology (Beijing) Co., Ltd. | Same chip as the ICN2037 in another package: configure it as `CHIP_ICN2037`
-| ICN2038S | ABCDE | working `Single-panel` | Chipone Technology (Beijing) Co., Ltd. | Single-ended road-sign panel: no daisy-chain by construction |
-| MBI5124GP | ABC | working `Multi-panel` | Macroblock, Inc. (Taiwan) | The driver writes each chip's configuration register at start; two panels chained end to end run as one 128x32 display
+| Chip | Manufacturer | Notes
+| --- | --- | --- |
+| DP5125D | Shenzhen Developer Microelectronics Co., Ltd | |
+| FM6124 | Shenzhen Funman Electronics Group Co., Ltd. | The FM6124C 64x64 panel is configured as `CHIP_FM6124` |
+| FM6126A | Shenzhen Funman Electronics Group Co., Ltd. | The driver sends the panel init sequence at start |
+| GS6238S | ?? | |
+| ICN2037 | Chipone Technology (Beijing) Co., Ltd. | Our P2 cube panels |
+| ICN2037BP | Chipone Technology (Beijing) Co., Ltd. | Same chip as the ICN2037 in another package: configure it as `CHIP_ICN2037` |
+| ICN2038S | Chipone Technology (Beijing) Co., Ltd. | Single-ended road-sign panel: no daisy-chain by construction |
+| MBI5124GP | Macroblock, Inc. (Taiwan) | The driver writes each chip's configuration register at start |
 
 Each chip's datasheet clock and /OE ratings are in the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings).
 
@@ -127,7 +127,7 @@ Each chip's datasheet clock and /OE ratings are in the [Chip Characteristics Mat
 
 Upcoming work on the driver:
 
-- Proving the 4.0.0 display organization on more hardware: the cube on six real panels, more than two MBI5124GP quarter-scan panels in a chain, a second adapter cabled at the same time, panel types not yet run (ICN2037 64x64, FM6124C, ICN2038S, DP5125D) and measured refresh for them. See the Known Issues in the [Change Log](ChangeLog.md).
+- Proving the 4.0.0 display organization on more hardware: the list is in the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md#not-yet-proven-on-hardware-with-400). See also the Known Issues in the [Change Log](ChangeLog.md).
 - I've even some fun animated clocks coming (sorry, I'm been doing software clocks of many, many, forms for a long time.)
 
 Morphing digits Matrix displays can be found at [P2 LED-Matrix Morphing Digits](https://github.com/ironsheep/P2-LED-Matrix-Morphing-Digits) Repository.

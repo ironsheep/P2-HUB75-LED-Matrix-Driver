@@ -153,9 +153,11 @@ CON
 CON ' ---- Storage sizes (not edited) ----
 
 '  Every buffer is sized from its display's panel count, the length of its panel list:
-'  (dispNPanelsEnd - dispNPanels) / hwEnum.BYTES_PER_LONG. A CON cannot count a DAT list, so
-'  the sizes are written out in the DAT section below. Hub RAM is the only limit on the panel
-'  count the compiler applies; a display too large for hub RAM does not compile.
+'  (@dispNPanelsEnd - @dispNPanels) / hwEnum.BYTES_PER_LONG. A CON cannot count a DAT list, so
+'  the sizes are written out in the DAT section below. The labels are written with @ so the
+'  difference is in bytes in every compiler (without @, flexspin counts it in longs). Hub RAM
+'  is the only limit on the panel count the compiler applies; a display too large for hub RAM
+'  does not compile.
 
     BYTES_PER_COLOR         = 3                                 ' the screen buffer holds one byte each of R, G, B
     PIXELS_PER_PWM_BYTE     = 2                                 ' a PWM frame holds 4 bits per pixel
@@ -180,24 +182,24 @@ DAT ' ---- Storage (not edited) ----
 
 ' DISP0: screen buffer, two PWM frame sets, layout tables
 disp0Guard      LONG    GUARD_FRONT
-disp0Screen     LONG    0[((((disp0PanelsEnd - disp0Panels) / hwEnum.BYTES_PER_LONG) * DISP0_PANEL_COLUMNS * DISP0_PANEL_ROWS * BYTES_PER_COLOR) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG]
-disp0Frames1    LONG    0[DISP0_COLOR_DEPTH * ((((((disp0PanelsEnd - disp0Panels) / hwEnum.BYTES_PER_LONG) * DISP0_PANEL_COLUMNS * DISP0_PANEL_ROWS) / PIXELS_PER_PWM_BYTE) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG)]
-disp0Frames2    LONG    0[DISP0_COLOR_DEPTH * ((((((disp0PanelsEnd - disp0Panels) / hwEnum.BYTES_PER_LONG) * DISP0_PANEL_COLUMNS * DISP0_PANEL_ROWS) / PIXELS_PER_PWM_BYTE) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG)]
+disp0Screen     LONG    0[((((@disp0PanelsEnd - @disp0Panels) / hwEnum.BYTES_PER_LONG) * DISP0_PANEL_COLUMNS * DISP0_PANEL_ROWS * BYTES_PER_COLOR) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG]
+disp0Frames1    LONG    0[DISP0_COLOR_DEPTH * ((((((@disp0PanelsEnd - @disp0Panels) / hwEnum.BYTES_PER_LONG) * DISP0_PANEL_COLUMNS * DISP0_PANEL_ROWS) / PIXELS_PER_PWM_BYTE) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG)]
+disp0Frames2    LONG    0[DISP0_COLOR_DEPTH * ((((((@disp0PanelsEnd - @disp0Panels) / hwEnum.BYTES_PER_LONG) * DISP0_PANEL_COLUMNS * DISP0_PANEL_ROWS) / PIXELS_PER_PWM_BYTE) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG)]
 disp0GuardBack  LONG    GUARD_BACK
-disp0Tables     LONG    0[(LAYOUT_LONGS_PER_CELL * ((((disp0PanelsEnd - disp0Panels) / hwEnum.BYTES_PER_LONG) + GRID_LONG_SIDE_EXTRA) / GRID_SIDES) * ((((disp0PanelsEnd - disp0Panels) / hwEnum.BYTES_PER_LONG) + GRID_SHORT_SIDE_EXTRA) / GRID_SIDES)) + ((((LAYOUT_BYTES_PER_PANEL * ((disp0PanelsEnd - disp0Panels) / hwEnum.BYTES_PER_LONG)) + (LAYOUT_BYTES_PER_CELL * ((((disp0PanelsEnd - disp0Panels) / hwEnum.BYTES_PER_LONG) + GRID_LONG_SIDE_EXTRA) / GRID_SIDES) * ((((disp0PanelsEnd - disp0Panels) / hwEnum.BYTES_PER_LONG) + GRID_SHORT_SIDE_EXTRA) / GRID_SIDES))) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG)]
+disp0Tables     LONG    0[(LAYOUT_LONGS_PER_CELL * ((((@disp0PanelsEnd - @disp0Panels) / hwEnum.BYTES_PER_LONG) + GRID_LONG_SIDE_EXTRA) / GRID_SIDES) * ((((@disp0PanelsEnd - @disp0Panels) / hwEnum.BYTES_PER_LONG) + GRID_SHORT_SIDE_EXTRA) / GRID_SIDES)) + ((((LAYOUT_BYTES_PER_PANEL * ((@disp0PanelsEnd - @disp0Panels) / hwEnum.BYTES_PER_LONG)) + (LAYOUT_BYTES_PER_CELL * ((((@disp0PanelsEnd - @disp0Panels) / hwEnum.BYTES_PER_LONG) + GRID_LONG_SIDE_EXTRA) / GRID_SIDES) * ((((@disp0PanelsEnd - @disp0Panels) / hwEnum.BYTES_PER_LONG) + GRID_SHORT_SIDE_EXTRA) / GRID_SIDES))) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG)]
 disp0GuardTbl   LONG    GUARD_TABLES
 
 ' DISP1: screen buffer, two PWM frame sets, layout tables (zero length when not present)
-disp1Screen     LONG    0[((((disp1PanelsEnd - disp1Panels) / hwEnum.BYTES_PER_LONG) * DISP1_PANEL_COLUMNS * DISP1_PANEL_ROWS * BYTES_PER_COLOR) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG]
-disp1Frames1    LONG    0[DISP1_COLOR_DEPTH * ((((((disp1PanelsEnd - disp1Panels) / hwEnum.BYTES_PER_LONG) * DISP1_PANEL_COLUMNS * DISP1_PANEL_ROWS) / PIXELS_PER_PWM_BYTE) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG)]
-disp1Frames2    LONG    0[DISP1_COLOR_DEPTH * ((((((disp1PanelsEnd - disp1Panels) / hwEnum.BYTES_PER_LONG) * DISP1_PANEL_COLUMNS * DISP1_PANEL_ROWS) / PIXELS_PER_PWM_BYTE) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG)]
-disp1Tables     LONG    0[(LAYOUT_LONGS_PER_CELL * ((((disp1PanelsEnd - disp1Panels) / hwEnum.BYTES_PER_LONG) + GRID_LONG_SIDE_EXTRA) / GRID_SIDES) * ((((disp1PanelsEnd - disp1Panels) / hwEnum.BYTES_PER_LONG) + GRID_SHORT_SIDE_EXTRA) / GRID_SIDES)) + ((((LAYOUT_BYTES_PER_PANEL * ((disp1PanelsEnd - disp1Panels) / hwEnum.BYTES_PER_LONG)) + (LAYOUT_BYTES_PER_CELL * ((((disp1PanelsEnd - disp1Panels) / hwEnum.BYTES_PER_LONG) + GRID_LONG_SIDE_EXTRA) / GRID_SIDES) * ((((disp1PanelsEnd - disp1Panels) / hwEnum.BYTES_PER_LONG) + GRID_SHORT_SIDE_EXTRA) / GRID_SIDES))) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG)]
+disp1Screen     LONG    0[((((@disp1PanelsEnd - @disp1Panels) / hwEnum.BYTES_PER_LONG) * DISP1_PANEL_COLUMNS * DISP1_PANEL_ROWS * BYTES_PER_COLOR) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG]
+disp1Frames1    LONG    0[DISP1_COLOR_DEPTH * ((((((@disp1PanelsEnd - @disp1Panels) / hwEnum.BYTES_PER_LONG) * DISP1_PANEL_COLUMNS * DISP1_PANEL_ROWS) / PIXELS_PER_PWM_BYTE) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG)]
+disp1Frames2    LONG    0[DISP1_COLOR_DEPTH * ((((((@disp1PanelsEnd - @disp1Panels) / hwEnum.BYTES_PER_LONG) * DISP1_PANEL_COLUMNS * DISP1_PANEL_ROWS) / PIXELS_PER_PWM_BYTE) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG)]
+disp1Tables     LONG    0[(LAYOUT_LONGS_PER_CELL * ((((@disp1PanelsEnd - @disp1Panels) / hwEnum.BYTES_PER_LONG) + GRID_LONG_SIDE_EXTRA) / GRID_SIDES) * ((((@disp1PanelsEnd - @disp1Panels) / hwEnum.BYTES_PER_LONG) + GRID_SHORT_SIDE_EXTRA) / GRID_SIDES)) + ((((LAYOUT_BYTES_PER_PANEL * ((@disp1PanelsEnd - @disp1Panels) / hwEnum.BYTES_PER_LONG)) + (LAYOUT_BYTES_PER_CELL * ((((@disp1PanelsEnd - @disp1Panels) / hwEnum.BYTES_PER_LONG) + GRID_LONG_SIDE_EXTRA) / GRID_SIDES) * ((((@disp1PanelsEnd - @disp1Panels) / hwEnum.BYTES_PER_LONG) + GRID_SHORT_SIDE_EXTRA) / GRID_SIDES))) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG)]
 
 ' DISP2: screen buffer, two PWM frame sets, layout tables (zero length when not present)
-disp2Screen     LONG    0[((((disp2PanelsEnd - disp2Panels) / hwEnum.BYTES_PER_LONG) * DISP2_PANEL_COLUMNS * DISP2_PANEL_ROWS * BYTES_PER_COLOR) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG]
-disp2Frames1    LONG    0[DISP2_COLOR_DEPTH * ((((((disp2PanelsEnd - disp2Panels) / hwEnum.BYTES_PER_LONG) * DISP2_PANEL_COLUMNS * DISP2_PANEL_ROWS) / PIXELS_PER_PWM_BYTE) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG)]
-disp2Frames2    LONG    0[DISP2_COLOR_DEPTH * ((((((disp2PanelsEnd - disp2Panels) / hwEnum.BYTES_PER_LONG) * DISP2_PANEL_COLUMNS * DISP2_PANEL_ROWS) / PIXELS_PER_PWM_BYTE) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG)]
-disp2Tables     LONG    0[(LAYOUT_LONGS_PER_CELL * ((((disp2PanelsEnd - disp2Panels) / hwEnum.BYTES_PER_LONG) + GRID_LONG_SIDE_EXTRA) / GRID_SIDES) * ((((disp2PanelsEnd - disp2Panels) / hwEnum.BYTES_PER_LONG) + GRID_SHORT_SIDE_EXTRA) / GRID_SIDES)) + ((((LAYOUT_BYTES_PER_PANEL * ((disp2PanelsEnd - disp2Panels) / hwEnum.BYTES_PER_LONG)) + (LAYOUT_BYTES_PER_CELL * ((((disp2PanelsEnd - disp2Panels) / hwEnum.BYTES_PER_LONG) + GRID_LONG_SIDE_EXTRA) / GRID_SIDES) * ((((disp2PanelsEnd - disp2Panels) / hwEnum.BYTES_PER_LONG) + GRID_SHORT_SIDE_EXTRA) / GRID_SIDES))) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG)]
+disp2Screen     LONG    0[((((@disp2PanelsEnd - @disp2Panels) / hwEnum.BYTES_PER_LONG) * DISP2_PANEL_COLUMNS * DISP2_PANEL_ROWS * BYTES_PER_COLOR) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG]
+disp2Frames1    LONG    0[DISP2_COLOR_DEPTH * ((((((@disp2PanelsEnd - @disp2Panels) / hwEnum.BYTES_PER_LONG) * DISP2_PANEL_COLUMNS * DISP2_PANEL_ROWS) / PIXELS_PER_PWM_BYTE) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG)]
+disp2Frames2    LONG    0[DISP2_COLOR_DEPTH * ((((((@disp2PanelsEnd - @disp2Panels) / hwEnum.BYTES_PER_LONG) * DISP2_PANEL_COLUMNS * DISP2_PANEL_ROWS) / PIXELS_PER_PWM_BYTE) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG)]
+disp2Tables     LONG    0[(LAYOUT_LONGS_PER_CELL * ((((@disp2PanelsEnd - @disp2Panels) / hwEnum.BYTES_PER_LONG) + GRID_LONG_SIDE_EXTRA) / GRID_SIDES) * ((((@disp2PanelsEnd - @disp2Panels) / hwEnum.BYTES_PER_LONG) + GRID_SHORT_SIDE_EXTRA) / GRID_SIDES)) + ((((LAYOUT_BYTES_PER_PANEL * ((@disp2PanelsEnd - @disp2Panels) / hwEnum.BYTES_PER_LONG)) + (LAYOUT_BYTES_PER_CELL * ((((@disp2PanelsEnd - @disp2Panels) / hwEnum.BYTES_PER_LONG) + GRID_LONG_SIDE_EXTRA) / GRID_SIDES) * ((((@disp2PanelsEnd - @disp2Panels) / hwEnum.BYTES_PER_LONG) + GRID_SHORT_SIDE_EXTRA) / GRID_SIDES))) + hwEnum.BYTES_PER_LONG - 1) / hwEnum.BYTES_PER_LONG)]
 
 OBJ
 

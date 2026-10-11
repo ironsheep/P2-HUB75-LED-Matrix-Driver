@@ -177,7 +177,7 @@ How the panels are arranged, cabled and hung is described by the panel list; the
 
 To this driver the panels look like the following:
 
-**NOTE:** the driver supports single panels, horizontal/vertical multi-panel chains, 2-D panel grids of any shape you can cable (a 2x2, 3x2, an L, ...), and a six-panel cube, each panel with its own top. Multi-panel behavior continues to be proven for some driver chips (see the [Change Log](ChangeLog.md) Known Issues).
+**NOTE:** the driver supports single panels, horizontal/vertical multi-panel chains, 2-D panel grids of any shape you can cable (a 2x2, 3x2, an L, ...), and a six-panel cube, each panel with its own top. Which panel types have run on hardware, and what is not yet proven, is in the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md#quick-reference-matrix).
 
 ![Driver panel Setup](images/hub75-driver-board-layout.png)
 

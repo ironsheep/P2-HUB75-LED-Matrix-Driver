@@ -15,7 +15,7 @@ Only one row per build. "List" means the four `LONG` lines of `disp0Panels`.
 | M3 | add `#DEFINE DISP0_ROTATED` and `CON DISP0_ROTATION = hwEnum.ROT_90` | 1 problem |
 | M4 | `DISP0_PANEL_ROWS = 48` | 1 problem |
 | M5 | `DISP0_PANEL_COLUMNS = 126` | 1 problem |
-| M6 | add four more sentences: `ROW_2 \| COL_0`, `ROW_2 \| COL_1`, `ROW_3 \| COL_0`, `ROW_3 \| COL_1` (each `\| hwEnum.TOP_DOWN`): 8 x 128 = 1024 columns | 1 problem |
+| M6 | `DISP0_PANEL_ROWS = 16` and a fifth sentence `ROW_2 \| COL_0 \| TOP_DOWN`: 5 x 128 = 640 columns (eight 128x64 panels do not fit hub RAM: the compiler stops first) | 1 problem |
 | M7 | list entry 1 becomes `hwEnum.ROW_1 \| hwEnum.COL_1 \| hwEnum.TOP_DOWN \| hwEnum.TOP_TO_RIGHT` | 1 problem |
 | M8 | list entry 1 becomes `hwEnum.COL_1 \| hwEnum.TOP_DOWN` | 1 problem |
 | M9 | list entry 1 becomes `hwEnum.ROW_1 \| hwEnum.TOP_DOWN` | 1 problem |

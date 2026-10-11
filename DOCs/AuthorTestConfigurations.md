@@ -2,29 +2,31 @@
 
 This document catalogs all panel configurations the author has tested, as documented in `isp_hub75_hwPanelConfig.spin2`.
 
-Each configuration below is a complete block for the user section of the file, ready to copy: the `DISP0_` settings (the adapter's pin group, chip, panel size and colour depth) and the display's panel list, one sentence per panel. The address lines are not set: the driver derives them from the panel rows and the chip's scan. How the settings and the sentences work is in the [Wiring Guide](WiringGuide.md). **Scan** is written *1/S scan*, where S is the number of row addresses the address lines select, as defined in the [glossary](../THEOPS.md#scan). The **Multi-Panel** status says whether multi-panel use has been proven on hardware; how many panels one adapter can drive for each panel type is in the [driver limits table](WiringGuide.md#driver-limits).
+Each configuration below is a complete block for the user section of the file, ready to copy: the `DISP0_` settings (the adapter's pin group, chip, panel size and colour depth) and the display's panel list, one sentence per panel. The address lines are not set: the driver derives them from the panel rows and the chip's scan. How the settings and the sentences work is in the [Wiring Guide](WiringGuide.md). Each panel type's scan, address lines and test status are stated once, in the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix); this page does not repeat them. How many panels one adapter can drive for each panel type is in the [driver limits table](WiringGuide.md#driver-limits).
 
 ## Configuration Summary Table
 
-| Config | Panel Model | Color Label | Size | Chip | Addr (derived) | Pin Base | Multi-Panel | Notes |
-|--------|-------------|-------------|------|------|------|----------|-------------|-------|
-| 1-3 | P3-6432-121-16s-D1.0 | **Pink** | 64×32 | FM6126A | ABCD | P16-P31 | **Multi-panel OK** | Requires init sequence |
-| 4 | P3-6432-121-16s-D1.0 | **Orange** | 64×32 | FM6124 | ABCD | P16-P31 | Untested | Hackerbox panel |
-| 5-6 | P2-2020210240-200 | - | 64×64 | ICN2037 | ABCDE | P16-P31 | **Multi-panel OK** | R/B swapped |
-| 7 | P4-1921-8S-vV2.0 | **Green** | 64×32 | MBI5124GP | ABC | P16-P31 | **Multi-panel OK** (two) | 1/8 scan |
-| 8 | P4-1921-8S-vV2.0 | **Green** | 64×32 | MBI5124GP | ABC | P32-P47 | Untested | 1/8 scan, alt pins |
-| 9 | P2.5-16S-V1.0 | **Cyan** | 64×32 | GS6238S | ABCD | P16-P31 | Untested | G/B swapped |
-| 10 | P2-2020210240-200 | - | 64×64 | ICN2037 | ABCDE | P16-P31 | **Multi-panel OK** | P2 Cube FLAT, R/B swapped |
-| 11 | P2-2020210240-200 | - | 128×64 | ICN2037 | ABCDE | P16-P31 | **Multi-panel OK** | LARGE panels, R/B swapped |
-| 12 | (road-sign panel) | - | 64×64 | ICN2038S | provisional | P0-P15 | N/A (single-ended) | Single-ended; scan being settled at the bench (see Configuration 12) |
+| Config | Panel Model | Color Label | Size | Chip | Pin Base | Notes |
+|--------|-------------|-------------|------|------|----------|-------|
+| 1-3 | P3-6432-121-16s-D1.0 | **Pink** | 64×32 | FM6126A | P16-P31 | Requires init sequence |
+| 4 | P3-6432-2121-16S-D1.0 | **Orange** | 64×32 | FM6124 | P16-P31 | Hackerbox panel |
+| 5-6 | P2-2020210240-200 | - | 64×64 | ICN2037 | P16-P31 | R/B swapped |
+| 7 | P4-1921-8S-vV2.0 | **Green** | 64×32 | MBI5124GP | P16-P31 | One panel or two chained |
+| 8 | P4-1921-8S-vV2.0 | **Green** | 64×32 | MBI5124GP | P32-P47 | Alternate pins |
+| 9 | P2.5-16S-V1.0 | **Cyan** | 64×32 | GS6238S | P16-P31 | G/B swapped |
+| 10 | P2-2020210240-200 | - | 64×64 | ICN2037 | P16-P31 | P2 Cube FLAT, R/B swapped |
+| 11 | P2-1515-128X64-32S-S2 | - | 128×64 | ICN2037 | P16-P31 | LARGE panels, R/B swapped |
+| 12 | (road-sign panel) | - | 64×64 | ICN2038S | P0-P15 | Single-ended |
+
+Scan, address lines and test status for each of these: see the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix).
 
 ### Color Label Quick Reference
 
 | Color | Chip | Notes |
 |-------|------|-------|
-| **Pink** | FM6126A | 64×32, multi-panel tested |
+| **Pink** | FM6126A | 64×32 |
 | **Orange** | FM6124 | 64×32, Hackerbox |
-| **Green** | MBI5124GP | 64×32, 1/8 scan |
+| **Green** | MBI5124GP | 64×32 |
 | **Cyan** | GS6238S | 64×32, G/B swapped |
 
 ## Detailed Configuration Documentation
@@ -37,10 +39,9 @@ Each configuration below is a complete block for the user section of the file, r
 
 **Specifications:**
 - Size: 64 columns × 32 rows = 2,048 pixels
-- Scan: 1/16 (16 address lines)
 - Half-panel: 1,024 pixels each (top: R1/G1/B1, bottom: R2/G2/B2)
 - Driver Chip: FM6126A
-- Address Lines: ABCD (4 lines, derived)
+- Scan, address lines and test status: see the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix)
 - Clock and /OE ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)
 
 **Configuration** (one panel):
@@ -57,9 +58,9 @@ disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
 disp0PanelsEnd
 ```
 
-**Multi-Panel Status:** ✅ Working in multi-panel chains (the panels need the initialization sequence). A row of four of these is [Example 1](WiringGuide.md#example-1-a-row-of-4) in the Wiring Guide; the number of panels one adapter can drive is in the [driver limits table](WiringGuide.md#driver-limits) (calculated, not yet exercised at that count).
+The panels need the initialization sequence. A row of four of these is [Example 1](WiringGuide.md#example-1-a-row-of-4) in the Wiring Guide; the number of panels one adapter can drive is in the [driver limits table](WiringGuide.md#driver-limits) (calculated, not yet exercised at that count).
 
-**4.0.0 refresh core:** ✅ verified on one panel (2026-10-05) at 8-bit and 5-bit: correct image on the test patterns, refresh 85.1 Hz at 8-bit and 688.9 Hz at 5-bit; figures in the [Wiring Guide](WiringGuide.md#measured-refresh).
+**4.0.0 refresh core, one panel (2026-10-05):** refresh 85.1 Hz at 8-bit and 688.9 Hz at 5-bit; figures in the [Wiring Guide](WiringGuide.md#measured-refresh).
 
 ---
 
@@ -69,9 +70,8 @@ disp0PanelsEnd
 
 **Specifications:**
 - Size: 64 columns × 32 rows = 2,048 pixels
-- Scan: 1/16
 - Driver Chip: FM6124 (from Hackerbox kit)
-- Address Lines: ABCD (4 lines, derived)
+- Scan, address lines and test status: see the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix)
 - Clock and /OE ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)
 
 **Configuration** (one panel):
@@ -88,9 +88,9 @@ disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
 disp0PanelsEnd
 ```
 
-**Multi-Panel Status:** ❌ Single panel only; multi-panel is untested. The driver's limit for this panel type is in the [driver limits table](WiringGuide.md#driver-limits).
+The driver's limit for this panel type is in the [driver limits table](WiringGuide.md#driver-limits).
 
-**4.0.0 refresh core:** ✅ verified on one panel (2026-10-05) at 8-bit and 5-bit: correct image on the test patterns, refresh 85.3 Hz at 8-bit and 694.1 Hz at 5-bit; figures in the [Wiring Guide](WiringGuide.md#measured-refresh).
+**4.0.0 refresh core, one panel (2026-10-05):** refresh 85.3 Hz at 8-bit and 694.1 Hz at 5-bit; figures in the [Wiring Guide](WiringGuide.md#measured-refresh).
 
 ---
 
@@ -100,10 +100,9 @@ disp0PanelsEnd
 
 **Specifications:**
 - Size: 64 columns × 64 rows = 4,096 pixels
-- Scan: 1/32 (32 address lines)
 - Half-panel: 2,048 pixels each
 - Driver Chip: ICN2037
-- Address Lines: ABCDE (5 lines, derived)
+- Scan, address lines and test status: see the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix)
 - Clock and /OE ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)
 - Color Note: **Red/Blue swapped** (driver handles automatically)
 
@@ -121,7 +120,7 @@ disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
 disp0PanelsEnd
 ```
 
-**Multi-Panel Status:** ✅ **Working in multi-panel chains.** The number of panels one adapter can drive is in the [driver limits table](WiringGuide.md#driver-limits) (calculated).
+The number of panels one adapter can drive is in the [driver limits table](WiringGuide.md#driver-limits) (calculated).
 
 ---
 
@@ -131,9 +130,8 @@ disp0PanelsEnd
 
 **Specifications:**
 - Size: 64 columns × 32 rows = 2,048 pixels
-- Scan: **1/8 scan** (8 row addresses, so four rows lit at once: the driver flag `SCAN_4`, which uses the same converter as every other panel and places each row differently in the frame set)
-- Driver Chip: MBI5124GP
-- Address Lines: ABC (3 lines, derived)
+- Driver Chip: MBI5124GP (the driver flag `SCAN_4` places each row differently in the frame set)
+- Scan, address lines and test status: see the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix)
 - Clock and /OE ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)
 
 **Configuration** (one panel):
@@ -165,9 +163,9 @@ disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_1 | hwEnum.TOP_UP      ' C0, r
 disp0PanelsEnd
 ```
 
-**Multi-Panel Status:** ✅ Two panels chained end to end run as one 128x32 display (2026-10-07), as the second block above. The driver writes each chip's configuration register at start and holds the column clock to the chip's chain limit (18.9 MHz; see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)). The driver limit for this type is in the [driver limits table](WiringGuide.md#driver-limits).
+Two panels chained end to end run as one 128x32 display, as the second block above. The driver writes each chip's configuration register at start and holds the column clock to the chip's chain limit (18.9 MHz; see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)). The driver limit for this type is in the [driver limits table](WiringGuide.md#driver-limits).
 
-**4.0.0 refresh core:** ✅ verified on one panel (2026-10-05, correct image on the test patterns) and on two chained (2026-10-07). At the 18.6 MHz chain clock: one panel 71.2 Hz at 8-bit and 582.7 Hz at 5-bit, two panels 70.9 Hz and 292.1 Hz; figures in the [Wiring Guide](WiringGuide.md#measured-refresh).
+**4.0.0 refresh core (one panel 2026-10-05, two chained 2026-10-07):** at the 18.6 MHz chain clock: one panel 71.2 Hz at 8-bit and 582.7 Hz at 5-bit, two panels 70.9 Hz and 292.1 Hz; figures in the [Wiring Guide](WiringGuide.md#measured-refresh).
 
 ---
 
@@ -191,7 +189,7 @@ disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
 disp0PanelsEnd
 ```
 
-**Multi-Panel Status:** Single panel only on this pin group; the chip's two-panel chain was run on the P16-P31 pins (Configuration 7). See the [driver limits table](WiringGuide.md#driver-limits).
+Test status: see the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix) (the chip's runs were on the P16-P31 pins, Configuration 7). See the [driver limits table](WiringGuide.md#driver-limits).
 
 ---
 
@@ -201,9 +199,8 @@ disp0PanelsEnd
 
 **Specifications:**
 - Size: 64 columns × 32 rows = 2,048 pixels
-- Scan: 1/16
 - Driver Chip: GS6238S
-- Address Lines: ABCD (4 lines, derived)
+- Scan, address lines and test status: see the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix)
 - Clock and /OE ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)
 - Color Note: **Green/Blue swapped** (driver handles automatically)
 
@@ -221,7 +218,7 @@ disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
 disp0PanelsEnd
 ```
 
-**Multi-Panel Status:** ❌ Single panel only; multi-panel is untested. The driver's limit for this panel type is in the [driver limits table](WiringGuide.md#driver-limits).
+The driver's limit for this panel type is in the [driver limits table](WiringGuide.md#driver-limits).
 
 ---
 
@@ -237,7 +234,7 @@ disp0PanelsEnd
 - Size: 64 columns × 64 rows = 4,096 pixels per panel
 - Total: 6 panels × 4,096 = 24,576 pixels
 - Driver Chip: ICN2037BP
-- Address Lines: ABCDE (5 lines, derived)
+- Scan, address lines and test status: see the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix)
 - Clock and /OE ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)
 - Color Note: **Red/Blue swapped**
 
@@ -268,7 +265,7 @@ disp0Panels     LONG    hwEnum.ROW_1 | hwEnum.COL_0 | hwEnum.TOP_UP
 disp0PanelsEnd
 ```
 
-**Multi-Panel Status:** ✅ **Working in multi-panel chains** (used in cube project with 6 panels). The 4.0.0 cube drawing layer is proven by its self-test only; it has not yet run on these six panels. The driver limit for this panel type is in the [driver limits table](WiringGuide.md#driver-limits).
+What the 4.0.0 cube layer has and has not run on is in the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#not-yet-proven-on-hardware-with-400). The driver limit for this panel type is in the [driver limits table](WiringGuide.md#driver-limits).
 
 **Notes:** These panels share the same supporting chipset (MW245B + TC7262BJ) as the Cyan (GS6238S) panels, but use ICN2037BP as the LED driver.
 
@@ -287,14 +284,13 @@ disp0PanelsEnd
 | Pixel Pitch | 2mm (P2) |
 | LED Type | SMD1515 |
 | Resolution | 128×64 pixels |
-| Scan Mode | 1/32 scan (32S) |
+| Scan Mode | 32S |
 
 **Specifications:**
 - Size: **128 columns × 64 rows = 8,192 pixels**
-- Scan: 1/32
 - Half-panel: 4,096 pixels each
 - Driver Chip: ICN2037BP
-- Address Lines: ABCDE (5 lines, derived)
+- Scan, address lines and test status: see the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix)
 - Clock and /OE ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)
 - Color Note: **Red/Blue swapped**
 
@@ -320,7 +316,7 @@ disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
 disp0PanelsEnd
 ```
 
-**Multi-Panel Status:** ✅ **Working in multi-panel chains.** This is the rig's panel type; its refresh is measured at every depth. Four of these (the rig) sit exactly at the driver's limit for this panel type: see the [driver limits table](WiringGuide.md#driver-limits).
+This is the rig's panel type; its refresh is measured at every depth. Four of these (the rig) sit exactly at the driver's limit for this panel type: see the [driver limits table](WiringGuide.md#driver-limits).
 
 **2×2 Grid Configuration** (the author's rig: the panels hang upside down, the adapter plugs into the bottom-left panel, and the ribbon runs along the bottom row and then the top row; every top is `TOP_DOWN`):
 ```spin2
@@ -354,9 +350,8 @@ This creates a 256×128 pixel display (32,768 total pixels). [Example 3](WiringG
 
 **Specifications:**
 - Size: 64 columns × 64 rows = 4,096 pixels
-- Scan: being settled at the bench. The driver sets `SCAN_4` (four rows lit at once) for this chip; until the bench result is recorded here, this document gives no scan value for it
-- Driver Chip: ICN2038S
-- Address Lines: derived from the panel rows and the scan, so provisional: 4 lines with `SCAN_4` (64 / 4 = 16 row addresses), 5 lines (ABCDE) if the panel proves to light two rows at once
+- Driver Chip: ICN2038S (the driver sets `SCAN_4` for it)
+- Scan, address lines and test status: see the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix)
 - Clock and /OE ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)
 - Color Note: **No color swap** (unlike ICN2037)
 
@@ -374,21 +369,13 @@ disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
 disp0PanelsEnd
 ```
 
-**Multi-Panel Status:** ❌ Single panel only (single-ended; it cannot be daisy-chained). The driver's limit for this type (which depends on the scan, being settled at the bench) is in the [driver limits table](WiringGuide.md#driver-limits).
+The panel is single-ended; it cannot be daisy-chained. The driver's limit for this type is in the [driver limits table](WiringGuide.md#driver-limits).
 
 ---
 
 ## Chip Quick Reference
 
-| Chip | Color | Address Lines (derived) | Color Swap | Init Required | Multi-Panel |
-|------|-------|---------------|------------|---------------|-------------|
-| FM6126A | Pink | ABCD | None | Yes | **Yes** |
-| FM6124 | Orange | ABCD | None | No | Untested |
-| ICN2037 | - | ABCDE | R/B | No | **Yes** |
-| ICN2038S | - | provisional | None | Untested | N/A (single-ended) |
-| MBI5124GP | Green | ABC | None | Yes | **Yes** (two panels) |
-| GS6238S | Cyan | ABCD | G/B | No | Untested |
-| DP5125D | - | ABC | None | No | **Yes** |
+Each panel type's scan, address lines, colour swap, init requirement and test status are in the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix).
 
 Each chip's datasheet clock and /OE ratings are in the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings).
 
@@ -403,26 +390,13 @@ hub RAM available, and the refresh rate. Its rows are these configurations. Ever
 is **calculated** from the driver's constants and none has been exercised at that panel count
 on hardware except the rig's four ICN2037 128x64 panels (configuration 11). Refresh is
 measured for the rig and for single FM6126A, FM6124 and MBI5124GP panels (configurations 1-4
-and 7), on the same page. Configuration 12 (ICN2038S) is listed with the
-code's scan setting, which is being settled at the bench (see Configuration 12).
+and 7), on the same page.
 
 ---
 
 ## Multi-Panel Verified Configurations
 
-The following chip/panel combinations have been verified working in multi-panel arrangements:
-
-1. **FM6126A 64×32 (Pink)** - Tested in chains
-2. **ICN2037 64×64** - Tested in chains and grids
-3. **ICN2037 128×64** - Tested in chains and 2×2 grids
-4. **MBI5124GP 64×32 (Green)** - Two panels tested in a chain
-5. **DP5125D** - working in multi-panel use (the [README](../README.md#chips-supported) chip table)
-
-The following are expected to work but not yet verified in multi-panel use:
-- **ICN2038S** - Single-ended, so it is never chained; its scan setting is being settled at the bench (see Configuration 12)
-- **FM6124 (Orange)** - Similar to FM6126A
-
-Not yet proven on hardware with the 4.0.0 driver: the cube on six real panels, more than two quarter-scan panels in one chain, a second adapter cabled at the same time, and panel types not yet run (ICN2037 64x64, FM6124C, ICN2038S, GS6238S, DP5125D) with measured refresh for them. See the Known Issues in the [Change Log](../ChangeLog.md).
+Which panel types and chains have run on hardware, and what is not yet proven with the 4.0.0 driver, is stated once, in the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix) and the [list under it](ChipCharacteristicsMatrix.md#not-yet-proven-on-hardware-with-400).
 
 ---
 

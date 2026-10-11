@@ -217,32 +217,23 @@ Typical values for 6500K white point:
 
 The driver supports multiple panel types with different characteristics:
 
-| Chip | Rated Max Clock | Scan | Init Required | Multi-Panel Status |
-|------|-----------|------|---------------|-------------------|
-| FM6126A | 30 MHz | 1/16 | Yes | Tested |
-| FM6124 | 30 MHz | 1/16 | No | Single panel only |
-| ICN2037/BP | 30 MHz (25.0 MHz in a chain) | 1/32 | No | Tested |
-| ICN2038S | 30 MHz (28.6 MHz in a chain) | disputed (see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md)) | Untested | Single panel; single-ended |
-| MBI5124GP | 25 MHz (18.9 MHz in a chain) | 1/8 | Yes | Tested (two panels) |
-| GS6238S | - (no rating in the driver's table; held to 20 MHz) | 1/16 | No | Single panel only |
-| DP5125D | - (no rating in the driver's table; held to 20 MHz) | 1/8 | No | Tested |
+The chips are FM6126A, FM6124, ICN2037/BP, ICN2038S, MBI5124GP, GS6238S and DP5125D. Each panel type's scan, address lines, init requirement and test status are in the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix).
 
 The driver holds each half of the clock pulse to at least 20 ns, which caps every chip at 25 MHz, and holds the whole period to the chip's chain limit where that is lower (the MBI5124GP's 18.9 MHz; the ICN2037's 25.0 MHz and the ICN2038S's 28.6 MHz are at or above the pulse cap). The FM6124 and FM6126A chain limits have not been read. The ratings and the arithmetic are in the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings).
 
-### Notable Panel Configurations Tested
+### Notable Panel Configurations
 
 1. **6-Panel Cube** (64x64 × 6 panels)
    - Single horizontal chain
    - 384 × 64 effective resolution
-   - Used for P2 Cube project
+   - Used for P2 Cube project; what has run on hardware is in the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#not-yet-proven-on-hardware-with-400)
 
 2. **2x2 Grid** (128x64 × 4 panels)
    - 256 × 128 effective resolution
    - Described by wiring sentences; this is the author's rig
 
 3. **Horizontal Chains** (up to 6 panels)
-   - Various panel sizes tested
-   - Fully functional with current driver
+   - Various panel sizes
 
 ---
 

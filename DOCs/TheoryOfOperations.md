@@ -512,17 +512,17 @@ The startup check halts with a message if a display that is started has no panel
 
 ### 7.1 Supported Chips
 
-| Chip | Address Lines (derived) | Driver flags | Notes |
-|------|---------------|--------------|-------|
-| ICN2037 | ABCDE | `RB_SWAP` | P2 Cube panels |
-| ICN2038S | provisional | `SCAN_4` | Scan being settled at the bench |
-| FM6126A | ABCD | `LAT_STYLE_OFFSET`, `LAT_POSN_OVERLAP`, `INIT_PANEL_REQUIRED` | Register init at startup |
-| FM6124 | ABCD | none | |
-| DP5125D | ABC | `LAT_STYLE_OFFSET`, `LAT_POSN_OVERLAP`, `SCAN_4` | |
-| GS6238S | ABCD | `LAT_STYLE_OFFSET`, `LAT_POSN_OVERLAP`, `GB_SWAP` | Green/Blue swap |
-| MBI5124GP | ABC | `SCAN_4`, `INIT_PANEL_REQUIRED` | 1/8 scan; configuration-register init at startup |
+| Chip | Driver flags | Notes |
+|------|--------------|-------|
+| ICN2037 | `RB_SWAP` | P2 Cube panels |
+| ICN2038S | `SCAN_4` | |
+| FM6126A | `LAT_STYLE_OFFSET`, `LAT_POSN_OVERLAP`, `INIT_PANEL_REQUIRED` | Register init at startup |
+| FM6124 | none | |
+| DP5125D | `LAT_STYLE_OFFSET`, `LAT_POSN_OVERLAP`, `SCAN_4` | |
+| GS6238S | `LAT_STYLE_OFFSET`, `LAT_POSN_OVERLAP`, `GB_SWAP` | Green/Blue swap |
+| MBI5124GP | `SCAN_4`, `INIT_PANEL_REQUIRED` | Configuration-register init at startup |
 
-The driver flags are the ones `hwBufferAccess.getDriverFlags()` gives each chip; a chip not in the table is described as `CHIP_MANUAL_SPEC` ORed with flags. The address lines are not set: the driver derives them from the panel rows and the chip's scan ([the display block](WiringGuide.md#the-display-block)); the table gives the lines the author's panels of each chip come out with. Which chips and chain lengths have been run on panels is in the [Change Log](../ChangeLog.md)'s Known Issues, and each chip's datasheet clock and /OE ratings are in the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings).
+The driver flags are the ones `hwBufferAccess.getDriverFlags()` gives each chip; a chip not in the table is described as `CHIP_MANUAL_SPEC` ORed with flags. The address lines are not set: the driver derives them from the panel rows and the chip's scan ([the display block](WiringGuide.md#the-display-block)); each panel type's scan, address lines and test status are in the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix). Each chip's datasheet clock and /OE ratings are in the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings).
 
 ### 7.2 Chip-Specific Features
 
@@ -540,8 +540,8 @@ The driver flags are the ones `hwBufferAccess.getDriverFlags()` gives each chip;
 
 **Scan Modes** (the [glossary](../THEOPS.md#scan) defines the term: a panel is **1/S scan**, where S is the number of row addresses its address lines select, and each address lights panel rows ÷ S rows at once):
 - Standard: two rows lit at once, one fed by each set of color pins: 1/16 scan on a 64x32 panel, 1/32 scan on a 64x64 or 128x64 panel
-- Special: four rows lit at once, flagged `SCAN_4` (MBI5124GP and DP5125D, 1/8 scan on a 64x32 panel) - uses the same converter as the standard scans (`convertRowPairs()`), which differs only in where each row lands in the frame set, and the refresh line holds two column clocks for every panel column
-- ICN2038S: the driver flags it `SCAN_4`, but its five address lines suggest 1/32 scan; this is an open item (see the Change Log's Known Issues) and the panel's scan is **disputed** until it is settled
+- Special: four rows lit at once, flagged `SCAN_4` (for example a 64x32 panel built for 1/8 scan; which panel types, see the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix)) - uses the same converter as the standard scans (`convertRowPairs()`), which differs only in where each row lands in the frame set, and the refresh line holds two column clocks for every panel column
+- Scan follows how a panel is built, not which chip drives it: two 64x64 panels can need opposite settings (see the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix))
 
 ### 7.3 Adding New Chip Support
 

@@ -165,7 +165,7 @@ The startup check in `configureAdapter()` enforces the panel limits and prints t
 
 ### 3.3 Open Items
 
-- The panel-centric clipping cost, the cube fold's call depth, the hidden face-home state, the brightness floor, the ICN2038S scan setting and the untested `showFrameSet()` accepted path are recorded in `DOCs/plans/PUNCH-LIST.md`
+- The panel-centric clipping cost, the cube fold's call depth, the hidden face-home state, the brightness floor and the untested `showFrameSet()` accepted path are recorded in `DOCs/plans/PUNCH-LIST.md`
 - API and demo items are in [Technical Debt](TECHNICAL_DEBT.md)
 
 ### 3.4 Code Quality Observations

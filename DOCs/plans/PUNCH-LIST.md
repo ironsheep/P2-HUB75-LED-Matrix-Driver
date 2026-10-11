@@ -4,6 +4,13 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 
 ## Active
 
+### Turn the process documents into user documentation, then stop publishing them (scope; Stephen 2026-10-10, not this sprint)
+
+- **What:** `DOCs/plans/`, `DOCs/analysis/` and `DOCs/bench/` are tracked and record how the project is built. Some of what they hold would help users, but not in its present form: the analyses' findings (chip timing, refresh and frame-rate measurements, the audits' conclusions) and the bench techniques (how a configuration is checked on a rig, run sheets, what each measurement shows).
+- **Ruling:** Stephen, 2026-10-10: *"We probably need to synthesize the analyses and any bench run techniques into something usable by the repo, and then no longer publish the plans, analysis, and bench results."* Not part of the CONFIG-SIMPLIFICATION re-cut: *"For now, I'm not worrying about cleaning up this tree."*
+- **Shape:** first write the user-facing synthesis (for example a bench and verification guide, with the chip and performance findings folded into the existing docs); then stop tracking the three folders. Whether to change the `Claude Code` author lines and the dev-container comments is decided in the same sprint.
+- **Bears on:** what anyone who clones the repository sees; `tools/check_docs.py`, whose `EXCLUDED_PREFIXES` names `DOCs/plans/` and `DOCs/analysis/`.
+
 ### Driver `debug()` footprint: about 10 KB of a program's 16 KB DEBUG data (finding; disposition: punch list, Stephen 2026-10-09)
 
 - **Found:** 2026-10-09, «#111», at the quad recheck. `test_hub75_rates.spin2`'s workload report died partway through ("CLK high") and once printed for 17 minutes: the 16 KB DEBUG data cap fails silently below the compiler's error (P2KB `p2kbSpin2DbgDebugStrategyGuide`). On that program the usable ceiling lay between 15,183 bytes (clean) and 15,357 (broken). The test's prose was moved into `DAT` strings with `zstr_()` (13,593 bytes); every self-test then passed (`DOCs/bench/RUN-NOTES.md`, 2026-10-09 evening).
@@ -33,7 +40,7 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 - **Option on record:** floor each plane separately (lit = max(2^k x L, minimum /OE)), two instructions per plane outside the shift. Brightness would keep falling to about 0.4% at setting 1 (calculated); the cost is that the darkest colours' low bits are over-weighted at the lowest settings.
 - **Bears on:** use of the very bright panels in dark rooms.
 
-### ICN2038S scan setting contradicts its address lines (finding, not yet explained)
+### ICN2038S scan setting contradicts its address lines (RESOLVED 2026-10-10 at the bench: `SCAN_4` is right, 16 row addresses, ABCD; the docs' ABCDE was copied from the 64x64 ICN2037BP description. `DOCs/bench/RUN-NOTES.md`, 2026-10-10)
 
 - **Found:** 2026-10-01, while writing the THEOPS glossary's scan entry («#68»).
 - **What:** `getDriverFlags()` gives `CHIP_ICN2038S` the `SCAN_4` flag (`driver/isp_hub75_hwBufferAccess.spin2`, the ICN2038S branch), and `DOCs/ChipCharacteristicsMatrix.md` (ICN2038S section) and `DOCs/AuthorTestConfigurations.md` (Configuration 12) call it 1/8 scan. But the same docs describe it as a 64×64 panel with `ADDR_ABCDE`, which is 32 row addresses: 64 ÷ 32 = 2 rows lit at once (1/32 scan). `SCAN_4` selects the four-rows-at-once frame-set layout (`convertScreen2PWM_14()` in `driver/isp_hub75_panel.spin2`, chosen in `commitScreenToPanelSet()` in `driver/isp_hub75_display.spin2`) and doubles the columns the refresh core shifts per row address. Either the flag, the address-line setting or the panel description is wrong.

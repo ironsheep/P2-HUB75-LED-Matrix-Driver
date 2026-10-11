@@ -1083,12 +1083,14 @@ PUB getDriverFlags(nChainIdx) : desiredFlags, eChipType
     elseif eChipType == hwEnum.CHIP_DP5125D
         desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.LAT_POSN_OVERLAP | hwEnum.LAT_STYLE_OFFSET | hwEnum.SCAN_4
     elseif eChipType == hwEnum.CHIP_MBI5124GP
-        desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.SCAN_4 | hwEnum.INIT_PANEL_REQUIRED
+        desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.CHIP_UNK_LAT_END_ENCL | hwEnum.SCAN_4 | hwEnum.INIT_PANEL_REQUIRED
     elseif eChipType == hwEnum.CHIP_FM6124 OR eChipType == hwEnum.CHIP_UNK_LAT_END_ENCL
         if eChipType == hwEnum.CHIP_FM6124
             desiredFlags := hwEnum.CHIP_MANUAL_SPEC
     elseif eChipType == hwEnum.CHIP_ICN2037 OR eChipType == hwEnum.CHIP_ICN2038S OR eChipType == hwEnum.CHIP_UNK_LAT_END_ENCL_SLO_CLK
         if eChipType == hwEnum.CHIP_ICN2037
+            ' proven on real panels: the six 64x64 ICN2037BP cube panels and the 2 x 2 quad of
+            ' 128x64 panels; change these flags only with both run again on the bench
             desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.RB_SWAP
         elseif eChipType == hwEnum.CHIP_ICN2038S
             desiredFlags := hwEnum.CHIP_MANUAL_SPEC | hwEnum.SCAN_4
@@ -1582,12 +1584,14 @@ PRI checkPlacement(nChainIdx, panelCount) : mistakeCount | cablePos, otherPos
 ' @local otherPos - cable position of an earlier panel compared with it
 
     mistakeCount := 0
-    repeat cablePos from cube.FIRST_CABLE_POSITION + 1 to panelCount - 1
-        repeat otherPos from cube.FIRST_CABLE_POSITION to cablePos - 1
-            if panelRowOf(nChainIdx, cablePos) == panelRowOf(nChainIdx, otherPos) and panelColumnOf(nChainIdx, cablePos) == panelColumnOf(nChainIdx, otherPos)
-                reportSentenceRef(nChainIdx, cablePos, @"is in the same cell as C", otherPos, @emptyText)
-                mistakeCount++
-                quit
+    ' a repeat whose end is below its start counts down, so one panel skips the loop
+    if panelCount > cube.FIRST_CABLE_POSITION + 1
+        repeat cablePos from cube.FIRST_CABLE_POSITION + 1 to panelCount - 1
+            repeat otherPos from cube.FIRST_CABLE_POSITION to cablePos - 1
+                if panelRowOf(nChainIdx, cablePos) == panelRowOf(nChainIdx, otherPos) and panelColumnOf(nChainIdx, cablePos) == panelColumnOf(nChainIdx, otherPos)
+                    reportSentenceRef(nChainIdx, cablePos, @"is in the same cell as C", otherPos, @emptyText)
+                    mistakeCount++
+                    quit
     ' the one-piece walk needs one panel per cell
     if mistakeCount == 0
         mistakeCount := checkOnePiece(nChainIdx, panelCount)
@@ -1653,7 +1657,8 @@ PRI checkTopAxes(nChainIdx, panelCount) : mistakeCount | panelRows, panelCols, f
     mistakeCount := 0
     panelRows, panelCols := panelSizeInPixels(nChainIdx)
     firstTop := panelSentence(nChainIdx, cube.FIRST_CABLE_POSITION) & SIDEWAYS_TOPS
-    if panelRows <> panelCols
+    ' a repeat whose end is below its start counts down, so one panel skips the loop
+    if panelRows <> panelCols and panelCount > cube.FIRST_CABLE_POSITION + 1
         repeat cablePos from cube.FIRST_CABLE_POSITION + 1 to panelCount - 1
             if ((panelSentence(nChainIdx, cablePos) & SIDEWAYS_TOPS) <> 0) <> (firstTop <> 0)
                 reportSentence(nChainIdx, cablePos, @"has its top at right angles to C0's; panels that are not square are all TOP_UP or TOP_DOWN, or all TOP_LEFT or TOP_RIGHT")

@@ -7,8 +7,7 @@
 
 ## Key Characteristics
 - Green/Blue swap required (driver handles automatically)
-- 1/16 scan rate
-- ABCD address lines
+- Scan, address lines and test status: see the [Quick Reference Matrix](../ChipCharacteristicsMatrix.md#quick-reference-matrix)
 - Offset latch style with overlap positioning
 - No initialization sequence required
 - No clock or /OE rating in the driver's table (no datasheet): the driver holds the column clock to 20 MHz and the shortest /OE pulse to 50 ns, and says so at start

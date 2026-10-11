@@ -116,25 +116,13 @@ On a single adapter the number of panels is limited by the refresh line buffer (
 
 ## Chip Multi-Panel Support
 
-**IMPORTANT:** Not all driver chips have been tested in multi-panel configurations.
-
-| Chip | Color Label | Multi-Panel Support | Notes |
-|------|-------------|---------------------|-------|
-| **FM6126A** | Pink | ✅ Tested | Tested in chains |
-| **ICN2037** | - | ✅ Full support | Tested in chains and 2D grids |
-| ICN2038S | - | ✅ Single panel | Single-ended road-sign panel: no daisy-chain by construction |
-| FM6124 | Orange | ✅ Single panel | Not yet run in a chain |
-| MBI5124GP | Green | ✅ Tested | 1/8 scan; two panels in a chain |
-| GS6238S | Cyan | ✅ Single panel | Not yet run in a chain |
-| DP5125D | - | ✅ Multi-panel | 1/8 scan |
-
-For multi-panel displays, the chips run in chains are **FM6126A (Pink)**, **ICN2037**, **MBI5124GP (Green)** and **DP5125D**; the [README chip table](../README.md#chips-supported) is the status of record.
+Not every panel type has been run in a chain. Which panel types have run, alone and chained, is stated once, in the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix); what is still unproven is in [the list under it](ChipCharacteristicsMatrix.md#not-yet-proven-on-hardware-with-400).
 
 ## Troubleshooting
 
 ### Display is flashing or unstable
 - Check the startup picture: the number of panels it shows must equal the number of panels you have cabled
-- Check that chip type matches your panels (ICN2037 for multi-panel)
+- Check that the chip setting matches your panels (see the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix))
 - Ensure panel dimensions match physical panels (columns × rows)
 
 ### Startup stops with a `HUB75:` message

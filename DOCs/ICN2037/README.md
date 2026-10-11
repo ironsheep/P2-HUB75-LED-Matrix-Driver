@@ -406,8 +406,7 @@ Both panel types share these ICN2037-specific characteristics:
 
 | Characteristic | Value | Notes |
 |----------------|-------|-------|
-| Address Lines | ABCDE (5) | 32 row addressing |
-| Scan Rate | 1/32 | Full scan |
+| Scan and address lines | See the [Quick Reference Matrix](../ChipCharacteristicsMatrix.md#quick-reference-matrix) | |
 | Max Clock | 30 MHz rated; 25 MHz cap | 20 ns pulses cap it at 25 MHz |
 | **R/B Swap** | **Yes** | Red and Blue channels physically swapped |
 | G/B Swap | No | |
@@ -430,7 +429,7 @@ What the settings and the driver do for the ICN2037 (the clock, /OE minimum and 
 | Setting or behavior | Value | Reason |
 |---------------------|-------|--------|
 | `DISPn_PANEL_DRIVER_CHIP` | `hwEnum.CHIP_ICN2037` | Sets the chip's flags (`CHIP_MANUAL_SPEC \| RB_SWAP`) and its clock and /OE ratings |
-| `DISPn_PANEL_ADDR_LINES` | `hwEnum.ADDR_ABCDE` | 1/32 scan requires 5 address lines |
+| Address lines | not set | The driver derives them from the panel rows and the chip's scan (see the [Wiring Guide](../WiringGuide.md#the-display-block)) |
 | Column clock | 15 system clocks per column at 335 MHz, about 22.3 MHz | No faster than the chip's limit, 25 MHz (the 20 ns pulses cap the 30 MHz rating; the CLK-to-SDO chain limit, 35 + 5 ns, is also 25 MHz) |
 | Minimum /OE pulse | 60 ns | The conservative datasheet figure (`MIN_OE_NS_ICN2037`) |
 | Latch | At the end of the row | No special init sequence needed |

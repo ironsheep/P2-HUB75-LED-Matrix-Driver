@@ -6,25 +6,36 @@ This document provides a comprehensive matrix of all driver chip characteristics
 
 ## Quick Reference Matrix
 
-| Chip | Color | Addr Lines | Scan | R/B Swap | G/B Swap | Init Req | Latch Style | Multi-Panel |
-|------|-------|------------|------|----------|----------|----------|-------------|-------------|
-| **FM6126A** | Pink | ABCD | 1/16 | - | - | **Yes** | Offset+Overlap | ✅ Tested |
-| **FM6124** | Orange | ABCD | 1/16 | - | - | - | Standard | ⚠️ Untested |
-| **FM6124C** | - | ABCDE | 1/32 | - | - | - | Standard | ⚠️ Untested |
-| **ICN2037/BP** | - | ABCDE | 1/32 | **Yes** | - | - | Enclosed | ✅ Tested |
-| **ICN2038S** | - | derived* | being settled* | - | - | Untested | Enclosed | N/A (single-ended) |
-| **MBI5124GP** | Green | ABC | 1/8 | - | - | **Yes** | Enclosed | ✅ Tested (two panels) |
-| **GS6238S** | Cyan | ABCD | 1/16 | - | **Yes** | - | Offset+Overlap | ⚠️ Untested |
-| **DP5125D** | - | ABC | 1/8 | - | - | - | Offset+Overlap | ✅ Tested |
+This table is the one place the project states each panel type's scan, address lines and test status. Other documents link here.
+
+| Panel (chip) | Size | Color | Addr Lines | Scan | R/B Swap | G/B Swap | Init Req | Latch Style | Status |
+|--------------|------|-------|------------|------|----------|----------|----------|-------------|--------|
+| **FM6126A** | 64x32 | Pink | ABCD | 1/16 | - | - | **Yes** | Offset+Overlap | Tested: single panel and a pair (2026-10-09) |
+| **FM6124** | 64x32 | Orange | ABCD | 1/16 | - | - | - | Standard | Tested: single panel (2026-10-09) |
+| **FM6124C** (set as `CHIP_FM6124`) | 64x64 | - | ABCDE | 1/32 | - | - | - | Standard | Tested: single panel (2026-10-10) |
+| **ICN2037/BP** | 128x64 | - | ABCDE | 1/32 | **Yes** | - | - | Enclosed | Tested: a 2x2 of four panels, the author's rig (2026-10-09, 2026-10-10) |
+| **ICN2037/BP** (cube panels) | 64x64 | - | ABCDE | 1/32 | **Yes** | - | - | Enclosed | Panels and chip setting proven before 4.0.0; the 4.0.0 cube layer is not yet run on them (see the list below) |
+| **ICN2038S** | 64x64 | - | ABCD | 1/16 | - | - | - | Enclosed | Tested: single panel (2026-10-10). Single-ended, cannot be chained |
+| **MBI5124GP** | 64x32 | Green | ABC | 1/8 | - | - | **Yes** | Enclosed | Tested: single panel and two chained (2026-10-07, 2026-10-09) |
+| **GS6238S** | 64x32 | Cyan | ABCD | 1/16 | - | **Yes** | - | Offset+Overlap | Tested: single panel (2026-10-09) |
+| **DP5125D** | - | - | ABC | 1/8 | - | - | - | Offset+Overlap | Not run with 4.0.0: no panel on hand |
+
+**Scan follows how a panel is built, not which column-driver chip it uses.** Scan is the number of rows lit at once. Two 64x64 panels here need opposite settings: the ICN2038S road-sign panel lights four rows at once (1/16 scan, 16 row addresses, ABCD) and needs `SCAN_4`; the FM6124C panel lights two rows at once (1/32 scan, 32 row addresses, ABCDE) and must not have it. A panel whose picture shows twice, top to bottom, needs `SCAN_4`. A panel with every other horizontal band dark must not have it. The driver derives the address lines from the panel's rows and that flag ([Wiring Guide](WiringGuide.md#the-display-block)).
+
+### Not yet proven on hardware with 4.0.0
+
+- The 4.0.0 cube layer on six real panels. The panels and their chip setting ran before 4.0.0; the new logic (folding the net into faces, drawing across faces, edges and corners) is proven by its self-test only.
+- More than two quarter-scan (`SCAN_4`) panels in one chain.
+- A second adapter cabled at the same time.
+- DP5125D panels.
 
 The column clock is held to the chip's rated maximum (for the MBI5124GP, to its chain limit), and each half of the clock pulse is at least 20 ns; the ratings are in the table below. A chip with no rating in the driver's table (GS6238S, DP5125D, or a chip set by flags alone) is held to 20 MHz with a 50 ns minimum /OE pulse, and `start()` says so in its startup messages.
 
-The driver has no `CHIP_FM6124C` setting; FM6124C is a variant of FM6124, and `CHIP_FM6124` sets the same flags as `CHIP_MANUAL_SPEC` alone. The chip settings the driver knows are `CHIP_FM6126A`, `CHIP_FM6124`, `CHIP_ICN2037`, `CHIP_ICN2038S`, `CHIP_MBI5124GP`, `CHIP_GS6238S` and `CHIP_DP5125D`, plus `CHIP_MANUAL_SPEC` with flags for a chip not listed.
+The driver has no `CHIP_FM6124C` setting; configure an FM6124C panel as `CHIP_FM6124`, which sets the same flags as `CHIP_MANUAL_SPEC` alone. The chip settings the driver knows are `CHIP_FM6126A`, `CHIP_FM6124`, `CHIP_ICN2037`, `CHIP_ICN2038S`, `CHIP_MBI5124GP`, `CHIP_GS6238S` and `CHIP_DP5125D`, plus `CHIP_MANUAL_SPEC` with flags for a chip not listed.
 
 **Notes:**
 - ICN2037BP is the same chip as ICN2037 in SSOP24-P-150 package
 - Supporting chipsets vary by panel (see detailed sections below)
-- *ICN2038S scan is being settled at the bench. The driver flags the chip `SCAN_4` (four rows lit at once), and it derives the address lines from the panel's rows and that flag ([Wiring Guide](WiringGuide.md#the-display-block)): a 64-row panel gets 64 / 4 = 16 row addresses, 4 lines. If the panel proves to be two rows lit at once, it has 32 row addresses, 5 lines (ABCDE). Until the bench result is recorded here, no scan value is given for this chip and its derived address lines are provisional.
 
 ## Datasheet Clock and /OE Ratings
 
@@ -42,7 +53,7 @@ This table is the one place the project states each chip's datasheet clock and /
 - A 20 ns minimum pulse high and low caps the clock at 25 MHz for every chip in the table.
 - A rated clock is one chip's. Inside a panel, and from one panel to the next, each chip's SDO feeds the next chip's SDI, so a clock period must also cover the slowest CLK-to-SDO delay plus the SDI setup time. MBI5124GP: 50 ns + 3 ns = 53 ns, 18.9 MHz (datasheet pp.9-10, the 3.3 V row, as for its /OE minimum); the driver holds it there. At 22.3 MHz, two chained panels lost or gained red in the first column of each panel on some images, and it flickered. ICN2037: 35 ns + 5 ns = 40 ns, 25.0 MHz; ICN2038S: 30 ns + 5 ns = 35 ns, 28.6 MHz (V2.0 and V1.1 datasheets, switching characteristics); both are at or above the 25 MHz the 20 ns pulses already allow, so neither clock changes. The FM6124 and FM6126A datasheets in `DOCs/` do not give their text to a text extractor, so their CLK-to-SDO delays have not been read (punch list).
 - ICN2037: the V1.1 datasheet and `DOCs/ICN2037/ICN2037-timing.pdf` give a 60 ns minimum /OE pulse; the V2.0 datasheet gives 40 ns. The conservative 60 ns holds. V2.0's transition table (p.8) lists a 35 MHz clock; the rating on its pp.2 and 7, and in V1.1, is 30 MHz, which holds.
-- ICN2038S: the datasheet has FM6126A-style register commands. Whether the panels need them is untested.
+- ICN2038S: the datasheet has FM6126A-style register commands. The road-sign panel gives a correct picture without them.
 - MBI5124GP: the driver uses the 3.3 V figure, 50 ns, as its minimum /OE pulse. Typical and maximum /OE pulse widths are in the timing table in its section below (MBI5124GP-B_C datasheet, pp.9-10).
 - The driver's values are `MIN_CLK_PULSE_NS`, `RATED_CLK_HZ_*`, `MAX_CLK_HZ_*` and `MIN_OE_NS_*` in `isp_hub75_rgb3bit.spin2`; the table above is what those constants hold.
 
@@ -65,7 +76,7 @@ This table is the one place the project states each chip's datasheet clock and /
 | Init Required | **Yes** | Special power-up sequence |
 | Latch Style | Offset | |
 | Latch Position | Overlap | |
-| Multi-Panel | **Tested** | Works in chains |
+| Status | See the [Quick Reference Matrix](#quick-reference-matrix) | |
 | 4.0.0 refresh core | **Verified**, one panel | 85.1 Hz at 8-bit, 688.9 Hz at 5-bit; overlapped latch, init sequence run (2026-10-05) |
 
 **On-Board Chips:**
@@ -102,7 +113,7 @@ CHIP_MANUAL_SPEC | LAT_STYLE_OFFSET | LAT_POSN_OVERLAP | INIT_PANEL_REQUIRED
 | Init Required | No | Simpler than FM6126A |
 | Latch Style | Standard | |
 | Latch Position | Standard | |
-| Multi-Panel | Untested | Expected to work |
+| Status | See the [Quick Reference Matrix](#quick-reference-matrix) | |
 | 4.0.0 refresh core | **Verified**, one panel | 85.3 Hz at 8-bit, 694.1 Hz at 5-bit; the 30 ns /OE floor shown at brightness 1 (2026-10-05) |
 
 **On-Board Chips:**
@@ -135,20 +146,20 @@ CHIP_MANUAL_SPEC
 |------|-------|
 | Pixel Pitch | 3mm (P3) |
 | Resolution | 64×64 pixels |
-| Scan Mode | 1/32 scan |
+| Scan Mode | 1/32 scan, two rows lit at once |
 | Interface | HUB75 |
 
 | Characteristic | Value | Notes |
 |----------------|-------|-------|
 | Address Lines | ABCDE (5) | 32 row addressing (64×64 panel) |
-| Scan Rate | 1/32 | Full scan |
+| Scan Rate | 1/32 | Two rows lit at once; with `SCAN_4` it shows every other horizontal band dark |
 | Max Clock | 30 MHz | Same as FM6124 (the driver has no FM6124C setting, so it has no rating of its own for this chip) |
 | R/B Swap | No | |
 | G/B Swap | No | |
 | Init Required | No | Same as FM6124 |
 | Latch Style | Standard | |
 | Latch Position | Standard | |
-| Multi-Panel | Untested | Expected to work |
+| Status | See the [Quick Reference Matrix](#quick-reference-matrix) | |
 
 **On-Board Chips:**
 | Chip | Function | Details |
@@ -165,6 +176,8 @@ CHIP_MANUAL_SPEC
 ```spin2
 CHIP_MANUAL_SPEC
 ```
+
+Configure the panel as `CHIP_FM6124` (the driver has no FM6124C setting). Do not set `SCAN_4`.
 
 **Notes:**
 - FM6124C is a variant of FM6124 from Fuman Electronics
@@ -202,7 +215,7 @@ CHIP_MANUAL_SPEC
 | Init Required | No | |
 | Latch Style | Enclosed | Latch at end |
 | Latch Position | Standard | |
-| Multi-Panel | **Tested** | Works in chains and 2D grids |
+| Status | See the [Quick Reference Matrix](#quick-reference-matrix) | |
 | 4.0.0 refresh core | **Verified**, four 128x64 panels | 71.0 Hz at 8-bit to 193.3 Hz at 3-bit (the author's rig; 2026-10-04) |
 
 **On-Board Chips (128×64 panels):**
@@ -233,7 +246,7 @@ CHIP_MANUAL_SPEC | RB_SWAP
 ```
 
 **Notes:**
-- Primary chip for multi-panel displays. Tested extensively in chains and grid configurations.
+- Both panel sizes use the same chip setting, `CHIP_ICN2037`. Their test status is in the [Quick Reference Matrix](#quick-reference-matrix).
 - ICN2037BP is same as ICN2037 in SSOP24-P-150 package
 - **128×64 panels:** Use 74HC245TS + 74HC04D + RUC7258D (Ruichips row driver)
 - **64×64 Cube panels:** Use MW245B + TC7262BJ (same supporting chipset as Cyan/GS6238S panels)
@@ -246,16 +259,16 @@ CHIP_MANUAL_SPEC | RB_SWAP
 
 | Characteristic | Value | Notes |
 |----------------|-------|-------|
-| Address Lines | Derived | Worked out at startup from the panel rows and the scan (provisional: 4 lines for a 64-row panel while `SCAN_4` is set; 5 if the panel proves two rows lit at once) |
-| Scan Rate | Being settled at the bench | The driver sets the `SCAN_4` flag (four rows lit at once). See the note under the Quick Reference Matrix |
+| Address Lines | ABCD (4) | 16 row addressing; the driver derives the 4 lines from the panel's 64 rows and `SCAN_4` |
+| Scan Rate | 1/16 | Four rows lit at once, set by the `SCAN_4` flag; without it the picture repeats twice, top to bottom |
 | Max Clock | 30 MHz rated; 25 MHz cap | 20ns min pulse high and low caps the clock at 25 MHz |
 | Min /OE Pulse | 40 ns | |
 | R/B Swap | No | **Different from ICN2037** |
 | G/B Swap | No | |
-| Init Required | Untested | The datasheet has FM6126A-style register commands; whether the panels need them is untested |
+| Init Required | No | The datasheet has FM6126A-style register commands; the panel gives a correct picture without them |
 | Latch Style | Enclosed | |
 | Latch Position | Standard | |
-| Multi-Panel | N/A | Single-ended panel (no daisy-chain by construction) |
+| Multi-Panel | N/A | Single-ended panel (no daisy-chain by construction). Test status: see the [Quick Reference Matrix](#quick-reference-matrix) |
 
 **Driver Flags:**
 ```spin2
@@ -263,9 +276,8 @@ CHIP_MANUAL_SPEC | SCAN_4
 ```
 
 **Notes:**
-- Similar to ICN2037 but with **no R/B swap**, and the driver flags it `SCAN_4` (four rows lit at once); whether the flag is right is being settled at the bench (see the note under the Quick Reference Matrix)
+- Similar to ICN2037 but with **no R/B swap**, and the driver flags it `SCAN_4` (four rows lit at once); scan follows how the panel is built (see the note under the Quick Reference Matrix)
 - Commercial all-weather panel, single-ended construction
-- Working in production road-sign display application
 
 ---
 
@@ -294,7 +306,7 @@ CHIP_MANUAL_SPEC | SCAN_4
 | Init Required | **Yes** | The driver writes each chip's configuration register at start (below) |
 | Latch Style | Enclosed (special) | Different from standard |
 | Latch Position | End-enclosed | |
-| Multi-Panel | **Tested**, two panels | Two panels chained end to end run as one 128x32 display (2026-10-07) |
+| Status | See the [Quick Reference Matrix](#quick-reference-matrix) | Two panels chained end to end run as one 128x32 display |
 | 4.0.0 refresh core | **Verified**, one and two panels | At the 18.6 MHz chain clock: one panel 71.2 Hz at 8-bit, 582.7 Hz at 5-bit; two chained 70.9 Hz at 8-bit, 292.1 Hz at 5-bit (2026-10-07, measured). Configuration register written at start |
 
 **On-Board Chips:**
@@ -311,11 +323,11 @@ CHIP_MANUAL_SPEC | SCAN_4
 
 **Driver Flags:**
 ```spin2
-CHIP_MANUAL_SPEC | SCAN_4 | INIT_PANEL_REQUIRED
+CHIP_MANUAL_SPEC | CHIP_UNK_LAT_END_ENCL | SCAN_4 | INIT_PANEL_REQUIRED
 ```
 
 **Notes:**
-- Its latch and clock timing come from the chip name itself: the refresh core treats `CHIP_MBI5124GP` specially, so a `CHIP_MANUAL_SPEC | flags` value cannot stand in for it
+- `CHIP_UNK_LAT_END_ENCL` is a chip number, not a flag: it lands in the chip byte, which the refresh core does not read as flags. The latch and clock timing come from the chip name itself (the refresh core treats `CHIP_MBI5124GP` specially), so a `CHIP_MANUAL_SPEC | flags` value cannot stand in for it
 - 1/8 scan creates complexity for multi-panel
 - MBI5124 has built-in ghosting elimination (pre-charge circuit)
 - Panel has both input and output HUB75 connectors (daisy-chain capable hardware)
@@ -339,8 +351,7 @@ CHIP_MANUAL_SPEC | SCAN_4 | INIT_PANEL_REQUIRED
 | Init Required | No | |
 | Latch Style | Offset | |
 | Latch Position | Overlap | |
-| Single Panel | Verified | 64x32, 8-bit, with 4.0.0 (2026-10-09) |
-| Multi-Panel | Untested | |
+| Status | See the [Quick Reference Matrix](#quick-reference-matrix) | Identify, colour and scroll correct at 8-bit; clock held to 20 MHz |
 
 **On-Board Chips:**
 | Chip | Function | Details |
@@ -376,7 +387,7 @@ CHIP_MANUAL_SPEC | LAT_STYLE_OFFSET | LAT_POSN_OVERLAP | GB_SWAP
 | Init Required | No | |
 | Latch Style | Offset | |
 | Latch Position | Overlap | |
-| Multi-Panel | **Tested** | Working in multi-panel use (README chip table) |
+| Status | See the [Quick Reference Matrix](#quick-reference-matrix) | |
 
 **Driver Flags:**
 ```spin2
@@ -624,11 +635,9 @@ For successful multi-panel daisy-chaining:
 3. **Latch Synchronization**: All panels must latch simultaneously
 4. **Initialization**: If init required, each panel may need individual init
 
-### Known Working Configurations
-- FM6126A (Pink): Chains tested
-- ICN2037: Chains and 2D grids tested
-- MBI5124GP (Green): two panels chained end to end tested, with the clock held to the chain limit
-- DP5125D: working in multi-panel use (README chip table)
+### Tested Configurations
+
+Which panels and chains have run on hardware is stated once, in the [Quick Reference Matrix](#quick-reference-matrix). The MBI5124GP chain runs with the clock held to the chain limit.
 
 ---
 

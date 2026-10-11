@@ -329,3 +329,35 @@ Each hand-back adds one dated entry with three parts: tree state (scoped to
 - Demo builds carry about 9.5 KB of debug data from the driver's own objects (`demo_hub75_text` 9,488, `color` 9,657, `scroll` 9,535 bytes).
 
 **Steps completed:** FM6126A pair and single, GS6238S, quad scroll recheck and full self-test. Panel certification by eye complete for every panel on hand.
+
+### 2026-10-10 — CONFIG-SIMPLIFICATION bench visit: quad, road sign, startup messages, flexspin («#139»)
+
+**Tree:** `acc1743` plus the one-panel fix below (uncommitted during the visit). Config edits were made in scratch copies of `driver/` (scratchpad `b7/`, `b8/`, `eye/`); the shipped config was not edited. Scratch logs copied to `driver/logs/scratch-cfg-<case>-headless_*.log`.
+**Rig:** quad (2 x 2 of 128x64 ICN2037) on the P16 adapter, then the ICN2038S road-sign panel on the same adapter; `-p Parw7ukt`, 335 MHz.
+
+**B-2, rates and self-tests** (`test_hub75_rates`, 8-bit, `driver/logs/headless_261010-211250.log`): colour table PASS (4,352 entries); row run PASS, 1,060 cases (636 at 4.0.0: the T and Z layouts added, 4 rotations x 4 arrows each; the plus is skipped, it needs 5 panels); scroll oracle PASS (15 frames); handshake PASS; take check PASS (1,541 of 1,541). Against the 4.0.0 recheck (`headless_261009-204326`):
+
+| | Refresh | Commit | Fill | Lines | Text | BMP |
+|---|---|---|---|---|---|---|
+| 4.0.0 | 71.0 Hz | 4,087 us | 4,685 us | 12,743 us | 24,474 us | 3,806 us |
+| now | 71.0 Hz | 4,087 us | 4,685 us | 12,776 us | 24,466 us | 3,820 us |
+
+Largest change +0.37% (BMP): the table-base reads in the hot path cost nothing measurable. Fail limb (`-D HUB75_CORRUPT_PIXEL_ADDRESS`, `-211947`): all 80 address-rule lines FAIL, `ROW RUN FAIL: 1_100 failed`.
+
+**B-1, identify first** (`demo_hub75_numberPanels`): starter list `ROW_0 | COL_k | TOP_UP` passed the startup checks (`scratch-cfg-b1start-*`). Stephen read the wall: top-left C2 arrow down, top-right C3 down, bottom-left C0 down, bottom-right C1 down. Those give `ROW_1|COL_0`, `ROW_1|COL_1`, `ROW_0|COL_0`, `ROW_0|COL_1`, all `TOP_DOWN`: the shipped list. With it (`headless_261010-222958`), Stephen: "all correct" (P0-P3 in reading order, arrows up).
+
+**B-3, mounting override** (`#DEFINE DISP0_ROTATED`, `DISP0_ROTATION = hwEnum.TOP_TO_BOTTOM`, `demo_hub75_text`, `scratch-cfg-b3-*`): the startup picture unchanged, P0 = C1; Stephen: "that 180 rotated".
+
+**B-4 / B-5, ICN2038S scan** (one 64x64 panel, `demo_hub75_numberPanels`): `CHIP_ICN2038S` (`SCAN_4`, 16 row addresses, 128 column clocks; `scratch-cfg-b4hi-*`): whole panel red, arrow up, "C0" and "P0" correct; panel draws 18.3 W, 3.6 A; its HUB75 and power connectors are on its right edge (one of each). `CHIP_MANUAL_SPEC` without `SCAN_4` (32 row addresses; `scratch-cfg-b5hi-*`): "the text replicated twice vertically". **The driver's `SCAN_4` for this chip is right**: four rows lit at once, 16 row addresses, ABCD. The docs' ABCDE was wrong. The first B-4 and B-5 loads drove the P0-P15 adapter (taken from Configuration 12's table) while the panel was on P16-P31; the panel stayed dark; those loads are not results.
+
+**FM6124C 64x64 (`P3-HS23011030-600`, one panel; added at Stephen's offer, same adapter):** `CHIP_FM6124` (32 row addresses, 64 column clocks, 22.3 MHz, model 84.7 Hz; `scratch-cfg-fm24c-*`): Stephen: "perfect display". `CHIP_MANUAL_SPEC | SCAN_4` (16 addresses; `scratch-cfg-fm24c4-*`): numbering four horizontal bands 0-3 top to bottom, bands 1 and 3 black. The matrix's 1/32 scan, ABCDE is right; first run of this panel with 4.0.0. With the road sign, two 64x64 panels on hand need different scan settings: scan follows the panel's construction, not the column-driver chip.
+
+**Defect found at B-4, fixed:** a one-panel list stopped startup with `HUB75: DISP0 C0: is in the same cell as C0`. `checkPlacement()` and `checkTopAxes()` looped `repeat cablePos from 1 to panelCount - 1`; Spin2 counts down when the end is below the start, so one panel ran positions 1 and 0, comparing C0 with itself (and the axes check read one sentence past the list). Both loops now run only for two or more panels. Every earlier case had two or more panels.
+
+**B-7, startup messages** (`demo_hub75_text`, one scratch config each per `DOCs/bench/CFGSIMP-MESSAGE-CONFIGS.md`, `scratch-cfg-M*`, `-N1`, `-CUBEOK`): M1-M18 and N1 printed exactly the catalogue's text, each followed by the count line (M15 and M16 together: 2 problems). M17, M18, N1 and the passing cube used six 64x64 panels in a scratch config on the quad (the checks run; the picture is not meaningful). The sheet's M6 edit (eight 128x64 panels) does not compile: `Program requirement exceeds 512KB hub RAM by 258188 bytes`; M6 was produced with five 128x16 panels.
+
+**B-8, Wiring Guide examples** (`demo_hub75_numberPanels`, each example's config and each common mistake as a scratch config, `scratch-cfg-ex*`): all 13 mistake transcripts equal the guide's text; the seven startup pictures captured. Example 3 is the quad's own list; examples 1, 2 and 4-7 were scratch layouts (example 4's cabling is not the quad's).
+
+**B-6, flexspin** (`/Applications/flexprop/bin/flexspin.mac`, 5.9.21, Dec 2022; Stephen: the one to run): refuses 4.0.0 and this tree alike: `isp_hub75_hwEnums.spin2:38: error: Bad constant expression` (the `#STEP[STEP]` enums) and `isp_hub75_display.spin2:310: error: syntax error, unexpected identifier 'with'`. With the enum steps made literal in a scratch copy, the config object compiles but its storage is 90,164 bytes against pnut-ts's 360,448: in a DAT with no `ORGH`, flexspin gives a label difference in longs (probe: `listEnd - list` = 4 for four longs; pnut-ts 16). One `ORGH` at the DAT's start makes flexspin give 16; the pnut-ts binary of the probe is byte-identical with and without it. Disposition: Stephen's (D-12).
+
+**Steps completed:** B-1 to B-5, B-7, B-8 on the rig; B-6 measured on the host.
