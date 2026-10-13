@@ -4,6 +4,26 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 
 ## Active
 
+### Why does the refresh have a line-buffer limit at all? (question; Stephen 2026-10-13)
+
+- **Asked:** at the CONFIG-SIMPLIFICATION closeout, after the 4.0.0 ChangeLog was corrected to state the limit: *"an issue for later (punch-list for now) is why do we have any limit (512)"*.
+- **What it is today:** the refresh core holds one row of the whole chain in a line buffer of `LINE_BUFFER_BYTES` = 512 (`driver/isp_hub75_hwBufferAccess.spin2`, CON near :47); `LINE_BUFFER_MAX_COLUMNS` follows from it, and `checkPanelLimit()` stops startup (message M6) when one adapter's panels, added along the cable and doubled for `SCAN_4`, pass it. Stated to users in ChangeLog 4.0.0 (Improvements, Breaking Changes) and `DOCs/WiringGuide.md#driver-limits`.
+- **Known:** the buffer is in the refresh cog's own RAM, 128 longs (`MAX_COG_BUFFER_SIZE_IN_LONGS`, `driver/isp_hub75_rgb3bit.spin2:184`, reserved at :1244), so cog RAM space, not hub RAM, is what it competes for.
+- **Not known:** why the refresh needs a whole row in cog RAM rather than streaming it from hub, how much cog RAM is free beside it, and what a longer chain costs in refresh rate. Answer from the refresh core before proposing a change.
+- **Bears on:** the largest display one adapter can drive; the ChangeLog and Wiring Guide limit statements, which change with it.
+
+### flexspin: measure the latest release against the tree (Stephen 2026-10-13; after the `.md` rework)
+
+- **Found:** bench B-6, 2026-10-10 (`DOCs/bench/RUN-NOTES.md`): flexspin 5.9.21 (Dec 2022) refuses the tree at the stepped enums (`isp_hub75_hwEnums.spin2:38`, `#STEP[STEP]`) and `repeat ... with` (`isp_hub75_display.spin2:310`). The storage-sizing difference it also showed is fixed (`@` labels, `bff8507`).
+- **Next:** once the `.md` rework is done, Stephen installs the latest flexspin; build one demo with it and record the exact result. Then decide: accept pnut-ts only (ChangeLog 4.0.0 Known Issues already says so for 5.9.21) or change the two features. Until then the ChangeLog line stands as written.
+- **Bears on:** ChangeLog Known Issues; who can build the driver.
+
+### Row-run self-test: the plus layout has never run (gap in a test; Stephen 2026-10-13)
+
+- **What:** `test_hub75_rates.spin2` relays the display over a plus layout as well as the Ls, T and Z (`plus` sentence list near :463), but runs a layout only when its panel count equals the rig's; the quad has 4 panels, the plus needs 5. Bench B-2 (2026-10-10): 1,060 row-run cases PASS, plus skipped.
+- **Run it:** the next time the six-panel ICN2037 cube rig is set up, together with the cube-layer run already on the Chip Matrix's not-yet-proven list. Five of the six panels cabled as a plus.
+- **Bears on:** nothing users are told: ChangeLog 4.0.0 claims only rows, grids, L, T and Z.
+
 ### Turn the process documents into user documentation, then stop publishing them (scope; Stephen 2026-10-10, not this sprint)
 
 - **What:** `DOCs/plans/`, `DOCs/analysis/` and `DOCs/bench/` are tracked and record how the project is built. Some of what they hold would help users, but not in its present form: the analyses' findings (chip timing, refresh and frame-rate measurements, the audits' conclusions) and the bench techniques (how a configuration is checked on a rig, run sheets, what each measurement shows).
@@ -39,13 +59,6 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 - **What:** the refresh core floors the lit unit L (`L = T x b / 256`) at the chip's minimum /OE pulse once per frame (`driver/isp_hub75_rgb3bit.spin2`, the `fge litUnitClocks, minOeClocks` at frame start), and every plane scales from L. On the quad at 8-bit (ICN2037, 60 ns) that floor is about 4% of full brightness, so settings 1-11 give the same light. This is the designed behaviour, and `setBrightness` documents it.
 - **Option on record:** floor each plane separately (lit = max(2^k x L, minimum /OE)), two instructions per plane outside the shift. Brightness would keep falling to about 0.4% at setting 1 (calculated); the cost is that the darkest colours' low bits are over-weighted at the lowest settings.
 - **Bears on:** use of the very bright panels in dark rooms.
-
-### ICN2038S scan setting contradicts its address lines (RESOLVED 2026-10-10 at the bench: `SCAN_4` is right, 16 row addresses, ABCD; the docs' ABCDE was copied from the 64x64 ICN2037BP description. `DOCs/bench/RUN-NOTES.md`, 2026-10-10)
-
-- **Found:** 2026-10-01, while writing the THEOPS glossary's scan entry («#68»).
-- **What:** `getDriverFlags()` gives `CHIP_ICN2038S` the `SCAN_4` flag (`driver/isp_hub75_hwBufferAccess.spin2`, the ICN2038S branch), and `DOCs/ChipCharacteristicsMatrix.md` (ICN2038S section) and `DOCs/AuthorTestConfigurations.md` (Configuration 12) call it 1/8 scan. But the same docs describe it as a 64×64 panel with `ADDR_ABCDE`, which is 32 row addresses: 64 ÷ 32 = 2 rows lit at once (1/32 scan). `SCAN_4` selects the four-rows-at-once frame-set layout (`convertScreen2PWM_14()` in `driver/isp_hub75_panel.spin2`, chosen in `commitScreenToPanelSet()` in `driver/isp_hub75_display.spin2`) and doubles the columns the refresh core shifts per row address. Either the flag, the address-line setting or the panel description is wrong.
-- **Not known:** which of the three is wrong. The docs say this panel works in a production road-sign display, so the code may be right and the description wrong.
-- **Bears on:** the limits table (§11, «#82») and the scan-term switch in the other docs («#85»). Settle it before «#85» writes a scan value for this chip.
 
 ### Panel-centric clipping looks up the panel for every pixel on diagonal lines (efficiency, not measured)
 

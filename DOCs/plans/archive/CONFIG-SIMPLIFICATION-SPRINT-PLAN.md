@@ -1,5 +1,9 @@
 # CONFIG-SIMPLIFICATION sprint plan (re-cut of 4.0.0)
 
+> **CLOSED 2026-10-13.** Plan certified complete; audit, exit baseline and carryover in
+> [`2026-10-13-CONFIG-SIMPLIFICATION-Sprint-Closeout.md`](2026-10-13-CONFIG-SIMPLIFICATION-Sprint-Closeout.md).
+> 4.0.0 re-released (tag `v4.0.0` at `de8ad7d`).
+
 **Goal.** The user states only the essential facts about the hardware they have, and nothing
 about hardware they do not have. 4.0.0 is not yet public, so the configuration is re-cut before it
 ships: code and every user-facing `.md` updated, certified on the quad (and the road-sign panel),
@@ -386,7 +390,24 @@ survey.
 
 ## Revisions
 
-(none)
+Logged at closeout (2026-10-13); each was made during the sprint and is recorded here so the plan
+matches what shipped.
+
+- **§4 `getDriverFlags`, MBI5124GP (bench, 2026-10-10, `bff8507`).** The respelling without
+  `CHIP_UNK_LAT_END_ENCL` was made in «#132», then restored at the bench to the 4.0.0 value certified
+  on its panels: the change had no effect (the value lands in the chip byte, which the refresh core
+  does not read as flags) and no reason. Touches `getDriverFlags`, `hwEnums` :87 and the Chip
+  Matrix's MBI5124GP notes. Does not admit any other chip-flag change. §11's "MBI5124GP flag fix"
+  falls with it; the ChangeLog does not claim one.
+- **§4 design as built («#132»).** The one-piece walk and duplicate-cell check compare sentences
+  directly (no grid); the startup picture wraps at 96 characters instead of sizing a line for the
+  widest grid. Recorded under §4 "Design notes as built".
+- **§4 one-panel defect (bench B-4, 2026-10-10, `bff8507`).** `checkPlacement()` and
+  `checkTopAxes()` now run only for two or more panels (a one-panel list stopped startup).
+- **§12 runs B-7 and B-8.** Named by §4 and §10 and by the «#139» task, but not in §12's table:
+  B-7 produced each startup message from its scratch config; B-8 captured the Wiring Guide's
+  pictures. B-7's M6 config was five 128x16 panels (eight 128x64 exceed hub RAM).
+- **§0 D-15.** The table runs to D-15 (scope) although the text says D-1..D-14.
 
 ## Tasks (sprint tag `cfgsimp`)
 

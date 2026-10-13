@@ -16,7 +16,7 @@ Each configuration below is a complete block for the user section of the file, r
 | 9 | P2.5-16S-V1.0 | **Cyan** | 64×32 | GS6238S | P16-P31 | G/B swapped |
 | 10 | P2-2020210240-200 | - | 64×64 | ICN2037 | P16-P31 | P2 Cube FLAT, R/B swapped |
 | 11 | P2-1515-128X64-32S-S2 | - | 128×64 | ICN2037 | P16-P31 | LARGE panels, R/B swapped |
-| 12 | (road-sign panel) | - | 64×64 | ICN2038S | P0-P15 | Single-ended |
+| 12 | (road-sign panel) | - | 64×64 | ICN2038S | P16-P31 | Single-ended |
 
 Scan, address lines and test status for each of these: see the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix).
 
@@ -358,7 +358,7 @@ This creates a 256×128 pixel display (32,768 total pixels). [Example 3](WiringG
 **Configuration** (one panel; the panel is single-ended, so there is one sentence):
 ```spin2
 CON
-    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P0_P15
+    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
     DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2038S
     DISP0_PANEL_COLUMNS     = 64
     DISP0_PANEL_ROWS        = 64

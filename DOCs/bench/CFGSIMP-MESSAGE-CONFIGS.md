@@ -3,7 +3,7 @@
 Each row is one edit to a **scratch copy** of `driver/isp_hub75_hwPanelConfig.spin2` (the shipped quad
 config: DISP0, ICN2037, 128x64, four panels). Build `demo_hub75_text.spin2` with `-d` against the
 edited copy, run it on the LED rig (PropPlug Parw7ukt), and record the startup lines. Each must print
-its message (catalogue in `DOCs/plans/CONFIG-SIMPLIFICATION-SPRINT-PLAN.md` §4, M1-M18) and then
+its message (catalogue in `DOCs/plans/archive/CONFIG-SIMPLIFICATION-SPRINT-PLAN.md` §4, M1-M18) and then
 `HUB75: DISP0: E problem(s) above; startup stopped`. Restore the shipped file afterwards.
 
 Only one row per build. "List" means the four `LONG` lines of `disp0Panels`.

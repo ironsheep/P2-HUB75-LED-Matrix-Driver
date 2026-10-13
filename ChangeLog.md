@@ -15,7 +15,7 @@ Full 8-bit color at flicker-free refresh rates, displays of any panel layout inc
 - **Panel list**: each display lists its panels in cable order, one `LONG` sentence per panel naming its row, column and top: `hwEnum.ROW_1 | hwEnum.COL_0 | hwEnum.TOP_DOWN`. Rows, grids, L, T and Z shapes work ([Wiring Guide](DOCs/WiringGuide.md))
 - **Identify screen**, `demo_hub75_numberPanels.spin2`, labels each panel with its cable position, panel position and arrow; run it first and copy each panel's place from the wall
 - **Startup check**: a configuration mistake prints one `HUB75:` line naming the panel or setting and stops; a correct list prints the grid it derived ([messages](DOCs/WiringGuide.md#startup-messages))
-- **Cube display**: mark one panel `hwEnum.CUBE_TOP` and another `hwEnum.CUBE_FRONT` to fold six square panels into a cube; `drawFacePixel()`, `drawFaceLine()`, `drawFaceBox()`, `drawFaceCircle()`, `drawFaceTextAtRC()` and `scrollFaceTextAtRC()` cross all 12 edges
+- **Cube display**: mark one panel `hwEnum.CUBE_TOP` and another `hwEnum.CUBE_FRONT` to fold six square panels into a cube; `drawFacePixel()`, `drawFaceLine()`, `drawFaceBox()`, `drawFaceCircle()`, `drawFaceTextAtRC()` and `scrollFaceTextAtRC()` cross all 12 edges. The fold is checked without panels by `test_hub75_cube_fold.spin2`; it has not yet run on six real panels ([not yet proven](DOCs/ChipCharacteristicsMatrix.md#not-yet-proven-on-hardware-with-400))
 - **Mounting override**: `#DEFINE DISPx_ROTATED` with `DISPx_ROTATION = hwEnum.TOP_TO_RIGHT`, `TOP_TO_BOTTOM` or `TOP_TO_LEFT` turns the whole display without changing its panel list
 - `DISPx_TARGET_REFRESH_HZ` (default 60, switched on by `#DEFINE DISPx_REFRESH_GIVEN`) sets the refresh rate to aim for; a display that cannot reach it runs at its fastest rate and prints it
 - `display.setBrightness()` and `display.getBrightness()` dim by lit time, so the image keeps its full color depth and refresh rate at any brightness
@@ -28,7 +28,7 @@ Full 8-bit color at flicker-free refresh rates, displays of any panel layout inc
 ### Improvements
 
 - **Address lines are derived** from the panel rows and the chip's scan; a configuration no longer states them
-- **Hub RAM is the only limit on panel count**: buffers are sized from each display's panel list, so a display that does not fit fails to compile, and a display with no panels reserves no memory
+- **No fixed panel count**: buffers are sized from each display's panel list, so a display that does not fit in hub RAM fails to compile, and a display with no panels reserves no memory. One adapter's panels, added along the cable, are at most 512 column clocks; startup names a display past it ([Driver limits](DOCs/WiringGuide.md#driver-limits))
 - **Default color depth is 8-bit**, full 24-bit color
 - **Drawing speed**: lines, boxes, circles, text, fills and BMPs are drawn from address tables built at startup, with the pixel writes in PASM
 - **Scrolling** moves the region one place and draws only the new edge; a full-width text line steps in 1.3 ms sideways on the four-panel rig
@@ -68,7 +68,7 @@ The [Update to v4.0 Checklist](Checklist-v3-v4.md) converts a v3.x program step 
 - **BREAKING**: `panelsPerRow()`, `panelsPerColumn()`, `correctedColor()`, `correctedSingleColor()` and `colorAtDesiredBitWidth()` are removed from `isp_hub75_hwBufferAccess.spin2`, and `panelRotation()` is `displayRotation()`. Programs that draw through the display object need no change.
 - **BREAKING**: `hub75Bffrs.pwmFrameCount()` and the `PWM_FRAMES_3BIT` to `PWM_FRAMES_8BIT` constants are removed: the refresh no longer shows PWM frames. For the color depth, call `hub75Bffrs.colorDepth()`.
 - **BREAKING**: `CLK_WIDE_PULSE` is removed; it had no effect. A config that ORs it onto `CHIP_MANUAL_SPEC` does not compile until it is taken out.
-- **BREAKING**: panels must be a multiple of 4 columns wide (`DISPx_PANEL_COLUMNS`), and one row of panels along the cable is at most 512 columns. Every common panel width is a multiple of 4; startup names any setting outside these limits.
+- **BREAKING**: panels must be a multiple of 4 columns wide (`DISPx_PANEL_COLUMNS`), and one adapter's panels, added along the cable, are at most 512 column clocks (a `SCAN_4` panel counts each of its columns twice). Every common panel width is a multiple of 4; startup names any setting outside these limits.
 
 ### Performance
 
