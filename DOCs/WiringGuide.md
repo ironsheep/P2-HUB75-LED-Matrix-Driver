@@ -2,7 +2,7 @@
 
 How to tell the driver which panels you have, where each one sits and which way each one's top points: the per-display settings, the panel list, the identify screen that lets you fill the list in from the wall, the mounting override, the cube, the limits of the driver, every message the driver prints when a configuration is wrong, and seven worked examples.
 
-Pages: [README](../README.md) | [Driver Details](../THEOPS.md) | [Multi-Panel Configuration](MultiPanelConfiguration.md)
+Pages: [README](../README.md) | [Driver Details](../THEOPS.md) | [Troubleshooting](Troubleshooting.md)
 
 Within this page:
 
@@ -350,7 +350,32 @@ Notes on the table:
 
 ### Hub RAM
 
-One panel of P pixels at colour depth N takes **P x (3 + N) bytes**: the screen buffer (3 bytes per pixel) plus two PWM frame sets (N x P / 2 bytes each). The compiler builds the buffers of every display that is present into the same program, so they share what is left of the 512 KB hub RAM. A display that is not present has a zero-length panel list and costs nothing. A display too big for hub RAM does not compile.
+One panel of P pixels at colour depth N takes **P x (3 + N) bytes**: the screen buffer (3 bytes per pixel) plus two PWM frame sets (N x P / 2 bytes each). The compiler builds the buffers of every display that is present into the same program, so they share what is left of the 512 KB hub RAM. A display that is not present has a zero-length panel list and costs nothing. A display too big for hub RAM does not compile. The buffers hold the panels in use, not the display's bounding box: an L shape holds no memory for its hole.
+
+The colour depth sets the number of colours, the bytes each pixel costs and the bit planes in each PWM frame set (the depth is the number of bit planes):
+
+| Depth | Colours (2 to the power 3 x depth) | Bytes per pixel (3 + depth) | Bit planes per frame set |
+|---|---|---|---|
+| `DEPTH_3BIT` | 512 | 6 | 3 |
+| `DEPTH_4BIT` | 4,096 | 7 | 4 |
+| `DEPTH_5BIT` | 32,768 | 8 | 5 |
+| `DEPTH_6BIT` | 262,144 | 9 | 6 |
+| `DEPTH_7BIT` | 2,097,152 | 10 | 7 |
+| `DEPTH_8BIT` | 16,777,216 | 11 | 8 |
+
+The buffers of some single-adapter arrangements (screen buffer and the two PWM frame sets; the layout tables, a few bytes per panel, are not counted), at 8 and 5 bits:
+
+| Arrangement | Panel size | Panels | Total pixels | 8-bit buffers | 5-bit buffers |
+|---|---|---|---|---|---|
+| 1 x 1 | 64x64 | 1 | 4,096 | 45,056 bytes (44 KB) | 32,768 bytes (32 KB) |
+| 1 x 1 | 128x64 | 1 | 8,192 | 90,112 bytes (88 KB) | 65,536 bytes (64 KB) |
+| 2 x 1 or 1 x 2 | 128x64 | 2 | 16,384 | 180,224 bytes (176 KB) | 131,072 bytes (128 KB) |
+| 2 x 2 or 4 x 1 | 128x64 | 4 | 32,768 | 360,448 bytes (352 KB) | 262,144 bytes (256 KB) |
+| 3 x 2 | 64x64 | 6 | 24,576 | 270,336 bytes (264 KB) | 196,608 bytes (192 KB) |
+| 4 x 2 | 64x64 | 8 | 32,768 | 360,448 bytes (352 KB) | 262,144 bytes (256 KB) |
+| 8 x 1 | 64x32 | 8 | 16,384 | 180,224 bytes (176 KB) | 131,072 bytes (128 KB) |
+
+The table is what the buffers need, not what is free: your program takes some of the 512 KB, and the adapters share it.
 
 Measured with the largest demo (`demo_hub75_7seg.spin2`) and five 128x64 panels at 8-bit (450,560 bytes of buffers): built with DEBUG (`pnut-ts -d`) it fails with `Program requirement exceeds 512KB hub RAM by 8684 bytes`, so a DEBUG build leaves **441,876 bytes** for buffers; built without DEBUG it compiles (508,492 bytes in all), leaving about 466,000 bytes. Your own program's size moves these figures, so the compiler's report for your build is the authority.
 
