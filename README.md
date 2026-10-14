@@ -15,6 +15,8 @@ The P2 HUB75 Driver is available from a couple of sources:
 
 ```
 Latest Updates:
+13 Oct 2026
+- The documentation gives each topic one page: new Quick Start, Troubleshooting, Testing and Measurement and Roadmap pages; the driver is unchanged
 11 Oct 2026
 - Full 8-bit color is the default, refreshing at a target rate you set (`DISPx_TARGET_REFRESH_HZ`, default 60 Hz); the author's four-panel rig runs at 71 Hz
 - Describe any panel layout (rows, grids, L shapes) with one short sentence per panel; startup checks the sentences and names any mistake
@@ -28,11 +30,6 @@ Latest Updates:
 - ICN2037_B was renamed to ICN2038S
 - MBI5124_8S was renamed to MBI5124GP
 - Rearranged user configurable files in order to support many more total pixels (now 64k) in a display.
-10 Nov 2022
-- Convert initialization: enable support for up to three hub75 cards!
-- Rename demo's, add two more demo's
-- Upgrade scrolling, now supports up/down/right/left!
-- Added support for New Panel (same chip as ICN2037 but different setttings new name is: **ICN2037_B** - colors are not swapped and scan is different)
 ```
 
 Earlier releases are in the [Change Log](ChangeLog.md).

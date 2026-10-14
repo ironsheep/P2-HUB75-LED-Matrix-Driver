@@ -6,6 +6,21 @@ Check [Keep a Changelog](http://keepachangelog.com/) for reminders on how to str
 
 ### Pages: [README](README.md) | [Hardware Turn-on](HardwareTurnon.md) | [Driver Details](THEOPS.md) | [Configuration Guide](DOCs/WiringGuide.md) | Change Log
 
+## [4.0.1] 13 Oct 2026
+
+The documentation gives each topic one page and adds a Quick Start, Troubleshooting, Testing and Measurement, and a Roadmap. The driver is unchanged.
+
+### Improvements
+
+- **Quick Start** ([DOCs/QuickStart.md](DOCs/QuickStart.md)): from wired panels to a running program, with short examples, making a BMP image, and a second adapter
+- **Troubleshooting** ([DOCs/Troubleshooting.md](DOCs/Troubleshooting.md)): symptom, cause and fix for a dark panel, wrong colours, repeated rows, flicker and startup messages
+- **Testing and Measurement** ([DOCs/TestingAndMeasurement.md](DOCs/TestingAndMeasurement.md)): the test programs, the instrumentation harness and the diagnostic switches
+- **Roadmap** ([DOCs/Roadmap.md](DOCs/Roadmap.md)): planned work on external RAM, the streamer and colour quality
+- The Wiring Guide is titled **Configuration Guide**; its file, `DOCs/WiringGuide.md`, keeps its name
+- Each chip in the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md) has a starting configuration from the author's bench and figures of its latch timing
+- Merged pages: `MultiPanelConfiguration.md` into the Configuration Guide and Troubleshooting; `TheoryOfOperations.md` into [Driver Details](THEOPS.md)
+- Merged pages: `CubePix.md` into [Hardware Turn-on](HardwareTurnon.md); `HUB75Adapter.md` into [HUB75-brd-config.md](HUB75-brd-config.md); the PSRAM and image pages into the Roadmap
+
 ## [4.0.0] 11 Oct 2026
 
 Full 8-bit color at flicker-free refresh rates, displays of any panel layout including a cube, and a new configuration and startup call.
