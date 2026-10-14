@@ -1,13 +1,48 @@
-# ICN2037 Technical Reference
+# P2 HUB75 LED Matrix Driver - ICN2037 Signal Timing
+
+A Parallax Propeller v2 driver for HUB75 RGB LED matrix panels, single or multi-panel. This page holds the ICN2037 chip's signal specifications, the timing budget of the signal chain and what the driver runs on it.
+
+![Project Maintenance][maintenance-shield]
+[![License][license-shield]](../../LICENSE)
+
+On this Page:
+
+- [Overview](#overview) - the chip and the sources this page draws on
+- [1. ICN2037 Pin Functions](#1-icn2037-pin-functions) - pins and signal polarities
+- [2. Timing Specifications](#2-timing-specifications) - the datasheet figures and the 25 MHz clock cap
+- [3. Signal Chain Timing Budget](#3-signal-chain-timing-budget) - the chips between the P2 and the ICN2037, and what the driver runs
+- [4. Dual Latch Operation](#4-dual-latch-operation) - the shift, latch and blank sequence
+- [5. HUB75 Interface Mapping](#5-hub75-interface-mapping) - the adapter pins, panel geometry and addressing
+- [6. Panels Using ICN2037](#6-panels-using-icn2037) - the two panel types and their chipsets
+- [7. Driver Configuration Mapping](#7-driver-configuration-mapping) - what the settings and the driver do for this chip
+- [8. Observed Symptoms vs. Expected Behavior](#8-observed-symptoms-vs-expected-behavior) - the bring-up history and the signal checklist
+- [9. References](#9-references) - local files and datasheets
+
+Additional pages:
+
+- [README](../../README.md) - the project overview
+- [Driver Details](../../THEOPS.md) - how the driver works
+- [Chip Characteristics Matrix](../ChipCharacteristicsMatrix.md) - each panel type's scan, colour swaps, clock and /OE ratings and test status
+- [Change Log](../../ChangeLog.md) - release history
+
+### Pages: [README](../../README.md) | [Driver Details](../../THEOPS.md) | [Chip Matrix](../ChipCharacteristicsMatrix.md) | ICN2037 Signal Timing | [Change Log](../../ChangeLog.md)
+
+---
+
+> If you find this kind of written explanation useful, helpful I would be honored by your helping me out for a couple of :coffee:'s or :pizza: slices -or- you can support my efforts by contributing at my Patreon site!
+
+> [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep) &nbsp;&nbsp; -OR- &nbsp;&nbsp; [![Patreon](../../images/patreon.png)](https://www.patreon.com/IronSheep?fan_landing=true)[Patreon.com/IronSheep](https://www.patreon.com/IronSheep?fan_landing=true)
+
+---
 
 ## Overview
 
 The ICN2037 is a 16-channel constant current LED sink driver with dual latch, manufactured by Chipone Technology (Beijing) Co., Ltd. This document provides implementation-critical specifications for driving HUB75 LED panels using this chip.
 
 **Document Sources:**
-- `ICN2037_datasheet_EN_2017_V2.0.pdf` - Primary datasheet (V2.0, Nov 2017)
-- `ICN2037-timing.pdf` - Supplementary timing diagrams
-- `hub75-adaptor-v1.4-schematic.pdf` - P2 Eval HUB75 Adapter Board schematic
+- [`ICN2037_datasheet_EN_2017_V2.0.pdf`](ICN2037_datasheet_EN_2017_V2.0.pdf) - Primary datasheet (V2.0, Nov 2017)
+- [`ICN2037-timing.pdf`](ICN2037-timing.pdf) - Supplementary timing diagrams
+- [`hub75-adaptor-v1.4-schematic.pdf`](../../images/hub75-adaptor-v1.4-schematic.pdf) - P2 Eval HUB75 Adapter Board schematic
 - [TI SN74HCT244 Datasheet](https://www.ti.com/lit/ds/symlink/sn74hct244.pdf) - Level shifter specifications
 
 ---
@@ -207,17 +242,21 @@ P2 Pin → 74HCT244 (adapter) → HUB75 Cable → 74HC245 (panel) → ICN2037
 
 **Key finding**: When including panel support chips, the worst-case timing budget suggests a more conservative clock frequency than the ICN2037 datasheet implies.
 
-### 3.6 Recommended Operating Frequency (Final)
+### 3.6 What the Driver Runs, and the Frequency Estimates That Came Before
 
-| Application | Recommended CLK | Notes |
-|-------------|-----------------|-------|
-| **Safe (all conditions)** | **15 MHz** | Works at temperature extremes |
-| **Standard** | 20 MHz | Good margin at room temperature |
-| **Maximum** | 25 MHz | Rated 30 MHz; 20 ns pulses cap it at 25 MHz; minimal margin |
+**What the driver runs.** The driver clocks an ICN2037 chain at 15 system clocks per column at 335 MHz, which is 22.3 MHz. The limit it holds the chain under is 25.0 MHz: the chip is rated 30 MHz alone, but the CLK-to-SDO delay (35 ns) plus the SDI setup time (5 ns) make a 40 ns period, 25.0 MHz (`MAX_CLK_HZ_ICN2037` in `isp_hub75_rgb3bit.spin2`), and the 20 ns minimum CLK pulse allows the same 25 MHz. The rating for every chip is in the [Datasheet Clock and /OE Ratings](../ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings) table of the Chip Characteristics Matrix.
 
-**Important**: The "30 MHz max" from the ICN2037 datasheet does NOT account for panel support chips, and the paths above suggest keeping to ≤20 MHz where panels carry 74HC245 buffers.
+**Measured.** Four 128x64 ICN2037 panels in one chain (512 column clocks) are driven at that 22.3 MHz, with CLK high 20.9 ns and low 23.9 ns. Their images were correct and steady by eye at 5-bit to 8-bit. Chains of other panel types and lengths have not been measured.
 
-**Measured**: four 128x64 ICN2037 panels in one chain (512 column clocks) are driven at 15 system clocks per column at 335 MHz, about 22 MHz, with CLK high 20.9 ns and low 23.9 ns. Their images were correct and steady by eye at 5-bit to 8-bit, so the caution did not show on that chain. Chains of other panel types and lengths have not been measured.
+**The estimates that came before.** Before the chain was run, the paths in 3.2 to 3.5 were turned into frequency advice. It is kept here as history:
+
+| Application | Estimated CLK | Notes |
+|-------------|---------------|-------|
+| Safe (all conditions) | 15 MHz | Worst-case path through the panel's 74HC245 buffer |
+| Standard | 20 MHz | Good margin at room temperature |
+| Maximum | 25 MHz | Rated 30 MHz; 20 ns pulses cap it at 25 MHz; minimal margin |
+
+The estimates suggested keeping to 20 MHz or less where panels carry 74HC245 buffers, because the "30 MHz max" in the datasheet does not account for the panel support chips. The measurement above is the answer for the four-panel ICN2037 chain: the caution did not show on it.
 
 ---
 
@@ -281,24 +320,9 @@ OUT     ════════════════════════
 
 ### 5.1 P2 Eval HUB75 Adapter Pin Assignment
 
-*Source: the driver's pin offsets (`PIN_OFST_*` and `COLOR_OFST_*` in `isp_hub75_rgb3bit.spin2`) and the adapter pinout in [HUB75-brd-config.md](../../HUB75-brd-config.md); the offsets are from the adapter's base pin (P0, P16 or P32)*
+The ICN2037 panels use the same HUB75 signals as every panel the driver supports, on the same adapter pins. The pin for each signal (CLK, OE, LAT/STB, the A to E address lines and the R1/G1/B1/R2/G2/B2 data lines) is in the [HUB75 Adapter Board Pinout](../../HUB75-brd-config.md#hub75-adapter-board-pinout).
 
-| HUB75 Signal | P2 Pin | Function |
-|--------------|--------|----------|
-| CLK | base+0 | Pixel clock |
-| OE | base+1 | Output enable |
-| LAT/STB | base+2 | Latch strobe |
-| A | base+3 | Row address bit 0 |
-| B | base+4 | Row address bit 1 |
-| C | base+5 | Row address bit 2 |
-| D | base+6 | Row address bit 3 |
-| E | base+7 | Row address bit 4 |
-| R1 | base+8 | Red data, upper half |
-| G1 | base+9 | Green data, upper half |
-| B1 | base+10 | Blue data, upper half |
-| R2 | base+11 | Red data, lower half |
-| G2 | base+12 | Green data, lower half |
-| B2 | base+13 | Blue data, lower half |
+For this chip, CLK shifts data on its rising edge, OE is active LOW and LE is active HIGH (section 1).
 
 ### 5.2 Panel Geometry for 128x64 Panels
 
@@ -479,11 +503,11 @@ These symptoms were seen during the first bring-up of the driver and are kept as
 ## 9. References
 
 ### Primary Sources (Local)
-1. **ICN2037 Datasheet** - `ICN2037_datasheet_EN_2017_V2.0.pdf` (Chipone, V2.0 Nov 2017)
-2. **ICN2037 Timing Summary** - `ICN2037-timing.pdf` (supplementary)
-3. **HUB75 Adapter Schematic** - `hub75-adaptor-v1.4-schematic.pdf` (Iron Sheep Productions)
-4. **Chip Characteristics Matrix** - `../ChipCharacteristicsMatrix.md` (panel/chipset catalog)
-5. **Author Test Configurations** - `../AuthorTestConfigurations.md` (panel test documentation)
+1. **ICN2037 Datasheet** - [`ICN2037_datasheet_EN_2017_V2.0.pdf`](ICN2037_datasheet_EN_2017_V2.0.pdf) (Chipone, V2.0 Nov 2017)
+2. **ICN2037 Timing Summary** - [`ICN2037-timing.pdf`](ICN2037-timing.pdf) (supplementary)
+3. **HUB75 Adapter Schematic** - [`hub75-adaptor-v1.4-schematic.pdf`](../../images/hub75-adaptor-v1.4-schematic.pdf) (Iron Sheep Productions)
+4. **Chip Characteristics Matrix** - [`ChipCharacteristicsMatrix.md`](../ChipCharacteristicsMatrix.md) (panel/chipset catalog)
+5. **Author Test Configurations** - [`AuthorTestConfigurations.md`](../AuthorTestConfigurations.md) (panel test documentation)
 
 ### External Datasheets
 6. **74HCT244 Datasheet** - [Texas Instruments](https://www.ti.com/lit/ds/symlink/sn74hct244.pdf)
@@ -498,3 +522,32 @@ These symptoms were seen during the first bring-up of the driver and are kept as
 
 *Last updated: October 2026*
 *Driver version target: 4.0.0*
+
+---
+
+## How to Contribute
+
+This is a project supporting our P2 Development Community. Please feel free to contribute to this project. You can contribute in the following ways:
+
+- File **Feature Requests** or **Issues** (describing things you are seeing while using our code) at the [Project Issue Tracking Page](https://github.com/ironsheep/P2-HUB75-LED-Matrix-Driver/issues)
+- Fork this repo and then add your code to it. Finally, create a Pull Request to contribute your code back to this repository for inclusion with the projects code. See [CONTRIBUTING](../../CONTRIBUTING.md)
+
+---
+
+## Disclaimer and Legal
+
+> *Parallax, Propeller Spin, and the Parallax and Propeller Hat logos* are trademarks of Parallax Inc., dba Parallax Semiconductor
+
+---
+
+## License
+
+Licensed under the MIT License. <br>
+<br>
+Follow these links for more information:
+
+### [Copyright](../../copyright) | [License](../../LICENSE)
+
+[maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep.biz-blue.svg?style=for-the-badge
+
+[license-shield]: https://img.shields.io/badge/License-MIT-yellow.svg
