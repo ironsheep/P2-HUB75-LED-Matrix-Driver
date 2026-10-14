@@ -16,11 +16,11 @@ On this Page:
 Additional pages:
 
 - [README](../README.md) - the project overview
-- [Wiring Guide](WiringGuide.md) - the display block, the panel list, the limits and the refresh rate
+- [Configuration Guide](WiringGuide.md) - the display block, the panel list, the limits and the refresh rate
 - [Driver Details](../THEOPS.md) - how the driver works today
 - [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md) - each panel type's scan, colour swaps and test status
 
-### Pages: [README](../README.md) | [Hardware Turn-on](../HardwareTurnon.md) | [Driver Details](../THEOPS.md) | [Wiring Guide](WiringGuide.md) | Roadmap | [Change Log](../ChangeLog.md)
+### Pages: [README](../README.md) | [Hardware Turn-on](../HardwareTurnon.md) | [Driver Details](../THEOPS.md) | [Configuration Guide](WiringGuide.md) | Roadmap | [Change Log](../ChangeLog.md)
 
 ---
 
@@ -34,11 +34,11 @@ Additional pages:
 
 Everything here is planned or under consideration; none of it is in the driver yet. What the driver does today is told in other pages, and this page links to them instead of repeating them:
 
-- The memory the driver uses, the largest displays it can drive and the per-adapter limits are in the [Wiring Guide's driver limits](WiringGuide.md#driver-limits) and [hub RAM](WiringGuide.md#hub-ram) sections.
-- The refresh method, the measured refresh rates, the commit and draw times and the clock figures are in the [Wiring Guide's refresh rate section](WiringGuide.md#refresh-rate).
+- The memory the driver uses, the largest displays it can drive and the per-adapter limits are in the [Configuration Guide's driver limits](WiringGuide.md#driver-limits) and [hub RAM](WiringGuide.md#hub-ram) sections.
+- The refresh method, the measured refresh rates, the commit and draw times and the clock figures are in the [Configuration Guide's refresh rate section](WiringGuide.md#refresh-rate).
 - How the refresh cog reads the frame set and clocks it to the panels is in [Driver Details](../THEOPS.md#refresh-method).
 
-Plan any animation or image work around the refresh rates stated in the Wiring Guide, not around a fixed frame rate. Images are loaded as BMP files.
+Plan any animation or image work around the refresh rates stated in the Configuration Guide, not around a fixed frame rate. Images are loaded as BMP files.
 
 ## Larger displays with external RAM
 
@@ -96,7 +96,7 @@ Red, green and blue LEDs differ in efficiency, so full white can look tinted. Pl
 
 ### Temporal dithering
 
-At the lower color depths (3 and 4 bit), banding can show in gradients. Varying the least significant value from frame to frame would give levels between the discrete ones; for example alternating 7 and 8 reads as about 7.5. It needs a high enough refresh rate to avoid visible flicker, so it depends on the measured rates in the [Wiring Guide](WiringGuide.md#refresh-rate).
+At the lower color depths (3 and 4 bit), banding can show in gradients. Varying the least significant value from frame to frame would give levels between the discrete ones; for example alternating 7 and 8 reads as about 7.5. It needs a high enough refresh rate to avoid visible flicker, so it depends on the measured rates in the [Configuration Guide](WiringGuide.md#refresh-rate).
 
 ### Scan-line brightness uniformity
 
@@ -106,7 +106,7 @@ The refresh cog gives every row address the same timing at every brightness. Any
 
 ### Conversion in its own cog
 
-Screen-to-PWM conversion runs today in the main cog (the commit time is in the [Wiring Guide](WiringGuide.md#refresh-rate)). Moving it to a dedicated PASM2 cog would run it in parallel with display refresh, reduce the load on the main cog and open the way to real-time effects.
+Screen-to-PWM conversion runs today in the main cog (the commit time is in the [Configuration Guide](WiringGuide.md#refresh-rate)). Moving it to a dedicated PASM2 cog would run it in parallel with display refresh, reduce the load on the main cog and open the way to real-time effects.
 
 ### Streamer-fed output
 

@@ -4,7 +4,7 @@ All notable changes to the HUB75 LED Matrix Driver will be documented in this fi
 
 Check [Keep a Changelog](http://keepachangelog.com/) for reminders on how to structure this file. Also, note that our version numbering adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-### Pages: [README](README.md) | [Hardware Turn-on](HardwareTurnon.md) | [Driver Details](THEOPS.md) | [Wiring Guide](DOCs/WiringGuide.md) | Change Log
+### Pages: [README](README.md) | [Hardware Turn-on](HardwareTurnon.md) | [Driver Details](THEOPS.md) | [Configuration Guide](DOCs/WiringGuide.md) | Change Log
 
 ## [4.0.0] 11 Oct 2026
 

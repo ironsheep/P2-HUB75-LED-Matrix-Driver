@@ -1,4 +1,4 @@
-# Wiring Guide
+# P2 HUB75 LED Matrix Driver - Configuration Guide
 
 How to tell the driver which panels you have, where each one sits and which way each one's top points: the per-display settings, the panel list, the identify screen that lets you fill the list in from the wall, the mounting override, the cube, the limits of the driver, every message the driver prints when a configuration is wrong, and seven worked examples.
 

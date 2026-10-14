@@ -9,7 +9,7 @@ On this page you'll learn what files make up the driver (and/or come with it) an
 (*I expect that this file will continue to grow over time as our driver becomes more capable. -Stephen*)
 
 
-### Pages: [README](README.md) | [Hardware Turn-on](HardwareTurnon.md) | Driver Details | [Wiring Guide](DOCs/WiringGuide.md) | [Change Log](ChangeLog.md)
+### Pages: [README](README.md) | [Hardware Turn-on](HardwareTurnon.md) | Driver Details | [Configuration Guide](DOCs/WiringGuide.md) | [Change Log](ChangeLog.md)
 
 Within this page:
 
@@ -125,11 +125,11 @@ How the assembled display hangs now, compared with how it was built and identifi
 
 ### panel list
 
-The sentences that describe one display, in cable order, one `LONG` per panel. Each sentence says where the panel sits in the display (its row and column as the viewer sees them) and its panel top. The full grammar is in the [Wiring Guide](DOCs/WiringGuide.md#the-wiring-sentences).
+The sentences that describe one display, in cable order, one `LONG` per panel. Each sentence says where the panel sits in the display (its row and column as the viewer sees them) and its panel top. The full grammar is in the [Configuration Guide](DOCs/WiringGuide.md#the-wiring-sentences).
 
 ### face
 
-One panel of a cube display, named `TOP`, `BOTTOM`, `FRONT`, `BACK`, `LEFT` or `RIGHT`. The face names are derived from the two cube marks. The cube section of the Wiring Guide covers faces, folding and corners in full.
+One panel of a cube display, named `TOP`, `BOTTOM`, `FRONT`, `BACK`, `LEFT` or `RIGHT`. The face names are derived from the two cube marks. The cube section of the Configuration Guide covers faces, folding and corners in full.
 
 ### cube orientation
 
@@ -166,7 +166,7 @@ Most panels light two rows at once, one fed by each set of color pins. A panel t
 
 ## Configuring the driver
 
-How the panels are arranged, cabled and hung is described by the panel list; the [Wiring Guide](DOCs/WiringGuide.md) covers it, the identify screen, the mounting override, the cube and the driver limits, with seven worked examples.
+How the panels are arranged, cabled and hung is described by the panel list; the [Configuration Guide](DOCs/WiringGuide.md) covers it, the identify screen, the mounting override, the cube and the driver limits, with seven worked examples.
 
 To this driver the panels look like the following:
 
@@ -182,11 +182,11 @@ Once you have the driver source files added to your project you will first need 
 
 The settings, their defaults and what each means are in the table of [Driver Constants used for configuration](README.md#driver-constants-used-for-configuration) in the README. That table is the one place the settings are listed. The [panel list](#panel-list) goes with them, one sentence per panel; `DISPx_ROTATION` is the optional [mounting override](#mounting-override), the two cube marks in the list set the [cube orientation](#cube-orientation), and `DISPx_TARGET_REFRESH_HZ` is the refresh rate to aim for.
 
-Not set by you, worked out from the panel list: the number of panels (the length of the list, counted at compile time; it sizes the buffers), the address lines (from the panel rows and the chip's scan), and, at startup, the display's size in pixels, its grid of panels, and each panel's place, buffer slot and rotation. The driver prints the layout as a picture of the grid; the [Wiring Guide](DOCs/WiringGuide.md#what-a-good-config-prints) explains it.
+Not set by you, worked out from the panel list: the number of panels (the length of the list, counted at compile time; it sizes the buffers), the address lines (from the panel rows and the chip's scan), and, at startup, the display's size in pixels, its grid of panels, and each panel's place, buffer slot and rotation. The driver prints the layout as a picture of the grid; the [Configuration Guide](DOCs/WiringGuide.md#what-a-good-config-prints) explains it.
 
 **NOTE**: the DISPx_ is a place holder for DISP0\_\*, DISP1\_\* and DISP2\_\* constants indicating the 1st, 2nd, and 3rd HUB75 cards.
 
-Each adapter you use is started by one call, `display.start(display.HUB75_ADAPTER_n)`, which checks the panel list, derives the layout, builds the cell address tables and the adapter's color table, hands the adapter its buffers and starts its refresh cog. (`display.startWithId()` is the same call with a debug instance number, for programs that start more than one adapter.) Adding an adapter edits only the user section of `isp_hub75_hwPanelConfig.spin2`: one `#DEFINE` and that display's block ([Wiring Guide](DOCs/WiringGuide.md#more-displays-and-optional-settings)).
+Each adapter you use is started by one call, `display.start(display.HUB75_ADAPTER_n)`, which checks the panel list, derives the layout, builds the cell address tables and the adapter's color table, hands the adapter its buffers and starts its refresh cog. (`display.startWithId()` is the same call with a debug instance number, for programs that start more than one adapter.) Adding an adapter edits only the user section of `isp_hub75_hwPanelConfig.spin2`: one `#DEFINE` and that display's block ([Configuration Guide](DOCs/WiringGuide.md#more-displays-and-optional-settings)).
 
 ## Driver internals
 
@@ -390,7 +390,7 @@ Panel-centric calls take (panel position, panel coordinates) in the viewer's fra
 
 1. **Wait for the previous post to be taken.** The refresh cog names the frame set it is showing in `driverShowing` at each frame start. Before converting again, the commit waits until `driverShowing` is the set it posted last (within one refresh), so the set it is about to write is never the set on display. The first commit after start has nothing to wait for.
 2. **Select the PWM frame set that is not on display** (the one `driverShowing` does not name).
-3. **For each group of four columns**: block-read the four top-half and four bottom-half pixels, spread each pixel pair's channel bits across the bit planes with `MERGEB`, collect the four columns' plane bytes in one long per plane, and write each plane's long once. The chip's red/blue or green/blue channel swap (`RB_SWAP`, `GB_SWAP`) is applied to each pixel's bytes on the way in (`channelOrder()`). Half-scan and quarter-scan panels share this converter (`convertRowPairs()`, called by `convertHalfScan()` and `convertQuarterScan()`); only where each row lands in the frame set differs. Panel widths are a multiple of 4 columns (checked at startup). The commit time measured on the author's rig is in the [Wiring Guide](DOCs/WiringGuide.md#commit-and-draw-time).
+3. **For each group of four columns**: block-read the four top-half and four bottom-half pixels, spread each pixel pair's channel bits across the bit planes with `MERGEB`, collect the four columns' plane bytes in one long per plane, and write each plane's long once. The chip's red/blue or green/blue channel swap (`RB_SWAP`, `GB_SWAP`) is applied to each pixel's bytes on the way in (`channelOrder()`). Half-scan and quarter-scan panels share this converter (`convertRowPairs()`, called by `convertHalfScan()` and `convertQuarterScan()`); only where each row lands in the frame set differs. Panel widths are a multiple of 4 columns (checked at startup). The commit time measured on the author's rig is in the [Configuration Guide](DOCs/WiringGuide.md#commit-and-draw-time).
 4. **Post the converted set** to the PASM2 driver with `cmdWritePwmBuffer()`.
 5. **Return immediately** - the driver takes the set at its next frame start and continues displaying asynchronously, so the panels never show a half-converted image.
 
@@ -427,11 +427,11 @@ A compile-time color depth setting (`DISPx_COLOR_DEPTH`, 3 to 8 bits) specifies 
 | 7-bit | 2,097,152 | 127 | 10 |
 | 8-bit | 16,777,216 | 255 | 11 |
 
-The screen buffer always uses 3 bytes per pixel, at every depth. The rest of each pixel's buffer space is the two PWM frame sets (N/2 bytes per pixel each), which is why a pixel costs 3 + N bytes in all. The refresh rate at each depth, measured on the author's rig, is in the [Wiring Guide](DOCs/WiringGuide.md#refresh-rate).
+The screen buffer always uses 3 bytes per pixel, at every depth. The rest of each pixel's buffer space is the two PWM frame sets (N/2 bytes per pixel each), which is why a pixel costs 3 + N bytes in all. The refresh rate at each depth, measured on the author's rig, is in the [Configuration Guide](DOCs/WiringGuide.md#refresh-rate).
 
 ### Buffers
 
-Each display's buffers are sized at compile time from the length of its panel list, not from the display's bounding box: a display with a hole in it (an L shape) holds no memory for the hole, and a display that is not described has an empty panel list and zero-length buffers. A pixel takes 3 screen-buffer bytes plus one byte per bit of color depth for the two PWM frame sets (11 bytes at 8-bit). The [Wiring Guide](DOCs/WiringGuide.md#driver-limits) gives the hub RAM each display needs and the most panels one adapter can drive.
+Each display's buffers are sized at compile time from the length of its panel list, not from the display's bounding box: a display with a hole in it (an L shape) holds no memory for the hole, and a display that is not described has an empty panel list and zero-length buffers. A pixel takes 3 screen-buffer bytes plus one byte per bit of color depth for the two PWM frame sets (11 bytes at 8-bit). The [Configuration Guide](DOCs/WiringGuide.md#driver-limits) gives the hub RAM each display needs and the most panels one adapter can drive.
 
 #### Screen buffer
 - **Purpose**: Holds the user-drawn image in 24-bit RGB format
@@ -473,7 +473,7 @@ Descriptor Structure (14 LONGs per adapter):
   [13] Refresh target in Hz (DISPn_TARGET_REFRESH_HZ)
 ```
 
-The display's size and grid are **not** in the descriptor. The panel list is checked and decoded once at startup (as many panels as the refresh core's line buffer allows, see the [Wiring Guide's driver limits](DOCs/WiringGuide.md#driver-limits)), and the layout derived from it lives in lookup tables, one entry per panel or per grid cell, per adapter:
+The display's size and grid are **not** in the descriptor. The panel list is checked and decoded once at startup (as many panels as the refresh core's line buffer allows, see the [Configuration Guide's driver limits](DOCs/WiringGuide.md#driver-limits)), and the layout derived from it lives in lookup tables, one entry per panel or per grid cell, per adapter:
 
 | Table | Maps | Used for |
 |---|---|---|
@@ -517,7 +517,7 @@ The column loop (`shiftColumns`) is 14 system clocks at least: CLK is high for 6
 - **Location**: `isp_hub75_rgb3bit.spin2`, the column-clocking loop (`shiftColumns`)
 - **Requirement**: the CLK pulse and period limits described under [Refresh method](#refresh-method)
 - **Implementation**: `shiftColumns` uses the `rep` instruction for a zero-overhead loop; its two `WAITX` extensions are set at startup (`columnLoopClocks`) from the system clock and the chip's limit
-- **Timing**: the clocks per column and the clock they give are printed at startup by a DEBUG build (the `TIMING` line); the figures on the author's rig are in the [Wiring Guide](DOCs/WiringGuide.md#refresh-rate)
+- **Timing**: the clocks per column and the clock they give are printed at startup by a DEBUG build (the `TIMING` line); the figures on the author's rig are in the [Configuration Guide](DOCs/WiringGuide.md#refresh-rate)
 
 **Hub-to-COG transfer (medium priority)**
 - **Location**: `isp_hub75_rgb3bit.spin2`, the row load
@@ -556,7 +556,7 @@ The number of panels one adapter can drive depends on the **panel type**, and is
 - **The refresh line buffer.** The refresh core holds one row of the whole chain, 512 column clocks. Max panels per adapter is 512 / (panel columns x scan factor), where the scan factor is 2 for the chips the driver flags `SCAN_4` (see [scan](#scan)) and 1 for every other chip. For example, 8 panels of 64 columns, or 4 panels of 128 columns. The driver checks this at startup and prints a message if your display is over it. This is the limit on every panel type for a single adapter. A panel's width (`DISPx_PANEL_COLUMNS`) must also be a multiple of 4, as every common panel is (32, 64, 80, 128); startup stops with a message otherwise.
 - **Hub RAM**, shared by all three adapters. One panel of P pixels at color depth N takes P x (3 + N) bytes for its screen buffer and two PWM frame sets. The compiler stops with `Program requirement exceeds 512KB hub RAM by N bytes` when the buffers do not fit.
 
-The table of limits for every panel type the author has tested, with the arithmetic, the RAM figures and the refresh rates, is in the [Wiring Guide's driver limits](DOCs/WiringGuide.md#driver-limits). Those limits are calculated from the driver's constants; only the author's rig (four ICN2037 128x64 panels) is measured.
+The table of limits for every panel type the author has tested, with the arithmetic, the RAM figures and the refresh rates, is in the [Configuration Guide's driver limits](DOCs/WiringGuide.md#driver-limits). Those limits are calculated from the driver's constants; only the author's rig (four ICN2037 128x64 panels) is measured.
 
 Generally you can make a single display out of many panels (the pitches in use are in the README's [background section](README.md#background-hub75-rgb-led-matrix-panels)); such displays could be quite large and of course will draw many amps of 5V. ;-)
 

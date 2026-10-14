@@ -56,13 +56,19 @@ On this Page:
 Additional pages:
 
 - [Quick Start](DOCs/QuickStart.md) - From wired panels to a running program, with short examples
-- [HardwareTurnon](HardwareTurnon.md) - Describes the initial turn-on effort of this driver
-- [Driver Details](THEOPS.md) - Provides more detail about the driver and driver-configuration
-- [Wiring Guide](DOCs/WiringGuide.md) - How to describe your panels' layout, cabling and mounting, with seven worked examples
-- [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md) - Notes about each panel-driver chip this P2 driver supports
-- [Panel Config/Timing Details (history)](HUB75-Driver-SWver1.md) - The v3-era notes on panel configuration and timing; kept as history
-- [HUB75 Card Details](HUB75-brd-config.md) - Pins and Probing Support provided by HUB75 card
-- [P2 P2 Cube testing](HardwareTurnon.md#p2-cube-driver-checkout) - Author's test hardware - Flat P2 P2 Cube Configuration
+- [Configuration Guide](DOCs/WiringGuide.md) - How to describe your panels' layout, cabling and mounting, with seven worked examples
+- [Troubleshooting](DOCs/Troubleshooting.md) - Symptom, cause and fix when a display does not look right
+- [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md) - Notes about each panel-driver chip this P2 driver supports, with a starting configuration for each
+- [ICN2037 Signal Timing](DOCs/ICN2037/README.md) - The ICN2037 signal chain, timing budget and the clock the driver runs
+- [HUB75 Adapter Board](HUB75-brd-config.md) - The adapter board, its optional connectors and its pinout
+- [Driver Details](THEOPS.md) - The driver's files, glossary and internals
+- [Testing and Measurement](DOCs/TestingAndMeasurement.md) - The test programs, the instrumentation harness and the diagnostic switches
+- [Roadmap](DOCs/Roadmap.md) - Planned work: external RAM, the streamer pipeline, colour quality
+- [Hardware Turn-on](HardwareTurnon.md) - The story of the driver's turn-on, the P2 P2 Cube checkout and the 2020 diary
+- [Author's Test Configurations](DOCs/AuthorTestConfigurations.md) - The panels and rigs the author tests on
+- [Panel Config/Timing Details (history)](HUB75-Driver-SWver1.md) - The v3-era notes on panel configuration and timing; kept as history ([v0 notes](HUB75-Driver-SWver0.md))
+- Upgrading: [v3 to v4](Checklist-v3-v4.md), [v2 to v3](Checklist-v2-v3.md), [v1 to v2](Checklist-v1-v2.md)
+- [Contributing](CONTRIBUTING.md) - How to propose a change
 - [Change Log](ChangeLog.md) - Notes about each release of this driver
 
 
@@ -82,15 +88,15 @@ What's working today with the current driver:
 - PWM'ing images to achieve 3-bit to 8-bit color per LED (9-bit to 24-bit color per pixel)
 - Displaying text in both 5x7 and 8x8 fonts
 - Scrolling text in four directions (up, down, right, and left). A step moves the last frame one place and draws only the new edge, so a full-width line steps in 1.3 ms sideways and 3.3 to 4.1 ms up or down on the author's four-panel rig
-- Fast drawing: every drawing call (pixels, lines, boxes, fills, circles, text, scrolling, BMP) takes its pixel addresses from a table built when the adapter starts and writes straight runs in PASM. The measured draw times are in the [Wiring Guide](DOCs/WiringGuide.md#commit-and-draw-time)
-- **Panel list**: panel grids of any shape you can cable (a row, a 2x2 in Z or serpentine order, 3x2, an L shape, ...) are described by one short sentence per panel: its row, its column and which way its own top points. The driver checks the list at startup and names any mistake. See the [Wiring Guide](DOCs/WiringGuide.md)
+- Fast drawing: every drawing call (pixels, lines, boxes, fills, circles, text, scrolling, BMP) takes its pixel addresses from a table built when the adapter starts and writes straight runs in PASM. The measured draw times are in the [Configuration Guide](DOCs/WiringGuide.md#commit-and-draw-time)
+- **Panel list**: panel grids of any shape you can cable (a row, a 2x2 in Z or serpentine order, 3x2, an L shape, ...) are described by one short sentence per panel: its row, its column and which way its own top points. The driver checks the list at startup and names any mistake. See the [Configuration Guide](DOCs/WiringGuide.md)
 - **Identify screen** (`demo_hub75_numberPanels.spin2`) labels each panel with its cable position and its place in the display, so you can fill in and confirm your panel list
 - **Display mounting**: hang a built display another way and say where its top edge now points (`TOP_TO_RIGHT`, `TOP_TO_BOTTOM`, `TOP_TO_LEFT`); the driver draws so the content reads upright, with width and height swapped for the sideways mountings
 - Clock-frequency-independent panel timing (signal timing derived from `_clkfreq`)
 - Basic color pixel placement at row, column (whole panel-set and Single-panel-of-set forms)
 - Basic drawing primitives (whole panel-set and Single-panel-of-set forms): panel-centric calls clip at the panel's edge; text and scrolling cross panel seams whole
 - Loading and displaying images from .bmp files, of any size, optionally turned by a content rotation (`placeBMP`). *The demonstration is built for 64x32 panels, any other will require code rework. This is here to demonstrate how it can be done.*
-- Refresh to a target rate, set per display with `DISPx_TARGET_REFRESH_HZ` (default 60 Hz): the driver lights each bit plane once, weighted by /OE time, and picks the brightest timing that reaches the target. The rates measured on the author's rig at each depth are in the [Wiring Guide](DOCs/WiringGuide.md#measured-refresh)
+- Refresh to a target rate, set per display with `DISPx_TARGET_REFRESH_HZ` (default 60 Hz): the driver lights each bit plane once, weighted by /OE time, and picks the brightest timing that reaches the target. The rates measured on the author's rig at each depth are in the [Configuration Guide](DOCs/WiringGuide.md#measured-refresh)
 - Brightness (`setBrightness`, 0 to 256) is /OE time: full color depth at any brightness, down to the chip's shortest /OE pulse
 - Tear-free commits: a commit converts into the PWM frame set that is not on display, and `display.showFrameSet()` shows a frame set you built yourself
 - Panel-count limits per panel type, calculated, plus measured refresh rates for the author's rig: see the [driver limits](DOCs/WiringGuide.md#driver-limits)
@@ -161,7 +167,7 @@ Definition of the settings specified in the file **isp\_hub75_hwPanelConfig.spin
 | `DISPx_PANEL_COLUMNS` | {none} | The number of LEDs in each row of your panel ( # pixels-wide); must be a multiple of 4, or startup stops with a message |
 | `DISPx_PANEL_ROWS` | {none} | The number of LEDs in each column of your panel ( # pixels-high). The address lines are worked out from the rows and the chip's scan; you do not set them |
 | `DISPx_COLOR_DEPTH` | `DEPTH_8BIT` as shipped | The color depth you wish to display on your panels (compile-time selectable from 3-bit to 8-bit; 8-bit is full 24-bit color) |
-| the panel list (`dispNPanels` .. `dispNPanelsEnd`) | {none} | One `LONG` sentence per panel, in cable order: its `ROW_`, its `COL_` and its `TOP_` word (and `CUBE_TOP` / `CUBE_FRONT` on two panels of a cube). The first sentence is the panel the adapter plugs into. The grammar is in the [Wiring Guide](DOCs/WiringGuide.md#the-wiring-sentences) |
+| the panel list (`dispNPanels` .. `dispNPanelsEnd`) | {none} | One `LONG` sentence per panel, in cable order: its `ROW_`, its `COL_` and its `TOP_` word (and `CUBE_TOP` / `CUBE_FRONT` on two panels of a cube). The first sentence is the panel the adapter plugs into. The grammar is in the [Configuration Guide](DOCs/WiringGuide.md#the-wiring-sentences) |
 | `DISPx_TARGET_REFRESH_HZ` | 60 | Optional, switched on with `#DEFINE DISPx_REFRESH_GIVEN`. The refresh rate to aim for, in Hz. The driver picks the brightest panel timing that reaches it. A long chain at deep color may not reach it; the driver then runs at the fastest rate it can and prints that rate at startup. Lower it for more brightness on a large display. How it works and what it reaches: [refresh rate](DOCs/WiringGuide.md#refresh-rate) |
 | `DISPx_ROTATION` | `AS_BUILT` | Optional, switched on with `#DEFINE DISPx_ROTATED`. The mounting override: where the built display's top edge now points, `AS_BUILT`, `TOP_TO_RIGHT`, `TOP_TO_BOTTOM` or `TOP_TO_LEFT`. The driver draws so content reads upright as mounted; at 90 and 270 degrees the display's width and height swap. Does not apply to a cube; see [display rotation](DOCs/WiringGuide.md#display-rotation) |
 
@@ -175,7 +181,7 @@ The number of panels (the length of the list), the display's size and its grid, 
 
 **NOTE:** the panels in a display must all use the same chip, and one adapter can only drive so many panels: see the [driver limits per panel type](DOCs/WiringGuide.md#driver-limits).
 
-Once these values are set correctly, according to your own hardware set up, then you should be able to compile your code and run. Run the identify screen (`demo_hub75_numberPanels.spin2`) first to confirm your panel list; the [Wiring Guide](DOCs/WiringGuide.md#filling-in-your-config-from-the-identify-screen) explains how to read it.
+Once these values are set correctly, according to your own hardware set up, then you should be able to compile your code and run. Run the identify screen (`demo_hub75_numberPanels.spin2`) first to confirm your panel list; the [Configuration Guide](DOCs/WiringGuide.md#filling-in-your-config-from-the-identify-screen) explains how to read it.
 
 
 More detail can be found in [Driver Details](THEOPS.md)
@@ -222,7 +228,7 @@ disp2Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP      ' C0, t
 disp2PanelsEnd
 ```
 
-Here's an example for **P2 P2 Cube: 6 - 64x64 panels** (the [Wiring Guide](DOCs/WiringGuide.md#example-7-the-cube-wired-in-a-ring-with-top-and-front) works this one through, along with six other layouts):
+Here's an example for **P2 P2 Cube: 6 - 64x64 panels** (the [Configuration Guide](DOCs/WiringGuide.md#example-7-the-cube-wired-in-a-ring-with-top-and-front) works this one through, along with six other layouts):
 
 (Within the file **isp\_hub75_hwPanelConfig.spin2**)
 
@@ -334,7 +340,7 @@ But let's be more specific:
 | Reusable Driver | - | Ensure driver can be configured for (1) single panel size, (2) organization of Multi-panel chains, and (3) the various panel chip-sets which require different clocking styles (within practical limits: *all panels must use the same chip-set*) |
 | long-term | - | Can we drive multiple panel chains - we have 64 GPIO pins on the P2... we should easily be able to connect 3 HUB75 adapters. Can we drive them all at video frame rates?  What is our limitation here? |
 
-**NOTE:** The measured refresh rates are in the [Wiring Guide](DOCs/WiringGuide.md#refresh-rate), with the commit and draw times.
+**NOTE:** The measured refresh rates are in the [Configuration Guide](DOCs/WiringGuide.md#refresh-rate), with the commit and draw times.
 
 ----
 

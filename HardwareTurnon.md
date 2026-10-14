@@ -32,7 +32,7 @@ Here we see my P2 Eval board with flying leads going to a splitter board I hand 
 
 The goals of the project, which this turn-on served, are in the README's [Project goals](README.md#background-project-goals).
 
-**NOTE:** The refresh rates the driver reaches, at every colour depth, are measured on the author's rig and on single panels, and are listed in the [Wiring Guide](DOCs/WiringGuide.md#measured-refresh). The driver aims for the rate you set in `DISPn_TARGET_REFRESH_HZ` (default 60 Hz) and lights the panels as brightly as that rate allows.
+**NOTE:** The refresh rates the driver reaches, at every colour depth, are measured on the author's rig and on single panels, and are listed in the [Configuration Guide](DOCs/WiringGuide.md#measured-refresh). The driver aims for the rate you set in `DISPn_TARGET_REFRESH_HZ` (default 60 Hz) and lights the panels as brightly as that rate allows.
 
 ----
 
@@ -68,7 +68,7 @@ The P2 Forum Thread is found here: [P2 P2 Cube](https://forums.parallax.com/disc
 
 And the repository for design and physical objects is found here [Repository: P2 P2 Cube](https://github.com/jshook/p2_p2_cube)
 
-How the driver folds six panels into a cube is in the [Wiring Guide](DOCs/WiringGuide.md#the-cube). The pictures below are of the test jig.
+How the driver folds six panels into a cube is in the [Configuration Guide](DOCs/WiringGuide.md#the-cube). The pictures below are of the test jig.
 
 This is the back of my 6 x 64x64 panel driven with a 5V 60A power supply so we can test full display Brightness. 
 
@@ -92,7 +92,7 @@ Repaint panels in a loop (you can't see here) so the panels individually change 
 
 ## Cascaded Panels
 
-Daisy-chained panels make larger images. Here you see these panels waiting to be cabled into one display; how to describe a chain to the driver is in the [Wiring Guide](DOCs/WiringGuide.md), and the configurations the author has run are in [Author Test Configurations](DOCs/AuthorTestConfigurations.md).
+Daisy-chained panels make larger images. Here you see these panels waiting to be cabled into one display; how to describe a chain to the driver is in the [Configuration Guide](DOCs/WiringGuide.md), and the configurations the author has run are in [Author Test Configurations](DOCs/AuthorTestConfigurations.md).
 
 ![2x2 Panels Daisy-Chained](https://user-images.githubusercontent.com/540005/96038541-818c5000-0e24-11eb-8789-b1d77364fd7d.jpg)
 

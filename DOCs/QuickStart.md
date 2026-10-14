@@ -17,11 +17,11 @@ On this Page:
 Additional pages:
 
 - [README](../README.md) - the project overview and the table of demos
-- [Wiring Guide](WiringGuide.md) - the display block, the panel list, the identify screen and every startup message
+- [Configuration Guide](WiringGuide.md) - the display block, the panel list, the identify screen and every startup message
 - [Troubleshooting](Troubleshooting.md) - something looks wrong? Find the symptom
 - [Driver Details](../THEOPS.md) - how the driver works
 
-### Pages: [README](../README.md) | [Hardware Turn-on](../HardwareTurnon.md) | [Driver Details](../THEOPS.md) | [Wiring Guide](WiringGuide.md) | [Troubleshooting](Troubleshooting.md) | Quick Start | [Change Log](../ChangeLog.md)
+### Pages: [README](../README.md) | [Hardware Turn-on](../HardwareTurnon.md) | [Driver Details](../THEOPS.md) | [Configuration Guide](WiringGuide.md) | [Troubleshooting](Troubleshooting.md) | Quick Start | [Change Log](../ChangeLog.md)
 
 ---
 
@@ -37,8 +37,8 @@ The path from a new adapter and panels to a working display is five steps. Every
 
 1. **Attach the adapter.** The [HUB75 adapter board](../HUB75-brd-config.md) plugs onto a pair of 2x6 accessory headers, one of the three 16-pin groups P0-P15, P16-P31 or P32-P47. Its pins are listed in the [adapter pinout](../HUB75-brd-config.md#hub75-adapter-board-pinout).
 2. **Check the pins (optional, with a logic analyzer).** `isp_hub75_anlyCheck.spin2` is a standalone top file, not part of the driver: it drives every adapter pin so you can confirm your analyzer connections and the wiring. It takes its pin group from `MTX_LED_BASE_PIN` at the top of the file, not from the driver's configuration, and runs until you stop it. `test_hub75_pin_identify.spin2` toggles each adapter pin at its own known frequency so you can tell which analyzer lead is on which pin.
-3. **Describe your hardware.** Edit `isp_hub75_hwPanelConfig.spin2`, the only file you change for a setup. For the adapter's display (`DISP0_` for the first adapter) set the pin group (`DISP0_ADAPTER_BASE_PIN`), the panel chip (`DISP0_PANEL_DRIVER_CHIP`), the panel size (`DISP0_PANEL_COLUMNS`, `DISP0_PANEL_ROWS`) and the colour depth (`DISP0_COLOR_DEPTH`); the driver works out the address lines. Then list the panels in cable order, one sentence each saying its row, its column and which way its top points. The settings and the panel list are explained in the [Wiring Guide](WiringGuide.md#the-display-block); if something looks wrong, see [Troubleshooting](Troubleshooting.md). Start with every panel in one row with its top up (`TOP_UP`) and no mounting override.
-4. **Run the identify program.** `demo_hub75_numberPanels.spin2` starts the adapter with one call, `display.start(display.HUB75_ADAPTER_1)`, and draws on every panel an arrow, its cable position (`C`*k*) and its panel position (`P`*p*), each panel on its own background colour. Before the panels start, the driver checks your panel list and prints the layout it derived to the DEBUG terminal; a mistake is named by panel (`DISP0 C2: ...`) and startup stops, with the full list of messages in the [Wiring Guide](WiringGuide.md#startup-messages). When the panels read right, the `P` labels run in reading order and every arrow points up. If not, the [Wiring Guide](WiringGuide.md#filling-in-your-config-from-the-identify-screen) shows how to read the screen and correct the panel list.
+3. **Describe your hardware.** Edit `isp_hub75_hwPanelConfig.spin2`, the only file you change for a setup. For the adapter's display (`DISP0_` for the first adapter) set the pin group (`DISP0_ADAPTER_BASE_PIN`), the panel chip (`DISP0_PANEL_DRIVER_CHIP`), the panel size (`DISP0_PANEL_COLUMNS`, `DISP0_PANEL_ROWS`) and the colour depth (`DISP0_COLOR_DEPTH`); the driver works out the address lines. Then list the panels in cable order, one sentence each saying its row, its column and which way its top points. The settings and the panel list are explained in the [Configuration Guide](WiringGuide.md#the-display-block); if something looks wrong, see [Troubleshooting](Troubleshooting.md). Start with every panel in one row with its top up (`TOP_UP`) and no mounting override.
+4. **Run the identify program.** `demo_hub75_numberPanels.spin2` starts the adapter with one call, `display.start(display.HUB75_ADAPTER_1)`, and draws on every panel an arrow, its cable position (`C`*k*) and its panel position (`P`*p*), each panel on its own background colour. Before the panels start, the driver checks your panel list and prints the layout it derived to the DEBUG terminal; a mistake is named by panel (`DISP0 C2: ...`) and startup stops, with the full list of messages in the [Configuration Guide](WiringGuide.md#startup-messages). When the panels read right, the `P` labels run in reading order and every arrow points up. If not, the [Configuration Guide](WiringGuide.md#filling-in-your-config-from-the-identify-screen) shows how to read the screen and correct the panel list.
 5. **Run the demos.** `demo_hub75_color.spin2`, `demo_hub75_text.spin2`, `demo_hub75_scroll.spin2` and the others show the drawing calls; each sets its own clock and starts the adapter the same way.
 
 A display of six square panels folded into a cube is configured the same way, with the top and front faces marked in the panel list; see [the cube](WiringGuide.md#the-cube).
@@ -194,7 +194,7 @@ PUB main()
 
 - **The demos.** The [README](../README.md#writing-display-code-for-your-panels) lists every demo and test program with what it shows. Most are built for a 64x32 panel; change the sizes they assume to match yours.
 - **The calls.** Every public method of `driver/isp_hub75_display.spin2` has a doc comment above it (the lines that start with `''`) giving what it does, its parameters and what it returns. The scrolling and BMP calls are documented the same way in `driver/isp_hub75_display_bmp.spin2`.
-- **Configuration.** The [Wiring Guide](WiringGuide.md) covers the display block and the panel list, and [Troubleshooting](Troubleshooting.md) covers a display that does not look right.
+- **Configuration.** The [Configuration Guide](WiringGuide.md) covers the display block and the panel list, and [Troubleshooting](Troubleshooting.md) covers a display that does not look right.
 
 ## How to Contribute
 

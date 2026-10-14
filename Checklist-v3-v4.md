@@ -17,7 +17,7 @@ This is a **breaking** change: a v3.x `isp_hub75_hwPanelConfig.spin2` and a v3.x
 
 Then [check your work with the identify screen](#check-your-work-with-the-identify-screen), and look at [two things that now mean something different](#two-things-that-now-mean-something-different) (rotation, and panel numbers).
 
-All the terms used here (adapter, display, cable position, panel position, and so on) are defined once in the [glossary](THEOPS.md#glossary). The full grammar of the sentences, with seven worked examples, is in the [Wiring Guide](DOCs/WiringGuide.md); this checklist only shows you how to convert.
+All the terms used here (adapter, display, cable position, panel position, and so on) are defined once in the [glossary](THEOPS.md#glossary). The full grammar of the sentences, with seven worked examples, is in the [Configuration Guide](DOCs/WiringGuide.md); this checklist only shows you how to convert.
 
 ## Convert your panel layout settings
 
@@ -56,7 +56,7 @@ A v3.x display is one row of panels (or one column). Each panel sits next to the
 
 Write the `hwEnum.` prefix on each word. A cable that enters at the right end of a row starts at the highest column and counts down.
 
-v4.x can also describe layouts v3.x could not: grids, serpentine cabling, panels turned within the display, and gaps (an L shape, say), where the gap is simply a cell no sentence names. The Wiring Guide's [worked examples](DOCs/WiringGuide.md#seven-worked-examples) show each.
+v4.x can also describe layouts v3.x could not: grids, serpentine cabling, panels turned within the display, and gaps (an L shape, say), where the gap is simply a cell no sentence names. The Configuration Guide's [worked examples](DOCs/WiringGuide.md#seven-worked-examples) show each.
 
 On panels that are not square, every `TOP_` word must be `TOP_UP` or `TOP_DOWN`, or every one must be `TOP_LEFT` or `TOP_RIGHT`; the driver tells you if they are mixed.
 
@@ -147,7 +147,7 @@ PUB main() | chainIndex
     display.start(display.HUB75_ADAPTER_1)
 ```
 
-`display.start()` reads the adapter's settings, checks your panel list, derives the layout, hands the adapter its buffers and starts the driver. If a sentence is wrong, or no cog is free for the driver, it prints a `HUB75:` message and stops the program; every message is listed in the Wiring Guide's [startup messages](DOCs/WiringGuide.md#startup-messages). It returns only when the driver started (the returned value is the driver's cog ID plus one, never 0 or -1), so a v3.x check of its result for failure can be taken out. The calls `configure` and `setBufferPointers` are gone, and your program no longer calls the buffer object's pointer methods (the start call fetches the pointers by adapter).
+`display.start()` reads the adapter's settings, checks your panel list, derives the layout, hands the adapter its buffers and starts the driver. If a sentence is wrong, or no cog is free for the driver, it prints a `HUB75:` message and stops the program; every message is listed in the Configuration Guide's [startup messages](DOCs/WiringGuide.md#startup-messages). It returns only when the driver started (the returned value is the driver's cog ID plus one, never 0 or -1), so a v3.x check of its result for failure can be taken out. The calls `configure` and `setBufferPointers` are gone, and your program no longer calls the buffer object's pointer methods (the start call fetches the pointers by adapter).
 
 **Adapter *k* drives display `DISP(k-1)_`**: `HUB75_ADAPTER_1` starts the display configured by `DISP0_`, `HUB75_ADAPTER_2` starts `DISP1_`, and `HUB75_ADAPTER_3` starts `DISP2_`.
 
@@ -176,7 +176,7 @@ PUB main()
 
 ## Check your work with the identify screen
 
-Build and run **demo\_hub75\_numberPanels.spin2**, the identify screen, with every panel written `TOP_UP`. It labels each panel with its cable position (`C`*k*), its place in the display (`P`*p*, in reading order) and an arrow showing which way the panel's own top points. Reading it, and fixing a sentence from what it shows, is explained step by step in the Wiring Guide's [identify section](DOCs/WiringGuide.md#filling-in-your-config-from-the-identify-screen). In short:
+Build and run **demo\_hub75\_numberPanels.spin2**, the identify screen, with every panel written `TOP_UP`. It labels each panel with its cable position (`C`*k*), its place in the display (`P`*p*, in reading order) and an arrow showing which way the panel's own top points. Reading it, and fixing a sentence from what it shows, is explained step by step in the Configuration Guide's [identify section](DOCs/WiringGuide.md#filling-in-your-config-from-the-identify-screen). In short:
 
 - `P` labels in reading order and every arrow up: your panel list is right.
 - `P` labels out of order: a `ROW_` or `COL_` word is wrong. The `C` labels are always where the panels really are, so use them to fix the sentence.
@@ -209,7 +209,7 @@ Programs that draw only through the display object need nothing here.
 - **Removed with `isp_hub75_hwBuffers.spin2`:** its `chain0Ptrs()`, `chain1Ptrs()` and `chain2Ptrs()`; `display.start()` fetches the pointers itself.
 - **Writing the screen buffer yourself.** Scrolling regions move the frame they drew last and draw only the new edge, so they must be told when something else has written the screen buffer. Anything you draw through the display object does this for you. If your program writes the screen buffer directly, call `hub75Bffrs.noteAllDrawn(chainIndex)` afterwards (or `hub75Bffrs.noteDrawn(chainIndex, topRow, leftColumn, bottomRow, rightColumn)` for one rectangle) so the scrolling regions draw again in full.
 - **`CLK_WIDE_PULSE`** is removed from the manual chip flags (it had no effect). A `CHIP_MANUAL_SPEC` config that ORs it on does not compile until you take it out.
-- **`demo_hub75_hwGeometry.spin2`**, the commented-out example of the v3.x settings, is gone. The [Wiring Guide](DOCs/WiringGuide.md) replaces it.
+- **`demo_hub75_hwGeometry.spin2`**, the commented-out example of the v3.x settings, is gone. The [Configuration Guide](DOCs/WiringGuide.md) replaces it.
 
 ## What else is new
 

@@ -17,12 +17,12 @@ Additional pages:
 
 - [README](../README.md) - the project overview and the demo programs
 - [Driver Details](../THEOPS.md) - how the driver works
-- [Wiring Guide](WiringGuide.md) - the display block, the panel list, the limits and every startup message
+- [Configuration Guide](WiringGuide.md) - the display block, the panel list, the limits and every startup message
 - [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md) - each panel type's scan, colour swaps and test status
 - [Troubleshooting](Troubleshooting.md) - symptoms and their fixes
 - [CONTRIBUTING](../CONTRIBUTING.md) - what to compile and run before you send a change
 
-### Pages: [README](../README.md) | [Hardware Turn-on](../HardwareTurnon.md) | [Driver Details](../THEOPS.md) | [Wiring Guide](WiringGuide.md) | [Troubleshooting](Troubleshooting.md) | Testing and Measurement | [Change Log](../ChangeLog.md)
+### Pages: [README](../README.md) | [Hardware Turn-on](../HardwareTurnon.md) | [Driver Details](../THEOPS.md) | [Configuration Guide](WiringGuide.md) | [Troubleshooting](Troubleshooting.md) | Testing and Measurement | [Change Log](../ChangeLog.md)
 
 ---
 
@@ -126,7 +126,7 @@ The author's logic analyzer configuration for looking at the shape of HUB75 sign
 - Blue pins (B1, B2) are not monitored - R/G sufficient for color debugging
 - The strobe pins (P8-P11) are directly on the P2, not on the HUB75 connector, and are driven only in a `HUB75_INSTRUMENT` build
 - HUB75 signals assume `BASE_PIN = 16` (P16-P31 adapter)
-- The column clock and CLK pulse widths on the four-panel ICN2037 rig are in the [Wiring Guide](WiringGuide.md#measured-refresh) (chip ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings))
+- The column clock and CLK pulse widths on the four-panel ICN2037 rig are in the [Configuration Guide](WiringGuide.md#measured-refresh) (chip ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings))
 
 ## Pin identification test
 

@@ -52,7 +52,7 @@ The optional connectors are the same for the r1.2 and r1.3 boards as r1.4 but do
 
 ## Connecting your board
 
-The HUB75 adapter board is compatible with both the P2 Eval board and the new P2 Edge Board.  Simply choose a connector-pair then attach the board. Lastly you'll need to configure the driver so it knows which connector-pair to use: set `DISPn_ADAPTER_BASE_PIN` in `driver/isp_hub75_hwPanelConfig.spin2` to `PIN_GROUP_P0_P15`, `PIN_GROUP_P16_P31` or `PIN_GROUP_P32_P47`. See the [Wiring Guide](DOCs/WiringGuide.md#the-display-block) and [Driver Details](THEOPS.md)
+The HUB75 adapter board is compatible with both the P2 Eval board and the new P2 Edge Board.  Simply choose a connector-pair then attach the board. Lastly you'll need to configure the driver so it knows which connector-pair to use: set `DISPn_ADAPTER_BASE_PIN` in `driver/isp_hub75_hwPanelConfig.spin2` to `PIN_GROUP_P0_P15`, `PIN_GROUP_P16_P31` or `PIN_GROUP_P32_P47`. See the [Configuration Guide](DOCs/WiringGuide.md#the-display-block) and [Driver Details](THEOPS.md)
 
 ![Driving a panel](images/p2-driving-panel.jpg)
 

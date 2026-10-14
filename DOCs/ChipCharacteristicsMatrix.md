@@ -20,7 +20,7 @@ This table is the one place the project states each panel type's scan, address l
 | **GS6238S** | 64x32 | Cyan | ABCD | 1/16 | - | **Yes** | - | Offset+Overlap | Tested: single panel (2026-10-09) |
 | **DP5125D** | - | - | ABC | 1/8 | - | - | - | Offset+Overlap | Not run with 4.0.0: no panel on hand |
 
-**Scan follows how a panel is built, not which column-driver chip it uses.** Scan is the number of rows lit at once. Two 64x64 panels here need opposite settings: the ICN2038S road-sign panel lights four rows at once (1/16 scan, 16 row addresses, ABCD) and needs `SCAN_4`; the FM6124C panel lights two rows at once (1/32 scan, 32 row addresses, ABCDE) and must not have it. A panel whose picture shows twice, top to bottom, needs `SCAN_4`. A panel with every other horizontal band dark must not have it. The driver derives the address lines from the panel's rows and that flag ([Wiring Guide](WiringGuide.md#the-display-block)).
+**Scan follows how a panel is built, not which column-driver chip it uses.** Scan is the number of rows lit at once. Two 64x64 panels here need opposite settings: the ICN2038S road-sign panel lights four rows at once (1/16 scan, 16 row addresses, ABCD) and needs `SCAN_4`; the FM6124C panel lights two rows at once (1/32 scan, 32 row addresses, ABCDE) and must not have it. A panel whose picture shows twice, top to bottom, needs `SCAN_4`. A panel with every other horizontal band dark must not have it. The driver derives the address lines from the panel's rows and that flag ([Configuration Guide](WiringGuide.md#the-display-block)).
 
 ### Not yet proven on hardware with 4.0.0
 
@@ -61,7 +61,7 @@ This table is the one place the project states each chip's datasheet clock and /
 
 ## Detailed Chip Documentation
 
-Each panel type that has run on the author's bench has a **starting block** in its section: the settings and panel list for the user section of `isp_hub75_hwPanelConfig.spin2`, ready to copy (the `DISP0_` settings and one sentence per panel; the address lines are derived, not set). How the settings and the sentences work is in the [Wiring Guide](WiringGuide.md#the-display-block). The blocks name the P16-P31 pin group, the one the author's bench uses. The FM6124C and DP5125D sections have none: the FM6124C panel is configured with the FM6124 block, and no DP5125D panel has run.
+Each panel type that has run on the author's bench has a **starting block** in its section: the settings and panel list for the user section of `isp_hub75_hwPanelConfig.spin2`, ready to copy (the `DISP0_` settings and one sentence per panel; the address lines are derived, not set). How the settings and the sentences work is in the [Configuration Guide](WiringGuide.md#the-display-block). The blocks name the P16-P31 pin group, the one the author's bench uses. The FM6124C and DP5125D sections have none: the FM6124C panel is configured with the FM6124 block, and no DP5125D panel has run.
 
 ### FM6126A (Pink Labels)
 
@@ -112,7 +112,7 @@ disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
 disp0PanelsEnd
 ```
 
-The panels need the initialization sequence. A row of four of these is [Example 1](WiringGuide.md#example-1-a-row-of-4) in the Wiring Guide; the number of panels one adapter can drive is in the [driver limits table](WiringGuide.md#driver-limits) (calculated, not yet exercised at that count).
+The panels need the initialization sequence. A row of four of these is [Example 1](WiringGuide.md#example-1-a-row-of-4) in the Configuration Guide; the number of panels one adapter can drive is in the [driver limits table](WiringGuide.md#driver-limits) (calculated, not yet exercised at that count).
 
 ---
 

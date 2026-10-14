@@ -1,6 +1,6 @@
 # Author's Test Panel Configurations
 
-This document is the record of the panels and rigs the author has tested. The settings block for each panel type, ready to copy into the user section of `isp_hub75_hwPanelConfig.spin2`, is in that chip's section of the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#detailed-chip-documentation); this page links each one. How the settings and the panel sentences work is in the [Wiring Guide](WiringGuide.md). Each panel type's scan, address lines and test status are stated once, in the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix); this page does not repeat them. How many panels one adapter can drive for each panel type is in the [driver limits table](WiringGuide.md#driver-limits). The tools the author measures with (the instrumentation harness, the logic analyzer channels, the pin identification test) are on the [Testing and Measurement](TestingAndMeasurement.md) page.
+This document is the record of the panels and rigs the author has tested. The settings block for each panel type, ready to copy into the user section of `isp_hub75_hwPanelConfig.spin2`, is in that chip's section of the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#detailed-chip-documentation); this page links each one. How the settings and the panel sentences work is in the [Configuration Guide](WiringGuide.md). Each panel type's scan, address lines and test status are stated once, in the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix); this page does not repeat them. How many panels one adapter can drive for each panel type is in the [driver limits table](WiringGuide.md#driver-limits). The tools the author measures with (the instrumentation harness, the logic analyzer channels, the pin identification test) are on the [Testing and Measurement](TestingAndMeasurement.md) page.
 
 ## Configuration Summary Table
 
@@ -44,7 +44,7 @@ Scan, address lines and test status for each of these: see the [Quick Reference 
 
 The settings block is in the [FM6126A section](ChipCharacteristicsMatrix.md#fm6126a-pink-labels) of the Chip Characteristics Matrix.
 
-**4.0.0 refresh core, one panel (2026-10-05):** measured refresh is in the [Wiring Guide](WiringGuide.md#measured-refresh).
+**4.0.0 refresh core, one panel (2026-10-05):** measured refresh is in the [Configuration Guide](WiringGuide.md#measured-refresh).
 
 ---
 
@@ -60,7 +60,7 @@ The settings block is in the [FM6126A section](ChipCharacteristicsMatrix.md#fm61
 
 The settings block is in the [FM6124 section](ChipCharacteristicsMatrix.md#fm6124-orange-labels) of the Chip Characteristics Matrix.
 
-**4.0.0 refresh core, one panel (2026-10-05):** measured refresh is in the [Wiring Guide](WiringGuide.md#measured-refresh).
+**4.0.0 refresh core, one panel (2026-10-05):** measured refresh is in the [Configuration Guide](WiringGuide.md#measured-refresh).
 
 ---
 
@@ -92,7 +92,7 @@ The settings block (one panel) is in the [ICN2037 section](ChipCharacteristicsMa
 
 The settings block, for one panel and for two chained end to end as one 128x32 display, is in the [MBI5124GP section](ChipCharacteristicsMatrix.md#mbi5124gp-green-pcbs) of the Chip Characteristics Matrix.
 
-**4.0.0 refresh core (one panel 2026-10-05, two chained 2026-10-07):** at the chain-limit clock; measured refresh is in the [Wiring Guide](WiringGuide.md#measured-refresh).
+**4.0.0 refresh core (one panel 2026-10-05, two chained 2026-10-07):** at the chain-limit clock; measured refresh is in the [Configuration Guide](WiringGuide.md#measured-refresh).
 
 ---
 
@@ -158,7 +158,7 @@ The settings block is in the [GS6238S section](ChipCharacteristicsMatrix.md#gs62
 | MW245B | Bus transceiver (Sunmoon) |
 | TC7262BJ | Row driver (Fuman, anti-ghosting) |
 
-**Configuration** (the six panels laid out as the cross-shaped cube net; the ribbon runs `C0` ... `C3` along the row of four, then `C4` (the top face, marked `CUBE_TOP`) and `C5`; `C1` is the front face, marked `CUBE_FRONT`. [Example 7](WiringGuide.md#example-7-the-cube-wired-in-a-ring-with-top-and-front) of the Wiring Guide works it through):
+**Configuration** (the six panels laid out as the cross-shaped cube net; the ribbon runs `C0` ... `C3` along the row of four, then `C4` (the top face, marked `CUBE_TOP`) and `C5`; `C1` is the front face, marked `CUBE_FRONT`. [Example 7](WiringGuide.md#example-7-the-cube-wired-in-a-ring-with-top-and-front) of the Configuration Guide works it through):
 ```spin2
 ' P2 Cube FLAT
 CON
@@ -235,7 +235,7 @@ disp0Panels     LONG    hwEnum.ROW_1 | hwEnum.COL_0 | hwEnum.TOP_DOWN    ' C0, b
 disp0PanelsEnd
 ```
 
-This creates a 256×128 pixel display (32,768 total pixels). [Example 3](WiringGuide.md#example-3-2x2-in-z-order-from-bottom-left-the-rig) of the Wiring Guide works this one through.
+This creates a 256×128 pixel display (32,768 total pixels). [Example 3](WiringGuide.md#example-3-2x2-in-z-order-from-bottom-left-the-rig) of the Configuration Guide works this one through.
 
 ---
 
@@ -269,7 +269,7 @@ Each chip's datasheet clock and /OE ratings are in the [Chip Characteristics Mat
 ## Driver Limits per Panel Type
 
 How many panels one adapter can drive, for each panel type above, is in the
-[Wiring Guide's driver limits table](WiringGuide.md#driver-limits), the one home of that
+[Configuration Guide's driver limits table](WiringGuide.md#driver-limits), the one home of that
 table: the maximum per adapter, what sets it (the refresh line buffer, for every type), the
 hub RAM available, and the refresh rate. Its rows are these configurations. Every limit in it
 is **calculated** from the driver's constants and none has been exercised at that panel count
@@ -290,9 +290,9 @@ Which panel types and chains have run on hardware, and what is not yet proven wi
 The configurations are examples to copy from; none of them is a switch in the code.
 
 To change configuration:
-1. In the user section of `isp_hub75_hwPanelConfig.spin2`, replace the `DISP0_` block and its panel list with the starting block of your panel type from the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#detailed-chip-documentation), or with a rig block above (a second or third display is added with `#DEFINE DISP1_PRESENT` or `#DEFINE DISP2_PRESENT`, see the [Wiring Guide](WiringGuide.md#more-displays-and-optional-settings))
+1. In the user section of `isp_hub75_hwPanelConfig.spin2`, replace the `DISP0_` block and its panel list with the starting block of your panel type from the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#detailed-chip-documentation), or with a rig block above (a second or third display is added with `#DEFINE DISP1_PRESENT` or `#DEFINE DISP2_PRESENT`, see the [Configuration Guide](WiringGuide.md#more-displays-and-optional-settings))
 2. Match the values to your hardware
-3. Recompile and flash; the startup picture and the identify screen confirm the panel list (see the [Wiring Guide](WiringGuide.md))
+3. Recompile and flash; the startup picture and the identify screen confirm the panel list (see the [Configuration Guide](WiringGuide.md))
 
 Nothing below the user section of `isp_hub75_hwPanelConfig.spin2`, and nothing in `isp_hub75_hwBufferAccess.spin2`, is edited for a configuration change.
 

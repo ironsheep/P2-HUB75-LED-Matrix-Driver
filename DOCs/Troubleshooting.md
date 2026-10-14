@@ -19,11 +19,11 @@ On this Page:
 Additional pages:
 
 - [README](../README.md) - the project overview
-- [Wiring Guide](WiringGuide.md) - the display block, the panel list, the identify screen, the limits and every startup message
+- [Configuration Guide](WiringGuide.md) - the display block, the panel list, the identify screen, the limits and every startup message
 - [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md) - each panel type's scan, colour swaps and test status
 - [Driver Details](../THEOPS.md) - how the driver works
 
-### Pages: [README](../README.md) | [Hardware Turn-on](../HardwareTurnon.md) | [Driver Details](../THEOPS.md) | [Wiring Guide](WiringGuide.md) | Troubleshooting | [Change Log](../ChangeLog.md)
+### Pages: [README](../README.md) | [Hardware Turn-on](../HardwareTurnon.md) | [Driver Details](../THEOPS.md) | [Configuration Guide](WiringGuide.md) | Troubleshooting | [Change Log](../ChangeLog.md)
 
 ---
 
