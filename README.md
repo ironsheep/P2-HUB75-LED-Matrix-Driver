@@ -73,7 +73,7 @@ Additional pages:
 - [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md) - Notes about each panel-driver chip this P2 driver supports
 - [Panel Config/Timing Details (history)](HUB75-Driver-SWver1.md) - The v3-era notes on panel configuration and timing; kept as history
 - [HUB75 Card Details](HUB75-brd-config.md) - Pins and Probing Support provided by HUB75 card
-- [P2 P2 Cube testing](CubePix.md) - Author's test hardware - Flat P2 P2 Cube Configuration
+- [P2 P2 Cube testing](HardwareTurnon.md#p2-cube-driver-checkout) - Author's test hardware - Flat P2 P2 Cube Configuration
 - [Change Log](ChangeLog.md) - Notes about each release of this driver
 
 
