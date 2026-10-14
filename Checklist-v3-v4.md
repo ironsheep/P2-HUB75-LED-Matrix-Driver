@@ -1,6 +1,31 @@
-# CHECKLIST:</BR>Convert your code from v3.x to v4.x
+# P2 HUB75 LED Matrix Driver - Update to v4.0 Checklist
+Convert your code from v3.x to v4.x
 
 ![Project Maintenance][maintenance-shield]
+
+[![License][license-shield]](LICENSE)
+
+### Pages: [README](README.md) | [Hardware Turn-on](HardwareTurnon.md) | [Driver Details](THEOPS.md) | [Configuration Guide](DOCs/WiringGuide.md) | [Change Log](ChangeLog.md)
+
+On this Page:
+
+- [Introduction](#introduction) - what changed and the four jobs
+- [Convert your panel layout settings](#convert-your-panel-layout-settings) - the settings table and the panel list
+- [Rename your pin group](#rename-your-pin-group) - the three pin-group names
+- [The other configuration files](#the-other-configuration-files) - what you no longer edit
+- [Change how your program starts the driver](#change-how-your-program-starts-the-driver) - one call per adapter
+- [Starting a second or third adapter](#starting-a-second-or-third-adapter) - a display object for each
+- [Check your work with the identify screen](#check-your-work-with-the-identify-screen) - confirm the panel list
+- [Two things that now mean something different](#two-things-that-now-mean-something-different) - rotation and panel numbers
+- [If your program calls the buffers object](#if-your-program-calls-the-buffers-object-or-the-manual-chip-flags-directly) - removed calls and the manual chip flags
+- [What else is new](#what-else-is-new) - the rest of the v4.x changes
+
+Additional pages:
+
+- [Configuration Guide](DOCs/WiringGuide.md) - The full grammar of the panel sentences, with seven worked examples
+- [Quick Start](DOCs/QuickStart.md) - From wired panels to a running program
+- [Troubleshooting](DOCs/Troubleshooting.md) - Symptom, cause and fix when a display does not look right
+- [Update to v3.0 Checklist](Checklist-v2-v3.md) and [Update to v2.0 Checklist](Checklist-v1-v2.md) - the earlier conversions
 
 ## Introduction
 
@@ -233,12 +258,26 @@ I hope you continue to enjoy using this driver. As always please feel free to re
 
 ----
 
+> If you like my work and/or this has helped you in some way then feel free to help me out for a couple of :coffee:'s or :pizza: slices!
+>
+> [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep) &nbsp;&nbsp; -OR- &nbsp;&nbsp; [![Patreon](./images/patreon.png)](https://www.patreon.com/IronSheep?fan_landing=true)[Patreon.com/IronSheep](https://www.patreon.com/IronSheep?fan_landing=true)
+
+----
+
+## Disclaimer and Legal
+
+> *Parallax, Propeller Spin, and the Parallax and Propeller Hat logos* are trademarks of Parallax Inc., dba Parallax Semiconductor
+
+---
+
 ## License
 
-Licensed under the MIT License. 
+Licensed under the MIT License.
 
 Follow these links for more information:
 
 ### [Copyright](copyright) | [License](LICENSE)
 
 [maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep.biz-blue.svg?style=for-the-badge
+
+[license-shield]: https://img.shields.io/badge/License-MIT-yellow.svg

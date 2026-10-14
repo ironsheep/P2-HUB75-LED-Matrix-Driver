@@ -3,7 +3,10 @@
 A Parallax Propeller v2 driver for HUB75 RGB LED matrix panels, single or multi-panel. This page lists the test programs that come with the driver, what each one prints and whether it needs panels, and the tools for measuring the driver at work: the instrumentation harness, the logic analyzer channels and the pin identification test.
 
 ![Project Maintenance][maintenance-shield]
+
 [![License][license-shield]](../LICENSE)
+
+### Pages: [README](../README.md) | [Hardware Turn-on](../HardwareTurnon.md) | [Driver Details](../THEOPS.md) | [Configuration Guide](WiringGuide.md) | Testing and Measurement | [Change Log](../ChangeLog.md)
 
 On this Page:
 
@@ -22,12 +25,10 @@ Additional pages:
 - [Troubleshooting](Troubleshooting.md) - symptoms and their fixes
 - [CONTRIBUTING](../CONTRIBUTING.md) - what to compile and run before you send a change
 
-### Pages: [README](../README.md) | [Hardware Turn-on](../HardwareTurnon.md) | [Driver Details](../THEOPS.md) | [Configuration Guide](WiringGuide.md) | [Troubleshooting](Troubleshooting.md) | Testing and Measurement | [Change Log](../ChangeLog.md)
-
 ---
 
 > If you find this kind of written explanation useful, helpful I would be honored by your helping me out for a couple of :coffee:'s or :pizza: slices -or- you can support my efforts by contributing at my Patreon site!
-
+>
 > [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep) &nbsp;&nbsp; -OR- &nbsp;&nbsp; [![Patreon](../images/patreon.png)](https://www.patreon.com/IronSheep?fan_landing=true)[Patreon.com/IronSheep](https://www.patreon.com/IronSheep?fan_landing=true)
 
 ---
@@ -119,11 +120,11 @@ The author's logic analyzer configuration for looking at the shape of HUB75 sign
 | 3 | P23 | E | Address bit 4 (MSB) |
 | 2 | P16 | CLK | Pixel clock |
 | 1 | P18 | LATCH | Row latch |
-| 0 | P17 | OE | Output enable (directly active) |
+| 0 | P17 | OE | Output enable (active low) |
 
 ### Notes
 
-- Blue pins (B1, B2) are not monitored - R/G sufficient for color debugging
+- Blue pins (B1, B2) are not monitored - R/G is sufficient for color debugging
 - The strobe pins (P8-P11) are directly on the P2, not on the HUB75 connector, and are driven only in a `HUB75_INSTRUMENT` build
 - HUB75 signals assume `BASE_PIN = 16` (P16-P31 adapter)
 - The column clock and CLK pulse widths on the four-panel ICN2037 rig are in the [Configuration Guide](WiringGuide.md#measured-refresh) (chip ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings))
@@ -183,7 +184,7 @@ pnut-ts -d            demo_hub75_color.spin2     # normal build -- diagnostics a
 
 `-D` is global across the object tree, so a single `-D DBG_PWM` reaches `isp_hub75_panel.spin2` (the `dumpBufferHeads` / `dumpFrame*` family) and `isp_hub75_hwBufferAccess.spin2` (`dbgMemDump`). Two notes for maintainers:
 
-- Use `#ifdef DBG_PWM` / `#endif` (conditional compilation) to gate diagnostic **methods and their call sites** -- this removes the routine scaffolding entirely. (A plain `debug()` statement already costs nothing in a non-`-d` build, so it needs no guard.)
+- Use `#ifdef DBG_PWM` / `#endif` (conditional compilation) to gate diagnostic **methods and their call sites** - this removes the routine scaffolding entirely. (A plain `debug()` statement already costs nothing in a non-`-d` build, so it needs no guard.)
 - An in-file `#define` does **not** cross object boundaries; only command-line `-D` does. Define `DBG_PWM` on the command line, never per-file.
 
 `test_hub75_rates.spin2` has three more switches that corrupt a check on purpose, so you can see the check fail: `-D HUB75_CORRUPT_COLOUR_TABLE` (every colour-table case must report FAIL), `-D HUB75_CORRUPT_ROW_RUN` (every row-run case must report FAIL) and `-D HUB75_CORRUPT_PIXEL_ADDRESS` (every address-rule line must report FAIL).
@@ -205,11 +206,15 @@ This is a project supporting our P2 Development Community. Please feel free to c
 
 ## License
 
-Licensed under the MIT License. <br>
-<br>
+Licensed under the MIT License.
+
 Follow these links for more information:
 
 ### [Copyright](../copyright) | [License](../LICENSE)
+
+---
+
+Last Updated: 13 Oct 2026
 
 [maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep.biz-blue.svg?style=for-the-badge
 

@@ -3,7 +3,10 @@
 A Parallax Propeller v2 driver for HUB75 RGB LED matrix panels, single or multi-panel. This page lists the work planned beyond what the driver does today: larger displays on external RAM, and better color rendering.
 
 ![Project Maintenance][maintenance-shield]
+
 [![License][license-shield]](../LICENSE)
+
+### Pages: [README](../README.md) | [Hardware Turn-on](../HardwareTurnon.md) | [Driver Details](../THEOPS.md) | [Configuration Guide](WiringGuide.md) | Roadmap | [Change Log](../ChangeLog.md)
 
 On this Page:
 
@@ -12,6 +15,7 @@ On this Page:
 - [Moving data without hub RAM](#moving-data-without-hub-ram) - the streamer and LUT sharing
 - [Color rendering](#color-rendering) - gamma, white point, temporal dithering, scan-line uniformity
 - [Conversion and refresh](#conversion-and-refresh) - a dedicated conversion cog and streamer-fed output
+- [How to Contribute](#how-to-contribute) - where to send ideas and code
 
 Additional pages:
 
@@ -20,12 +24,10 @@ Additional pages:
 - [Driver Details](../THEOPS.md) - how the driver works today
 - [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md) - each panel type's scan, colour swaps and test status
 
-### Pages: [README](../README.md) | [Hardware Turn-on](../HardwareTurnon.md) | [Driver Details](../THEOPS.md) | [Configuration Guide](WiringGuide.md) | Roadmap | [Change Log](../ChangeLog.md)
-
 ---
 
 > If you find this kind of written explanation useful, helpful I would be honored by your helping me out for a couple of :coffee:'s or :pizza: slices -or- you can support my efforts by contributing at my Patreon site!
-
+>
 > [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep) &nbsp;&nbsp; -OR- &nbsp;&nbsp; [![Patreon](../images/patreon.png)](https://www.patreon.com/IronSheep?fan_landing=true)[Patreon.com/IronSheep](https://www.patreon.com/IronSheep?fan_landing=true)
 
 ---
@@ -112,7 +114,33 @@ Screen-to-PWM conversion runs today in the main cog (the commit time is in the [
 
 Using the P2's streamer to feed PWM data to the pins would reduce the load on the refresh cog, give more consistent timing and could lift the 512-column line-buffer limit. It needs significant restructuring of the refresh cog.
 
+## How to Contribute
+
+This is a project supporting our P2 Development Community. Please feel free to contribute to this project. You can contribute in the following ways:
+
+- File **Feature Requests** or **Issues** (describing things you are seeing while using our code) at the [Project Issue Tracking Page](https://github.com/ironsheep/P2-HUB75-LED-Matrix-Driver/issues)
+- Fork this repo and then add your code to it. Finally, create a Pull Request to contribute your code back to this repository for inclusion with the projects code. See [CONTRIBUTING](../CONTRIBUTING.md)
+
 ---
 
+## Disclaimer and Legal
+
+> *Parallax, Propeller Spin, and the Parallax and Propeller Hat logos* are trademarks of Parallax Inc., dba Parallax Semiconductor
+
+---
+
+## License
+
+Licensed under the MIT License.
+
+Follow these links for more information:
+
+### [Copyright](../copyright) | [License](../LICENSE)
+
+---
+
+Last Updated: 13 Oct 2026
+
 [maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep.biz-blue.svg?style=for-the-badge
+
 [license-shield]: https://img.shields.io/badge/License-MIT-yellow.svg

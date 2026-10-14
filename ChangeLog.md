@@ -1,10 +1,28 @@
-# Change Log
+# P2 HUB75 LED Matrix Driver - Change Log
+The notable changes in each release of the P2 HUB75 LED Matrix Driver, newest first
 
 All notable changes to the HUB75 LED Matrix Driver will be documented in this file.
 
 Check [Keep a Changelog](http://keepachangelog.com/) for reminders on how to structure this file. Also, note that our version numbering adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Pages: [README](README.md) | [Hardware Turn-on](HardwareTurnon.md) | [Driver Details](THEOPS.md) | [Configuration Guide](DOCs/WiringGuide.md) | Change Log
+
+On this Page:
+
+- [4.0.1](#401-13-oct-2026) - 13 Oct 2026, the documentation release
+- [4.0.0](#400-11-oct-2026) - 11 Oct 2026, panel lists, the cube, full 8-bit color
+- [3.0.1](#301-15-jan-2024) - 15 Jan 2024
+- [2.0.0](#200-10-nov-2022) - 10 Nov 2022
+- [1.0.0](#100-05-apr-2022) - 05 Apr 2022
+- [0.9.0](#090-2021-05-12) - 12 May 2021
+- [0.2.0](#020-2021-02-19) - 19 Feb 2021
+- [0.1.0](#010-2020-12-01) - 01 Dec 2020
+
+Additional pages:
+
+- [Update to v4.0 Checklist](Checklist-v3-v4.md) - Convert a v3.x program step by step
+- [Troubleshooting](DOCs/Troubleshooting.md) - Symptom, cause and fix when a display does not look right
+- [Roadmap](DOCs/Roadmap.md) - Planned work: external RAM, the streamer pipeline, colour quality
 
 ## [4.0.1] 13 Oct 2026
 
@@ -144,7 +162,6 @@ On four ICN2037 128x64 panels (256x128 pixels):
 - Added support for New Panel (*same chip as ICN2037 but slightly different setttings, new name is:* **ICN2037_B***: where colors are not swapped and scan is different*)
 - Repo README's have been updated: *changed demo file names, changed how configuration is done*.
 
-
 ### Known Issues v2.0.0
 
 - Multi-panel support for the FM6126A and MBI5124 driver chips is not yet working!
@@ -192,7 +209,6 @@ On four ICN2037 128x64 panels (256x128 pixels):
 
 - Multi-panel support for the FM6126A and MBI5124 driver chips is not yet working!
 
-
 ## [0.1.0] 2020-12-01
 
 ### Initial Release - Single Panel
@@ -204,3 +220,25 @@ On four ICN2037 128x64 panels (256x128 pixels):
 - Basic color pixel placement at row, column
 - Basic drawing primitives
 - Loading and displaying images from .bmp files (that are identically sized to your panel)
+
+---
+
+> If you like my work and/or this has helped you in some way then feel free to help me out for a couple of :coffee:'s or :pizza: slices!
+>
+> [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep) &nbsp;&nbsp; -OR- &nbsp;&nbsp; [![Patreon](./images/patreon.png)](https://www.patreon.com/IronSheep?fan_landing=true)[Patreon.com/IronSheep](https://www.patreon.com/IronSheep?fan_landing=true)
+
+---
+
+## Disclaimer and Legal
+
+> *Parallax, Propeller Spin, and the Parallax and Propeller Hat logos* are trademarks of Parallax Inc., dba Parallax Semiconductor
+
+---
+
+## License
+
+Licensed under the MIT License.
+
+Follow these links for more information:
+
+### [Copyright](copyright) | [License](LICENSE)

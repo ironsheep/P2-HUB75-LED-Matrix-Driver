@@ -2,11 +2,15 @@
 
 How to tell the driver which panels you have, where each one sits and which way each one's top points: the per-display settings, the panel list, the identify screen that lets you fill the list in from the wall, the mounting override, the cube, the limits of the driver, every message the driver prints when a configuration is wrong, and seven worked examples.
 
-Pages: [README](../README.md) | [Driver Details](../THEOPS.md) | [Troubleshooting](Troubleshooting.md)
+![Project Maintenance][maintenance-shield]
 
-Within this page:
+[![License][license-shield]](../LICENSE)
 
-- [Words used here](#words-used-here)
+### Pages: [README](../README.md) | [Hardware Turn-on](../HardwareTurnon.md) | [Driver Details](../THEOPS.md) | Configuration Guide | [Change Log](../ChangeLog.md)
+
+On this Page:
+
+- [Words used here](#words-used-here) - the terms this page uses, and where they are defined
 - [The configuration at a glance](#the-configuration-at-a-glance) - what you write, and the order to write it in
 - [The display block](#the-display-block) - pins, chip, panel size, colour depth, derived address lines
 - [The wiring sentences](#the-wiring-sentences) - the panel list: the words, the rules
@@ -16,7 +20,24 @@ Within this page:
 - [The cube](#the-cube) - six panels as one object
 - [Driver limits](#driver-limits) - how many panels per adapter, by panel type
 - [Startup messages](#startup-messages) - what the driver prints, every mistake it catches
-- [Seven worked examples](#seven-worked-examples)
+- [Seven worked examples](#seven-worked-examples) - a row, two panels, 2x2 in two orders, 3 x 2, an L shape and the cube, each with its startup lines
+- [How to Contribute](#how-to-contribute) - where to send questions and code
+
+Additional pages:
+
+- [Quick Start](QuickStart.md) - From wired panels to a running program, with short examples
+- [Troubleshooting](Troubleshooting.md) - Symptom, cause and fix when a display does not look right
+- [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md) - Notes about each panel-driver chip this driver supports
+- [HUB75 Adapter Board](../HUB75-brd-config.md) - The adapter board, its optional connectors and its pinout
+- [Driver Details](../THEOPS.md) - The driver's files, glossary and internals
+
+---
+
+> If you find this kind of written explanation useful, helpful I would be honored by your helping me out for a couple of :coffee:'s or :pizza: slices -or- you can support my efforts by contributing at my Patreon site!
+>
+> [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep) &nbsp;&nbsp; -OR- &nbsp;&nbsp; [![Patreon](../images/patreon.png)](https://www.patreon.com/IronSheep?fan_landing=true)[Patreon.com/IronSheep](https://www.patreon.com/IronSheep?fan_landing=true)
+
+---
 
 ## Words used here
 
@@ -1174,3 +1195,34 @@ Common mistakes:
 ---
 
 *Questions about a configuration that this guide does not cover? File an issue with your panel list and the startup lines your driver printed.*
+
+## How to Contribute
+
+This is a project supporting our P2 Development Community. Please feel free to contribute to this project. You can contribute in the following ways:
+
+- File **Feature Requests** or **Issues** (describing things you are seeing while using our code) at the [Project Issue Tracking Page](https://github.com/ironsheep/P2-HUB75-LED-Matrix-Driver/issues)
+- Fork this repo and then add your code to it. Finally, create a Pull Request to contribute your code back to this repository for inclusion with the projects code. See [CONTRIBUTING](../CONTRIBUTING.md)
+
+---
+
+## Disclaimer and Legal
+
+> *Parallax, Propeller Spin, and the Parallax and Propeller Hat logos* are trademarks of Parallax Inc., dba Parallax Semiconductor
+
+---
+
+## License
+
+Licensed under the MIT License.
+
+Follow these links for more information:
+
+### [Copyright](../copyright) | [License](../LICENSE)
+
+---
+
+Last Updated: 13 Oct 2026
+
+[maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep.biz-blue.svg?style=for-the-badge
+
+[license-shield]: https://img.shields.io/badge/License-MIT-yellow.svg

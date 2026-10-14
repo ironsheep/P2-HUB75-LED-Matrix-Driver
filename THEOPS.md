@@ -4,6 +4,8 @@ How the driver is put together, and how a drawing call becomes light on the pane
 
 ![Project Maintenance][maintenance-shield]
 
+[![License][license-shield]](LICENSE)
+
 On this page you'll learn what files make up the driver (and/or come with it) and what their purpose is, how to configure the driver for your hardware, and how the driver actually works, step by step, from a drawing call to the lit panel.
 
 (*I expect that this file will continue to grow over time as our driver becomes more capable. -Stephen*)
@@ -11,7 +13,7 @@ On this page you'll learn what files make up the driver (and/or come with it) an
 
 ### Pages: [README](README.md) | [Hardware Turn-on](HardwareTurnon.md) | Driver Details | [Configuration Guide](DOCs/WiringGuide.md) | [Change Log](ChangeLog.md)
 
-Within this page:
+On this Page:
 
 - [Driver Files](#driver-file-organization) - the purpose of each file found in the driver
 - [Glossary](#glossary) - the terms every driver document uses, each defined once
@@ -19,6 +21,16 @@ Within this page:
 - [Driver Internals](#driver-internals) - the layers, the data path, how a draw reaches the panels, the frame sets and buffers, how the panels are refreshed, and the timing
 - [Max Panels Supported](#driver-max-panels-supported) - I'm planning on buying panels. How many panels does this driver support?
 - [HUB75 Pins](#hub75-pins-used-by-driver) - which pin carries which signal
+
+Additional pages:
+
+- [Quick Start](DOCs/QuickStart.md) - From wired panels to a running program, with short examples
+- [Configuration Guide](DOCs/WiringGuide.md) - How to describe your panels' layout, cabling and mounting
+- [Troubleshooting](DOCs/Troubleshooting.md) - Symptom, cause and fix when a display does not look right
+- [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md) - Notes about each panel-driver chip this driver supports
+- [Testing and Measurement](DOCs/TestingAndMeasurement.md) - The test programs, the instrumentation harness and the diagnostic switches
+- [HUB75 Adapter Board](HUB75-brd-config.md) - The adapter board, its optional connectors and its pinout
+- [Roadmap](DOCs/Roadmap.md) - Planned work: external RAM, the streamer pipeline, colour quality
 
 
 ## Driver file organization
@@ -42,7 +54,7 @@ Here are the reference programs you can study when learning to display to your p
 | demo\_hub75_boundary.spin2 | **TEST** Draws once across panel seams (a crosshair, a spanning box, a circle, text across a seam) and a panel-centric line that is clipped at its panel's edge, then holds the image |
 | demo\_hub75_quadPanel.spin2, demo\_hub75_multi2x2panel.spin2 | Draw to a 2x2 display and to its individual panels |
 
-**NOTE:** these demo's are built for 64x32 panels and 64x64 panels. You may need to modify them if your panel is a different geometry.
+**NOTE:** these demos are built for 64x32 panels and 64x64 panels. You may need to modify them if your panel is a different geometry.
 
 ### Test and bring-up top-level files
 
@@ -50,7 +62,7 @@ The `test_hub75_*` programs and `isp_hub75_anlyCheck.spin2` are compile entry po
 
 ### Driver files
 
-The driver itself is composed of the following files (with a few extras thrown in for fun):
+The driver itself is composed of the following files (with a few extras):
 
 | group / Driver File           |  Purpose |
 |-----------------|-------------|
@@ -74,7 +86,7 @@ The driver itself is composed of the following files (with a few extras thrown i
 | isp\_hub75_segment.spin2 | **Optional** - part of 7-segment demo - a segment within a digit (packaged with the demos) |
 | isp\_hub75\_instrument.spin2 | **Test only** - measurement: monitor smart pins on CLK, /OE, LATCH and the refresh cog's strobes, plus stopwatches. Compiled only with `HUB75_INSTRUMENT` defined by a test top file (see [Testing and Measurement](DOCs/TestingAndMeasurement.md#the-instrumentation-harness)) |
 
-The structure of these files was chosen in order to (1) make it easier and less memory usage for part of the driver to access other parts and (2) make it easier for you to chose to compile the **optional** parts or not. 
+The structure of these files was chosen in order to (1) make it easier and less memory usage for part of the driver to access other parts and (2) make it easier for you to choose to compile the **optional** parts or not.
 
 Now let's see how to configure the driver.
 
@@ -176,7 +188,7 @@ To this driver the panels look like the following:
 
 **Figure 1**: Terms describing a display composed of matrix panels cabled together.
 
-In the above image you see panels describe in terms of rows and columns, and you also see the overall display described in rows and columns but comprised of multiple panels in some arrangement.  The configuration settings following are intended to describe the geometry of your display to the driver.  The organization you describe in these settings causes the underlying driver to allocate buffer space tailored to your display and conditions the hub75 signalling to work correctly for your display. Additionally, if your panels use certain chips the signalling will be changed to conform to what those chips need to work.
+In the above image you see panels described in terms of rows and columns, and you also see the overall display described in rows and columns but comprised of multiple panels in some arrangement.  The configuration settings following are intended to describe the geometry of your display to the driver.  The organization you describe in these settings causes the underlying driver to allocate buffer space tailored to your display and conditions the hub75 signalling to work correctly for your display. Additionally, if your panels use certain chips the signalling will be changed to conform to what those chips need to work.
 
 Once you have the driver source files added to your project you will first need to configure the driver by modifying the following values in the file **isp\_hub75_hwPanelConfig.spin2** for each HUB75 adapter that you will be activating in your project:
 
@@ -558,11 +570,11 @@ The number of panels one adapter can drive depends on the **panel type**, and is
 
 The table of limits for every panel type the author has tested, with the arithmetic, the RAM figures and the refresh rates, is in the [Configuration Guide's driver limits](DOCs/WiringGuide.md#driver-limits). Those limits are calculated from the driver's constants; only the author's rig (four ICN2037 128x64 panels) is measured.
 
-Generally you can make a single display out of many panels (the pitches in use are in the README's [background section](README.md#background-hub75-rgb-led-matrix-panels)); such displays could be quite large and of course will draw many amps of 5V. ;-)
+Generally you can make a single display out of many panels (the pitches in use are in the README's [background section](README.md#background-hub75-rgb-led-matrix-panels)); such displays could be quite large and of course will draw many amps of 5V.
 
 **NOTE**: The driver supports using 1-3 HUB75 adapters, each driving the display you describe for it. This means you can have up to three chains of panels attached to one P2. Each adapter has its own line buffer limit, but all three adapters share the hub RAM, so the buffers of every adapter together must fit.
 
-**NOTE2**: If you have panels by different vendors  (different driving ICs) you can use multiple HUB75 cards to accomodate this. Just make sure you have all panels of a given IC type on a single chain. Put all the panels with the next IC type on the next chain, the next HUB75 adapter.  Drive all the chains from the single P2.
+**NOTE2**: If you have panels by different vendors  (different driving ICs) you can use multiple HUB75 cards to accommodate this. Just make sure you have all panels of a given IC type on a single chain. Put all the panels with the next IC type on the next chain, the next HUB75 adapter.  Drive all the chains from the single P2.
 
 ### Research Needed
 
@@ -596,6 +608,24 @@ Iron Sheep Productions, LLC.
 
 ---
 
+## Disclaimer and Legal
+
+> *Parallax, Propeller Spin, and the Parallax and Propeller Hat logos* are trademarks of Parallax Inc., dba Parallax Semiconductor
+
+---
+
+## License
+
+Licensed under the MIT License.
+
+Follow these links for more information:
+
+### [Copyright](copyright) | [License](LICENSE)
+
+---
+
 Last Updated: 13 Oct 2026
 
 [maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep.biz-blue.svg?style=for-the-badge
+
+[license-shield]: https://img.shields.io/badge/License-MIT-yellow.svg

@@ -1,6 +1,43 @@
-# HUB75 Driver Chip Characteristics Matrix
+# P2 HUB75 LED Matrix Driver - Chip Characteristics Matrix
 
-This document provides a comprehensive matrix of all driver chip characteristics needed for proper panel control.
+Notes about each panel-driver chip this P2 driver supports, with a starting configuration for each
+
+![Project Maintenance][maintenance-shield]
+
+[![License][license-shield]](../LICENSE)
+
+### Pages: [README](../README.md) | [Hardware Turn-on](../HardwareTurnon.md) | [Driver Details](../THEOPS.md) | [Configuration Guide](WiringGuide.md) | Chip Characteristics Matrix | [Change Log](../ChangeLog.md)
+
+On this Page:
+
+- [Quick Reference Matrix](#quick-reference-matrix) - each panel type's scan, address lines, swaps, latch style and test status
+- [Datasheet Clock and /OE Ratings](#datasheet-clock-and-oe-ratings) - each chip's rated clock and minimum pulses
+- [Detailed Chip Documentation](#detailed-chip-documentation) - one section per chip, with a starting block to copy
+- [Driver Flag Reference](#driver-flag-reference) - the flags a chip setting is made of
+- [Chip Initialization Sequences](#chip-initialization-sequences) - the chips that need a start-up sequence
+- [Scan Rate / Address Line Relationship](#scan-rate--address-line-relationship) - address lines, row addresses and scan
+- [Latch Timing Styles](#latch-timing-styles) - offset or enclosed, overlap or after
+- [Multi-Panel Daisy-Chain Requirements](#multi-panel-daisy-chain-requirements) - what a chain asks of its panels
+- [Adding New Chip Support](#adding-new-chip-support) - the steps for a chip that is not listed
+- [How to Contribute](#how-to-contribute) - where to send a new panel's findings
+
+Additional pages:
+
+- [Configuration Guide](WiringGuide.md) - How to describe your panels' layout, cabling and mounting
+- [Troubleshooting](Troubleshooting.md) - Symptom, cause and fix when a display does not look right
+- [ICN2037 Signal Timing](ICN2037/README.md) - The ICN2037 signal chain, timing budget and the clock the driver runs
+- [Testing and Measurement](TestingAndMeasurement.md) - The test programs, the instrumentation harness and the diagnostic switches
+- [Author's Test Configurations](AuthorTestConfigurations.md) - The panels and rigs the author tests on
+
+---
+
+> If you find this kind of written explanation useful, helpful I would be honored by your helping me out for a couple of :coffee:'s or :pizza: slices -or- you can support my efforts by contributing at my Patreon site!
+>
+> [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep) &nbsp;&nbsp; -OR- &nbsp;&nbsp; [![Patreon](../images/patreon.png)](https://www.patreon.com/IronSheep?fan_landing=true)[Patreon.com/IronSheep](https://www.patreon.com/IronSheep?fan_landing=true)
+
+---
+
+This page is a matrix of the driver chip characteristics needed for proper panel control.
 
 **Scan** is written *1/S scan*, where S is the number of row addresses the panel's address lines select; each address lights panel rows ÷ S rows at once (the [glossary](../THEOPS.md#scan) defines it). Most panels light two rows at once. A panel that lights four rows at once, such as a 64×32 1/8-scan panel, needs its rows placed differently in the frame set; the driver does that when the `SCAN_4` chip flag is set, with the same converter (`convertRowPairs()`) as every other panel.
 
@@ -813,4 +850,33 @@ To add support for a new chip:
 
 ---
 
-*Last Updated: October 2026 (driver 4.0.0)*
+## How to Contribute
+
+This is a project supporting our P2 Development Community. Please feel free to contribute to this project. You can contribute in the following ways:
+
+- File **Feature Requests** or **Issues** (describing things you are seeing while using our code) at the [Project Issue Tracking Page](https://github.com/ironsheep/P2-HUB75-LED-Matrix-Driver/issues)
+- Fork this repo and then add your code to it. Finally, create a Pull Request to contribute your code back to this repository for inclusion with the projects code. See [CONTRIBUTING](../CONTRIBUTING.md)
+
+---
+
+## Disclaimer and Legal
+
+> *Parallax, Propeller Spin, and the Parallax and Propeller Hat logos* are trademarks of Parallax Inc., dba Parallax Semiconductor
+
+---
+
+## License
+
+Licensed under the MIT License.
+
+Follow these links for more information:
+
+### [Copyright](../copyright) | [License](../LICENSE)
+
+---
+
+Last Updated: October 2026 (driver 4.0.0)
+
+[maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep.biz-blue.svg?style=for-the-badge
+
+[license-shield]: https://img.shields.io/badge/License-MIT-yellow.svg

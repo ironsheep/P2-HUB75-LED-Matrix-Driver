@@ -1,4 +1,5 @@
 # P2 HUB75 LED Matrix Driver
+A Parallax Propeller 2 Spin2/PASM2 driver for HUB75 RGB LED matrix panels, in single-panel, multi-panel and cube layouts
 
 ![Project Maintenance][maintenance-shield]
 
@@ -14,7 +15,7 @@ The P2 HUB75 Driver is available from a couple of sources:
 - From this repository from the [Releases page](https://github.com/ironsheep/P2-HUB75-LED-Matrix-Driver/releases)
 
 ```
-Latest Updates:
+Latest Changes:
 13 Oct 2026
 - The documentation gives each topic one page: new Quick Start, Troubleshooting, Testing and Measurement and Roadmap pages; the driver is unchanged
 11 Oct 2026
@@ -37,6 +38,8 @@ Earlier releases are in the [Change Log](ChangeLog.md).
 ## Table of Contents
 
 This README reflects the current state of the driver as currently released
+
+### Pages: README | [Hardware Turn-on](HardwareTurnon.md) | [Driver Details](THEOPS.md) | [Configuration Guide](DOCs/WiringGuide.md) | [Change Log](ChangeLog.md)
 
 On this Page:
 
@@ -122,7 +125,7 @@ Upcoming work on the driver:
 
 - Proving the 4.0.0 display organization on more hardware: the list is in the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md#not-yet-proven-on-hardware-with-400). See also the Known Issues in the [Change Log](ChangeLog.md).
 - Larger displays on external RAM and further color rendering work: the [Roadmap](DOCs/Roadmap.md) lists what is planned.
-- I've even some fun animated clocks coming (sorry, I'm been doing software clocks of many, many, forms for a long time.)
+- I have some fun animated clocks coming (I've been doing software clocks of many, many forms for a long time.)
 
 Morphing digits Matrix displays can be found at [P2 LED-Matrix Morphing Digits](https://github.com/ironsheep/P2-LED-Matrix-Morphing-Digits) Repository.
 
@@ -258,7 +261,7 @@ disp0PanelsEnd
 
 As soon as you are configured you will want to make pixels light up on your panel(s)! The [Quick Start](DOCs/QuickStart.md) page takes you from wired panels to a running program, with short examples to copy.
 
-The demos below show more, and you can review then copy and paste from them:
+The demos below show more, and you can review and then copy and paste from them:
 
 | DEMO Program    |  Purpose |
 |-----------------|-------------|
@@ -267,7 +270,7 @@ The demos below show more, and you can review then copy and paste from them:
 | demo\_hub75_7seg.spin2 | Presents a technique for doing multi-step animations using the panel driver |
 | demo\_hub75_multiPanel.spin2 | Presents techniques for drawing to the various surfaces of our P2 P2 Cube |
 | demo\_hub75_5x7font.spin2 | Present pages (every 10 sec) showing the latest 5x7 full character-set font |
-| demo\_hub75_scroll.spin2 | Shows off the 4 supported text-scrolling directions (albeit slowly ;-)
+| demo\_hub75_scroll.spin2 | Shows off the 4 supported text-scrolling directions (albeit slowly) |
 | demo\_hub75_colorPad.spin2 | **TEST** Simple single-screen demo so you can check if Red Green Blue LEDs are set correctly. (*color patch will match color name underneath if settings for color-swap are correct*) |
 | demo\_hub75_numberPanels.spin2 | **IDENTIFY** Labels every panel with its cable position (`C`*k*), its place in the display (`P`*p*) and an arrow, so you can check your panel list |
 | demo\_hub75_boundary.spin2 | **TEST** Draws lines, a box, a circle and text across the panel seams of a multi-panel display, and a panel-centric line that must stop at its panel's edge; prints the time of one full draw |
@@ -281,9 +284,9 @@ The demos below show more, and you can review then copy and paste from them:
 
 What each **TEST** program prints, which ones need panels attached, and the measurement tools (the instrumentation harness and the logic analyzer pins) are on the [Testing and Measurement](DOCs/TestingAndMeasurement.md) page.
 
-**NOTE1:** most of the demo's are built for a 64x32 panels. You may have to modify them to run on your panel geometry.
+**NOTE1:** most of the demos are built for 64x32 panels. You may have to modify them to run on your panel geometry.
 
-Once you have a sense for what these demo's do and how they do it, writing your own display code should be fairly easy and initially may even be a copy-n-paste effort from the demo source to your own display code.
+Once you have a sense for what these demos do and how they do it, writing your own display code should be fairly easy and initially may even be a copy-n-paste effort from the demo source to your own display code.
 
 **NOTE2** An example of starting up more than one HUB75 card is in the Quick Start's [A second adapter](DOCs/QuickStart.md#a-second-adapter) section.
 
@@ -293,7 +296,7 @@ Please enjoy and let me know if there are features you want to see in this drive
 
 ## BACKGROUND: HUB75 RGB LED Matrix Panels
 
-There are many RGB LED matrices available. This driver is built specifically for **HUB75** driven matrices which are usually found in sizes ranging from 16x16 to 64x64 and ranging in horizontal/vertical spacing form 1.5mm (P1.5) to 8mm (P8) between individual LEDs.  The version I'm developing with is actually a P3 64x32 Matrix which I originally bought from Amazon. The specific ones I'm using are no longer avail. but the are many others.  
+There are many RGB LED matrices available. This driver is built specifically for **HUB75** driven matrices which are usually found in sizes ranging from 16x16 to 64x64 and ranging in horizontal/vertical spacing from 1.5mm (P1.5) to 8mm (P8) between individual LEDs. The version I'm developing with is actually a P3 64x32 Matrix which I originally bought from Amazon. The specific ones I'm using are no longer available, but there are many others.
 
 Example 32x64 panels:
 
@@ -308,7 +311,7 @@ These panels expect to receive six lines of serial color data, a clock signal in
 
 While the 64x32 Matrices all appear to be similar the manufacturing of them has been rapid and varied. For us this means that a HUB75 panel can have very different Integrated Circuits (ICs) on the panel driving the LEDs. With these IC changes comes the need alter the signals sent to the panels so that the ICs your panel uses understands the input signals.
 
-In general i'm finding so far that there are 3 or 4 commmon choices for ICs used on the panels. One GitHub user **Piotr Esden-Tempski**  offers  doc's for some of the panels [esden/led-panel-docs](https://github.com/esden/led-panel-docs) showing images of the panels, schematics and datasheets for the ICs used on the panel. (*I'm planning on contributing my schematic and various finds to his repo as a Pull request before this project is completed.*) There are many more that he does not have but this is a good reference.
+In general I'm finding so far that there are 3 or 4 common choices for ICs used on the panels. One GitHub user, **Piotr Esden-Tempski**, offers docs for some of the panels [esden/led-panel-docs](https://github.com/esden/led-panel-docs) showing images of the panels, schematics and datasheets for the ICs used on the panel. (*I'm planning on contributing my schematic and various finds to his repo as a Pull request before this project is completed.*) There are many more that he does not have but this is a good reference.
 
 ![Hub75 Panels](images/example-panels.png)
 
@@ -332,7 +335,7 @@ But let's be more specific:
 | Understand system demand | -  | Study overall system performance so we know how this will behave with various peripherals and panel configurations |
 | - | Use P2 internal ram resources|  Study driver use of COG Registers, LUT RAM, and HUB RAM |
 | - | w/P2 Eval HyperRAM  |  Will we need, can we benefit from, using HyperRAM / External RAM? |
-| - | w/uSD Storage  | What is our performace displaying images / video directly from the P2 uSD card? |
+| - | w/uSD Storage  | What is our performance displaying images / video directly from the P2 uSD card? |
 | - | w/Receiving image data from RPi  | Is the RPi SPI interface sufficient to keep our panels streaming video? |
 | Reusable Driver | - | Ensure driver can be configured for (1) single panel size, (2) organization of Multi-panel chains, and (3) the various panel chip-sets which require different clocking styles (within practical limits: *all panels must use the same chip-set*) |
 | long-term | - | Can we drive multiple panel chains - we have 64 GPIO pins on the P2... we should easily be able to connect 3 HUB75 adapters. Can we drive them all at video frame rates?  What is our limitation here? |
@@ -341,7 +344,7 @@ But let's be more specific:
 
 ----
 
-> If you like my work and/or this has helped you in some way then feel free to help me out for a couple of :coffee:'s or :pizza: slices -or- you can support my efforts by contributing at my Patreon site!
+> If you like my work and/or this has helped you in some way then feel free to help me out for a couple of :coffee:'s or :pizza: slices!
 >
 > [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep) &nbsp;&nbsp; -OR- &nbsp;&nbsp; [![Patreon](./images/patreon.png)](https://www.patreon.com/IronSheep?fan_landing=true)[Patreon.com/IronSheep](https://www.patreon.com/IronSheep?fan_landing=true)
 
@@ -368,8 +371,8 @@ This is a project supporting our P2 Development Community. Please feel free to c
 
 ## License
 
-Licensed under the MIT License. <br>
-<br>
+Licensed under the MIT License.
+
 Follow these links for more information:
 
 ### [Copyright](copyright) | [License](LICENSE)

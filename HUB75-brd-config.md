@@ -1,20 +1,40 @@
-# P2 Eval HUB75 Adapter Board
+# P2 HUB75 LED Matrix Driver - P2 Eval HUB75 Adapter Board
+The P2 Eval HUB75 adapter board connects a Propeller 2 to one HUB75 RGB LED Matrix panel, or to a small number of them daisy-chained together
 
 ![Project Maintenance][maintenance-shield]
 
+[![License][license-shield]](LICENSE)
+
+### Pages: [README](README.md) | [Hardware Turn-on](HardwareTurnon.md) | [Driver Details](THEOPS.md) | [Configuration Guide](DOCs/WiringGuide.md) | [Change Log](ChangeLog.md)
+
+On this Page:
+
+- [The board](#the-board) - what it is, its features and specifications
+- [Downloads & Resources](#downloads--resources) - the driver release and the schematic
+- [Optional connectors](#use-of-optional-connectors-rev-14-black) - J3, J4 and J5, by board revision
+- [Connecting your board](#connecting-your-board) - which connector pair to use and the one driver setting
+- [Pinout](#hub75-adapter-board-pinout) - which P2 pin carries which HUB75 signal
+
+Additional pages:
+
+- [Quick Start](DOCs/QuickStart.md) - From wired panels to a running program, with short examples
+- [Configuration Guide](DOCs/WiringGuide.md) - How to describe your panels' layout, cabling and mounting
+- [Troubleshooting](DOCs/Troubleshooting.md) - Symptom, cause and fix when a display does not look right
+- [Hardware Turn-on](HardwareTurnon.md) - The story of the first boards arriving and powering up
+
 ## The board
 
-The P2 Eval HUB75 adapter board provides a simple means by which one can connect and drive a HUB75 RGB LED Matrix panel or a small number of HUB75 Matrix panels daisy-chained together.
+The P2 Eval HUB75 adapter board provides a simple means by which one can connect and drive a HUB75 RGB LED Matrix panel or a small number of HUB75 Matrix panels daisy-chained together. It is sold in the [Parallax.com Store](https://www.parallax.com/product-category/propeller-2/).
 
 ### Overview
 
-This  HUB75 add-on board (#65032) is designed for use with Propeller 2 development board 2×6 accessory headers. Its dual 2×6 pass-through sockets stack on top of a pair of accessory headers on the P2 Eval Board (64000). It is also compatible with a P2 Edge Module Breadboard (#64020) or P2 Edge Mini Breakout Board (#64019) with a P2 Edge Module (#P2-EC) installed.
+This HUB75 add-on board (#65032) is designed for use with Propeller 2 development board 2×6 accessory headers. Its dual 2×6 pass-through sockets stack on top of a pair of accessory headers on the P2 Eval Board (64000). It is also compatible with a P2 Edge Module Breadboard (#64020) or P2 Edge Mini Breakout Board (#64019) with a P2 Edge Module (#P2-EC) installed.
 
 ### Features
 
 - Provides 3.3v to 5v level shifting for all signals at the HUB75 Connector
 - Supports HUB75 panels which use A-B-C, A-B-C-D and A-B-C-D-E Address lines
-- Perfect for use with the [ISP HUB75 Driver](https://github.com/parallaxinc/propeller/tree/master/libraries/community/p2/All/isp_hub75_matrix) found in the P2 Object Exchange (OBEX)
+- Made for use with the [ISP HUB75 Driver](https://github.com/parallaxinc/propeller/tree/master/libraries/community/p2/All/isp_hub75_matrix) found in the P2 Object Exchange (OBEX)
 
 
 ### Specifications
@@ -42,13 +62,13 @@ J4 and J5 allow access to the 2 pins not being used to drive the HUB75 devices, 
 
 You likely received a small bag of header pins cut specifically so they can be soldered at these locations should you wish to use J3, J4 or J5.
 
-![Driver Data Flow](images/adapter-board-r1_4-anno.jpg)
+![Adapter board Rev 1.4, annotated](images/adapter-board-r1_4-anno.jpg)
 
 ## Use of optional connectors (Rev 1.2 red & 1.3 green)
 
 The optional connectors are the same for the r1.2 and r1.3 boards as r1.4 but do not have the associated ground pins at J4 and J5.
 
-![Driver Data Flow](images/adapter-board-anno.png)
+![Adapter board Rev 1.2 and 1.3, annotated](images/adapter-board-anno.png)
 
 ## Connecting your board
 
@@ -104,6 +124,24 @@ Iron Sheep Productions, LLC.
 
 ---
 
+## Disclaimer and Legal
+
+> *Parallax, Propeller Spin, and the Parallax and Propeller Hat logos* are trademarks of Parallax Inc., dba Parallax Semiconductor
+
+---
+
+## License
+
+Licensed under the MIT License.
+
+Follow these links for more information:
+
+### [Copyright](copyright) | [License](LICENSE)
+
+---
+
 Last Updated: 09 Oct 2026
 
 [maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep.biz-blue.svg?style=for-the-badge
+
+[license-shield]: https://img.shields.io/badge/License-MIT-yellow.svg

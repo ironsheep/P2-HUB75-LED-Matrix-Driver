@@ -3,7 +3,10 @@
 A Parallax Propeller v2 driver for HUB75 RGB LED matrix panels, single or multi-panel. This page takes you from wired panels to a program that draws on them, with a few short examples to copy.
 
 ![Project Maintenance][maintenance-shield]
+
 [![License][license-shield]](../LICENSE)
+
+### Pages: [README](../README.md) | [Hardware Turn-on](../HardwareTurnon.md) | [Driver Details](../THEOPS.md) | [Configuration Guide](WiringGuide.md) | Quick Start | [Change Log](../ChangeLog.md)
 
 On this Page:
 
@@ -21,12 +24,10 @@ Additional pages:
 - [Troubleshooting](Troubleshooting.md) - something looks wrong? Find the symptom
 - [Driver Details](../THEOPS.md) - how the driver works
 
-### Pages: [README](../README.md) | [Hardware Turn-on](../HardwareTurnon.md) | [Driver Details](../THEOPS.md) | [Configuration Guide](WiringGuide.md) | [Troubleshooting](Troubleshooting.md) | Quick Start | [Change Log](../ChangeLog.md)
-
 ---
 
 > If you find this kind of written explanation useful, helpful I would be honored by your helping me out for a couple of :coffee:'s or :pizza: slices -or- you can support my efforts by contributing at my Patreon site!
-
+>
 > [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep) &nbsp;&nbsp; -OR- &nbsp;&nbsp; [![Patreon](../images/patreon.png)](https://www.patreon.com/IronSheep?fan_landing=true)[Patreon.com/IronSheep](https://www.patreon.com/IronSheep?fan_landing=true)
 
 ---
@@ -196,6 +197,10 @@ PUB main()
 - **The calls.** Every public method of `driver/isp_hub75_display.spin2` has a doc comment above it (the lines that start with `''`) giving what it does, its parameters and what it returns. The scrolling and BMP calls are documented the same way in `driver/isp_hub75_display_bmp.spin2`.
 - **Configuration.** The [Configuration Guide](WiringGuide.md) covers the display block and the panel list, and [Troubleshooting](Troubleshooting.md) covers a display that does not look right.
 
+Please enjoy, and let me know if there are features you want to see in this driver!
+
+*Stephen*
+
 ## How to Contribute
 
 This is a project supporting our P2 Development Community. Please feel free to contribute to this project. You can contribute in the following ways:
@@ -213,11 +218,15 @@ This is a project supporting our P2 Development Community. Please feel free to c
 
 ## License
 
-Licensed under the MIT License. <br>
-<br>
+Licensed under the MIT License.
+
 Follow these links for more information:
 
 ### [Copyright](../copyright) | [License](../LICENSE)
+
+---
+
+Last Updated: 13 Oct 2026
 
 [maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep.biz-blue.svg?style=for-the-badge
 

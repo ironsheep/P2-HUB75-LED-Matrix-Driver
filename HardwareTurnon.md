@@ -1,13 +1,30 @@
-# Hardware Turn-on
-
-## Awakening the HUB75 LED Matrix Driver for Propeller 2
+# P2 HUB75 LED Matrix Driver - Hardware Turn-on
+Awakening the HUB75 LED Matrix Driver for Propeller 2
 
 ![Project Maintenance][maintenance-shield]
 
+[![License][license-shield]](LICENSE)
+
+### Pages: [README](README.md) | Hardware Turn-on | [Driver Details](THEOPS.md) | [Configuration Guide](DOCs/WiringGuide.md) | [Change Log](ChangeLog.md)
+
+On this Page:
+
+- [Bringing up your own display](#bringing-up-your-own-display) - where the five-step bring-up lives
+- [My Panel](#my-panel) - the panel I developed on and the chip that fought back
+- [Development Environment](#development-environment) - the bench
+- [The Eval Adapter Board](#the-eval-adapter-board) - why the level shifters, and the first boards
+- [P2 Cube Driver Checkout](#p2-cube-driver-checkout) - six 64x64 panels on the test jig
+- [Cascaded Panels](#cascaded-panels) - daisy-chained panels
+- [Development diary, 2020](#development-diary-2020) - the 2020 entries
+
+Additional pages:
+
+- [Quick Start](DOCs/QuickStart.md) - From wired panels to a running program
+- [Troubleshooting](DOCs/Troubleshooting.md) - Symptom, cause and fix when a display does not look right
+- [HUB75 Adapter Board](HUB75-brd-config.md) - The adapter board, its optional connectors and its pinout
+- [Author's Test Configurations](DOCs/AuthorTestConfigurations.md) - The panels and rigs the author tests on
+
 The version I'm developing with is a P3 64x32 HUB75 matrix which I originally bought from Amazon. What HUB75 panels are, the signals they expect and why their driver ICs differ are in the README's [background section](README.md#background-hub75-rgb-led-matrix-panels).
-
-
-### Pages: [README](README.md) | Hardware Turn-on | [Driver Details](THEOPS.md) | [Change Log](ChangeLog.md)
 
 ## Bringing up your own display
 
@@ -17,7 +34,7 @@ The five steps from a new adapter and panels to a working display, and the first
 
 ## My Panel
 
-The panels I'm using are marked with **P3-6432-121-16s-D1.0**  Which tell us that it is 64w x 32h (6432) and 16 addressed lines (16s).  This board uses FM6126A driver chips and TC7258EN chips for line address decoding. Lastly is uses 74HC245s to buffer the incoming signals and forward them to the output conector.  The FM6126A requires that we latch the data very differently in that instead of latching after the stream of bits for a line, we set the latch during the last 3 bits of each line. (per the Datasheet)  Additionally, the FM6126A requires initialization of two registers before it runs as a normal panel. This was quite the discovery as the Chinese Datasheet says the two registers exist but doesn't provide detail. Finding details and implementing the initialization was an effort of blending what I saw in posts which showed various forms of coce and other posts describing their reverse engineering of the same effort. But, it's all working, so I'm past this!
+The panels I'm using are marked with **P3-6432-121-16s-D1.0**  Which tell us that it is 64w x 32h (6432) and 16 addressed lines (16s). This board uses FM6126A driver chips and TC7258EN chips for line address decoding. Lastly it uses 74HC245s to buffer the incoming signals and forward them to the output connector. The FM6126A requires that we latch the data very differently in that instead of latching after the stream of bits for a line, we set the latch during the last 3 bits of each line. (per the Datasheet)  Additionally, the FM6126A requires initialization of two registers before it runs as a normal panel. This was quite the discovery as the Chinese Datasheet says the two registers exist but doesn't provide detail. Finding details and implementing the initialization was an effort of blending what I saw in posts which showed various forms of code and other posts describing their reverse engineering of the same effort. But, it's all working, so I'm past this!
 
 ![MyPanel](https://user-images.githubusercontent.com/540005/96038418-53a70b80-0e24-11eb-93fe-7af0301d349e.jpg)
 
@@ -34,25 +51,17 @@ The goals of the project, which this turn-on served, are in the README's [Projec
 
 **NOTE:** The refresh rates the driver reaches, at every colour depth, are measured on the author's rig and on single panels, and are listed in the [Configuration Guide](DOCs/WiringGuide.md#measured-refresh). The driver aims for the rate you set in `DISPn_TARGET_REFRESH_HZ` (default 60 Hz) and lights the panels as brightly as that rate allows.
 
-----
-
-> If you find this kind of written explanation useful, helpful I would be honored by your helping me out for a couple of :coffee:'s or :pizza: slices -or- you can support my efforts by contributing at my Patreon site!
->
-> [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep) &nbsp;&nbsp; -OR- &nbsp;&nbsp; [![Patreon](./images/patreon.png)](https://www.patreon.com/IronSheep?fan_landing=true)[Patreon.com/IronSheep](https://www.patreon.com/IronSheep?fan_landing=true)
-
-----
-
-### The Eval Adapter Board
+## The Eval Adapter Board
 
 Since the project goals are speed related, flying leads are not good enough to get to the higher speeds... so the driver is built around this Eval Adapter board:
 
 ![P2 Eval Adapter](https://user-images.githubusercontent.com/540005/96038186-062a9e80-0e24-11eb-8299-f5e8fcb03460.png)
 
-On this board you see 3.3v to 5v level shifters. I found that at higher speeds the clock, latch and OEb signals were falling below the signal threshold. This was a great exercise in Logic Analyzer use as I had originally set my input thresholds for 3.3v signals and of course they looked perfectly timed.  When I couldn't get reliable shifting and latching a had the thought that I'm dealing with 5v logic on the panels. Silly me, I had the LA configured for the output logic form, not the panel form of signal. So I switched to 5v threshold and then immediately saw that I was not at all clocking cleanly. quickly interposed the level shifer pcb that I had laying around and all the signals snapped to, as I really needed to see!  I was back in the land of the code I write now drives the signals I expect...  whew!
+On this board you see 3.3v to 5v level shifters. I found that at higher speeds the clock, latch and OEb signals were falling below the signal threshold. This was a great exercise in Logic Analyzer use as I had originally set my input thresholds for 3.3v signals and of course they looked perfectly timed.  When I couldn't get reliable shifting and latching I had the thought that I'm dealing with 5v logic on the panels. Silly me, I had the LA configured for the output logic form, not the panel form of signal. So I switched to 5v threshold and then immediately saw that I was not at all clocking cleanly. I quickly interposed the level shifter pcb that I had laying around and all the signals snapped to, as I really needed to see! I was back in the land of the code I write now drives the signals I expect... whew!
 
-### 1st Order of HUB75 Adapter Boards arrived!
+## 1st Order of HUB75 Adapter Boards arrived!
 
-The boards arrived from JLCPCB! After determing that mechanically they fit Figure (1) below, then I built one up - Figure 2 and then after some power and ground double checks, I connected the new adapter PCB - Figure (3), lastly I connected up the Logic Analyzer flying leads so that I can verify all of the control/data signals to the panel - Figure (4).
+The boards arrived from JLCPCB! After determining that mechanically they fit (Figure 1 below), I built one up (Figure 2), and then after some power and ground double checks, I connected the new adapter PCB (Figure 3). Lastly I connected up the Logic Analyzer flying leads so that I can verify all of the control/data signals to the panel (Figure 4).
 
 ![P2 Eval Adapter- Turn On](https://user-images.githubusercontent.com/540005/97406458-df0dab80-18be-11eb-9624-995a85ff7937.png)
 
@@ -74,7 +83,7 @@ This is the back of my 6 x 64x64 panel driven with a 5V 60A power supply so we c
 
 ![Cube Flattened - Back](images/flatCubeBackTestJig.jpg)
 
-This is a snapshot of the 6 x 64x64 panel showing the driver configured for a single panel display - the pic is a shot of an animation taking place. The 1/6th panel to the right contains the correct display the remaing 5 panels to the left are receiving the same data... just one for offset for each further panel to the left.
+This is a snapshot of the 6 x 64x64 panel showing the driver configured for a single panel display - the pic is a shot of an animation taking place. The 1/6th panel to the right contains the correct display the remaining 5 panels to the left are receiving the same data... just one for offset for each further panel to the left.
 
 ![Cube Flattened - Front](images/flatCubeFrontTestJig.jpg)
 
@@ -103,7 +112,7 @@ Daisy-chained panels make larger images. Here you see these panels waiting to be
 
 **30 Nov 2020:** After being distracted by designing and sourcing the Eval Adapter boards I'm finally working on the driver once again.
 
-- rundimentary scrolling text is now working
+- rudimentary scrolling text is now working
 - multiple panel types are now supported (will add more as users identify the need)
 
 **26 Nov 2020:** v1.4 PCB order placed for production run.
@@ -135,14 +144,30 @@ This week I've been:
 - **Exciting!** The initial run of the Adapter PCBs arrived!
 - I checked them out mechanically, soldered the parts to one, then checked it out electrically and lastly started using it!  It came up beautifully! (*see the turn-on description above*)
 
+(*I expect that this file will continue to grow over time as our driver becomes more capable. -Stephen*)
+
+---
+
+> If you find this kind of written explanation useful, helpful I would be honored by your helping me out for a couple of :coffee:'s or :pizza: slices -or- you can support my efforts by contributing at my Patreon site!
+>
+> [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep) &nbsp;&nbsp; -OR- &nbsp;&nbsp; [![Patreon](./images/patreon.png)](https://www.patreon.com/IronSheep?fan_landing=true)[Patreon.com/IronSheep](https://www.patreon.com/IronSheep?fan_landing=true)
+
+---
+
 ## Credits
 
 - I was encouraged by published work by **Rayman** (found on the [Parallax Forums](https://forums.parallax.com/categories/propeller-2-multicore-microcontroller)) where he wrote initial propeller v1 spin/pasm code to demonstrate how to drive his matrix panel. I found [the article](http://www.rayslogic.com/propeller/Programming/AdafruitRGB/AdafruitRGB.htm) linked to from the AdaFruit website.
 
+## Disclaimer and Legal
+
+> *Parallax, Propeller Spin, and the Parallax and Propeller Hat logos* are trademarks of Parallax Inc., dba Parallax Semiconductor
+
+---
+
 ## License
 
-Licensed under the MIT License. <br>
-<br>
+Licensed under the MIT License.
+
 Follow these links for more information:
 
 ### [Copyright](copyright) | [License](LICENSE)

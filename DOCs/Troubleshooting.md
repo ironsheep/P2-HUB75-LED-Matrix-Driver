@@ -3,7 +3,10 @@
 A Parallax Propeller v2 driver for HUB75 RGB LED matrix panels, single or multi-panel. Something looks wrong? Find the symptom here, then follow the link to the page that explains the fix.
 
 ![Project Maintenance][maintenance-shield]
+
 [![License][license-shield]](../LICENSE)
+
+### Pages: [README](../README.md) | [Hardware Turn-on](../HardwareTurnon.md) | [Driver Details](../THEOPS.md) | [Configuration Guide](WiringGuide.md) | Troubleshooting | [Change Log](../ChangeLog.md)
 
 On this Page:
 
@@ -23,12 +26,10 @@ Additional pages:
 - [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md) - each panel type's scan, colour swaps and test status
 - [Driver Details](../THEOPS.md) - how the driver works
 
-### Pages: [README](../README.md) | [Hardware Turn-on](../HardwareTurnon.md) | [Driver Details](../THEOPS.md) | [Configuration Guide](WiringGuide.md) | Troubleshooting | [Change Log](../ChangeLog.md)
-
 ---
 
 > If you find this kind of written explanation useful, helpful I would be honored by your helping me out for a couple of :coffee:'s or :pizza: slices -or- you can support my efforts by contributing at my Patreon site!
-
+>
 > [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep) &nbsp;&nbsp; -OR- &nbsp;&nbsp; [![Patreon](../images/patreon.png)](https://www.patreon.com/IronSheep?fan_landing=true)[Patreon.com/IronSheep](https://www.patreon.com/IronSheep?fan_landing=true)
 
 ---
@@ -90,11 +91,15 @@ This is a project supporting our P2 Development Community. Please feel free to c
 
 ## License
 
-Licensed under the MIT License. <br>
-<br>
+Licensed under the MIT License.
+
 Follow these links for more information:
 
 ### [Copyright](../copyright) | [License](../LICENSE)
+
+---
+
+Last Updated: 13 Oct 2026
 
 [maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep.biz-blue.svg?style=for-the-badge
 

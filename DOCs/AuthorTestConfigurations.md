@@ -1,6 +1,39 @@
-# Author's Test Panel Configurations
+# P2 HUB75 LED Matrix Driver - Author's Test Configurations
 
-This document is the record of the panels and rigs the author has tested. The settings block for each panel type, ready to copy into the user section of `isp_hub75_hwPanelConfig.spin2`, is in that chip's section of the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#detailed-chip-documentation); this page links each one. How the settings and the panel sentences work is in the [Configuration Guide](WiringGuide.md). Each panel type's scan, address lines and test status are stated once, in the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix); this page does not repeat them. How many panels one adapter can drive for each panel type is in the [driver limits table](WiringGuide.md#driver-limits). The tools the author measures with (the instrumentation harness, the logic analyzer channels, the pin identification test) are on the [Testing and Measurement](TestingAndMeasurement.md) page.
+The panels and rigs the Author tests the driver on, with the settings that run each one
+
+![Project Maintenance][maintenance-shield]
+
+[![License][license-shield]](../LICENSE)
+
+### Pages: [README](../README.md) | [Hardware Turn-on](../HardwareTurnon.md) | [Driver Details](../THEOPS.md) | [Configuration Guide](WiringGuide.md) | Author's Test Configurations | [Change Log](../ChangeLog.md)
+
+On this Page:
+
+- [Configuration Summary Table](#configuration-summary-table) - the twelve configurations at a glance, and the colour labels
+- [Detailed Configuration Documentation](#detailed-configuration-documentation) - each configuration, one section each
+- [Chip Quick Reference](#chip-quick-reference) - where each chip's facts are stated
+- [Driver Limits per Panel Type](#driver-limits-per-panel-type) - how many panels one adapter can drive
+- [Multi-Panel Verified Configurations](#multi-panel-verified-configurations) - which chains have run on hardware
+- [Configuration Toggle Mechanism](#configuration-toggle-mechanism) - how to switch to one of these configurations
+- [How to Contribute](#how-to-contribute) - where to send your own panel's findings
+
+Additional pages:
+
+- [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md) - Notes about each panel-driver chip this driver supports, with a starting configuration for each
+- [Configuration Guide](WiringGuide.md) - How to describe your panels' layout, cabling and mounting
+- [Testing and Measurement](TestingAndMeasurement.md) - The test programs, the instrumentation harness and the diagnostic switches
+- [ICN2037 Signal Timing](ICN2037/README.md) - The ICN2037 signal chain, timing budget and the clock the driver runs
+
+---
+
+> If you find this kind of written explanation useful, helpful I would be honored by your helping me out for a couple of :coffee:'s or :pizza: slices -or- you can support my efforts by contributing at my Patreon site!
+>
+> [![coffee](https://www.buymeacoffee.com/assets/img/custom_images/black_img.png)](https://www.buymeacoffee.com/ironsheep) &nbsp;&nbsp; -OR- &nbsp;&nbsp; [![Patreon](../images/patreon.png)](https://www.patreon.com/IronSheep?fan_landing=true)[Patreon.com/IronSheep](https://www.patreon.com/IronSheep?fan_landing=true)
+
+---
+
+This page is the record of the panels and rigs the author has tested. The settings block for each panel type, ready to copy into the user section of `isp_hub75_hwPanelConfig.spin2`, is in that chip's section of the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#detailed-chip-documentation); this page links each one. How the settings and the panel sentences work is in the [Configuration Guide](WiringGuide.md). Each panel type's scan, address lines and test status are stated once, in the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix); this page does not repeat them. How many panels one adapter can drive for each panel type is in the [driver limits table](WiringGuide.md#driver-limits). The tools the author measures with (the instrumentation harness, the logic analyzer channels, the pin identification test) are on the [Testing and Measurement](TestingAndMeasurement.md) page.
 
 ## Configuration Summary Table
 
@@ -298,4 +331,33 @@ Nothing below the user section of `isp_hub75_hwPanelConfig.spin2`, and nothing i
 
 ---
 
-*Last Updated: October 2026 (driver 4.0.0)*
+## How to Contribute
+
+This is a project supporting our P2 Development Community. Please feel free to contribute to this project. You can contribute in the following ways:
+
+- File **Feature Requests** or **Issues** (describing things you are seeing while using our code) at the [Project Issue Tracking Page](https://github.com/ironsheep/P2-HUB75-LED-Matrix-Driver/issues)
+- Fork this repo and then add your code to it. Finally, create a Pull Request to contribute your code back to this repository for inclusion with the projects code. See [CONTRIBUTING](../CONTRIBUTING.md)
+
+---
+
+## Disclaimer and Legal
+
+> *Parallax, Propeller Spin, and the Parallax and Propeller Hat logos* are trademarks of Parallax Inc., dba Parallax Semiconductor
+
+---
+
+## License
+
+Licensed under the MIT License.
+
+Follow these links for more information:
+
+### [Copyright](../copyright) | [License](../LICENSE)
+
+---
+
+Last Updated: October 2026 (driver 4.0.0)
+
+[maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep.biz-blue.svg?style=for-the-badge
+
+[license-shield]: https://img.shields.io/badge/License-MIT-yellow.svg
