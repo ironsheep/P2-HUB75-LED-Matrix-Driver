@@ -43,6 +43,8 @@ When trying to identify what needed for an as-of-yet unidentified chip then you 
 
 ### PURPOSE: LATCH_STYLE
 
+The current description of the latch styles and positions, with these figures, is in the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md#latch-timing-styles).
+
 The driver has two built-in LATCH, OE! styles supporting the hardware we've seen to date.
 
 ![Latch Style](images/Latch_Style.png)

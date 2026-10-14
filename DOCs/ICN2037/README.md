@@ -244,9 +244,9 @@ P2 Pin → 74HCT244 (adapter) → HUB75 Cable → 74HC245 (panel) → ICN2037
 
 ### 3.6 What the Driver Runs, and the Frequency Estimates That Came Before
 
-**What the driver runs.** The driver clocks an ICN2037 chain at 15 system clocks per column at 335 MHz, which is 22.3 MHz. The limit it holds the chain under is 25.0 MHz: the chip is rated 30 MHz alone, but the CLK-to-SDO delay (35 ns) plus the SDI setup time (5 ns) make a 40 ns period, 25.0 MHz (`MAX_CLK_HZ_ICN2037` in `isp_hub75_rgb3bit.spin2`), and the 20 ns minimum CLK pulse allows the same 25 MHz. The rating for every chip is in the [Datasheet Clock and /OE Ratings](../ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings) table of the Chip Characteristics Matrix.
+**What the driver runs.** The driver holds an ICN2037 chain under 25.0 MHz: the chip is rated 30 MHz alone, but the CLK-to-SDO delay (35 ns) plus the SDI setup time (5 ns) make a 40 ns period, 25.0 MHz (`MAX_CLK_HZ_ICN2037` in `isp_hub75_rgb3bit.spin2`), and the 20 ns pulse rule caps the loop at the same 25 MHz. The rating for every chip is in the [Datasheet Clock and /OE Ratings](../ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings) table of the Chip Characteristics Matrix.
 
-**Measured.** Four 128x64 ICN2037 panels in one chain (512 column clocks) are driven at that 22.3 MHz, with CLK high 20.9 ns and low 23.9 ns. Their images were correct and steady by eye at 5-bit to 8-bit. Chains of other panel types and lengths have not been measured.
+**Measured.** The clock the four-panel ICN2037 chain runs at, and its measured refresh, are in the [Wiring Guide](../WiringGuide.md#measured-refresh). Their images were correct and steady by eye at 5-bit to 8-bit. Chains of other panel types and lengths have not been measured.
 
 **The estimates that came before.** Before the chain was run, the paths in 3.2 to 3.5 were turned into frequency advice. It is kept here as history:
 
@@ -254,7 +254,7 @@ P2 Pin → 74HCT244 (adapter) → HUB75 Cable → 74HC245 (panel) → ICN2037
 |-------------|---------------|-------|
 | Safe (all conditions) | 15 MHz | Worst-case path through the panel's 74HC245 buffer |
 | Standard | 20 MHz | Good margin at room temperature |
-| Maximum | 25 MHz | Rated 30 MHz; 20 ns pulses cap it at 25 MHz; minimal margin |
+| Maximum | 25 MHz | Rated 30 MHz; the 20 ns pulse rule caps the loop at 25 MHz; minimal margin |
 
 The estimates suggested keeping to 20 MHz or less where panels carry 74HC245 buffers, because the "30 MHz max" in the datasheet does not account for the panel support chips. The measurement above is the answer for the four-panel ICN2037 chain: the caution did not show on it.
 
@@ -431,7 +431,7 @@ Both panel types share these ICN2037-specific characteristics:
 | Characteristic | Value | Notes |
 |----------------|-------|-------|
 | Scan and address lines | See the [Quick Reference Matrix](../ChipCharacteristicsMatrix.md#quick-reference-matrix) | |
-| Max Clock | 30 MHz rated; 25 MHz cap | 20 ns pulses cap it at 25 MHz |
+| Max Clock | Rated 30 MHz; the 20 ns pulse rule caps the loop at 25 MHz | See the [ratings](../ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings) |
 | **R/B Swap** | **Yes** | Red and Blue channels physically swapped |
 | G/B Swap | No | |
 | Init Required | No | Works immediately at power-up |
@@ -454,7 +454,7 @@ What the settings and the driver do for the ICN2037 (the clock, /OE minimum and 
 |---------------------|-------|--------|
 | `DISPn_PANEL_DRIVER_CHIP` | `hwEnum.CHIP_ICN2037` | Sets the chip's flags (`CHIP_MANUAL_SPEC \| RB_SWAP`) and its clock and /OE ratings |
 | Address lines | not set | The driver derives them from the panel rows and the chip's scan (see the [Wiring Guide](../WiringGuide.md#the-display-block)) |
-| Column clock | 15 system clocks per column at 335 MHz, about 22.3 MHz | No faster than the chip's limit, 25 MHz (the 20 ns pulses cap the 30 MHz rating; the CLK-to-SDO chain limit, 35 + 5 ns, is also 25 MHz) |
+| Column clock | The shortest loop that meets the limit (rig figure: [Wiring Guide](../WiringGuide.md#measured-refresh)) | No faster than the chip's limit, 25 MHz (rated 30 MHz; the 20 ns pulse rule caps the loop at 25 MHz; the CLK-to-SDO chain limit, 35 + 5 ns, is also 25 MHz) |
 | Minimum /OE pulse | 60 ns | The conservative datasheet figure (`MIN_OE_NS_ICN2037`) |
 | Latch | At the end of the row | No special init sequence needed |
 | OE polarity | Active LOW | OE=0 enables outputs |

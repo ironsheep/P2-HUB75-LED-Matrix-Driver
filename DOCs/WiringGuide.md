@@ -57,7 +57,7 @@ disp0PanelsEnd
 
 You do not need to work out the panel list by hand. Cable and hang the panels as you like, write a starter list, and let the identify screen show you what to write ([the workflow](#filling-in-your-config-from-the-identify-screen)).
 
-Your program starts each adapter with one call, `display.start(hub75Bffrs.HUB75_ADAPTER_n)`; adapter `n` drives display `DISP(n-1)`.
+Your program starts each adapter with one call, `display.start(display.HUB75_ADAPTER_n)`; adapter `n` drives display `DISP(n-1)` (the call is shown in the [Quick Start](QuickStart.md)).
 
 ## The display block
 
@@ -462,7 +462,7 @@ Measured on the same four-panel rig (256x128 pixels):
 |---|---|---|
 | Commit | 4.09 ms | 3.26 ms |
 
-Drawing calls take their pixels from the cell address tables and write them in PASM (see [Driver Details](../THEOPS.md#pixel-write)). Measured on the same rig at 8-bit with the rates test's workload: a full-screen flat fill 4.7 ms, fanned lines 13.0 ms, lines of text 24.6 ms and a 64x32 BMP 3.8 ms. Other calls measured there: a full screen of 5x7 text 43 ms, ten diagonal lines 9.0 ms and ten circles 7.8 ms. Draw time does not depend on the colour depth: the screen buffer holds three bytes per pixel at every depth. A commit converts the screen buffer into the PWM frame set that is not on display and posts it; the refresh cog switches to it at its next frame start, so the panels never show a half-converted image (see [Driver Details](../THEOPS.md#screen-commit)).
+Drawing calls take their pixels from the cell address tables and write them in PASM (see [Driver Details](../THEOPS.md#pixel-write)). Measured on the same rig at 8-bit with the rates test's workload: a full-screen flat fill 4.7 ms, fanned lines 12.8 ms, lines of text 24.5 ms and a 64x32 BMP 3.8 ms. Other calls measured there: a full screen of 5x7 text 43 ms, ten diagonal lines 9.0 ms and ten circles 7.8 ms. Draw time does not depend on the colour depth: the screen buffer holds three bytes per pixel at every depth. A commit converts the screen buffer into the PWM frame set that is not on display and posts it; the refresh cog switches to it at its next frame start, so the panels never show a half-converted image (see [Driver Details](../THEOPS.md#screen-commit)).
 
 ## Startup messages
 

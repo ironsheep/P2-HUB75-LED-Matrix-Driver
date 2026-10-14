@@ -558,7 +558,7 @@ The number of panels one adapter can drive depends on the **panel type**, and is
 
 The table of limits for every panel type the author has tested, with the arithmetic, the RAM figures and the refresh rates, is in the [Wiring Guide's driver limits](DOCs/WiringGuide.md#driver-limits). Those limits are calculated from the driver's constants; only the author's rig (four ICN2037 128x64 panels) is measured.
 
-Generally you can make a single display out of many panels, with panels ranging from p1.5 to p10 (1.5mm to 10mm led center-to-center); such displays could be quite large and of course will draw many amps of 5V. ;-)
+Generally you can make a single display out of many panels (the pitches in use are in the README's [background section](README.md#background-hub75-rgb-led-matrix-panels)); such displays could be quite large and of course will draw many amps of 5V. ;-)
 
 **NOTE**: The driver supports using 1-3 HUB75 adapters, each driving the display you describe for it. This means you can have up to three chains of panels attached to one P2. Each adapter has its own line buffer limit, but all three adapters share the hub RAM, so the buffers of every adapter together must fit.
 

@@ -11,8 +11,8 @@ This table is the one place the project states each panel type's scan, address l
 | Panel (chip) | Size | Color | Addr Lines | Scan | R/B Swap | G/B Swap | Init Req | Latch Style | Status |
 |--------------|------|-------|------------|------|----------|----------|----------|-------------|--------|
 | **FM6126A** | 64x32 | Pink | ABCD | 1/16 | - | - | **Yes** | Offset+Overlap | Tested: single panel and a pair (2026-10-09) |
-| **FM6124** | 64x32 | Orange | ABCD | 1/16 | - | - | - | Standard | Tested: single panel (2026-10-09) |
-| **FM6124C** (set as `CHIP_FM6124`) | 64x64 | - | ABCDE | 1/32 | - | - | - | Standard | Tested: single panel (2026-10-10) |
+| **FM6124** | 64x32 | Orange | ABCD | 1/16 | - | - | - | Enclosed | Tested: single panel (2026-10-09) |
+| **FM6124C** (set as `CHIP_FM6124`) | 64x64 | - | ABCDE | 1/32 | - | - | - | Enclosed | Tested: single panel (2026-10-10) |
 | **ICN2037/BP** | 128x64 | - | ABCDE | 1/32 | **Yes** | - | - | Enclosed | Tested: a 2x2 of four panels, the author's rig (2026-10-09, 2026-10-10) |
 | **ICN2037/BP** (cube panels) | 64x64 | - | ABCDE | 1/32 | **Yes** | - | - | Enclosed | Panels and chip setting proven before 4.0.0; the 4.0.0 cube layer is not yet run on them (see the list below) |
 | **ICN2038S** | 64x64 | - | ABCD | 1/16 | - | - | - | Enclosed | Tested: single panel (2026-10-10). Single-ended, cannot be chained |
@@ -71,7 +71,7 @@ Each panel type that has run on the author's bench has a **starting block** in i
 |----------------|-------|-------|
 | Address Lines | ABCD (4) | 16 row addressing |
 | Scan Rate | 1/16 | Standard scan |
-| Max Clock | 30 MHz rated; 25 MHz cap | 20ns min pulse high and low caps the clock at 25 MHz |
+| Max Clock | Rated 30 MHz; the 20 ns pulse rule caps the loop at 25 MHz | See the [ratings](#datasheet-clock-and-oe-ratings) |
 | Min /OE Pulse | 40 ns | |
 | R/B Swap | No | |
 | G/B Swap | No | |
@@ -124,13 +124,13 @@ The panels need the initialization sequence. A row of four of these is [Example 
 |----------------|-------|-------|
 | Address Lines | ABCD (4) | 16 row addressing |
 | Scan Rate | 1/16 | Standard scan |
-| Max Clock | 30 MHz rated; 25 MHz cap | 20ns min pulse high and low caps the clock at 25 MHz |
+| Max Clock | Rated 30 MHz; the 20 ns pulse rule caps the loop at 25 MHz | See the [ratings](#datasheet-clock-and-oe-ratings) |
 | Min /OE Pulse | 30 ns | |
 | R/B Swap | No | |
 | G/B Swap | No | |
 | Init Required | No | Simpler than FM6126A |
-| Latch Style | Standard | |
-| Latch Position | Standard | |
+| Latch Style | Enclosed | |
+| Latch Position | After | |
 | Status | See the [Quick Reference Matrix](#quick-reference-matrix) | |
 | 4.0.0 refresh core | **Verified**, one panel | 85.3 Hz at 8-bit, 694.1 Hz at 5-bit; the 30 ns /OE floor shown at brightness 1 (2026-10-05) |
 
@@ -187,12 +187,12 @@ The driver's limit for this panel type is in the [driver limits table](WiringGui
 |----------------|-------|-------|
 | Address Lines | ABCDE (5) | 32 row addressing (64×64 panel) |
 | Scan Rate | 1/32 | Two rows lit at once; with `SCAN_4` it shows every other horizontal band dark |
-| Max Clock | 30 MHz | Same as FM6124 (the driver has no FM6124C setting, so it has no rating of its own for this chip) |
+| Max Clock | Rated 30 MHz; the 20 ns pulse rule caps the loop at 25 MHz | Same as FM6124 (the driver has no FM6124C setting, so it has no rating of its own for this chip) |
 | R/B Swap | No | |
 | G/B Swap | No | |
 | Init Required | No | Same as FM6124 |
-| Latch Style | Standard | |
-| Latch Position | Standard | |
+| Latch Style | Enclosed | |
+| Latch Position | After | |
 | Status | See the [Quick Reference Matrix](#quick-reference-matrix) | |
 
 **On-Board Chips:**
@@ -242,13 +242,13 @@ Configure the panel as `CHIP_FM6124` (the driver has no FM6124C setting). Do not
 |----------------|-------|-------|
 | Address Lines | ABCDE (5) | 32 row addressing |
 | Scan Rate | 1/32 | Full scan |
-| Max Clock | 30 MHz rated; 25 MHz cap | 20ns min pulse high and low caps the clock at 25 MHz |
+| Max Clock | Rated 30 MHz; the 20 ns pulse rule caps the loop at 25 MHz | See the [ratings](#datasheet-clock-and-oe-ratings) |
 | Min /OE Pulse | 60 ns | |
 | R/B Swap | **Yes** | Red and Blue swapped |
 | G/B Swap | No | |
 | Init Required | No | |
-| Latch Style | Enclosed | Latch at end |
-| Latch Position | Standard | |
+| Latch Style | Enclosed | |
+| Latch Position | After | |
 | Status | See the [Quick Reference Matrix](#quick-reference-matrix) | |
 | 4.0.0 refresh core | **Verified**, four 128x64 panels | 71.0 Hz at 8-bit to 193.3 Hz at 3-bit (the author's rig; 2026-10-04) |
 
@@ -325,13 +325,13 @@ The panel lists of the six-panel cube and of the author's 2x2 rig are on the [Au
 |----------------|-------|-------|
 | Address Lines | ABCD (4) | 16 row addressing; the driver derives the 4 lines from the panel's 64 rows and `SCAN_4` |
 | Scan Rate | 1/16 | Four rows lit at once, set by the `SCAN_4` flag; without it the picture repeats twice, top to bottom |
-| Max Clock | 30 MHz rated; 25 MHz cap | 20ns min pulse high and low caps the clock at 25 MHz |
+| Max Clock | Rated 30 MHz; the 20 ns pulse rule caps the loop at 25 MHz | See the [ratings](#datasheet-clock-and-oe-ratings) |
 | Min /OE Pulse | 40 ns | |
 | R/B Swap | No | **Different from ICN2037** |
 | G/B Swap | No | |
 | Init Required | No | The datasheet has FM6126A-style register commands; the panel gives a correct picture without them |
 | Latch Style | Enclosed | |
-| Latch Position | Standard | |
+| Latch Position | After | |
 | Multi-Panel | N/A | Single-ended panel (no daisy-chain by construction). Test status: see the [Quick Reference Matrix](#quick-reference-matrix) |
 
 **Driver Flags:**
@@ -379,13 +379,13 @@ The panel is single-ended; it cannot be daisy-chained. The driver's limit for th
 |----------------|-------|-------|
 | Address Lines | ABC (3) | 8 row addressing |
 | Scan Rate | 1/8 | Special scan pattern |
-| Max Clock | 25 MHz one chip; 18.9 MHz in a chain | The driver uses the chain limit: CLK-to-SDO 50 ns + SDI setup 3 ns (datasheet pp.9-10); see the ratings notes above |
+| Max Clock | Rated 25 MHz (one chip); the 20 ns pulse rule caps the loop at 25 MHz; 18.9 MHz in a chain | The driver uses the chain limit: CLK-to-SDO 50 ns + SDI setup 3 ns (datasheet pp.9-10); see the ratings notes above |
 | Min /OE Pulse | 45 ns at VDD 5.0 V, 50 ns at VDD 3.3 V | Datasheet minimum; typical and maximum are in the timing table below |
 | R/B Swap | No | |
 | G/B Swap | No | |
 | Init Required | **Yes** | The driver writes each chip's configuration register at start (below) |
-| Latch Style | Enclosed (special) | Different from standard |
-| Latch Position | End-enclosed | |
+| Latch Style | Enclosed | |
+| Latch Position | After | |
 | Status | See the [Quick Reference Matrix](#quick-reference-matrix) | Two panels chained end to end run as one 128x32 display |
 | 4.0.0 refresh core | **Verified**, one and two panels | At the 18.6 MHz chain clock: one panel 71.2 Hz at 8-bit, 582.7 Hz at 5-bit; two chained 70.9 Hz at 8-bit, 292.1 Hz at 5-bit (2026-10-07, measured). Configuration register written at start |
 
@@ -723,26 +723,45 @@ These chips operate as standard shift registers - clock in data, latch, enable o
 
 ## Latch Timing Styles
 
-The driver reads two flags: `LAT_STYLE_OFFSET` (offset latch; without it the latch is enclosed) and `LAT_POSN_OVERLAP` (latch overlaps the last column clocks). Every chip the driver knows without `LAT_STYLE_OFFSET` gets the same enclosed, non-overlapped latch; the Standard, Enclosed and End-Enclosed names below describe the panels, and only the offset and overlap flags change what the driver does.
+The driver has two built-in LATCH and /OE styles and two latch positions, set by two flags. This section is the one place the project names them: *style* is **offset** (`LAT_STYLE_OFFSET`) or **enclosed** (the default, no flag); *position* is **overlap** (`LAT_POSN_OVERLAP`) or **after** (the default, no flag).
 
-### Standard Latch
-- Latch signal pulses after all column data is clocked
-- Used by: FM6124
+### Latch style: offset or enclosed
 
-### Offset + Overlap Latch
-- Latch timing is offset from data
-- Latch may overlap with next row's data
-- Used by: FM6126A, GS6238S, DP5125D
+![Latch Style](../images/Latch_Style.png)
 
-### Enclosed Latch
-- Latch signal enclosed within data timing
-- Latch occurs at end of data sequence
-- Used by: ICN2037, ICN2038S
+**FIGURE 1: LATCH_STYLE: OFFSET (left), ENCLOSED (right)**
 
-### End-Enclosed (Special)
-- Special handling for latch at sequence end
-- May require specific timing
-- Used by: MBI5124GP
+| Signal | Color |
+|-----|-----|
+| LATCH | Green |
+| OE! | White |
+| ADDR | Yellow |
+
+In the OFFSET case: we see OE! going high, we see the row address changing and then we see LATCH going high which latches the serial data into the chip. Then we see the OE! going low, followed by the LATCH going low.  However, in the ENCLOSED case the LATCH signal goes low before the OE! goes low.
+
+### Latch position: overlap or after
+
+![Latch Position](../images/Latch_Position.png)
+
+**FIGURE 2: LATCH_POSITION: OVERLAPPED (left), AFTER (right)**
+
+| Signal | Color |
+|-----|-----|
+| CLK | Red |
+| LATCH | Green |
+| OE! | White |
+| ADDR | Yellow |
+
+In the OVERLAPPED case: we see LATCH going high before the start of the three last serial bits of the row and ending after the last serial data bit.  However, in the AFTER case we see the LATCH signal going high after the final serial bit of the row is sent.
+
+### Which chips use which
+
+| Style and position | Chips |
+|---|---|
+| Offset and overlap | FM6126A, GS6238S, DP5125D |
+| Enclosed and after | FM6124 (and FM6124C), ICN2037/BP, ICN2038S, MBI5124GP |
+
+Every chip the driver knows without `LAT_STYLE_OFFSET` gets the same enclosed, non-overlapped latch.
 
 ---
 
@@ -787,6 +806,10 @@ To add support for a new chip:
 4. Add the chip's clock and /OE ratings to `columnLoopClocks()` and `oeMinimumClocks()` in `isp_hub75_rgb3bit.spin2` (new `RATED_CLK_HZ_*`, `MAX_CLK_HZ_*` and `MIN_OE_NS_*` constants, and a row in the ratings table above). A chip without them runs at 20 MHz with a 50 ns /OE minimum and says so at start.
 
 5. If chip needs special handling, modify the PASM driver in `isp_hub75_rgb3bit.spin2` (an init sequence runs from `start()` when `INIT_PANEL_REQUIRED` is set, for the chips that have one)
+
+6. Update `isp_hub75_panel.spin2` only if the chip's panel needs a scan pattern the converter does not already handle (the `SCAN_4` flag covers the quarter-scan case).
+
+7. Test and measure with a logic analyzer; the tools and what they check are on the [Testing and Measurement](TestingAndMeasurement.md) page.
 
 ---
 

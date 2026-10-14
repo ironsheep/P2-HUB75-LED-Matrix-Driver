@@ -15,7 +15,7 @@ The P2 HUB75 Driver is available from a couple of sources:
 
 ```
 Latest Updates:
-9 Oct 2026 
+11 Oct 2026
 - Full 8-bit color is the default, refreshing at a target rate you set (`DISPx_TARGET_REFRESH_HZ`, default 60 Hz); the author's four-panel rig runs at 71 Hz
 - Describe any panel layout (rows, grids, L shapes) with one short sentence per panel; startup checks the sentences and names any mistake
 - Up to three HUB75 adapters, each showing its own image, with no driver file edited; one start call per adapter
@@ -33,20 +33,9 @@ Latest Updates:
 - Rename demo's, add two more demo's
 - Upgrade scrolling, now supports up/down/right/left!
 - Added support for New Panel (same chip as ICN2037 but different setttings new name is: **ICN2037_B** - colors are not swapped and scan is different)
-07 Apr 2022
-- add support for GS6238S 
-- add Green/Blue flip support needed by GS6238S
-05 Apr 2022
-- Converted to new PWM generation mechanism allowing compile-time selection of desired display color depth of 3-bit to 8-bit.
-- Now uses 25% of RAM required by previous version for same color bit depth.
-- Frees up 300kB RAM on P2 P2 Cube Application
-- Latest timing and memory usage info posted.
-11 May 2021
-- Significant performance upgrade for P2 P2 Cube support (thank you Chip!)
-- Released as v0.9.0 (will bump to v1.x when we get multipanel support working for all supported chips)
-10 May 2021
-- Added first working 6-panel support enabling P2 P2 Cube use.
 ```
+
+Earlier releases are in the [Change Log](ChangeLog.md).
 
 ## Table of Contents
 
@@ -93,7 +82,7 @@ What's working today with the current driver:
 - PWM'ing images to achieve 3-bit to 8-bit color per LED (9-bit to 24-bit color per pixel)
 - Displaying text in both 5x7 and 8x8 fonts
 - Scrolling text in four directions (up, down, right, and left). A step moves the last frame one place and draws only the new edge, so a full-width line steps in 1.3 ms sideways and 3.3 to 4.1 ms up or down on the author's four-panel rig
-- Fast drawing: every drawing call (pixels, lines, boxes, fills, circles, text, scrolling, BMP) takes its pixel addresses from a table built when the adapter starts and writes straight runs in PASM. Measured on the four-panel rig at 8-bit: full-screen fill 4.7 ms, fanned lines 13.0 ms, lines of text 24.6 ms, a 64x32 BMP 3.8 ms
+- Fast drawing: every drawing call (pixels, lines, boxes, fills, circles, text, scrolling, BMP) takes its pixel addresses from a table built when the adapter starts and writes straight runs in PASM. The measured draw times are in the [Wiring Guide](DOCs/WiringGuide.md#commit-and-draw-time)
 - **Panel list**: panel grids of any shape you can cable (a row, a 2x2 in Z or serpentine order, 3x2, an L shape, ...) are described by one short sentence per panel: its row, its column and which way its own top points. The driver checks the list at startup and names any mistake. See the [Wiring Guide](DOCs/WiringGuide.md)
 - **Identify screen** (`demo_hub75_numberPanels.spin2`) labels each panel with its cable position and its place in the display, so you can fill in and confirm your panel list
 - **Display mounting**: hang a built display another way and say where its top edge now points (`TOP_TO_RIGHT`, `TOP_TO_BOTTOM`, `TOP_TO_LEFT`); the driver draws so the content reads upright, with width and height swapped for the sideways mountings
@@ -101,7 +90,7 @@ What's working today with the current driver:
 - Basic color pixel placement at row, column (whole panel-set and Single-panel-of-set forms)
 - Basic drawing primitives (whole panel-set and Single-panel-of-set forms): panel-centric calls clip at the panel's edge; text and scrolling cross panel seams whole
 - Loading and displaying images from .bmp files, of any size, optionally turned by a content rotation (`placeBMP`). *The demonstration is built for 64x32 panels, any other will require code rework. This is here to demonstrate how it can be done.*
-- Refresh to a target rate, set per display with `DISPx_TARGET_REFRESH_HZ` (default 60 Hz): the driver lights each bit plane once, weighted by /OE time, and picks the brightest timing that reaches the target. Measured on the author's rig of four ICN2037 128x64 panels: 71.0 Hz at 8-bit, 84.7 Hz at 5-bit, 193.3 Hz at 3-bit. See [refresh rate](DOCs/WiringGuide.md#refresh-rate)
+- Refresh to a target rate, set per display with `DISPx_TARGET_REFRESH_HZ` (default 60 Hz): the driver lights each bit plane once, weighted by /OE time, and picks the brightest timing that reaches the target. The rates measured on the author's rig at each depth are in the [Wiring Guide](DOCs/WiringGuide.md#measured-refresh)
 - Brightness (`setBrightness`, 0 to 256) is /OE time: full color depth at any brightness, down to the chip's shortest /OE pulse
 - Tear-free commits: a commit converts into the PWM frame set that is not on display, and `display.showFrameSet()` shows a frame set you built yourself
 - Panel-count limits per panel type, calculated, plus measured refresh rates for the author's rig: see the [driver limits](DOCs/WiringGuide.md#driver-limits)
@@ -312,7 +301,7 @@ Example 32x64 panels:
 - [Amazon 64x32 P5](https://www.amazon.com/Pixels-Indoor-SMD2121-320x160mm-320160mm/dp/B07SDMWX9R)
 - [Amazon 64x32 P4](https://www.amazon.com/NovaeLED-Display-100000hrs-Bright-Colored-Picture/dp/B07LFJD5GY) good price for two identical panels
 
-These panels expect to receive six lines of serial color data, a clock signal indicating when to latch the color data, a latch signal indicating that a whole rows of color data should be sent to the LEDs,a set of address lines (A, B, C, and D) identifying which row should be displayed and an output-enable signal causing an addressed row of LEDs to be driven.
+These panels expect to receive six lines of serial color data, a clock signal indicating when to latch the color data, a latch signal indicating that a whole rows of color data should be sent to the LEDs,a set of three to five address lines (A to E, as the panel's height needs) identifying which row should be displayed and an output-enable signal causing an addressed row of LEDs to be driven.
 
 While the 64x32 Matrices all appear to be similar the manufacturing of them has been rapid and varied. For us this means that a HUB75 panel can have very different Integrated Circuits (ICs) on the panel driving the LEDs. With these IC changes comes the need alter the signals sent to the panels so that the ICs your panel uses understands the input signals.
 
@@ -345,7 +334,7 @@ But let's be more specific:
 | Reusable Driver | - | Ensure driver can be configured for (1) single panel size, (2) organization of Multi-panel chains, and (3) the various panel chip-sets which require different clocking styles (within practical limits: *all panels must use the same chip-set*) |
 | long-term | - | Can we drive multiple panel chains - we have 64 GPIO pins on the P2... we should easily be able to connect 3 HUB75 adapters. Can we drive them all at video frame rates?  What is our limitation here? |
 
-**NOTE:** The measured refresh rates are in the [Wiring Guide](DOCs/WiringGuide.md#refresh-rate): on the four-panel rig (four ICN2037 128x64 panels, 512 column clocks), 193.3 Hz at 3-bit and 71.0 Hz at 8-bit with the default 60 Hz target. A commit takes 4.09 ms at 8-bit, and drawing a full-screen fill takes 4.7 ms.
+**NOTE:** The measured refresh rates are in the [Wiring Guide](DOCs/WiringGuide.md#refresh-rate), with the commit and draw times.
 
 ----
 

@@ -44,7 +44,7 @@ Scan, address lines and test status for each of these: see the [Quick Reference 
 
 The settings block is in the [FM6126A section](ChipCharacteristicsMatrix.md#fm6126a-pink-labels) of the Chip Characteristics Matrix.
 
-**4.0.0 refresh core, one panel (2026-10-05):** refresh 85.1 Hz at 8-bit and 688.9 Hz at 5-bit; figures in the [Wiring Guide](WiringGuide.md#measured-refresh).
+**4.0.0 refresh core, one panel (2026-10-05):** measured refresh is in the [Wiring Guide](WiringGuide.md#measured-refresh).
 
 ---
 
@@ -60,7 +60,7 @@ The settings block is in the [FM6126A section](ChipCharacteristicsMatrix.md#fm61
 
 The settings block is in the [FM6124 section](ChipCharacteristicsMatrix.md#fm6124-orange-labels) of the Chip Characteristics Matrix.
 
-**4.0.0 refresh core, one panel (2026-10-05):** refresh 85.3 Hz at 8-bit and 694.1 Hz at 5-bit; figures in the [Wiring Guide](WiringGuide.md#measured-refresh).
+**4.0.0 refresh core, one panel (2026-10-05):** measured refresh is in the [Wiring Guide](WiringGuide.md#measured-refresh).
 
 ---
 
@@ -92,7 +92,7 @@ The settings block (one panel) is in the [ICN2037 section](ChipCharacteristicsMa
 
 The settings block, for one panel and for two chained end to end as one 128x32 display, is in the [MBI5124GP section](ChipCharacteristicsMatrix.md#mbi5124gp-green-pcbs) of the Chip Characteristics Matrix.
 
-**4.0.0 refresh core (one panel 2026-10-05, two chained 2026-10-07):** at the 18.6 MHz chain clock: one panel 71.2 Hz at 8-bit and 582.7 Hz at 5-bit, two panels 70.9 Hz and 292.1 Hz; figures in the [Wiring Guide](WiringGuide.md#measured-refresh).
+**4.0.0 refresh core (one panel 2026-10-05, two chained 2026-10-07):** at the chain-limit clock; measured refresh is in the [Wiring Guide](WiringGuide.md#measured-refresh).
 
 ---
 

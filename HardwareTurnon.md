@@ -4,13 +4,7 @@
 
 ![Project Maintenance][maintenance-shield]
 
-There are many RGB LED matrices available. This drivers is built specifically for **HUB75** driven matrices which are usually found in sizes ranging from 16x16 to 64x64 and ranging in horizontal/vertical spacing form 2mm (P2) to 8mm (P8) between individual LEDs.  The version i'm developing with is actually a P3 64x32 Matrix which I originally bought from Amazon.
-
-These panels are receive serial data, a clock signal indicating when to latch the data bits, a latch signal indicating that a whole rows of data should be sent to the LEDs a set of address lines (A, B, C, and D) idenitfying which row should be displayed and an output-enable signal causing an addressed row LEDs to be driven.
-
-While the 64x32 Matrices all appear to be similar the manufacturing of them has been rapid and varied. For us this means that a HUB75 panel can have very different Integrated Circuits (ICs) on the panel driving the LEDs. With these IC changes comes the need alter the signals sent to the panels so that the ICs your panel uses understands the input signals.
-
-In general i'm finding so far that there are 3 or 4 commmon choices for ICs used on the panels. One GitHub user **Piotr Esden-Tempski**  offers  doc's for some of the panels [esden/led-panel-docs](https://github.com/esden/led-panel-docs) showing images of the panels, schematics and datasheets for the ICs used on the panel. (*I'm planning on contributing my schematic and various finds to his repo as a Pull request before this project is completed.*) There are many more that he does not have but this is a good reference.
+The version I'm developing with is a P3 64x32 HUB75 matrix which I originally bought from Amazon. What HUB75 panels are, the signals they expect and why their driver ICs differ are in the README's [background section](README.md#background-hub75-rgb-led-matrix-panels).
 
 
 ### Pages: [README](README.md) | Hardware Turn-on | [Driver Details](THEOPS.md) | [Change Log](ChangeLog.md)
@@ -36,20 +30,7 @@ Here we see my P2 Eval board with flying leads going to a splitter board I hand 
 
 ## Project goals
 
-Overall: Let's see what performance we can achieve by driving from the Propeller 2 directly! 
-
-But let's be more specific:
-
-| Goal               | Sub-goal  | Description |
-| ------------------ | --------- | ----------------------------------------------------------------------- |
-| Video Frame Rates  | -  | Better than 30fps of gamma corrected 24bit color frames for at least 2x2 64x32 LED panels |
-| Understand system demand | -  | Study overall system performance so we know how this will behave with various peripherals and panel configurations |
-| - | Use P2 internal ram resources|  Study driver use of COG Registers, LUT RAM, and HUB RAM |
-| - | w/P2 Eval HyperRAM  |  Will we need, can we benefit from using HyperRAM / External RAM? |
-| - | w/uSD Storage  | What is our performace displaying images / video directly from the P2 uSD card? |
-| - | w/Receiving image data from RPi  | Is the RPi SPI interface sufficient to keep our panels streaming video? |
-| Reusable Driver | - | Ensure driver can be configured for (1) single panel size, (2) organization of multi-panel chains, and (3) the various panel chip-sets which require different clocking styles (within practical limits: *all panels must use the same chip-set*) |
-| long-term | - | Can we drive multiple panel chains - we have 64 GPIO pins on the P2... we should easily be able to connect 3 HUB75 adapters. Can we drive them all at video frame rates?  What is our limitation here? |
+The goals of the project, which this turn-on served, are in the README's [Project goals](README.md#background-project-goals).
 
 **NOTE:** The refresh rates the driver reaches, at every colour depth, are measured on the author's rig and on single panels, and are listed in the [Wiring Guide](DOCs/WiringGuide.md#measured-refresh). The driver aims for the rate you set in `DISPn_TARGET_REFRESH_HZ` (default 60 Hz) and lights the panels as brightly as that rate allows.
 
