@@ -263,3 +263,34 @@ ChangeLog is in scope (§11). Docstrings: §8's eleven comments only.
 ## Revisions
 
 (none)
+
+## Dispatch
+
+Model: `arbiter-serial` (project default). The files every task writes overlap (README, the
+Configuration Guide, THEOPS, the Matrix), so no two tasks run at once. No task is two-phase: no
+task's shape is a design later tasks build on. Order rules applied: the draw-time bench run (seq 3)
+comes before the one-home task that publishes its figures (seq 13); the page moves come before the
+one-home pass; the link sweep runs after every move; the voice and frame pass is last because it
+audits every task before it.
+
+## Section ↔ task cross-reference
+
+| Plan § | Deliverable | Task | seq |
+| ------ | ----------- | ---- | --- |
+| §1 | Stale facts F27, F28, F29 (F2 in §3d) | «#182» | 1 |
+| §8 | Source comments without provenance | «#183» | 2 |
+| §9 | Bench visit: draw times | «#184» | 3 |
+| §2b | THEOPS absorbs TheoryOfOperations | «#185» | 4 |
+| §5 | Refresh method told once, in THEOPS | «#186» | 5 |
+| §2a, §3b | Troubleshooting page; MultiPanelConfiguration retired | «#187» | 6 |
+| §2e, §3c | Testing and Measurement; chip blocks to the Matrix | «#188» | 7 |
+| §2f, §3a | QuickStart | «#189» | 8 |
+| §3d | Roadmap | «#190» | 9 |
+| §2c, §2g | CubePix and the 2020 diary into HardwareTurnon | «#191» | 10 |
+| §2d | One adapter page | «#192» | 11 |
+| §6 | ICN2037 page | «#193» | 12 |
+| §4 | One home per fact | «#194» | 13 |
+| §2h | README reachability; link sweep | «#195» | 14 |
+| §7 | Internal documents leave the public tree | «#196» | 15 |
+| §11 | ChangeLog 4.0.1 | «#197» | 16 |
+| §10 | Voice and frame pass | «#198» | 17 |
