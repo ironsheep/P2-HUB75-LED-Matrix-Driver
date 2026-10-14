@@ -187,7 +187,7 @@ The number of panels (the length of the list), the display's size and its grid, 
 Once these values are set correctly, according to your own hardware set up, then you should be able to compile your code and run. Run the identify screen (`demo_hub75_numberPanels.spin2`) first to confirm your panel list; the [Wiring Guide](DOCs/WiringGuide.md#filling-in-your-config-from-the-identify-screen) explains how to read it.
 
 
-More detail can be found in [Driver Introduction & Configuration](THEOPS.md)
+More detail can be found in [Driver Details](THEOPS.md)
 
 
 ### Example Driver Configurations

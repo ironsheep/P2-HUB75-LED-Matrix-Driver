@@ -2,7 +2,7 @@
 
 How to tell the driver which panels you have, where each one sits and which way each one's top points: the per-display settings, the panel list, the identify screen that lets you fill the list in from the wall, the mounting override, the cube, the limits of the driver, every message the driver prints when a configuration is wrong, and seven worked examples.
 
-Pages: [README](../README.md) | [Driver Details (THEOPS)](../THEOPS.md) | [Multi-Panel Configuration](MultiPanelConfiguration.md)
+Pages: [README](../README.md) | [Driver Details](../THEOPS.md) | [Multi-Panel Configuration](MultiPanelConfiguration.md)
 
 Within this page:
 
@@ -381,7 +381,7 @@ One long chain or several shorter ones:
 
 ### Refresh rate
 
-This section is the one place that states how the refresh works and what it reaches. [Driver Details](../THEOPS.md#notes-on-driver-internals) and the [Theory of Operations](TheoryOfOperations.md#51-refresh-rate) describe the method briefly and link here.
+This section is the one place that states how the refresh works and what it reaches. [Driver Details](../THEOPS.md#refresh-method) describes the method briefly and links here.
 
 #### The method
 
@@ -445,7 +445,7 @@ Measured on the same four-panel rig (256x128 pixels):
 |---|---|---|
 | Commit | 4.09 ms | 3.26 ms |
 
-Drawing calls take their pixels from the cell address tables and write them in PASM (see [Theory of Operations](TheoryOfOperations.md#22-pixel-write-operation)). Measured on the same rig at 8-bit with the rates test's workload: a full-screen flat fill 4.7 ms, fanned lines 13.0 ms, lines of text 24.6 ms and a 64x32 BMP 3.8 ms. Other calls measured there: a full screen of 5x7 text 43 ms, ten diagonal lines 9.0 ms and ten circles 7.8 ms. Draw time does not depend on the colour depth: the screen buffer holds three bytes per pixel at every depth. A commit converts the screen buffer into the PWM frame set that is not on display and posts it; the refresh cog switches to it at its next frame start, so the panels never show a half-converted image (see [Theory of Operations](TheoryOfOperations.md#23-screen-commit-operation)).
+Drawing calls take their pixels from the cell address tables and write them in PASM (see [Driver Details](../THEOPS.md#pixel-write)). Measured on the same rig at 8-bit with the rates test's workload: a full-screen flat fill 4.7 ms, fanned lines 13.0 ms, lines of text 24.6 ms and a 64x32 BMP 3.8 ms. Other calls measured there: a full screen of 5x7 text 43 ms, ten diagonal lines 9.0 ms and ten circles 7.8 ms. Draw time does not depend on the colour depth: the screen buffer holds three bytes per pixel at every depth. A commit converts the screen buffer into the PWM frame set that is not on display and posts it; the refresh cog switches to it at its next frame start, so the panels never show a half-converted image (see [Driver Details](../THEOPS.md#screen-commit)).
 
 ## Startup messages
 
