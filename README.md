@@ -285,6 +285,8 @@ There are a couple of demos which you can review then copy and paste from.  Thes
 | test\_hub75\_pin\_identify.spin2 | **TEST** Bring-up aid: toggles each HUB75 pin (and the P8-P11 measurement pins) at its own known frequency so you can identify the pins with a logic analyzer |
 
 
+What each **TEST** program prints, which ones need panels attached, and the measurement tools (the instrumentation harness and the logic analyzer pins) are on the [Testing and Measurement](DOCs/TestingAndMeasurement.md) page.
+
 **NOTE1:** most of the demo's are built for a 64x32 panels. You may have to modify them to run on your panel geometry.
 
 Once you have a sense for what these demo's do and how they do it, writing your own display code should be fairly easy and initially may even be a copy-n-paste effort from the demo source to your own display code.

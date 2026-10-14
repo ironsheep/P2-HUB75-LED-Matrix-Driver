@@ -1,8 +1,6 @@
 # Author's Test Panel Configurations
 
-This document catalogs all panel configurations the author has tested, as documented in `isp_hub75_hwPanelConfig.spin2`.
-
-Each configuration below is a complete block for the user section of the file, ready to copy: the `DISP0_` settings (the adapter's pin group, chip, panel size and colour depth) and the display's panel list, one sentence per panel. The address lines are not set: the driver derives them from the panel rows and the chip's scan. How the settings and the sentences work is in the [Wiring Guide](WiringGuide.md). Each panel type's scan, address lines and test status are stated once, in the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix); this page does not repeat them. How many panels one adapter can drive for each panel type is in the [driver limits table](WiringGuide.md#driver-limits).
+This document is the record of the panels and rigs the author has tested. The settings block for each panel type, ready to copy into the user section of `isp_hub75_hwPanelConfig.spin2`, is in that chip's section of the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#detailed-chip-documentation); this page links each one. How the settings and the panel sentences work is in the [Wiring Guide](WiringGuide.md). Each panel type's scan, address lines and test status are stated once, in the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix); this page does not repeat them. How many panels one adapter can drive for each panel type is in the [driver limits table](WiringGuide.md#driver-limits). The tools the author measures with (the instrumentation harness, the logic analyzer channels, the pin identification test) are on the [Testing and Measurement](TestingAndMeasurement.md) page.
 
 ## Configuration Summary Table
 
@@ -44,21 +42,7 @@ Scan, address lines and test status for each of these: see the [Quick Reference 
 - Scan, address lines and test status: see the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix)
 - Clock and /OE ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)
 
-**Configuration** (one panel):
-```spin2
-CON
-    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
-    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6126A
-    DISP0_PANEL_COLUMNS     = 64
-    DISP0_PANEL_ROWS        = 32
-    DISP0_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
-
-DAT
-disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
-disp0PanelsEnd
-```
-
-The panels need the initialization sequence. A row of four of these is [Example 1](WiringGuide.md#example-1-a-row-of-4) in the Wiring Guide; the number of panels one adapter can drive is in the [driver limits table](WiringGuide.md#driver-limits) (calculated, not yet exercised at that count).
+The settings block is in the [FM6126A section](ChipCharacteristicsMatrix.md#fm6126a-pink-labels) of the Chip Characteristics Matrix.
 
 **4.0.0 refresh core, one panel (2026-10-05):** refresh 85.1 Hz at 8-bit and 688.9 Hz at 5-bit; figures in the [Wiring Guide](WiringGuide.md#measured-refresh).
 
@@ -74,21 +58,7 @@ The panels need the initialization sequence. A row of four of these is [Example 
 - Scan, address lines and test status: see the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix)
 - Clock and /OE ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)
 
-**Configuration** (one panel):
-```spin2
-CON
-    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
-    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6124
-    DISP0_PANEL_COLUMNS     = 64
-    DISP0_PANEL_ROWS        = 32
-    DISP0_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
-
-DAT
-disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
-disp0PanelsEnd
-```
-
-The driver's limit for this panel type is in the [driver limits table](WiringGuide.md#driver-limits).
+The settings block is in the [FM6124 section](ChipCharacteristicsMatrix.md#fm6124-orange-labels) of the Chip Characteristics Matrix.
 
 **4.0.0 refresh core, one panel (2026-10-05):** refresh 85.3 Hz at 8-bit and 694.1 Hz at 5-bit; figures in the [Wiring Guide](WiringGuide.md#measured-refresh).
 
@@ -106,21 +76,7 @@ The driver's limit for this panel type is in the [driver limits table](WiringGui
 - Clock and /OE ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)
 - Color Note: **Red/Blue swapped** (driver handles automatically)
 
-**Configuration** (one panel):
-```spin2
-CON
-    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
-    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
-    DISP0_PANEL_COLUMNS     = 64
-    DISP0_PANEL_ROWS        = 64
-    DISP0_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
-
-DAT
-disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
-disp0PanelsEnd
-```
-
-The number of panels one adapter can drive is in the [driver limits table](WiringGuide.md#driver-limits) (calculated).
+The settings block (one panel) is in the [ICN2037 section](ChipCharacteristicsMatrix.md#icn2037--icn2037bp-no-color-label) of the Chip Characteristics Matrix.
 
 ---
 
@@ -134,36 +90,7 @@ The number of panels one adapter can drive is in the [driver limits table](Wirin
 - Scan, address lines and test status: see the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix)
 - Clock and /OE ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)
 
-**Configuration** (one panel):
-```spin2
-CON
-    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
-    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_MBI5124GP
-    DISP0_PANEL_COLUMNS     = 64
-    DISP0_PANEL_ROWS        = 32
-    DISP0_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
-
-DAT
-disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
-disp0PanelsEnd
-```
-
-**Configuration** (two panels chained end to end as one 128x32 display; the adapter plugs into the right-hand panel as you face the front, so `C0` is in column 1 and `C1` in column 0):
-```spin2
-CON
-    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
-    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_MBI5124GP
-    DISP0_PANEL_COLUMNS     = 64
-    DISP0_PANEL_ROWS        = 32
-    DISP0_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
-
-DAT
-disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_1 | hwEnum.TOP_UP      ' C0, right-hand panel
-                LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP      ' C1, left-hand panel
-disp0PanelsEnd
-```
-
-Two panels chained end to end run as one 128x32 display, as the second block above. The driver writes each chip's configuration register at start and holds the column clock to the chip's chain limit (18.9 MHz; see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)). The driver limit for this type is in the [driver limits table](WiringGuide.md#driver-limits).
+The settings block, for one panel and for two chained end to end as one 128x32 display, is in the [MBI5124GP section](ChipCharacteristicsMatrix.md#mbi5124gp-green-pcbs) of the Chip Characteristics Matrix.
 
 **4.0.0 refresh core (one panel 2026-10-05, two chained 2026-10-07):** at the 18.6 MHz chain clock: one panel 71.2 Hz at 8-bit and 582.7 Hz at 5-bit, two panels 70.9 Hz and 292.1 Hz; figures in the [Wiring Guide](WiringGuide.md#measured-refresh).
 
@@ -204,21 +131,7 @@ Test status: see the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick
 - Clock and /OE ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)
 - Color Note: **Green/Blue swapped** (driver handles automatically)
 
-**Configuration** (one panel):
-```spin2
-CON
-    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
-    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_GS6238S
-    DISP0_PANEL_COLUMNS     = 64
-    DISP0_PANEL_ROWS        = 32
-    DISP0_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
-
-DAT
-disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
-disp0PanelsEnd
-```
-
-The driver's limit for this panel type is in the [driver limits table](WiringGuide.md#driver-limits).
+The settings block is in the [GS6238S section](ChipCharacteristicsMatrix.md#gs6238s-cyan-label) of the Chip Characteristics Matrix.
 
 ---
 
@@ -302,21 +215,7 @@ What the 4.0.0 cube layer has and has not run on is in the [Quick Reference Matr
 | 74HC04D | Hex inverter (signal conditioning) |
 | RUC7258D | Row driver (Ruichips) |
 
-**Configuration** (one panel):
-```spin2
-CON
-    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
-    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
-    DISP0_PANEL_COLUMNS     = 128
-    DISP0_PANEL_ROWS        = 64
-    DISP0_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
-
-DAT
-disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
-disp0PanelsEnd
-```
-
-This is the rig's panel type; its refresh is measured at every depth. Four of these (the rig) sit exactly at the driver's limit for this panel type: see the [driver limits table](WiringGuide.md#driver-limits).
+The settings block for one panel is in the [ICN2037 section](ChipCharacteristicsMatrix.md#icn2037--icn2037bp-no-color-label) of the Chip Characteristics Matrix. This is the rig's panel type; its refresh is measured at every depth. Four of these (the rig) sit exactly at the driver's limit for this panel type: see the [driver limits table](WiringGuide.md#driver-limits).
 
 **2×2 Grid Configuration** (the author's rig: the panels hang upside down, the adapter plugs into the bottom-left panel, and the ribbon runs along the bottom row and then the top row; every top is `TOP_DOWN`):
 ```spin2
@@ -355,21 +254,7 @@ This creates a 256×128 pixel display (32,768 total pixels). [Example 3](WiringG
 - Clock and /OE ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)
 - Color Note: **No color swap** (unlike ICN2037)
 
-**Configuration** (one panel; the panel is single-ended, so there is one sentence):
-```spin2
-CON
-    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
-    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2038S
-    DISP0_PANEL_COLUMNS     = 64
-    DISP0_PANEL_ROWS        = 64
-    DISP0_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
-
-DAT
-disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
-disp0PanelsEnd
-```
-
-The panel is single-ended; it cannot be daisy-chained. The driver's limit for this type is in the [driver limits table](WiringGuide.md#driver-limits).
+The settings block is in the [ICN2038S section](ChipCharacteristicsMatrix.md#icn2038s-no-color-label---road-sign-display-panel) of the Chip Characteristics Matrix.
 
 ---
 
@@ -402,146 +287,14 @@ Which panel types and chains have run on hardware, and what is not yet proven wi
 
 ## Configuration Toggle Mechanism
 
-The configurations above are examples to copy from; none of them is a switch in the code.
+The configurations are examples to copy from; none of them is a switch in the code.
 
 To change configuration:
-1. In the user section of `isp_hub75_hwPanelConfig.spin2`, replace the `DISP0_` block and its panel list with the block of the configuration you want (a second or third display is added with `#DEFINE DISP1_PRESENT` or `#DEFINE DISP2_PRESENT`, see the [Wiring Guide](WiringGuide.md#more-displays-and-optional-settings))
-2. Match the values to your hardware from the examples above
+1. In the user section of `isp_hub75_hwPanelConfig.spin2`, replace the `DISP0_` block and its panel list with the starting block of your panel type from the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#detailed-chip-documentation), or with a rig block above (a second or third display is added with `#DEFINE DISP1_PRESENT` or `#DEFINE DISP2_PRESENT`, see the [Wiring Guide](WiringGuide.md#more-displays-and-optional-settings))
+2. Match the values to your hardware
 3. Recompile and flash; the startup picture and the identify screen confirm the panel list (see the [Wiring Guide](WiringGuide.md))
 
 Nothing below the user section of `isp_hub75_hwPanelConfig.spin2`, and nothing in `isp_hub75_hwBufferAccess.spin2`, is edited for a configuration change.
-
----
-
-## Instrumentation Harness
-
-The refresh rate, the share of time the panels are lit, the shift clock, the commit time and the draw time are measured from the P2's own pins, with no logic analyzer leads. The harness is compiled only when a test top file defines `HUB75_INSTRUMENT` and exports it to every object (`#DEFINE HUB75_INSTRUMENT` and `#PRAGMA EXPORTDEF HUB75_INSTRUMENT`). Without the symbol, no strobe instruction, strobe pin setup or monitor code is compiled, so release builds carry none of it. It instruments one adapter at a time.
-
-| Top file | What it does |
-|---|---|
-| `test_hub75_rates.spin2` | Starts adapter 1 and the instrument, runs a fixed workload (flat fill, lines, text, BMP, each followed by a commit) and prints refresh, lit share, clock, draw time and commit time per phase. It then runs the frame-set handshake trace, the brightness steps (labelled on the panel), the tearing test with the take check, and the colour-table and row-run self-tests, each ending in PASS or FAIL |
-| `test_hub75_oe_bcm.spin2` | Stand-alone check of the output-enable-weighted method with test patterns, on its own monitors |
-| `test_hub75_converter.spin2` | Compares the screen-to-PWM converters byte for byte with a reference converter; needs no panels |
-
-The color depth is a compile-time setting, so one build of `test_hub75_rates.spin2` measures one depth. Build and run it from `driver/`:
-
-```
-pnut-ts -d -l -m test_hub75_rates.spin2
-pnut-term-ts -r test_hub75_rates.bin -p <port> --headless --end-marker --timeout 180
-```
-
-### Strobes
-
-With the symbol defined, the refresh cog marks its progress with one pulse on each of four P2 pins that are not part of the HUB75 connector. Only the refresh cog drives them.
-
-| Pin | Marks |
-|---|---|
-| P8 | posted set taken: the refresh cog took a newly posted PWM frame set |
-| P9 | frame start |
-| P10 | row start: the planes of one row address begin |
-| P11 | plane latch |
-
-### Monitor map
-
-`isp_hub75_instrument.spin2` starts one input-only smart pin beside each signal it watches. A monitor sits up to three pins from its signal and never drives a pin. For an adapter at P16:
-
-| Signal | Pin | Monitor | Measures |
-|---|---|---|---|
-| posted set taken | P8 | P5 | rises per 1 s window |
-| frame start | P9 | P6 | rises per 1 s window |
-| row start | P10 | P7 | rises per 1 s window |
-| plane latch | P11 | P12 | rises per 1 s window |
-| CLK | P16 | P13 | high clocks and periods over period-aligned windows |
-| /OE | P17 | P14 | clocks low (lit) per 1 s window |
-| LATCH | P18 | P15 | rises per 1 s window |
-
-Every pin is derived from the adapter's base pin. Each signal tries the pins around it nearest-below first and takes the first that is free; a signal with no free neighbour is reported as `not monitored: jumper needed`. Refresh is the LATCH count divided by the planes and row addresses of a frame; the lit share is the /OE low time over the window.
-
-An adapter at P0 owns P0-P13, which holds the strobe pins themselves, so there the strobes are not driven and no monitor starts. The test prints `RG3: instrument strobes P8-P11 are this adapter's own pins (base P0): strobes off` and `INSTR: monitors unavailable`, and reports only draw and commit times.
-
-### Checks the harness makes
-
-- **Handshake trace:** 100 commits back to back; each must convert into the frame set that is not on display. `HANDSHAKE PASS` or `FAIL`.
-- **Take check:** a cog catches every rise of P8 and reads the row-address pins A-E at that moment. A take at a frame boundary finds row address 31 (the frame's last), and the takes counted must equal the commits made. `TAKE CHECK PASS` or `FAIL`. This is the tear-free acceptance, because a camera cannot tell an unlit row from a black image.
-- **Resolution:** the CLK high time is measured directly; the low half is derived from the clock period, and resolves to about +/-0.5 system clock.
-
-The logic analyzer below remains for the shape of waveforms, which the harness does not show.
-
-## Logic Analyzer (waveform shape only)
-
-The author's logic analyzer configuration for looking at the shape of HUB75 signals.
-
-### Channel Mapping (16-channel LA)
-
-| LA Channel | P2 Pin | Signal | Description |
-|------------|--------|--------|-------------|
-| 15 | P24 | R1 | Red data, upper half |
-| 14 | P25 | G1 | Green data, upper half |
-| 13 | P27 | R2 | Red data, lower half |
-| 12 | P28 | G2 | Green data, lower half |
-| 11 | P11 | Plane latch | Instrumentation strobe (`HUB75_INSTRUMENT` builds) |
-| 10 | P10 | Row start | Instrumentation strobe |
-| 9 | P9 | Frame start | Instrumentation strobe |
-| 8 | P8 | Posted set taken | Instrumentation strobe |
-| 7 | P19 | A | Address bit 0 (LSB) |
-| 6 | P20 | B | Address bit 1 |
-| 5 | P21 | C | Address bit 2 |
-| 4 | P22 | D | Address bit 3 |
-| 3 | P23 | E | Address bit 4 (MSB) |
-| 2 | P16 | CLK | Pixel clock |
-| 1 | P18 | LATCH | Row latch |
-| 0 | P17 | OE | Output enable (directly active) |
-
-### Notes
-
-- Blue pins (B1, B2) are not monitored - R/G sufficient for color debugging
-- The strobe pins (P8-P11) are directly on the P2, not on the HUB75 connector, and are driven only in a `HUB75_INSTRUMENT` build
-- HUB75 signals assume `BASE_PIN = 16` (P16-P31 adapter)
-- On the four-panel ICN2037 rig the column clock is 15 system clocks per column at 335 MHz, with CLK high 7 clocks (20.9 ns) and low 8 (23.9 ns) (chip ratings: see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings))
-
-### Pin Identification Test
-
-Use `test_hub75_pin_identify.spin2` to verify LA channel-to-pin mapping. This test outputs a 20-bit binary counter, with each bit assigned to a specific pin. Measure the frequency of each LA channel to identify which P2 pin it's connected to.
-
-The test labels P8-P11 `LA_CMD`, `LA_FRMSET`, `LA_SAME` and `LA_NEW`; they are the pins the refresh cog uses as the strobes listed under [Strobes](#strobes).
-
-**Test Configuration:** `BASE_PIN = 16`, `BASE_FREQ_HZ = 100_000`
-
-#### Frequency-to-Pin Reference Table
-
-| Frequency | Bit | P2 Pin | Signal | Description |
-|-----------|-----|--------|--------|-------------|
-| 100.0 kHz | 0 | P8 | LA_CMD | Instrumentation |
-| 50.0 kHz | 1 | P9 | LA_FRMSET | Instrumentation |
-| 25.0 kHz | 2 | P10 | LA_SAME | Instrumentation |
-| 12.5 kHz | 3 | P11 | LA_NEW | Instrumentation |
-| 6.25 kHz | 4 | P16 | CLK | Pixel clock |
-| 3.125 kHz | 5 | P17 | OE | Output enable |
-| 1.563 kHz | 6 | P18 | LATCH | Row latch |
-| 781 Hz | 7 | P19 | A | Address bit 0 |
-| 391 Hz | 8 | P20 | B | Address bit 1 |
-| 195 Hz | 9 | P21 | C | Address bit 2 |
-| 98 Hz | 10 | P22 | D | Address bit 3 |
-| 49 Hz | 11 | P23 | E | Address bit 4 |
-| 24 Hz | 12 | P24 | R1 | Red, upper half |
-| 12 Hz | 13 | P25 | G1 | Green, upper half |
-| 6 Hz | 14 | P26 | B1 | Blue, upper half |
-| 3 Hz | 15 | P27 | R2 | Red, lower half |
-| ~1.5 Hz | 16 | P28 | G2 | Green, lower half |
-| ~0.76 Hz | 17 | P29 | B2 | Blue, lower half |
-| ~0.38 Hz | 18 | P30 | SPARE1 | Unused |
-| ~0.19 Hz | 19 | P31 | SPARE2 | Unused |
-
-#### Hardware Verification
-
-Running this test also verifies:
-
-- **No stuck pins:** All 20 outputs toggle at their expected frequencies
-- **No cross-talk:** Square waves are clean with no coupling between adjacent signals
-- **P2 output integrity:** Logic analyzer inputs receive valid data from P2
-- **LA input integrity:** All 16 LA channels functioning correctly
-
-If any channel shows an unexpected frequency or no activity, check wiring and connections.
 
 ---
 

@@ -61,6 +61,8 @@ This table is the one place the project states each chip's datasheet clock and /
 
 ## Detailed Chip Documentation
 
+Each panel type that has run on the author's bench has a **starting block** in its section: the settings and panel list for the user section of `isp_hub75_hwPanelConfig.spin2`, ready to copy (the `DISP0_` settings and one sentence per panel; the address lines are derived, not set). How the settings and the sentences work is in the [Wiring Guide](WiringGuide.md#the-display-block). The blocks name the P16-P31 pin group, the one the author's bench uses. The FM6124C and DP5125D sections have none: the FM6124C panel is configured with the FM6124 block, and no DP5125D panel has run.
+
 ### FM6126A (Pink Labels)
 
 **Panel Model:** P3-6432-121-16s-D1.0
@@ -95,6 +97,22 @@ This table is the one place the project states each chip's datasheet clock and /
 ```spin2
 CHIP_MANUAL_SPEC | LAT_STYLE_OFFSET | LAT_POSN_OVERLAP | INIT_PANEL_REQUIRED
 ```
+
+**Starting block** (one panel, as run on the author's bench):
+```spin2
+CON
+    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
+    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6126A
+    DISP0_PANEL_COLUMNS     = 64
+    DISP0_PANEL_ROWS        = 32
+    DISP0_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
+
+DAT
+disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
+disp0PanelsEnd
+```
+
+The panels need the initialization sequence. A row of four of these is [Example 1](WiringGuide.md#example-1-a-row-of-4) in the Wiring Guide; the number of panels one adapter can drive is in the [driver limits table](WiringGuide.md#driver-limits) (calculated, not yet exercised at that count).
 
 ---
 
@@ -132,6 +150,22 @@ CHIP_MANUAL_SPEC | LAT_STYLE_OFFSET | LAT_POSN_OVERLAP | INIT_PANEL_REQUIRED
 ```spin2
 CHIP_MANUAL_SPEC
 ```
+
+**Starting block** (one panel, as run on the author's bench):
+```spin2
+CON
+    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
+    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_FM6124
+    DISP0_PANEL_COLUMNS     = 64
+    DISP0_PANEL_ROWS        = 32
+    DISP0_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
+
+DAT
+disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
+disp0PanelsEnd
+```
+
+The driver's limit for this panel type is in the [driver limits table](WiringGuide.md#driver-limits).
 
 **Notes:** Simpler chip than FM6126A - no special initialization or latch timing required. Uses same bus transceiver (74HC245C) as Pink panels.
 
@@ -245,6 +279,36 @@ Configure the panel as `CHIP_FM6124` (the driver has no FM6124C setting). Do not
 CHIP_MANUAL_SPEC | RB_SWAP
 ```
 
+**Starting block** (one 64x64 panel, as run on the author's bench; the driver handles the red/blue swap):
+```spin2
+CON
+    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
+    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
+    DISP0_PANEL_COLUMNS     = 64
+    DISP0_PANEL_ROWS        = 64
+    DISP0_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
+
+DAT
+disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
+disp0PanelsEnd
+```
+
+**Starting block** (one 128x64 panel, the large panel; as run on the author's bench):
+```spin2
+CON
+    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
+    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2037
+    DISP0_PANEL_COLUMNS     = 128
+    DISP0_PANEL_ROWS        = 64
+    DISP0_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
+
+DAT
+disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
+disp0PanelsEnd
+```
+
+The panel lists of the six-panel cube and of the author's 2x2 rig are on the [Author's Test Panel Configurations](AuthorTestConfigurations.md) page. The number of panels one adapter can drive is in the [driver limits table](WiringGuide.md#driver-limits).
+
 **Notes:**
 - Both panel sizes use the same chip setting, `CHIP_ICN2037`. Their test status is in the [Quick Reference Matrix](#quick-reference-matrix).
 - ICN2037BP is same as ICN2037 in SSOP24-P-150 package
@@ -274,6 +338,22 @@ CHIP_MANUAL_SPEC | RB_SWAP
 ```spin2
 CHIP_MANUAL_SPEC | SCAN_4
 ```
+
+**Starting block** (one panel, as run on the author's bench; the panel is single-ended, so there is one sentence):
+```spin2
+CON
+    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
+    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_ICN2038S
+    DISP0_PANEL_COLUMNS     = 64
+    DISP0_PANEL_ROWS        = 64
+    DISP0_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
+
+DAT
+disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
+disp0PanelsEnd
+```
+
+The panel is single-ended; it cannot be daisy-chained. The driver's limit for this type is in the [driver limits table](WiringGuide.md#driver-limits).
 
 **Notes:**
 - Similar to ICN2037 but with **no R/B swap**, and the driver flags it `SCAN_4` (four rows lit at once); scan follows how the panel is built (see the note under the Quick Reference Matrix)
@@ -326,6 +406,30 @@ CHIP_MANUAL_SPEC | SCAN_4
 CHIP_MANUAL_SPEC | CHIP_UNK_LAT_END_ENCL | SCAN_4 | INIT_PANEL_REQUIRED
 ```
 
+**Starting block** (one panel, as run on the author's bench):
+```spin2
+CON
+    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
+    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_MBI5124GP
+    DISP0_PANEL_COLUMNS     = 64
+    DISP0_PANEL_ROWS        = 32
+    DISP0_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
+
+DAT
+disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
+disp0PanelsEnd
+```
+
+Two panels chained end to end run as one 128x32 display: the same settings, and a panel list of two sentences. The adapter plugs into the right-hand panel as you face the front, so `C0` is in column 1 and `C1` in column 0:
+```spin2
+DAT
+disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_1 | hwEnum.TOP_UP      ' C0, right-hand panel
+                LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP      ' C1, left-hand panel
+disp0PanelsEnd
+```
+
+The driver writes each chip's configuration register at start and holds the column clock to the chip's chain limit (18.9 MHz; see the [ratings](#datasheet-clock-and-oe-ratings)). The driver limit for this type is in the [driver limits table](WiringGuide.md#driver-limits).
+
 **Notes:**
 - `CHIP_UNK_LAT_END_ENCL` is a chip number, not a flag: it lands in the chip byte, which the refresh core does not read as flags. The latch and clock timing come from the chip name itself (the refresh core treats `CHIP_MBI5124GP` specially), so a `CHIP_MANUAL_SPEC | flags` value cannot stand in for it
 - 1/8 scan creates complexity for multi-panel
@@ -368,6 +472,22 @@ CHIP_MANUAL_SPEC | CHIP_UNK_LAT_END_ENCL | SCAN_4 | INIT_PANEL_REQUIRED
 ```spin2
 CHIP_MANUAL_SPEC | LAT_STYLE_OFFSET | LAT_POSN_OVERLAP | GB_SWAP
 ```
+
+**Starting block** (one panel, as run on the author's bench; the driver handles the green/blue swap):
+```spin2
+CON
+    DISP0_ADAPTER_BASE_PIN  = hwEnum.PIN_GROUP_P16_P31
+    DISP0_PANEL_DRIVER_CHIP = hwEnum.CHIP_GS6238S
+    DISP0_PANEL_COLUMNS     = 64
+    DISP0_PANEL_ROWS        = 32
+    DISP0_COLOR_DEPTH       = hwEnum.DEPTH_8BIT
+
+DAT
+disp0Panels     LONG    hwEnum.ROW_0 | hwEnum.COL_0 | hwEnum.TOP_UP
+disp0PanelsEnd
+```
+
+The driver's limit for this panel type is in the [driver limits table](WiringGuide.md#driver-limits).
 
 **Notes:** Uses different supporting chipset than Pink/Orange/Green panels - MW245B transceiver (Sunmoon) instead of 74HC245C, and TC7262BJ row driver instead of TC7258EN.
 

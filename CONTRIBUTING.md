@@ -19,7 +19,7 @@ If you want to contribute to our project and make it better, your help is very w
 - Create a new branch to work on! Branch from `develop` if it exists, else from `main`.
 - Implement/fix your feature, comment your code.
 - Follow the code style of the project, including indentation.
-- Compile every demo and test top file (`demo_hub75_*.spin2`, `test_hub75_*.spin2`, `isp_hub75_anlyCheck.spin2`) with no warnings. The `test_hub75_*` programs are self-tests; run the ones your change touches (`test_hub75_converter` and `test_hub75_cube_fold` need no panels attached).
+- Compile every demo and test top file (`demo_hub75_*.spin2`, `test_hub75_*.spin2`, `isp_hub75_anlyCheck.spin2`) with no warnings. The `test_hub75_*` programs are self-tests; run the ones your change touches (`test_hub75_converter` and `test_hub75_cube_fold` need no panels attached; what each prints is on the [Testing and Measurement](DOCs/TestingAndMeasurement.md) page).
 - Write or adapt tests as needed.
 - Add or change the documentation as needed.
 - Squash your commits into a single commit with git's [interactive rebase](https://help.github.com/articles/interactive-rebase). Create a new branch if necessary.

@@ -46,16 +46,7 @@ Here are the reference programs you can study when learning to display to your p
 
 ### Test and bring-up top-level files
 
-These are compile entry points for checking the driver and your hardware; they are not driver files and not demos:
-
-| Top-level file | Purpose |
-|-----------------|-------------|
-| test\_hub75\_cube\_fold.spin2 | Cube fold self-test: runs with no panels attached and prints PASS or FAIL for each case |
-| test\_hub75\_rates.spin2 | Runs a fixed workload on one adapter with the instrument and reports refresh, lit share, clock, commit and draw time; runs the frame-set handshake and take checks, the brightness steps, the colour-table and row-run self-tests |
-| test\_hub75\_converter.spin2 | Compares the screen-to-PWM converters with a reference converter byte for byte, with no panels attached, and prints PASS or FAIL |
-| test\_hub75\_oe\_bcm.spin2 | Stand-alone check of the output-enable-weighted refresh method on one adapter, with test patterns and monitors |
-| test\_hub75\_pin\_identify.spin2 | Pin identification: toggles the HUB75 pins at known frequencies so you can tell which pin is which |
-| isp\_hub75\_anlyCheck.spin2 | Pin exerciser: toggles the HUB75 board's pins so you can verify logic analyzer connections and wiring |
+The `test_hub75_*` programs and `isp_hub75_anlyCheck.spin2` are compile entry points for checking the driver and your hardware; they are not driver files and not demos. Each one, what it prints and whether it needs panels, is on the [Testing and Measurement](DOCs/TestingAndMeasurement.md) page.
 
 ### Driver files
 
@@ -81,7 +72,7 @@ The driver itself is composed of the following files (with a few extras thrown i
 | isp\_hub75\_display_bmp.spin2 | **Optional** - load .bmp file content into screen buffer |
 | isp\_hub75_7seg.spin2 | **Optional** - part of 7-segment demo - a digit (packaged with the demos) |
 | isp\_hub75_segment.spin2 | **Optional** - part of 7-segment demo - a segment within a digit (packaged with the demos) |
-| isp\_hub75\_instrument.spin2 | **Test only** - measurement: monitor smart pins on CLK, /OE, LATCH and the refresh cog's strobes, plus stopwatches. Compiled only with `HUB75_INSTRUMENT` defined by a test top file (see [Author Test Configurations](DOCs/AuthorTestConfigurations.md)) |
+| isp\_hub75\_instrument.spin2 | **Test only** - measurement: monitor smart pins on CLK, /OE, LATCH and the refresh cog's strobes, plus stopwatches. Compiled only with `HUB75_INSTRUMENT` defined by a test top file (see [Testing and Measurement](DOCs/TestingAndMeasurement.md#the-instrumentation-harness)) |
 
 The structure of these files was chosen in order to (1) make it easier and less memory usage for part of the driver to access other parts and (2) make it easier for you to chose to compile the **optional** parts or not. 
 
@@ -555,17 +546,7 @@ The column loop (`shiftColumns`) is 14 system clocks at least: CLK is high for 6
 
 ### Diagnostic build switches
 
-The driver keeps a set of low-level diagnostic routines (PWM frame / buffer memory dumps) that are normally compiled **out** so they add zero cost to release builds. They are gated by the `DBG_PWM` preprocessor symbol and revived by passing it on the compiler command line:
-
-```
-pnut-ts -d -D DBG_PWM demo_hub75_color.spin2     # PWM-frame dump diagnostics compiled in
-pnut-ts -d            demo_hub75_color.spin2     # normal build -- diagnostics absent (zero cost)
-```
-
-`-D` is global across the object tree, so a single `-D DBG_PWM` reaches `isp_hub75_panel.spin2` (the `dumpBufferHeads` / `dumpFrame*` family) and `isp_hub75_hwBufferAccess.spin2` (`dbgMemDump`). Two notes for maintainers:
-
-- Use `#ifdef DBG_PWM` / `#endif` (conditional compilation) to gate diagnostic **methods and their call sites** -- this removes the routine scaffolding entirely. (A plain `debug()` statement already costs nothing in a non-`-d` build, so it needs no guard.)
-- An in-file `#define` does **not** cross object boundaries; only command-line `-D` does. Define `DBG_PWM` on the command line, never per-file.
+The diagnostic frame dumps (`DBG_PWM`) and the measurement build (`HUB75_INSTRUMENT`) are compiled out of release builds; how to switch them on is on the [Testing and Measurement](DOCs/TestingAndMeasurement.md#diagnostic-build-switches) page.
 
 
 ## Driver Max panels supported
