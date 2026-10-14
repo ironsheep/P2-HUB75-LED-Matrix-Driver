@@ -320,7 +320,7 @@ In general i'm finding so far that there are 3 or 4 commmon choices for ICs used
 
 ## BACKGROUND: Driving the panels with our P2
 
-Hooking up our string of panels to the P2 Eval board or the P2 Edge Module Breadboard (*AKA the JonnyMac board*) is quite easy. We will have a **P2 Eval HUB75 Adapter board** for sale at Parallax.com.  It is hooked up as shown in this image:
+Hooking up our string of panels to the P2 Eval board or the P2 Edge Module Breadboard (*AKA the JonnyMac board*) is quite easy. The **P2 Eval HUB75 Adapter board** is sold by the [Parallax.com Store](https://www.parallax.com/product-category/propeller-2/).  It is hooked up as shown in this image:
 
 ![](images/p2-driving-panel.jpg)
 

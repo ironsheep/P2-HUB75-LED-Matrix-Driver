@@ -50,7 +50,7 @@ overturn on reading this plan; none was asked (doctrine overlay, D8, 2026-10-13 
 
 - **F2:** the "cube is one horizontal chain, 384 x 64" item (`DOCs/FutureDirections-ImageAndColor.md:226-229`) is deleted when that page becomes the roadmap (§3d); it is not carried.
 - **F27:** `README.md:323` "We will have a P2 Eval HUB75 Adapter board for sale": it is sold; state it and link the store link already at `:9`.
-- **F28:** `Checklist-v3-v4.md:69` shows the v3 pin name as `PINS_P16_P31`; v3.0.3+ used `PIN_GROUP_*` (`Checklist-v2-v3.md:87`). Correct the v3 column.
+- **F28 (corrected, revision 2):** no v3.0.3 was released; v3.0.2 (the last v3 tag) uses `PINS_Pxx_Pyy`, and 4.0.0 renamed them. `Checklist-v3-v4.md` is right. The wrong page is `Checklist-v2-v3.md`, whose examples (`:53,116,145`) and "v3.0.3+" note (`:87`) were moved to the new names on 2026-10-01 for a 3.0.3 that was folded into 4.0.0: restore the v3 names and point the note at the v3-v4 rename section.
 - **F29:** `DOCs/WiringGuide.md:340` limits row for ICN2038S reads "4 (single-ended: one panel)". Restate from `checkPanelLimit()` (`driver/isp_hub75_hwBufferAccess.spin2:1516-1543`): 512 column clocks, `SCAN_4` counts each column twice, so a 64-column ICN2038S panel is 128 clocks and four fit along one cable.
 - **Verify:** each corrected line read against its code or sibling page; `python3 tools/check_docs.py` clean.
 
@@ -253,6 +253,7 @@ ChangeLog is in scope (§11). Docstrings: §8's eleven comments only.
 ## Revisions
 
 - **2026-10-13, revision 1 — cause 2, research incomplete.** §9's bench visit withdrawn and «#184» superseded. Stephen: *"we'll only do bench after all the other work is done. if the driver hasn't changed - why bench?"* The draw times were already measured on the current driver at B-2 (2026-10-10); the planning search looked for the millisecond strings, and the bench notes record microseconds. P8 now states the recorded figures; §4's row and «#194» carry them.
+- **2026-10-13, revision 2 — cause 2, research incomplete.** §1's F28 fix moves from `Checklist-v3-v4.md` to `Checklist-v2-v3.md`. The study read the "v3.0.3+" note as fact; `git show v3.0.2:driver/isp_hub75_hwEnums.spin2` shows `PINS_P16_P31`, and no v3.0.3 tag exists.
 
 ## Dispatch
 

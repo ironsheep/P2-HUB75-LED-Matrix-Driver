@@ -337,7 +337,7 @@ A display must pass all five limits, and the tightest decides:
 | ICN2037 64x64 | 64 | 1 | 8 | **8** |
 | FM6124C 64x64 (`CHIP_FM6124`) | 64 | 1 | 8 | **8** |
 | ICN2037 128x64 | 128 | 1 | 4 | **4** |
-| ICN2038S 64x64, quarter-scan conversion | 64 | 2 | 4 | **4** (single-ended: one panel) |
+| ICN2038S 64x64, quarter-scan conversion | 64 | 2 | 4 | **4** (one in practice; see the notes) |
 | DP5125D, quarter-scan conversion | W | 2 | 8 for W=32, 4 for W=64, 2 for W=128 | **by width** |
 
 Every number here is calculated from the driver's constants. Which panel types and counts have run on hardware is in the [Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix).
