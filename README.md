@@ -66,6 +66,7 @@ On this Page:
 
 Additional pages:
 
+- [Quick Start](DOCs/QuickStart.md) - From wired panels to a running program, with short examples
 - [HardwareTurnon](HardwareTurnon.md) - Describes the initial turn-on effort of this driver
 - [Driver Details](THEOPS.md) - Provides more detail about the driver and driver-configuration
 - [Wiring Guide](DOCs/WiringGuide.md) - How to describe your panels' layout, cabling and mounting, with seven worked examples
@@ -262,9 +263,9 @@ disp0PanelsEnd
 
 ## Writing display code for your panels
 
-As soon are you are configured you will want to make pixels light up on your panel(s)!
+As soon as you are configured you will want to make pixels light up on your panel(s)! The [Quick Start](DOCs/QuickStart.md) page takes you from wired panels to a running program, with short examples to copy.
 
-There are a couple of demos which you can review then copy and paste from.  These are:
+The demos below show more, and you can review then copy and paste from them:
 
 | DEMO Program    |  Purpose |
 |-----------------|-------------|
@@ -291,7 +292,7 @@ What each **TEST** program prints, which ones need panels attached, and the meas
 
 Once you have a sense for what these demo's do and how they do it, writing your own display code should be fairly easy and initially may even be a copy-n-paste effort from the demo source to your own display code.
 
-**NOTE2** If you are looking for an example of starting up more than one HUB75 card please refer to the "Starting a second or third adapter" section of the [Update to v4.0 Checklist](Checklist-v3-v4.md#starting-a-second-or-third-adapter).
+**NOTE2** An example of starting up more than one HUB75 card is in the Quick Start's [A second adapter](DOCs/QuickStart.md#a-second-adapter) section.
 
 
 Please enjoy and let me know if there are features you want to see in this driver!
