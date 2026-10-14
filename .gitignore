@@ -93,3 +93,8 @@ __pycache__/
 /dist
 /REF-NO-COMMIT
 driver/PSRAM_driver_RJA_Platform_1b.spin2
+
+# Internal working records: kept in the working tree, not published
+/DOCs/plans/archive/
+/DOCs/bench/
+/DOCs/analysis/archive/
