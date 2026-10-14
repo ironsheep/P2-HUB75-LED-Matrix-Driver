@@ -129,6 +129,7 @@ Each chip's datasheet clock and /OE ratings are in the [Chip Characteristics Mat
 Upcoming work on the driver:
 
 - Proving the 4.0.0 display organization on more hardware: the list is in the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md#not-yet-proven-on-hardware-with-400). See also the Known Issues in the [Change Log](ChangeLog.md).
+- Larger displays on external RAM and further color rendering work: the [Roadmap](DOCs/Roadmap.md) lists what is planned.
 - I've even some fun animated clocks coming (sorry, I'm been doing software clocks of many, many, forms for a long time.)
 
 Morphing digits Matrix displays can be found at [P2 LED-Matrix Morphing Digits](https://github.com/ironsheep/P2-LED-Matrix-Morphing-Digits) Repository.
