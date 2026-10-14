@@ -381,19 +381,11 @@ One long chain or several shorter ones:
 
 ### Refresh rate
 
-This section is the one place that states how the refresh works and what it reaches. [Driver Details](../THEOPS.md#refresh-method) describes the method briefly and links here.
-
-#### The method
-
-The refresh cog shows each bit plane **once** per row address. For each row address, and for each bit plane *k* from the most significant down, it loads the plane's row from hub RAM, shifts it into the panels, latches it, and lights the row by pulsing /OE for 2^*k* x L clocks inside a slot of 2^*k* x T clocks. The next plane is loaded and shifted while the current plane is lit, and the row address changes only while /OE is off.
-
-T is the **/OE unit**. L equals T at full brightness (see [Brightness](#brightness)). One full colour cycle is every row address shown with every plane, and the refresh rate is how often it repeats.
-
-On the author's rig the column clock is 15 system clocks per column at 335 MHz. CLK is high for 7 of them (20.9 ns) and low for 8 (23.9 ns) at every depth. The monitors read the high half a little long, through the pin's input threshold: 23.9 ns on the four-panel rig, 21.7 to 24.2 ns on single FM6126A, MBI5124GP and FM6124 panels. The driver holds each half of the pulse to at least 20 ns and the whole period to the chip's highest clock: its rating, or in a chain its chain limit when that is lower (a chip's data output feeds the next chip's data input, so the period must also cover the output delay plus the input setup time). The limits the driver uses are 30 MHz for the FM6124 and FM6126A, 28.6 MHz for the ICN2038S, 25.0 MHz for the ICN2037, 18.9 MHz for the MBI5124GP and 20 MHz for a chip with no rating in the driver's table. At 335 MHz the shortest column loop that keeps both halves at 20 ns or more is 15 system clocks (22.3 MHz), which is what every chip but the MBI5124GP runs at; the MBI5124GP runs at 18.6 MHz. The ratings are in the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings).
+This section holds the refresh settings and what they reach (the target rate, the rates measured on the author's rig, and brightness); how the refresh works is in [Driver Details](../THEOPS.md#refresh-method).
 
 #### The target refresh rate
 
-`DISPn_TARGET_REFRESH_HZ` (default 60; switched on with `#DEFINE DISPn_REFRESH_GIVEN`, see [More displays and optional settings](#more-displays-and-optional-settings)) says how fast the display should refresh. At startup the driver takes S, the clocks to shift one row of one plane (the chain's column clocks x the clocks per column), and tries T = S / 2^*j* for *j* = 0, 1, 2, ... until the predicted refresh reaches the target. T never goes below the chip's shortest /OE pulse. The smallest *j* that meets the target gives the longest T, and so the brightest picture. *j* = 0 lights every plane for its whole slot.
+`DISPn_TARGET_REFRESH_HZ` (default 60; switched on with `#DEFINE DISPn_REFRESH_GIVEN`, see [More displays and optional settings](#more-displays-and-optional-settings)) says how fast the display should refresh. At startup the driver tries ever-shorter /OE units, each half the one before, until the predicted refresh reaches the target; *j* is the number of halvings. The smallest *j* that meets the target gives the longest /OE unit, and so the brightest picture. *j* = 0 lights every plane for its whole slot. The unit never goes below the chip's shortest /OE pulse.
 
 When no *j* reaches the target, the driver runs at the fastest rate the display has (the largest *j*, the colour depth) and prints the [notice](#startup-messages). On the author's rig at 8-bit, a target of 200 Hz printed `running at 165.7 Hz, its fastest (j = 8)` and the monitors measured 165.0 Hz.
 
@@ -401,7 +393,7 @@ A build with DEBUG prints a `REFRESH` line at startup (S, T, *j*, the chip's sho
 
 #### Measured refresh
 
-Measured on the author's rig, four ICN2037 128x64 panels (512 column clocks, 1/32 scan), at the default 60 Hz target, 335 MHz. The monitors count LATCH and /OE on the P2's own pins. The lit share is the part of the time /OE holds the panels lit, at brightness 256.
+Measured on the author's rig, four ICN2037 128x64 panels (512 column clocks, 1/32 scan), at the default 60 Hz target, 335 MHz. The monitors count LATCH and /OE on the P2's own pins. On this rig the column clock is 15 system clocks per column at 335 MHz at every depth, CLK high for 7 (20.9 ns) and low for 8 (23.9 ns). The monitors read the high half a little long, through the pin's input threshold: 23.9 ns on the four-panel rig, 21.7 to 24.2 ns on single FM6126A, MBI5124GP and FM6124 panels. The lit share is the part of the time /OE holds the panels lit, at brightness 256.
 
 | Depth | Refresh (Hz) | Lit share | *j* chosen |
 |---|---|---|---|
@@ -426,7 +418,7 @@ The image was correct by eye on the test patterns on all three at both depths. T
 
 #### Brightness
 
-`display.setBrightness(0 to 256)` scales L, the lit time inside each plane's slot, to T x b / 256. The colour values are not touched, so the image keeps its full depth at any brightness, and the row timing, and with it the refresh rate, does not change. 256 is no reduction and 0 is off (/OE never pulses).
+`display.setBrightness(0 to 256)` scales L, the lit time inside each plane's slot, to T x b / 256 (T is the /OE unit; see [the refresh method](../THEOPS.md#refresh-method)). The colour values are not touched, so the image keeps its full depth at any brightness, and the row timing, and with it the refresh rate, does not change. 256 is no reduction and 0 is off (/OE never pulses).
 
 L never goes below the chip's shortest /OE pulse, so low settings give a floor brightness rather than less. On the four-panel ICN2037 rig at 8-bit the shortest pulse is 21 clocks (60 ns) and T is 480 clocks, so settings 1 to 11 all give the same light. Measured there:
 
