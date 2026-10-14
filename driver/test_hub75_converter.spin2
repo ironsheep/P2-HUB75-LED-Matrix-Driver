@@ -494,7 +494,7 @@ PRI lineOffsetOf(eScan, scanRow, slot, panelCnt, panelCols, panelRows) : byteIdx
 
 PRI referenceHalfScan(p24bitScreen, pPwmFrameSet, lPanelCount, lPanelCols, lPanelRows, lMaxPwmBuffers, lDisplayBytesPerColor, bSwapRB, bSwapGB) | lHalfPanelRows, lPanelRowBytes, lHalfPanelBytes, lPanelSkipBytes, lPwmFrameSizeInBytes
 ' The reference: the half-scan converter convertHalfScan() replaced (isp_hub75_panel.spin2
-' convertScreen2PWM() before task #98). The PASM is copied unchanged, except that its constants
+' convertScreen2PWM() in v3.0.2). The PASM is copied unchanged, except that its constants
 ' are named through the panel object; the Spin2 set-up takes the geometry, depth and pixel size
 ' as parameters in place of the panel object's instance variables, and it posts nothing.
 '
@@ -660,7 +660,7 @@ done16s
 
 PRI referenceQuarterScan(p24bitScreen, pPwmFrameSet, lPanelCount, lPanelCols, lPhyRows, lMaxPwmBuffers, lDisplayBytesPerColor, bSwapRB, bSwapGB) | pPwmFrame, lOne4thLineCt, lOneHalfLineCt, lThree4thsLineCt, lPanelSkipBytes, lPwmAddrRowBytes, lPwmFrameSizeInBytes
 ' The reference: the quarter-scan converter convertQuarterScan() replaced (isp_hub75_panel.spin2
-' convertScreen2PWM_14() before task #98). The PASM is copied unchanged, except that its
+' convertScreen2PWM_14() in v3.0.2). The PASM is copied unchanged, except that its
 ' constants are named through the panel object; the Spin2 set-up takes the geometry, depth and
 ' pixel size as parameters in place of the panel object's instance variables, and it posts
 ' nothing.

@@ -30,7 +30,7 @@
    Top is C0 and Front is C5; the four faces' turns in their cells are all different, so every
    quarter turn from face to panel is exercised.
 
-   Groups (the labels match the case tables of the task #79 design):
+   Groups (each label names one family of cases):
      N, X - net recognition: the 11 cube nets fold (0 problems), four non-nets and a front
             opposite the top are each rejected (1 problem); the reference net folds last
      G    - on a face, no fold: face coordinates to panel coordinates on every face
@@ -43,7 +43,7 @@
             (FRONT, TOP, LEFT), three points in the corner gap, and the joins at all three edges
      h    - the home of an object: the face that holds its centre, and the transform into it
      I    - faces that are not cube faces
-     b, o, s, q, t - the face-centric drawing entries of task #80: a box crossing an edge (b), a
+     b, o, s, q, t - the face-centric drawing entries: a box crossing an edge (b), a
             circle crossing an edge (o), a circle straddling a corner off-centre (s), a circle
             straddling a corner on the face that holds its centre (q), and text crossing an
             edge (t). Each case is one pixel that the primitive draws (a probe) and the display

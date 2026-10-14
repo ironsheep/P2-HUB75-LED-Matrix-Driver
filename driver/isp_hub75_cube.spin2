@@ -119,7 +119,7 @@ DAT ' ---- Cube faces, edges and folded tables ----
   a right R = U x n. Face coordinates (row, column) put row 0 at the face's up edge and
   column 0 at its left edge.
 
-  STABLE -- the image-mapping sprint depends on these up directions:
+  STABLE -- face coordinates, and everything drawn in them, depend on these up directions:
     FRONT, BACK, LEFT, RIGHT - up points toward TOP
     TOP                      - up points toward BACK (standing at FRONT, text on TOP reads correctly)
     BOTTOM                   - up points toward FRONT

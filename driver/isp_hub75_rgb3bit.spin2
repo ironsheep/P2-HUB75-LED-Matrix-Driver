@@ -32,7 +32,7 @@ CON ' ---- Timing ----
     ' MBI5124 V0.01 pp.9-10, the 3.3 V row (the row its /OE minimum uses): 50 + 3 ns. Clocked
     ' faster (22.3 MHz), a chain of two MBI5124GP panels lost the bit handed into each panel on
     ' some images. ICN2037 V2.0: 35 + 5 ns; ICN2038S V1.1: 30 + 5 ns. The FM6124 and FM6126A
-    ' delays have not been read (DOCs/plans/PUNCH-LIST.md), so their rating alone applies.
+    ' delays have not been read from their datasheets, so their rating alone applies.
     ICN2037_CLK_TO_SDO_MAX_NS     = 35
     ICN2037_SDI_SETUP_NS          = 5
     ICN2038S_CLK_TO_SDO_MAX_NS    = 30

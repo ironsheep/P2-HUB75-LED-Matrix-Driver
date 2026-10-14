@@ -13,11 +13,10 @@
 
 { What this program is:
 
-   The planning-phase prototype of DOCs/plans/archive/FRAME-RATE-SPRINT-PLAN.md section 1. It is a
+   The prototype of the OE-weighted refresh method the driver uses. It is a
    standalone top file (in the manner of test_hub75_pin_identify.spin2) and does not use the
    display driver. It drives ONE adapter, the one described by the DISP0_ settings of
-   isp_hub75_hwPanelConfig.spin2, and proves the OE-weighted refresh method of the
-   frame-rate study (DOCs/analysis/2026-10-02-FRAME-RATE-STUDY.md section 3, finding F2).
+   isp_hub75_hwPanelConfig.spin2, and proves the method on that adapter's panels.
 
    The method, per row address, per bit plane k (MSB first):
      1. read the plane's row into cog RAM (SETQ + RDLONG),

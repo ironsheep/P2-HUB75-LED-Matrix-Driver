@@ -17,7 +17,7 @@
 
 { What this object is:
 
-   The measuring half of the HUB75_INSTRUMENT build (DOCs/plans/FRAME-RATE-SPRINT-PLAN.md section 2).
+   The measuring half of the HUB75_INSTRUMENT build.
    With the symbol defined, the refresh cog of isp_hub75_rgb3bit.spin2 marks its progress on P8-P11
    and this object starts one input-only smart pin beside each signal it watches. A monitor sits
    up to three pins from the signal and reads it through the smart pin's A (and B) input routing,
@@ -490,7 +490,7 @@ PRI deriveFigures() | latchRises, litClocks, highPulseX100
 ' Turn the last window counts into the figures the report and the getters give. CLK idles low
 ' in the gaps between shifts, so high clocks / periods is the mean high time of one pulse. The
 ' monitor sees the pin through its own input threshold and reads the high half long by about
-' 0.5 to 1 clock (DOCs/bench/RUN-NOTES.md, "Clock low half", and task #93).
+' 0.5 to 1 clock, as measured on the author's rig.
 '
 
 ' Local Variables:

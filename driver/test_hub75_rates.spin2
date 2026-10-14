@@ -19,7 +19,7 @@
 
 { What this program is:
 
-   The measuring top file of FRAME-RATE sprint section 2. It starts adapter 1 (DISP0_) through the
+   The measuring top file of the HUB75_INSTRUMENT build. It starts adapter 1 (DISP0_) through the
    normal display API, starts the instrument for that adapter, and runs the same workload on it:
    a flat fill, lines, text, a BMP, each followed by a commit. After each commit it samples the
    monitors for SAMPLE_SECONDS windows and prints, per phase, the refresh, the lit share of /OE,
