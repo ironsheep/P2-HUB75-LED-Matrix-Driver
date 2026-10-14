@@ -40,7 +40,7 @@ overturn on reading this plan; none was asked (doctrine overlay, D8, 2026-10-13 
 | P5 | Each chip's settings block goes to that chip's section of the Chip Matrix (Q4) | the block is per-chip fact; the Matrix is the per-chip home |
 | P6 | Testing and Measurement is its own page; CONTRIBUTING links to it (Q5) | CONTRIBUTING is the pull-request process; the test tools are a contributor reference of ~130 lines today |
 | P7 | No separate study of how the pages teach; that lens is part of §10 | the quickstart (A2) is the teaching page; §10 reads every page as its reader |
-| P8 | Draw-time figures are re-measured at the sprint's bench visit (§9) and published in one home (F5, Q8) | neither 12.8 / 24.5 ms (`ChangeLog.md:87`) nor 13.0 / 24.6 ms (`README.md:95`, `DOCs/WiringGuide.md:448`) is in `DOCs/bench/` |
+| P8 | Draw-time figures are **4.7 / 12.8 / 24.5 / 3.8 ms**, published in one home (F5, Q8) | measured on the current driver at bench B-2, 2026-10-10 (`DOCs/bench/RUN-NOTES.md:338-342`: fill 4,685, lines 12,776, text 24,466, BMP 3,820 us); no driver commit since touches the draw path. `ChangeLog.md:87` already carries them; `README.md:95` and `DOCs/WiringGuide.md:448` carry the older 13.0 / 24.6 |
 | P9 | The Wiring Guide's heading becomes **Configuration Guide**; the file keeps the name `WiringGuide.md` (Q9) | 18 tracked files and `driver/isp_hub75_hwPanelConfig.spin2` link the filename; external links keep working |
 | P10 | The merged adapter page keeps the filename `HUB75-brd-config.md` and absorbs `HUB75Adapter.md` | `HUB75-brd-config.md` has 4 inbound links (README, ICN2037, HardwareTurnon, an absolute GitHub URL in `HUB75Adapter.md:41`); `HUB75Adapter.md` has 1 |
 | P11 | Retired pages are deleted, not left as "moved" stubs; every in-repo link is repointed | a stub is a page with no reader; the study's set has no place for one |
@@ -125,7 +125,7 @@ Each restated fact gets one home; the other pages carry a short lead-in and a li
 | Fact | Home | Restatements to replace (study evidence) |
 |---|---|---|
 | Start call (F4) | QuickStart | `WiringGuide.md:60`, `README.md:139`, `Checklist-v3-v4.md:147`, `HardwareTurnon.md:25` aligned to P2 |
-| Draw times (F5) | Configuration Guide | README `:95` lead-in links; ChangeLog keeps its release figure as history (§9 decides the value) |
+| Draw times (F5) | Configuration Guide, 4.7 / 12.8 / 24.5 / 3.8 ms (P8) | README `:95` lead-in links; ChangeLog `:87` already agrees |
 | Add a new chip (F14) | Chip Matrix (`:644-669`) | TheoryOfOperations 7.3 dropped |
 | Latch styles (F15) | Chip Matrix, one vocabulary, with the two latch figures from `HUB75-Driver-SWver1.md:44-81` | SWver0/1 become pure history and link forward |
 | Clock limits (F16) | Chip Matrix ratings, one framing: "rated X MHz; the 20 ns pulse rule caps the loop at 25 MHz" | Guide, THEOPS, ICN2037, roadmap link |
@@ -184,19 +184,9 @@ Each is reworded to state the fact without its provenance. Governed by
   reviewed, not just counted); all 18 top files compile with 0 warnings; non-debug `.bin` sha256 of
   all 18 equal before and after (comments only); `python3 tools/check_style.py` clean.
 
-## §9 Bench visit: draw times (P8)
+## §9 (withdrawn, revision 1)
 
-One visit, earned when §4's draw-time row is ready to fill.
-
-| Attribute | Value |
-|---|---|
-| Rig | the quad, 2 x 2 ICN2037 128x64, adapter P16-P31, committed config, 8-bit (RIG-STATE 2026-10-08); confirm with Stephen it is still cabled |
-| Program | `test_hub75_rates.spin2` built `-d` with pnut-ts |
-| Measures | flat fill, fanned lines, lines of text, 64x32 BMP (ms) |
-| Decision fed | the one value published in the Configuration Guide (§4) and the README lead-in |
-| Runs | three loads; report each and the spread |
-| Pass | the three loads agree within 1%; else stop and confirm the measurement before publishing |
-| Record | `DOCs/bench/RUN-NOTES.md` (written by the executing side, not committed, §7) |
+No bench visit. The figures are on record for the current driver (P8).
 
 ## §10 Voice and frame pass, last
 
@@ -262,14 +252,13 @@ ChangeLog is in scope (§11). Docstrings: §8's eleven comments only.
 
 ## Revisions
 
-(none)
+- **2026-10-13, revision 1 — cause 2, research incomplete.** §9's bench visit withdrawn and «#184» superseded. Stephen: *"we'll only do bench after all the other work is done. if the driver hasn't changed - why bench?"* The draw times were already measured on the current driver at B-2 (2026-10-10); the planning search looked for the millisecond strings, and the bench notes record microseconds. P8 now states the recorded figures; §4's row and «#194» carry them.
 
 ## Dispatch
 
 Model: `arbiter-serial` (project default). The files every task writes overlap (README, the
 Configuration Guide, THEOPS, the Matrix), so no two tasks run at once. No task is two-phase: no
-task's shape is a design later tasks build on. Order rules applied: the draw-time bench run (seq 3)
-comes before the one-home task that publishes its figures (seq 13); the page moves come before the
+task's shape is a design later tasks build on. Order rules applied: the page moves come before the
 one-home pass; the link sweep runs after every move; the voice and frame pass is last because it
 audits every task before it.
 
@@ -279,7 +268,7 @@ audits every task before it.
 | ------ | ----------- | ---- | --- |
 | §1 | Stale facts F27, F28, F29 (F2 in §3d) | «#182» | 1 |
 | §8 | Source comments without provenance | «#183» | 2 |
-| §9 | Bench visit: draw times | «#184» | 3 |
+| §9 | withdrawn (revision 1) | «#184» SUPERSEDED | — |
 | §2b | THEOPS absorbs TheoryOfOperations | «#185» | 4 |
 | §5 | Refresh method told once, in THEOPS | «#186» | 5 |
 | §2a, §3b | Troubleshooting page; MultiPanelConfiguration retired | «#187» | 6 |
