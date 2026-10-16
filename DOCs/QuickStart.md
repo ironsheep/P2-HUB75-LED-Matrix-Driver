@@ -66,6 +66,8 @@ PUB main()
 
 `isp_hub75_display` is the object your program talks to. `isp_hub75_color` holds the colour names (`color.cRed`, `color.cYellow` and so on). Copy your top file next to the driver files, or into the `driver/` folder, so the compiler finds them. `display.start()` reads your configuration, checks the panel list, and starts the refresh cog.
 
+The driver builds with pnut-ts (which the VS Code Spin2 extension also drives) and with flexspin 7.7.0, the flexspin version tested; PNut and Propeller Tool are untested. Load the program with a loader that keeps the serial port open while it runs, such as pnut-term-ts: on the author's bench, `loadp2` without its terminal option exits after the load, the closing port resets the P2, and the panels go dark.
+
 Drawing calls change a screen buffer in hub RAM; nothing shows on the panels until you call `display.commitScreenToPanelSet()`. Draw what you want, then commit once.
 
 ## Examples
@@ -226,7 +228,7 @@ Follow these links for more information:
 
 ---
 
-Last Updated: 13 Oct 2026
+Last Updated: 16 Oct 2026
 
 [maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep.biz-blue.svg?style=for-the-badge
 

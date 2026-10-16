@@ -1,10 +1,10 @@
 # HUB75 Driver - configuring for a chip we haven't seen yet
 
-> **History, superseded.** This page is kept as the record of the version 1.x work, and all of it is history for the current driver: the settings table (including `WIDER_CLOCK`), the chip composites (with `CLK_WIDE_PULSE`), the `CHIP_MBI5124_8S` name (now `CHIP_MBI5124GP`, whose configuration register the driver does write at start), the ICN2037 and ICN2038S flags (which no longer include `CLK_WIDE_PULSE`) and the PWM refresh description describe v3 and earlier. Its clock figures (20 MHz) are not the chips' ratings. For the current driver see the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md) (the current ratings are in its [clock and /OE ratings](DOCs/ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)) and the [Configuration Guide](DOCs/WiringGuide.md).
+> **History, superseded.** This page is kept as the record of the version 1.x work, and all of it is history for the current driver: the settings table (including `WIDER_CLOCK`), the chip composites (with `CLK_WIDE_PULSE`), the `CHIP_MBI5124_8S` name (now `CHIP_MBI5124GP`, whose configuration register the driver does write at start), the ICN2037 and ICN2038S flags (which no longer include `CLK_WIDE_PULSE`) and the PWM refresh description describe v3 and earlier. Its clock figures (20 MHz) are not the chips' ratings. For the current driver see [refresh rates and signal timings (v4)](HUB75-Driver-SWver4.md), the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md) (the current ratings are in its [clock and /OE ratings](DOCs/ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)) and the [Configuration Guide](DOCs/WiringGuide.md).
 
 ![Project Maintenance][maintenance-shield]
 
-NOTE: this is NEW information as of v1.x! It applies to v1.0.x and later.  An older version is here: [Sofware Ver0.x Timings](HUB75-Driver-SWver0.md)
+NOTE: this is the version 1.x information. The current driver's page is [refresh rates and signal timings (v4)](HUB75-Driver-SWver4.md); an older version is here: [Software Ver0.x Timings](HUB75-Driver-SWver0.md)
 
 ## Intent
 
@@ -43,7 +43,7 @@ When trying to identify what needed for an as-of-yet unidentified chip then you 
 
 ### PURPOSE: LATCH_STYLE
 
-The current description of the latch styles and positions, with these figures, is in the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md#latch-timing-styles).
+These figures show the earlier driver's latch timing. The current driver never latches while a row is lit; its latch shapes are on [refresh rates and signal timings (v4)](HUB75-Driver-SWver4.md#the-latch-shapes), and the flags are named in the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md#latch-timing-styles).
 
 The driver has two built-in LATCH, OE! styles supporting the hardware we've seen to date.
 

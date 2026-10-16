@@ -7,7 +7,7 @@
 ''               -- see below for terms of use
 ''   E-mail..... stephen@ironsheep.biz
 ''   Started.... Nov 2022
-''   Updated.... 10 Oct 2026
+''   Updated.... 15 Oct 2026
 ''
 '' =================================================================================================
 
@@ -35,7 +35,16 @@ CON ' ---- Hardware Interface Constants ----
 '  Allocation: distinct identity. The identifiers are 10, 20 and 30 so that an adapter identifier is
 '  never mistaken for a chain index (0 .. 2); indexForHub75ChainId() converts one to the other.
     HUB75_ADAPTER_STEP = 10
-    #HUB75_ADAPTER_STEP[HUB75_ADAPTER_STEP], HUB75_ADAPTER_1, HUB75_ADAPTER_2, HUB75_ADAPTER_3
+'  Compiler note: flexspin reads an enumeration that starts at a named constant, #NAME[STEP], as
+'  an index into NAME and stops with "Bad constant expression". Under flexspin each such
+'  enumeration starts at NAME+0 instead, which gives the same values; PNut and pnut-ts keep the
+'  plain form. The names follow on the next line, shared by both.
+#IFDEF __FLEXSPIN__
+    #HUB75_ADAPTER_STEP+0[HUB75_ADAPTER_STEP]
+#ELSE
+    #HUB75_ADAPTER_STEP[HUB75_ADAPTER_STEP]
+#ENDIF
+    HUB75_ADAPTER_1, HUB75_ADAPTER_2, HUB75_ADAPTER_3
     HUB75_ADAPTER_BASE = HUB75_ADAPTER_1
 
 '  (3) rotation values
@@ -183,7 +192,13 @@ CON ' ---- Hardware Interface Constants ----
     COL_UNIT            = 1 << COL_LSB
 
     ' row words: the panel's row of panels (stored as the row + 1)
-    #ROW_UNIT[ROW_UNIT], ROW_0, ROW_1, ROW_2, ROW_3, ROW_4, ROW_5, ROW_6, ROW_7, ROW_8, ROW_9, ...
+    ' (the compiler-specific start: see the compiler note at (2))
+#IFDEF __FLEXSPIN__
+    #ROW_UNIT+0[ROW_UNIT]
+#ELSE
+    #ROW_UNIT[ROW_UNIT]
+#ENDIF
+    ROW_0, ROW_1, ROW_2, ROW_3, ROW_4, ROW_5, ROW_6, ROW_7, ROW_8, ROW_9, ...
         ROW_10, ROW_11, ROW_12, ROW_13, ROW_14, ROW_15, ROW_16, ROW_17, ROW_18, ROW_19, ...
         ROW_20, ROW_21, ROW_22, ROW_23, ROW_24, ROW_25, ROW_26, ROW_27, ROW_28, ROW_29, ...
         ROW_30, ROW_31, ROW_32, ROW_33, ROW_34, ROW_35, ROW_36, ROW_37, ROW_38, ROW_39, ...
@@ -192,7 +207,13 @@ CON ' ---- Hardware Interface Constants ----
         ROW_60, ROW_61, ROW_62
 
     ' column words: the panel's column of panels (stored as the column + 1)
-    #COL_UNIT[COL_UNIT], COL_0, COL_1, COL_2, COL_3, COL_4, COL_5, COL_6, COL_7, COL_8, COL_9, ...
+    ' (the compiler-specific start: see the compiler note at (2))
+#IFDEF __FLEXSPIN__
+    #COL_UNIT+0[COL_UNIT]
+#ELSE
+    #COL_UNIT[COL_UNIT]
+#ENDIF
+    COL_0, COL_1, COL_2, COL_3, COL_4, COL_5, COL_6, COL_7, COL_8, COL_9, ...
         COL_10, COL_11, COL_12, COL_13, COL_14, COL_15, COL_16, COL_17, COL_18, COL_19, ...
         COL_20, COL_21, COL_22, COL_23, COL_24, COL_25, COL_26, COL_27, COL_28, COL_29, ...
         COL_30, COL_31, COL_32, COL_33, COL_34, COL_35, COL_36, COL_37, COL_38, COL_39, ...
@@ -229,7 +250,13 @@ CON ' ---- Hardware Interface Constants ----
 '  panel sentence is reported as bits that no panel word uses.
     MOUNT_LSB           = 20                                ' above CUBE_FRONT (bit 17)
     MOUNT_UNIT          = 1 << MOUNT_LSB
-    #MOUNT_UNIT[MOUNT_UNIT], AS_BUILT, TOP_TO_RIGHT, TOP_TO_BOTTOM, TOP_TO_LEFT
+    ' (the compiler-specific start: see the compiler note at (2))
+#IFDEF __FLEXSPIN__
+    #MOUNT_UNIT+0[MOUNT_UNIT]
+#ELSE
+    #MOUNT_UNIT[MOUNT_UNIT]
+#ENDIF
+    AS_BUILT, TOP_TO_RIGHT, TOP_TO_BOTTOM, TOP_TO_LEFT
 
 CON ' ---- Status Codes ----
     {Spin2_Doc_CON}

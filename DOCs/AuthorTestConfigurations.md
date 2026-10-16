@@ -77,7 +77,7 @@ Scan, address lines and test status for each of these: see the [Quick Reference 
 
 The settings block is in the [FM6126A section](ChipCharacteristicsMatrix.md#fm6126a-pink-labels) of the Chip Characteristics Matrix.
 
-**4.0.0 refresh core, one panel (2026-10-05):** measured refresh is in the [Configuration Guide](WiringGuide.md#measured-refresh).
+**4.0.0 refresh core, one panel (2026-10-05):** measured refresh at every depth is on the [Refresh Rates](../HUB75-Driver-SWver4.md) page.
 
 ---
 
@@ -93,7 +93,7 @@ The settings block is in the [FM6126A section](ChipCharacteristicsMatrix.md#fm61
 
 The settings block is in the [FM6124 section](ChipCharacteristicsMatrix.md#fm6124-orange-labels) of the Chip Characteristics Matrix.
 
-**4.0.0 refresh core, one panel (2026-10-05):** measured refresh is in the [Configuration Guide](WiringGuide.md#measured-refresh).
+**4.0.0 refresh core, one panel (2026-10-05):** measured refresh at every depth is on the [Refresh Rates](../HUB75-Driver-SWver4.md) page.
 
 ---
 
@@ -125,7 +125,7 @@ The settings block (one panel) is in the [ICN2037 section](ChipCharacteristicsMa
 
 The settings block, for one panel and for two chained end to end as one 128x32 display, is in the [MBI5124GP section](ChipCharacteristicsMatrix.md#mbi5124gp-green-pcbs) of the Chip Characteristics Matrix.
 
-**4.0.0 refresh core (one panel 2026-10-05, two chained 2026-10-07):** at the chain-limit clock; measured refresh is in the [Configuration Guide](WiringGuide.md#measured-refresh).
+**4.0.0 refresh core (one panel 2026-10-05, two chained 2026-10-07):** at the chain-limit clock; measured refresh at every depth is on the [Refresh Rates](../HUB75-Driver-SWver4.md) page.
 
 ---
 
@@ -356,7 +356,7 @@ Follow these links for more information:
 
 ---
 
-Last Updated: October 2026 (driver 4.0.0)
+Last Updated: October 2026 (driver 4.1.0)
 
 [maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep.biz-blue.svg?style=for-the-badge
 

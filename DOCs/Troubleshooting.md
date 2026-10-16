@@ -46,6 +46,7 @@ Each entry below is a symptom, its likely cause and the fix, with a link to wher
 - **Cause: the adapter's pin group is not the one the adapter is plugged into.** Fix: set `DISPn_ADAPTER_BASE_PIN` to the connector pair you used ([the display block](WiringGuide.md#the-display-block)). A value that is not one of the three pin groups stops startup with a message ([startup messages](WiringGuide.md#startup-messages)).
 - **Cause: the chip setting does not match the panel.** The chip setting carries what the driver does for that panel (the matrix's *Init Req* and *Latch Style* columns). Fix: use the canned name for your panel's chip ([Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix)).
 - **Cause: only some panels light.** The panel list names fewer panels than are cabled. Fix: compare the startup picture with the wall and the identify labels ([the procedure](WiringGuide.md#the-procedure)).
+- **Cause: the program stopped when the loader exited.** A loader that closes the serial port when it finishes (on the author's bench, `loadp2` without its terminal option) drops the PropPlug's reset line, and the P2 restarts with nothing loaded. Fix: load with a loader that keeps the port open while the program runs, such as pnut-term-ts ([Quick Start](QuickStart.md#start-the-driver)).
 - **Cause: the brightness is set to 0.** `display.setBrightness(0)` turns the panels off. Fix: set a value from 1 to 256 ([brightness](WiringGuide.md#brightness)).
 
 ## The colours are wrong
@@ -59,7 +60,7 @@ Each entry below is a symptom, its likely cause and the fix, with a link to wher
 ## The picture flickers
 
 - **Cause: the number of panels, the chip setting or the panel size does not describe the hardware.** Fix: check that the startup picture shows as many panels as you have cabled, that the chip setting matches your panels ([Quick Reference Matrix](ChipCharacteristicsMatrix.md#quick-reference-matrix)) and that `DISPn_PANEL_COLUMNS` and `DISPn_PANEL_ROWS` are one panel's width and height ([the display block](WiringGuide.md#the-display-block)).
-- **Cause: the refresh rate is low.** A long chain and a deep colour depth both lower it, and a rate that cannot reach the target prints a notice at startup. Fix: see [the refresh rate](WiringGuide.md#refresh-rate) for what the target does and the rates measured, and [the driver limits](WiringGuide.md#driver-limits) for how many panels one adapter can drive.
+- **Cause: the refresh rate is low.** A long chain and a deep colour depth both lower it, and a rate that cannot reach the target prints a notice at startup. Fix: see [the refresh rate](WiringGuide.md#refresh-rate) for what the target does, the [Refresh Rates](../HUB75-Driver-SWver4.md) page for the rates measured on each panel, and [the driver limits](WiringGuide.md#driver-limits) for how many panels one adapter can drive.
 
 ## Startup stops with a HUB75 message
 
@@ -99,7 +100,7 @@ Follow these links for more information:
 
 ---
 
-Last Updated: 13 Oct 2026
+Last Updated: 16 Oct 2026
 
 [maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep.biz-blue.svg?style=for-the-badge
 

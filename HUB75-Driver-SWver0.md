@@ -1,10 +1,10 @@
 # HUB75 Driver - configuring for a chip we haven't seen yet
 
-> **History, superseded.** This page is kept as the record of the version 0.x work. Its clock figures (20 MHz) are not the chips' ratings; the current ratings are in the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings).
+> **History, superseded.** This page is kept as the record of the version 0.x work. Its clock figures (20 MHz) are not the chips' ratings, and its pictures show the version 0 signals; the current driver's signals and refresh rates are on [refresh rates and signal timings (v4)](HUB75-Driver-SWver4.md); the current ratings are in the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings).
 
 ![Project Maintenance][maintenance-shield]
 
-NOTE: this is OLDER information.  A newer version is here: [Sofware Ver1.x Timings](HUB75-Driver-SWver1.md)
+NOTE: this is OLDER information. Newer versions: [Software Ver1.x Timings](HUB75-Driver-SWver1.md) and, for the current driver, [refresh rates and signal timings (v4)](HUB75-Driver-SWver4.md)
 
 ## Intent
 
@@ -26,7 +26,7 @@ The driver currently offers the following adjustments:
 
 ### PURPOSE: LATCH_STYLE
 
-The current description of the latch styles and positions, with these figures, is in the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md#latch-timing-styles).
+These figures show the earlier driver's latch timing. The current driver never latches while a row is lit; its latch shapes are on [refresh rates and signal timings (v4)](HUB75-Driver-SWver4.md#the-latch-shapes), and the flags are named in the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md#latch-timing-styles).
 
 The driver has two built-in LATCH, OE! styles supporting the hardware we've seen to date.
 

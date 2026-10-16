@@ -4,6 +4,17 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 
 ## Active
 
+### Signal pictures for the Refresh Rates page (Stephen 2026-10-16)
+
+- **What:** `HUB75-Driver-SWver4.md` went out in 4.1.0 with "picture is coming" placeholders for the v4 signal shapes (one refresh, one row address at 8-bit and 3-bit, brightness 128, latch at end enclosed, overlapped latch, the quad's 512-column row; optional FM6126A start-up and 1/8-scan frame).
+- **How:** one bench run from `DOCs/bench/SIGNAL-CAPTURE-RUNSHEET.md` (shots S1-S9, panels orange FM6124, pink FM6126A, the quad, optionally green MBI5124GP; `refresh-sweep.sh capture <setup> <depth>` holds each pattern 60 s with the P8-P11 strobes as triggers). Then replace the placeholders and drop the ChangeLog Known Issue line.
+- **Why:** the old `images/Latch_Style.png` and `Latch_Position.png` are v1 captures and do not show the v4 order (a v4 latch never happens while a row is lit); they stay only on the history pages.
+
+### The startup MODEL line reads high at shallow depths on overlapped-latch chips (found 2026-10-16)
+
+- **Measured:** the 2026-10-15/16 sweep (`DOCs/bench/RUN-NOTES.md`): `MODEL` agrees with the measured refresh to 0.3% at 7-bit and 8-bit on every panel; below that it reads high, up to 0.65% on latch-at-end chips (FM6124 d3) and up to 2.49% on overlapped-latch chips (FM6126A d3; GS6238S 2.30%). The error grows as the slot shrinks, so a fixed per-plane cost the model does not count is the likely cause; the overlapped sequence (3 columns shifted after the wait) is the first suspect. Not diagnosed.
+- **Bears on:** the `MODEL` line and the choice of *j* near a target (a model that reads high could pick a *j* that misses the target by up to 2.5%); stated as a 4.1.0 Known Issue.
+
 ### Why does the refresh have a line-buffer limit at all? (question; Stephen 2026-10-13)
 
 - **Asked:** at the CONFIG-SIMPLIFICATION closeout, after the 4.0.0 ChangeLog was corrected to state the limit: *"an issue for later (punch-list for now) is why do we have any limit (512)"*.
@@ -11,12 +22,6 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 - **Known:** the buffer is in the refresh cog's own RAM, 128 longs (`MAX_COG_BUFFER_SIZE_IN_LONGS`, `driver/isp_hub75_rgb3bit.spin2:184`, reserved at :1244), so cog RAM space, not hub RAM, is what it competes for.
 - **Not known:** why the refresh needs a whole row in cog RAM rather than streaming it from hub, how much cog RAM is free beside it, and what a longer chain costs in refresh rate. Answer from the refresh core before proposing a change.
 - **Bears on:** the largest display one adapter can drive; the ChangeLog and Wiring Guide limit statements, which change with it.
-
-### flexspin: measure the latest release against the tree (Stephen 2026-10-13; after the `.md` rework)
-
-- **Found:** bench B-6, 2026-10-10 (`DOCs/bench/RUN-NOTES.md`): flexspin 5.9.21 (Dec 2022) refuses the tree at the stepped enums (`isp_hub75_hwEnums.spin2:38`, `#STEP[STEP]`) and `repeat ... with` (`isp_hub75_display.spin2:310`). The storage-sizing difference it also showed is fixed (`@` labels, `bff8507`).
-- **Next:** once the `.md` rework is done, Stephen installs the latest flexspin; build one demo with it and record the exact result. Then decide: accept pnut-ts only (ChangeLog 4.0.0 Known Issues already says so for 5.9.21) or change the two features. Until then the ChangeLog line stands as written.
-- **Bears on:** ChangeLog Known Issues; who can build the driver.
 
 ### Row-run self-test: the plus layout has never run (gap in a test; Stephen 2026-10-13)
 

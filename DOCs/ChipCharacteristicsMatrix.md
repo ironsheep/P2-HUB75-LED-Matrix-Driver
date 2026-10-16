@@ -16,7 +16,7 @@ On this Page:
 - [Driver Flag Reference](#driver-flag-reference) - the flags a chip setting is made of
 - [Chip Initialization Sequences](#chip-initialization-sequences) - the chips that need a start-up sequence
 - [Scan Rate / Address Line Relationship](#scan-rate--address-line-relationship) - address lines, row addresses and scan
-- [Latch Timing Styles](#latch-timing-styles) - offset or enclosed, overlap or after
+- [Latch Timing Styles](#latch-timing-styles) - overlapped, at end enclosed, at end offset
 - [Multi-Panel Daisy-Chain Requirements](#multi-panel-daisy-chain-requirements) - what a chain asks of its panels
 - [Adding New Chip Support](#adding-new-chip-support) - the steps for a chip that is not listed
 - [How to Contribute](#how-to-contribute) - where to send a new panel's findings
@@ -47,15 +47,15 @@ This table is the one place the project states each panel type's scan, address l
 
 | Panel (chip) | Size | Color | Addr Lines | Scan | R/B Swap | G/B Swap | Init Req | Latch Style | Status |
 |--------------|------|-------|------------|------|----------|----------|----------|-------------|--------|
-| **FM6126A** | 64x32 | Pink | ABCD | 1/16 | - | - | **Yes** | Offset+Overlap | Tested: single panel and a pair (2026-10-09) |
-| **FM6124** | 64x32 | Orange | ABCD | 1/16 | - | - | - | Enclosed | Tested: single panel (2026-10-09) |
-| **FM6124C** (set as `CHIP_FM6124`) | 64x64 | - | ABCDE | 1/32 | - | - | - | Enclosed | Tested: single panel (2026-10-10) |
-| **ICN2037/BP** | 128x64 | - | ABCDE | 1/32 | **Yes** | - | - | Enclosed | Tested: a 2x2 of four panels, the author's rig (2026-10-09, 2026-10-10) |
-| **ICN2037/BP** (cube panels) | 64x64 | - | ABCDE | 1/32 | **Yes** | - | - | Enclosed | Panels and chip setting proven before 4.0.0; the 4.0.0 cube layer is not yet run on them (see the list below) |
-| **ICN2038S** | 64x64 | - | ABCD | 1/16 | - | - | - | Enclosed | Tested: single panel (2026-10-10). Single-ended, cannot be chained |
-| **MBI5124GP** | 64x32 | Green | ABC | 1/8 | - | - | **Yes** | Enclosed | Tested: single panel and two chained (2026-10-07, 2026-10-09) |
-| **GS6238S** | 64x32 | Cyan | ABCD | 1/16 | - | **Yes** | - | Offset+Overlap | Tested: single panel (2026-10-09) |
-| **DP5125D** | - | - | ABC | 1/8 | - | - | - | Offset+Overlap | Not run with 4.0.0: no panel on hand |
+| **FM6126A** | 64x32 | Pink | ABCD | 1/16 | - | - | **Yes** | Overlapped | Tested: single panel and a pair (2026-10-09); refresh measured at every depth (2026-10-16) |
+| **FM6124** | 64x32 | Orange | ABCD | 1/16 | - | - | - | At end, enclosed | Tested: single panel (2026-10-09); refresh measured at every depth (2026-10-16) |
+| **FM6124C** (set as `CHIP_FM6124`) | 64x64 | Orange | ABCDE | 1/32 | - | - | - | At end, enclosed | Tested: single panel (2026-10-10); refresh measured at every depth (2026-10-16) |
+| **ICN2037/BP** | 128x64 | - | ABCDE | 1/32 | **Yes** | - | - | At end, enclosed | Tested: a 2x2 of four panels, the author's rig (2026-10-09, 2026-10-10); refresh measured at every depth (2026-10-15) |
+| **ICN2037/BP** (cube panels) | 64x64 | - | ABCDE | 1/32 | **Yes** | - | - | At end, enclosed | Panels and chip setting proven before 4.0.0; the 4.0.0 cube layer is not yet run on them (see the list below) |
+| **ICN2038S** | 64x64 | - | ABCD | 1/16 | - | - | - | At end, enclosed | Tested: single panel (2026-10-10). Single-ended, cannot be chained; refresh measured at every depth (2026-10-16) |
+| **MBI5124GP** | 64x32 | Green | ABC | 1/8 | - | - | **Yes** | At end, enclosed | Tested: single panel and two chained (2026-10-07, 2026-10-09); refresh measured at every depth (2026-10-16) |
+| **GS6238S** | 64x32 | Cyan | ABCD | 1/16 | - | **Yes** | - | Overlapped | Tested: single panel (2026-10-09); refresh measured at every depth (2026-10-16) |
+| **DP5125D** | - | - | ABC | 1/8 | - | - | - | Overlapped | Not run with 4.0.0: no panel on hand |
 
 **Scan follows how a panel is built, not which column-driver chip it uses.** Scan is the number of rows lit at once. Two 64x64 panels here need opposite settings: the ICN2038S road-sign panel lights four rows at once (1/16 scan, 16 row addresses, ABCD) and needs `SCAN_4`; the FM6124C panel lights two rows at once (1/32 scan, 32 row addresses, ABCDE) and must not have it. A panel whose picture shows twice, top to bottom, needs `SCAN_4`. A panel with every other horizontal band dark must not have it. The driver derives the address lines from the panel's rows and that flag ([Configuration Guide](WiringGuide.md#the-display-block)).
 
@@ -116,7 +116,7 @@ Each panel type that has run on the author's bench has a **starting block** in i
 | Latch Style | Offset | |
 | Latch Position | Overlap | |
 | Status | See the [Quick Reference Matrix](#quick-reference-matrix) | |
-| 4.0.0 refresh core | **Verified**, one panel | 85.1 Hz at 8-bit, 688.9 Hz at 5-bit; overlapped latch, init sequence run (2026-10-05) |
+| 4.0.0 refresh core | **Verified**, one and two panels | Overlapped latch, init sequence run (2026-10-05); refresh at every depth on the [Refresh Rates](../HUB75-Driver-SWver4.md#driver-chip-fm6126a) page (2026-10-16) |
 
 **On-Board Chips:**
 | Chip | Function | Details |
@@ -169,7 +169,7 @@ The panels need the initialization sequence. A row of four of these is [Example 
 | Latch Style | Enclosed | |
 | Latch Position | After | |
 | Status | See the [Quick Reference Matrix](#quick-reference-matrix) | |
-| 4.0.0 refresh core | **Verified**, one panel | 85.3 Hz at 8-bit, 694.1 Hz at 5-bit; the 30 ns /OE floor shown at brightness 1 (2026-10-05) |
+| 4.0.0 refresh core | **Verified**, 64x32 and 64x64 (FM6124C) | The /OE floor shown at brightness 1 (2026-10-05); refresh at every depth on the [Refresh Rates](../HUB75-Driver-SWver4.md#driver-chip-fm6124) page (2026-10-16) |
 
 **On-Board Chips:**
 | Chip | Function | Details |
@@ -208,7 +208,7 @@ The driver's limit for this panel type is in the [driver limits table](WiringGui
 
 ---
 
-### FM6124C (No color label)
+### FM6124C (Orange label, 64x64)
 
 **Panel Model:** P3-HS23011030-600
 
@@ -287,7 +287,7 @@ Configure the panel as `CHIP_FM6124` (the driver has no FM6124C setting). Do not
 | Latch Style | Enclosed | |
 | Latch Position | After | |
 | Status | See the [Quick Reference Matrix](#quick-reference-matrix) | |
-| 4.0.0 refresh core | **Verified**, four 128x64 panels | 71.0 Hz at 8-bit to 193.3 Hz at 3-bit (the author's rig; 2026-10-04) |
+| 4.0.0 refresh core | **Verified**, four 128x64 panels | The author's rig (2026-10-04); refresh at every depth on the [Refresh Rates](../HUB75-Driver-SWver4.md#driver-chip-icn2037-four-128x64-panels-2-x-2) page (2026-10-15) |
 
 **On-Board Chips (128×64 panels):**
 | Chip | Function | Details |
@@ -424,7 +424,7 @@ The panel is single-ended; it cannot be daisy-chained. The driver's limit for th
 | Latch Style | Enclosed | |
 | Latch Position | After | |
 | Status | See the [Quick Reference Matrix](#quick-reference-matrix) | Two panels chained end to end run as one 128x32 display |
-| 4.0.0 refresh core | **Verified**, one and two panels | At the 18.6 MHz chain clock: one panel 71.2 Hz at 8-bit, 582.7 Hz at 5-bit; two chained 70.9 Hz at 8-bit, 292.1 Hz at 5-bit (2026-10-07, measured). Configuration register written at start |
+| 4.0.0 refresh core | **Verified**, one and two panels | At the 18.6 MHz chain clock (2026-10-07); configuration register written at start; refresh at every depth on the [Refresh Rates](../HUB75-Driver-SWver4.md#driver-chip-mbi5124gp-18-scan) page (2026-10-16) |
 
 **On-Board Chips:**
 | Chip | Function | Details |
@@ -557,8 +557,8 @@ CHIP_MANUAL_SPEC | LAT_STYLE_OFFSET | LAT_POSN_OVERLAP | SCAN_4
 
 | Flag | Hex Value | Description |
 |------|-----------|-------------|
-| `LAT_STYLE_OFFSET` | $100 | Latch signal uses offset timing style |
-| `LAT_POSN_OVERLAP` | $200 | Latch position overlaps with data clock |
+| `LAT_STYLE_OFFSET` | $100 | Latch at end with no settle gap before /OE lights (see [Latch Timing Styles](#latch-timing-styles)) |
+| `LAT_POSN_OVERLAP` | $200 | LATCH high while the last 3 columns clock in (see [Latch Timing Styles](#latch-timing-styles)) |
 | `INIT_PANEL_REQUIRED` | $400 | Panel requires special initialization sequence at power-up |
 | `RB_SWAP` | $1000 | Red and Blue color channels are physically swapped |
 | `SCAN_4` | $2000 | Four rows lit at once (1/8 scan on a 32-row panel); the converter is the same as for every other panel and differs only in where each row lands in the frame set, and the refresh line holds two column clocks for every panel column |
@@ -760,45 +760,17 @@ These chips operate as standard shift registers - clock in data, latch, enable o
 
 ## Latch Timing Styles
 
-The driver has two built-in LATCH and /OE styles and two latch positions, set by two flags. This section is the one place the project names them: *style* is **offset** (`LAT_STYLE_OFFSET`) or **enclosed** (the default, no flag); *position* is **overlap** (`LAT_POSN_OVERLAP`) or **after** (the default, no flag).
+The driver latches a row one of three ways, set by two flags. This section is the one place the project names them: *style* is **offset** (`LAT_STYLE_OFFSET`) or **enclosed** (the default, no flag); *position* is **overlap** (`LAT_POSN_OVERLAP`) or **at end** (the default, no flag). The signals each one puts on the pins, with logic-analyzer pictures, are on the [Refresh Rates](../HUB75-Driver-SWver4.md#the-latch-shapes) page.
 
-### Latch style: offset or enclosed
+In every form the panel is dark (/OE off) before LATCH rises and before the row address changes: a latch never happens while a row is lit.
 
-![Latch Style](../images/Latch_Style.png)
+| Form | Flags | What the pins do | Chips |
+|---|---|---|---|
+| Overlapped | `LAT_POSN_OVERLAP` (with or without `LAT_STYLE_OFFSET`) | All but the last 3 columns clock in; once the panel is dark LATCH rises, the last 3 columns clock with LATCH high, LATCH falls, the row address is set, /OE lights | FM6126A, GS6238S, DP5125D |
+| At end, enclosed | none | Every column clocks in; once the panel is dark the row address is set, LATCH pulses, a short settle gap, /OE lights | FM6124 (and FM6124C), ICN2037/BP, ICN2038S, MBI5124GP |
+| At end, offset | `LAT_STYLE_OFFSET` | As enclosed, with no settle gap: /OE lights as LATCH falls | None of the known chips |
 
-**FIGURE 1: LATCH_STYLE: OFFSET (left), ENCLOSED (right)**
-
-| Signal | Color |
-|-----|-----|
-| LATCH | Green |
-| OE! | White |
-| ADDR | Yellow |
-
-In the OFFSET case: we see OE! going high, we see the row address changing and then we see LATCH going high which latches the serial data into the chip. Then we see the OE! going low, followed by the LATCH going low.  However, in the ENCLOSED case the LATCH signal goes low before the OE! goes low.
-
-### Latch position: overlap or after
-
-![Latch Position](../images/Latch_Position.png)
-
-**FIGURE 2: LATCH_POSITION: OVERLAPPED (left), AFTER (right)**
-
-| Signal | Color |
-|-----|-----|
-| CLK | Red |
-| LATCH | Green |
-| OE! | White |
-| ADDR | Yellow |
-
-In the OVERLAPPED case: we see LATCH going high before the start of the three last serial bits of the row and ending after the last serial data bit.  However, in the AFTER case we see the LATCH signal going high after the final serial bit of the row is sent.
-
-### Which chips use which
-
-| Style and position | Chips |
-|---|---|
-| Offset and overlap | FM6126A, GS6238S, DP5125D |
-| Enclosed and after | FM6124 (and FM6124C), ICN2037/BP, ICN2038S, MBI5124GP |
-
-Every chip the driver knows without `LAT_STYLE_OFFSET` gets the same enclosed, non-overlapped latch.
+`LAT_STYLE_OFFSET` changes only the latch-at-end form, so on the overlapped chips, which also carry it, it has no effect.
 
 ---
 
@@ -875,7 +847,7 @@ Follow these links for more information:
 
 ---
 
-Last Updated: October 2026 (driver 4.0.0)
+Last Updated: October 2026 (driver 4.1.0)
 
 [maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep.biz-blue.svg?style=for-the-badge
 

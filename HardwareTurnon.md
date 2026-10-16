@@ -49,7 +49,7 @@ Here we see my P2 Eval board with flying leads going to a splitter board I hand 
 
 The goals of the project, which this turn-on served, are in the README's [Project goals](README.md#background-project-goals).
 
-**NOTE:** The refresh rates the driver reaches, at every colour depth, are measured on the author's rig and on single panels, and are listed in the [Configuration Guide](DOCs/WiringGuide.md#measured-refresh). The driver aims for the rate you set in `DISPn_TARGET_REFRESH_HZ` (default 60 Hz) and lights the panels as brightly as that rate allows.
+**NOTE:** The refresh rates the driver reaches, at every colour depth, are measured on the author's rig and on every other panel the author has, and are listed on the [Refresh Rates](HUB75-Driver-SWver4.md) page. The driver aims for the rate you set in `DISPn_TARGET_REFRESH_HZ` (default 60 Hz) and lights the panels as brightly as that rate allows.
 
 ## The Eval Adapter Board
 

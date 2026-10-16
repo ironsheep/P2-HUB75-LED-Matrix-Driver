@@ -63,10 +63,11 @@ Additional pages:
 - [HUB75 Adapter Board](HUB75-brd-config.md) - The adapter board, its optional connectors and its pinout
 - [Driver Details](THEOPS.md) - The driver's files, glossary and internals
 - [Testing and Measurement](DOCs/TestingAndMeasurement.md) - The test programs, the instrumentation harness and the diagnostic switches
+- [Refresh Rates](HUB75-Driver-SWver4.md) - The refresh rate, lit share and commit time each panel reaches at every colour depth, and the signals on the pins
 - [Roadmap](DOCs/Roadmap.md) - Planned work: external RAM, the streamer pipeline, colour quality
 - [Hardware Turn-on](HardwareTurnon.md) - The story of the driver's turn-on, the P2 P2 Cube checkout and the 2020 diary
 - [Author's Test Configurations](DOCs/AuthorTestConfigurations.md) - The panels and rigs the author tests on
-- [Panel Config/Timing Details (history)](HUB75-Driver-SWver1.md) - The v3-era notes on panel configuration and timing; kept as history ([v0 notes](HUB75-Driver-SWver0.md))
+- [Panel Config/Timing Details (history)](HUB75-Driver-SWver1.md) - The v1-era notes on panel configuration and timing; kept as history ([v0 notes](HUB75-Driver-SWver0.md))
 - Upgrading: [v3 to v4](Checklist-v3-v4.md), [v2 to v3](Checklist-v2-v3.md), [v1 to v2](Checklist-v1-v2.md)
 - [Contributing](CONTRIBUTING.md) - How to propose a change
 - [Change Log](ChangeLog.md) - Notes about each release of this driver
@@ -96,7 +97,7 @@ What's working today with the current driver:
 - Basic color pixel placement at row, column (whole panel-set and Single-panel-of-set forms)
 - Basic drawing primitives (whole panel-set and Single-panel-of-set forms): panel-centric calls clip at the panel's edge; text and scrolling cross panel seams whole
 - Loading and displaying images from .bmp files, of any size, optionally turned by a content rotation (`placeBMP`). *The demonstration is built for 64x32 panels, any other will require code rework. This is here to demonstrate how it can be done.*
-- Refresh to a target rate, set per display with `DISPx_TARGET_REFRESH_HZ` (default 60 Hz): the driver lights each bit plane once, weighted by /OE time, and picks the brightest timing that reaches the target. The rates measured on the author's rig at each depth are in the [Configuration Guide](DOCs/WiringGuide.md#measured-refresh)
+- Refresh to a target rate, set per display with `DISPx_TARGET_REFRESH_HZ` (default 60 Hz): the driver lights each bit plane once, weighted by /OE time, and picks the brightest timing that reaches the target. The rates measured on every panel the author has, at each depth, are on the [Refresh Rates](HUB75-Driver-SWver4.md) page
 - Brightness (`setBrightness`, 0 to 256) is /OE time: full color depth at any brightness, down to the chip's shortest /OE pulse
 - Tear-free commits: a commit converts into the PWM frame set that is not on display, and `display.showFrameSet()` shows a frame set you built yourself
 - Panel-count limits per panel type, calculated, plus measured refresh rates for the author's rig: see the [driver limits](DOCs/WiringGuide.md#driver-limits)

@@ -427,7 +427,7 @@ One long chain or several shorter ones:
 
 ### Refresh rate
 
-This section holds the refresh settings and what they reach (the target rate, the rates measured on the author's rig, and brightness); how the refresh works is in [Driver Details](../THEOPS.md#refresh-method).
+This section holds the refresh settings (the target rate and brightness) and what they reach; how the refresh works is in [Driver Details](../THEOPS.md#refresh-method), and the measured figures are on the [Refresh Rates](../HUB75-Driver-SWver4.md) page.
 
 #### The target refresh rate
 
@@ -439,28 +439,7 @@ A build with DEBUG prints a `REFRESH` line at startup (S, T, *j*, the chip's sho
 
 #### Measured refresh
 
-Measured on the author's rig, four ICN2037 128x64 panels (512 column clocks, 1/32 scan), at the default 60 Hz target, 335 MHz. The monitors count LATCH and /OE on the P2's own pins. On this rig the column clock is 15 system clocks per column at 335 MHz at every depth, CLK high for 7 (20.9 ns) and low for 8 (23.9 ns). The monitors read the high half a little long, through the pin's input threshold: 23.9 ns on the four-panel rig, 21.7 to 24.2 ns on single FM6126A, MBI5124GP and FM6124 panels. The lit share is the part of the time /OE holds the panels lit, at brightness 256.
-
-| Depth | Refresh (Hz) | Lit share | *j* chosen |
-|---|---|---|---|
-| 3-bit | 193.3 | 99.2% | 0 |
-| 4-bit | 90.5 | 99.6% | 0 |
-| 5-bit | 84.7 | 96.3% | 1 |
-| 6-bit | 79.6 | 91.9% | 2 |
-| 7-bit | 75.0 | 87.4% | 3 |
-| 8-bit | 71.0 | 83.0% | 4 |
-
-Each figure is within 0.2% of the rate and lit share the driver predicts at startup. The image is steady by eye at 5-bit to 8-bit on a full-screen colour demo; the author's words at each depth were *"steady"* (5-bit), *"steady"* (6-bit), *"no shimmering"* (7-bit) and *"colors all look steady"* (8-bit). A test build of the method showed visible flicker at 36.9 Hz and none at 65.9 Hz.
-
-Single 64x32 panels, one at a time on one adapter, same target and clock. Each reaches 60 Hz with every plane lit for its whole slot (*j* = 0), so it runs at its fastest rate:
-
-| Panel | 8-bit refresh | 8-bit lit share | 5-bit refresh | 5-bit lit share | Floor at brightness 1 |
-|---|---|---|---|---|---|
-| FM6126A (overlapped latch) | 85.1 Hz | 99.6% | 688.9 Hz | 97.9% | 1.4% lit (40 ns) |
-| FM6124 | 85.3 Hz | 99.7% | 694.1 Hz | 98.6% | 1.1% lit (30 ns) |
-| MBI5124GP (1/8 scan, 128 column clocks per row address, 18.6 MHz chain clock) | 71.2 Hz | 99.8% | 582.7 Hz | 99.4% | 0.7% lit (50 ns) |
-
-The image was correct by eye on the test patterns on all three at both depths. The MBI5124GP's figures above are at the 18.6 MHz chain-limit clock (one chip cannot hand data to the next any faster; see the [Chip Characteristics Matrix](ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings)); its test patterns were checked by eye at a faster clock, and one panel at the 18.6 MHz clock has not been looked at. Two MBI5124GP panels chained as one 128x32 display: 70.9 Hz at 8-bit (99.4% lit), 292.1 Hz at 5-bit (99.6% lit), the identify image and the scroll demo correct by eye. Other panel types follow the same rule; their figures have not been measured.
+Every panel the author has refreshes faster than the 60 Hz default at every colour depth: 71 to 85 Hz at 8-bit, and far faster at the shallow depths. The measured refresh, lit share, brightness floor and commit time for each panel and depth, with the signals behind them, are on the [Refresh Rates](../HUB75-Driver-SWver4.md) page.
 
 #### Brightness
 
@@ -1221,7 +1200,7 @@ Follow these links for more information:
 
 ---
 
-Last Updated: 13 Oct 2026
+Last Updated: 16 Oct 2026
 
 [maintenance-shield]: https://img.shields.io/badge/maintainer-stephen%40ironsheep.biz-blue.svg?style=for-the-badge
 

@@ -9,6 +9,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for reminders on how to str
 
 On this Page:
 
+- [4.1.0](#410-16-oct-2026) - 16 Oct 2026, flexspin builds, the Refresh Rates page
 - [4.0.1](#401-13-oct-2026) - 13 Oct 2026, the documentation release
 - [4.0.0](#400-11-oct-2026) - 11 Oct 2026, panel lists, the cube, full 8-bit color
 - [3.0.1](#301-15-jan-2024) - 15 Jan 2024
@@ -23,6 +24,27 @@ Additional pages:
 - [Update to v4.0 Checklist](Checklist-v3-v4.md) - Convert a v3.x program step by step
 - [Troubleshooting](DOCs/Troubleshooting.md) - Symptom, cause and fix when a display does not look right
 - [Roadmap](DOCs/Roadmap.md) - Planned work: external RAM, the streamer pipeline, colour quality
+
+## [4.1.0] 16 Oct 2026
+
+The driver builds with flexspin, and a Refresh Rates page gives each tested panel's refresh at every colour depth.
+
+### Improvements
+
+- The driver builds with flexspin 7.7.0 as well as pnut-ts, and a flexspin-built demo runs correctly. pnut-ts builds are unchanged
+- **Refresh Rates** ([HUB75-Driver-SWver4.md](HUB75-Driver-SWver4.md)): refresh, lit share, brightness floor and commit time for each tested panel at depths 8 to 3
+- The [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md#latch-timing-styles) describes each latch form as the driver puts it on the pins
+- The Quick Start names the compilers and loader; Troubleshooting covers a loader that resets the P2 as it exits
+
+### Hardware Compatibility
+
+- Refresh measured at every colour depth, above 60 Hz at each: ICN2037 2x2, FM6126A single and pair, FM6124 64x32 and 64x64, ICN2038S, MBI5124GP single and pair, GS6238S
+
+### Known Issues
+
+- The signal pictures on the Refresh Rates page are placeholders until the logic-analyzer captures are taken
+- At 6-bit and below, the startup `MODEL` line reads up to 2.5% above the measured refresh on FM6126A and GS6238S panels
+- Built with `-d`, the driver uses about 10 KB of the 16 KB DEBUG data; a program's own `debug()` text past the remaining 6 KB stops output silently
 
 ## [4.0.1] 13 Oct 2026
 

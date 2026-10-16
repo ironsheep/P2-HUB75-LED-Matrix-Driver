@@ -248,7 +248,7 @@ P2 Pin → 74HCT244 (adapter) → HUB75 Cable → 74HC245 (panel) → ICN2037
 
 **What the driver runs.** The driver holds an ICN2037 chain under 25.0 MHz: the chip is rated 30 MHz alone, but the CLK-to-SDO delay (35 ns) plus the SDI setup time (5 ns) make a 40 ns period, 25.0 MHz (`MAX_CLK_HZ_ICN2037` in `isp_hub75_rgb3bit.spin2`), and the 20 ns pulse rule caps the loop at the same 25 MHz. The rating for every chip is in the [Datasheet Clock and /OE Ratings](../ChipCharacteristicsMatrix.md#datasheet-clock-and-oe-ratings) table of the Chip Characteristics Matrix.
 
-**Measured.** The clock the four-panel ICN2037 chain runs at, and its measured refresh, are in the [Configuration Guide](../WiringGuide.md#measured-refresh). Their images were correct and steady by eye at 5-bit to 8-bit. Chains of other panel types and lengths have not been measured.
+**Measured.** The clock the four-panel ICN2037 chain runs at, and its measured refresh, are on the [Refresh Rates](../../HUB75-Driver-SWver4.md#driver-chip-icn2037-four-128x64-panels-2-x-2) page. Their images were correct and steady by eye at 5-bit to 8-bit. The other measured chains, two FM6126A and two MBI5124GP panels, are on the same page.
 
 **The estimates that came before.** Before the chain was run, the paths in 3.2 to 3.5 were turned into frequency advice. It is kept here as history:
 
@@ -456,7 +456,7 @@ What the settings and the driver do for the ICN2037 (the clock, /OE minimum and 
 |---------------------|-------|--------|
 | `DISPn_PANEL_DRIVER_CHIP` | `hwEnum.CHIP_ICN2037` | Sets the chip's flags (`CHIP_MANUAL_SPEC \| RB_SWAP`) and its clock and /OE ratings |
 | Address lines | not set | The driver derives them from the panel rows and the chip's scan (see the [Configuration Guide](../WiringGuide.md#the-display-block)) |
-| Column clock | The shortest loop that meets the limit (rig figure: [Configuration Guide](../WiringGuide.md#measured-refresh)) | No faster than the chip's limit, 25 MHz (rated 30 MHz; the 20 ns pulse rule caps the loop at 25 MHz; the CLK-to-SDO chain limit, 35 + 5 ns, is also 25 MHz) |
+| Column clock | The shortest loop that meets the limit (rig figure: [Refresh Rates](../../HUB75-Driver-SWver4.md#how-to-read-the-tables)) | No faster than the chip's limit, 25 MHz (rated 30 MHz; the 20 ns pulse rule caps the loop at 25 MHz; the CLK-to-SDO chain limit, 35 + 5 ns, is also 25 MHz) |
 | Minimum /OE pulse | 60 ns | The conservative datasheet figure (`MIN_OE_NS_ICN2037`) |
 | Latch | At the end of the row | No special init sequence needed |
 | OE polarity | Active LOW | OE=0 enables outputs |
