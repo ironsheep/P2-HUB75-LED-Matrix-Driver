@@ -34,7 +34,7 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 - **Run it:** the next time the six-panel ICN2037 cube rig is set up, together with the cube-layer run already on the Chip Matrix's not-yet-proven list. Five of the six panels cabled as a plus.
 - **Bears on:** nothing users are told: ChangeLog 4.0.0 claims only rows, grids, L, T and Z.
 
-### Turn the process documents into user documentation, then stop publishing them (scope; Stephen 2026-10-10, not this sprint)
+### Fold the process documents' user-useful findings into the reader pages (scope; Stephen 2026-10-10; the documents stopped being published in 4.0.1, the synthesis half remains)
 
 - **What:** `DOCs/plans/`, `DOCs/analysis/` and `DOCs/bench/` are tracked and record how the project is built. Some of what they hold would help users, but not in its present form: the analyses' findings (chip timing, refresh and frame-rate measurements, the audits' conclusions) and the bench techniques (how a configuration is checked on a rig, run sheets, what each measurement shows).
 - **Ruling:** Stephen, 2026-10-10: *"We probably need to synthesize the analyses and any bench run techniques into something usable by the repo, and then no longer publish the plans, analysis, and bench results."* Not part of the CONFIG-SIMPLIFICATION re-cut: *"For now, I'm not worrying about cleaning up this tree."*
@@ -54,6 +54,7 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 - **Checked:** ICN2037 (35 + 5 ns, 25.0 MHz) and ICN2038S (30 + 5 ns, 28.6 MHz) are within the 25 MHz the 20 ns pulses allow; no change.
 - **Not read:** the FM6124 and FM6126A datasheets (`DOCs/FM6124/`, `DOCs/FM6126A/`) are font-encoded and need a visual read of their timing tables. FM6126A chains have run correctly (multi-panel tested); the FM6124 has run only as one panel.
 - **Bears on:** FM6124 chains, and whether `MAX_CLK_HZ_FM6124` / `MAX_CLK_HZ_FM6126A` need a chain limit like the MBI5124GP's.
+- **Cheaper since (2026-10-16 retrospective):** two FM6126A panels chained ran correctly by eye at the 22.3 MHz clock at every depth in the refresh sweep (`DOCs/bench/RUN-NOTES.md`, 2026-10-16). That is hardware evidence for the FM6126A chain; the datasheet read is still open for both chips, and no FM6124 chain has run.
 
 ### `display.showFrameSet()` has run only with NULL (test written, not yet run)
 
@@ -69,6 +70,7 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 - **What:** the refresh core floors the lit unit L (`L = T x b / 256`) at the chip's minimum /OE pulse once per frame (`driver/isp_hub75_rgb3bit.spin2`, the `fge litUnitClocks, minOeClocks` at frame start), and every plane scales from L. On the quad at 8-bit (ICN2037, 60 ns) that floor is about 4% of full brightness, so settings 1-11 give the same light. This is the designed behaviour, and `setBrightness` documents it.
 - **Option on record:** floor each plane separately (lit = max(2^k x L, minimum /OE)), two instructions per plane outside the shift. Brightness would keep falling to about 0.4% at setting 1 (calculated); the cost is that the darkest colours' low bits are over-weighted at the lowest settings.
 - **Bears on:** use of the very bright panels in dark rooms.
+- **Cheaper since (2026-10-16 retrospective):** the floor (lit share at brightness 1) is now measured on every panel at every depth and published on the Refresh Rates page (`HUB75-Driver-SWver4.md`); the disposition question can be answered from that table.
 
 ### Panel-centric clipping looks up the panel for every pixel on diagonal lines (efficiency, not measured)
 
