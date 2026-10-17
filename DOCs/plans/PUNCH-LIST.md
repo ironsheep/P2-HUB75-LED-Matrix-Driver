@@ -15,6 +15,11 @@ Active items only. Confirmed-done items are swept to a dated archive at sprint c
 - **Measured:** the 2026-10-15/16 sweep (`DOCs/bench/RUN-NOTES.md`): `MODEL` agrees with the measured refresh to 0.3% at 7-bit and 8-bit on every panel; below that it reads high, up to 0.65% on latch-at-end chips (FM6124 d3) and up to 2.49% on overlapped-latch chips (FM6126A d3; GS6238S 2.30%). The error grows as the slot shrinks, so a fixed per-plane cost the model does not count is the likely cause; the overlapped sequence (3 columns shifted after the wait) is the first suspect. Not diagnosed.
 - **Bears on:** the `MODEL` line and the choice of *j* near a target (a model that reads high could pick a *j* that misses the target by up to 2.5%); stated as a 4.1.0 Known Issue.
 
+### `tools/check_docs.py` excludes two pages that no longer exist (found 2026-10-16, DOCS-REVISION closeout)
+
+- **What:** `tools/check_docs.py:48-49` lists `DOCs/FutureDirections-ImageAndColor.md` and `DOCs/PSRAMExpansion.md` as intent pages to skip; both were merged into `DOCs/Roadmap.md` in 4.0.1. Harmless (the audit reports ORPHAN 0 with the Roadmap audited as a user page), but stale.
+- **Owner:** Stephen (`tools/` is not edited by agents, 2026-10-12).
+
 ### Why does the refresh have a line-buffer limit at all? (question; Stephen 2026-10-13)
 
 - **Asked:** at the CONFIG-SIMPLIFICATION closeout, after the 4.0.0 ChangeLog was corrected to state the limit: *"an issue for later (punch-list for now) is why do we have any limit (512)"*.

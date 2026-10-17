@@ -16,6 +16,9 @@ The P2 HUB75 Driver is available from a couple of sources:
 
 ```
 Latest Changes:
+16 Oct 2026
+- The driver builds with flexspin 7.7.0 as well as pnut-ts
+- New Refresh Rates page: each tested panel's refresh, lit share and commit time at every colour depth
 13 Oct 2026
 - The documentation gives each topic one page: new Quick Start, Troubleshooting, Testing and Measurement and Roadmap pages; the driver is unchanged
 11 Oct 2026
@@ -25,12 +28,6 @@ Latest Changes:
 - `setBrightness()` dims by lit time, so the image keeps its full color depth at any brightness
 - Two MBI5124GP panels chain as one display
 - Upgrading from v3.x? See the [Update to v4.0 Checklist](Checklist-v3-v4.md)
-15 Jan 2024
-- Add support for panels using DP5125D chips
-- Add Chips' 5x7 dithered fonts
-- ICN2037_B was renamed to ICN2038S
-- MBI5124_8S was renamed to MBI5124GP
-- Rearranged user configurable files in order to support many more total pixels (now 64k) in a display.
 ```
 
 Earlier releases are in the [Change Log](ChangeLog.md).

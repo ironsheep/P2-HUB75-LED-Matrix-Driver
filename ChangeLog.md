@@ -59,7 +59,7 @@ The documentation gives each topic one page and adds a Quick Start, Troubleshoot
 - The Wiring Guide is titled **Configuration Guide**; its file, `DOCs/WiringGuide.md`, keeps its name
 - Each chip in the [Chip Characteristics Matrix](DOCs/ChipCharacteristicsMatrix.md) has a starting configuration from the author's bench and figures of its latch timing
 - Merged pages: `MultiPanelConfiguration.md` into the Configuration Guide and Troubleshooting; `TheoryOfOperations.md` into [Driver Details](THEOPS.md)
-- Merged pages: `CubePix.md` into [Hardware Turn-on](HardwareTurnon.md); `HUB75Adapter.md` into [HUB75-brd-config.md](HUB75-brd-config.md); the PSRAM and image pages into the Roadmap
+- Merged pages: `CubePix.md` and the 2020 development diary into [Hardware Turn-on](HardwareTurnon.md); `HUB75Adapter.md` into [HUB75-brd-config.md](HUB75-brd-config.md); `PSRAMExpansion.md` and `FutureDirections-ImageAndColor.md` into the [Roadmap](DOCs/Roadmap.md)
 
 ## [4.0.0] 11 Oct 2026
 

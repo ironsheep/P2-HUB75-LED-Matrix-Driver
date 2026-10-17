@@ -29,7 +29,7 @@
    so one build measures one depth. Build it once for each depth 3 to 8 and compare the logs.
    The line printed first names the depth.
 
-   After the phases it runs the frame-set handshake trace (FRAME-RATE plan section 3): 100 commits
+   After the phases it runs the frame-set handshake trace: 100 commits
    back to back, each printed with the frame set it converted into and the set on display, a FAIL
    line for any commit that converted into the set on display, and a HANDSHAKE PASS/FAIL verdict;
    then it calls display.showFrameSet(0) and prints whether the call was refused.
@@ -38,13 +38,13 @@
    panel with its step, its brightness and the lit share measured relative to full, so a viewer
    can judge the dimming by eye (on a display too narrow for a label line, the steps run
    unlabelled and the log says so); then the tearing test (white and black alternating at the
-   fastest commit rate). The plan section 1 test patterns run first, right after start, so a
+   fastest commit rate). The test patterns run first, right after start, so a
    viewer sees them at once: drawn through the display API and held PATTERN_HOLD_SECONDS each
    (grey ramp, RGB bands, solid red, green, blue and white, one-pixel checkerboard). The
    frame-set take check runs from the first pattern to the end of the tearing test: every take must find the frame's last row address on the address pins (a
    frame boundary), and the takes counted must equal the commits made. TAKE CHECK PASS/FAIL.
 
-   Right after start, before anything is drawn, the colour-table self-test (FRAME-RATE plan section 8)
+   Right after start, before anything is drawn, the colour-table self-test
    runs: for every depth 3 to 8, gamma off and on, it builds the table into a scratch table with
    colorUtils.fillColorTable() and compares all 256 entries with referenceStored(), a copy of the old
    per-pixel function; then it compares the adapter's live table, read through correctedSingleColor()
@@ -53,7 +53,7 @@
    colorUtils.fillColorTable() writes one wrong entry into every table it builds, so every case must
    report FAIL.
 
-   Next, still before anything is drawn for viewing, the row-run self-test (FRAME-RATE plan section 9).
+   Next, still before anything is drawn for viewing, the row-run self-test.
    It lays the adapter's panels out six ways (its own panel list, an L three cells wide, an L three cells
    tall, a T, a Z and a plus; each only on an adapter with as many panels as it has - four, or five
    for the plus - and the log says when one is not run), each at all four display rotations and with all four arrows, through the instrument-only
@@ -144,7 +144,7 @@ CON ' ---- Brightness steps and tearing test (visit C) ----
     ' check: longer than one refresh at any rate above 10 Hz
     TAKE_SETTLE_MS          = 100
 
-CON ' ---- Test patterns (plan section 1), judged by eye ----
+CON ' ---- Test patterns, judged by eye ----
 
     ' Seconds each pattern is held
     PATTERN_HOLD_SECONDS    = 6
@@ -1742,7 +1742,7 @@ PRI runTearingTest() | endMs, commitCount, pScreen, screenBytes
   debug("R", zstr_(@dbgTearingTestDone), " ", udec_(commitCount), " ", zstr_(@dbgCommitsIn), " ", udec_(TEAR_TEST_SECONDS), " s")
 
 PRI runPatterns() | patternIdx, displayRows, displayColumns
-' Draw each plan section 1 test pattern over the whole display, commit it, name it in the log
+' Draw each test pattern over the whole display, commit it, name it in the log
 ' and hold it PATTERN_HOLD_SECONDS so it can be judged by eye.
 '
 

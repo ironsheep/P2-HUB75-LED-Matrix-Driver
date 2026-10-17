@@ -62,7 +62,7 @@ CON ' ---- Test Settings (edit these) ----
     ' predicted refresh meets this target, with T = S / 2^j.
     TARGET_REFRESH_HZ       = 0
 
-    ' Error test (plan section 1, D2): run T this many times longer than the model's T.
+    ' Error test (a negative case): run T this many times longer than the model's T.
     ' The model lines keep the intended T, so the measured lit share must come out above it.
     OE_UNIT_ERROR_SCALE     = 1
 
